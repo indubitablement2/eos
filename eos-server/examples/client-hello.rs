@@ -32,7 +32,7 @@ fn main() {
             println!("Lost connection to server.");
             break;
         }
-        connection.packets.read().iter().for_each(|packet| {
+        connection.local_packets.read().iter().for_each(|packet| {
             println!("{:?}", packet);
         });
         std::thread::sleep(Duration::from_millis(100));

@@ -31,7 +31,7 @@ pub fn read_packet(query: Query<& ClientIdComp, Without<SystemComp>>, global_lis
 
     query.for_each_mut(|client_id| {
         if let Some(connection) = global_list_read.connected_client.get(&client_id.0) {
-            connection.packets.read().iter().for_each(|packet| {
+            connection.local_packets.read().iter().for_each(|packet| {
                 match packet {
                     eos_common::packet_mod::ClientLocalPacket::Invalid => todo!(),
                     eos_common::packet_mod::ClientLocalPacket::ClientFleetWishLocation { fleet_id, location } => todo!(),

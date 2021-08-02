@@ -1,0 +1,12 @@
+[package]
+name = "eos_client"
+version = "0.1.0"
+authors = ["indubitablement2 <jeanmichel88@hotmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+gdnative = "0.9.3"
+# gdnative = { path = "../../godot-rust/gdnative" }
