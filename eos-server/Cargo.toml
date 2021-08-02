@@ -1,0 +1,27 @@
+[package]
+name = "eos_server"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+log = { versio = "0.4.14", features = ["release_max_level_trace"] }
+env_logger = "0.9.0"
+
+eos_common = { path = "../eos-common" }
+
+glam = "0.17.1"
+# nalgebra = { version = "0.28.0", features = ["serde-serialize"]}
+
+tokio = { version = "1.6.2", features = ["full"] }
+crossbeam-channel = "0.5.1"
+parking_lot = "0.11.1"
+ahash = "0.7.4"
+
+rayon = "1.5.1"
+bevy_ecs = "0.5.0"
+
+rand = "0.8.4"
+
+# bytes = "1.0.1"
+
+steamworks = { git = "https://github.com/Noxime/steamworks-rs.git", features = ["serde"] }

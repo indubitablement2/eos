@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "eos-server",
+    "add-common",
+]
