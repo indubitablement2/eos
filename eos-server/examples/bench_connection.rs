@@ -1,8 +1,4 @@
-use eos_common::{
-    connection_manager::PollingThread,
-    const_var::*,
-    packet_mod::*,
-};
+use eos_common::{connection_manager::PollingThread, const_var::*, packet_mod::*};
 use std::{
     net::TcpStream,
     time::{Duration, Instant},

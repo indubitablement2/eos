@@ -22,4 +22,4 @@ ahash = "0.7.4"
 
 rand = "0.8.4"
 
-steamworks = { git = "https://github.com/Noxime/steamworks-rs.git", features = ["serde"] }
+# steamworks = { git = "https://github.com/Noxime/steamworks-rs.git", features = ["serde", "docs-only"] }

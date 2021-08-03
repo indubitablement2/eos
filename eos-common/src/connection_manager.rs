@@ -1,13 +1,12 @@
 use crate::const_var::*;
 use crate::idx::ClientId;
-use crate::packet_mod::*;
+use crate::packet_common::*;
 use bytes::{Buf, BufMut, BytesMut};
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use log::*;
 use parking_lot::RwLock;
 use std::convert::TryInto;
 use std::net::SocketAddr;
-use std::sync::atomic::AtomicU32;
 use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::Arc;
 use tokio::io::Interest;
@@ -22,9 +21,8 @@ pub struct Connection {
     sender: Sender<(Vec<u8>, u8)>,
     /// Received Packet from previous poll call.
     pub local_packets: Arc<RwLock<Vec<ClientLocalPacket>>>,
-    pub login_packet: Receiver<ClientLoginPacket>,
     pub address: SocketAddr,
-    send_client_id: Arc<AtomicU32>,
+    client_id: ClientId,
 }
 impl Connection {
     /// Send a packet without blocking. If this return false, Connection has been terminated.
@@ -42,9 +40,9 @@ impl Connection {
         self.disconnected.load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    /// ClientId is used to identify client global packet. This will only work once!
-    pub fn set_client_id(&self, client_id: u32) {
-        self.send_client_id.store(client_id, std::sync::atomic::Ordering::Relaxed);
+    /// Return the ClientId associated with this connection.
+    pub fn get_steam_id(&self) -> ClientId {
+        self.client_id
     }
 }
 
@@ -53,6 +51,7 @@ struct InverseConnection {
     socket: TcpStream,
     /// Allow manual disconnecting and check if Connection is still valid.
     disconnected: Arc<AtomicBool>,
+
     /// Used when a header could be read, but not the payload yet.
     current_packet_type: u8,
     /// Used when a header could be read, but not the payload yet.
@@ -64,19 +63,19 @@ struct InverseConnection {
     write_bytes_buffer: BytesMut,
     /// Generic buffer used for intermediary socket read.
     read_byte_buffer: Vec<u8>,
+
     /// Packet received from a Connection to write to the socket.
     packet_to_send: Receiver<(Vec<u8>, u8)>,
+
     /// Received ClientLocalPacket from previous poll call.
     local_packets: Arc<RwLock<Vec<ClientLocalPacket>>>,
-    /// Send ClientGlobalPacket if ClientId != 0.
+    /// Send ClientGlobalPacket.
     global_packet_sender: Sender<(ClientId, ClientGlobalPacket)>,
+
     /// Receive ServerPacket. Used on client.
     server_packet_sender: Sender<ServerPacket>,
-    /// Send ClientLoginPacket to Connection.
-    login_packet_sender: Sender<ClientLoginPacket>,
-    /// Receive client id. Only read if client_id is ClientId(0).
-    recv_client_id: Arc<AtomicU32>,
-    /// The ClientId associated with this connection. Used when receiving global client packet.
+
+    /// The SteamId associated with this connection. Used when receiving global client packet.
     client_id: ClientId,
 }
 
@@ -95,15 +94,18 @@ pub struct ConnectionStarter {
 impl ConnectionStarter {
     /// Convert std TcpStream to Connection.
     /// Add a new socket that will be polled on call to poll.
-    pub fn create_connection(&self, new_socket: std::net::TcpStream, address: SocketAddr) -> Option<Connection> {
+    pub fn create_connection(
+        &self,
+        new_socket: std::net::TcpStream,
+        client_id: ClientId,
+        address: SocketAddr,
+    ) -> Option<Connection> {
         let (packet_sender, packet_receiver) = unbounded::<(Vec<u8>, u8)>();
-        let (login_packet_sender, login_packet_receiver) = unbounded();
         let unparsed_data_buffer = BytesMut::with_capacity(CONNECTION_BUF_SIZE);
         let write_bytes_buffer = BytesMut::with_capacity(CONNECTION_BUF_SIZE);
         let read_byte_buffer = vec![0; 4096];
         let disconnected = Arc::new(AtomicBool::new(false));
         let local_packets = Arc::new(RwLock::new(Vec::with_capacity(8)));
-        let s_client_id = Arc::new(AtomicU32::new(0));
 
         // Convert to tokio TcpStream.
         let tokio_socket_result;
@@ -130,12 +132,10 @@ impl ConnectionStarter {
                 packet_to_send: packet_receiver,
                 current_packet_size: 0,
                 local_packets: local_packets.clone(),
-                recv_client_id: s_client_id.clone(),
-                client_id: ClientId(0),
+                client_id,
                 global_packet_sender: self.global_packet_sender.clone(),
                 server_packet_sender: self.server_packet_sender.clone(),
                 current_packet_type: u8::MAX,
-                login_packet_sender,
             };
 
             if let Err(err) = self.con_sender.try_send(inv_con) {
@@ -148,8 +148,7 @@ impl ConnectionStarter {
                 sender: packet_sender,
                 address,
                 local_packets,
-                send_client_id: s_client_id,
-                login_packet: login_packet_receiver,
+                client_id,
             });
         }
         trace!("Could not create connection.");
@@ -165,7 +164,7 @@ pub struct PollingThread {
     /// Used to start new connection.
     pub connection_starter: ConnectionStarter,
     /// Packet from clients. Only used on server.
-    pub global_packet_receiver: Receiver<(crate::idx::ClientId, ClientGlobalPacket)>,
+    pub global_packet_receiver: Receiver<(ClientId, ClientGlobalPacket)>,
     /// Packet from the server. Only used on client.
     pub server_packet_receiver: Receiver<ServerPacket>,
 }
@@ -373,11 +372,6 @@ async fn poll_connection(mut con: InverseConnection) -> Option<InverseConnection
         // * Clear previous packets.
         local_packets_lock.clear();
 
-        // * Check if ClientId is set.
-        if con.client_id == ClientId(0) {
-            con.client_id = ClientId(con.recv_client_id.load(std::sync::atomic::Ordering::Relaxed));
-        }
-
         loop {
             // * Parse a header, if we don't have one.
             if con.current_packet_type == u8::MAX && con.unparsed_data_buffer.remaining() >= 3 {
@@ -400,19 +394,8 @@ async fn poll_connection(mut con: InverseConnection) -> Option<InverseConnection
                     ClientGlobalPacket::ID => {
                         let new_packet = ClientGlobalPacket::deserialize(payload);
                         trace!("Received ClientGlobalPacket: {:?}", &new_packet);
-                        if con.client_id == ClientId(0) {
-                            debug!("Received a ClientGlobalPacket while ClientId is 0. Ignoring...");
-                            continue;
-                        }
                         if let Err(err) = con.global_packet_sender.send((con.client_id, new_packet)) {
                             debug!("Error sending ClientGlobalPacket: {:?}", &err);
-                        }
-                    }
-                    ClientLoginPacket::ID => {
-                        let new_packet = ClientLoginPacket::deserialize(payload);
-                        trace!("Received ClientLoginPacket: {:?}", &new_packet);
-                        if let Err(err) = con.login_packet_sender.send(new_packet) {
-                            debug!("Error sending ClientLoginPacket: {:?}", &err);
                         }
                     }
                     ServerPacket::ID => {

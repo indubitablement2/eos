@@ -1,14 +1,14 @@
 use crate::const_var::*;
 use glam::{ivec2, IVec2};
 use serde::{Deserialize, Serialize};
-use steamworks::SteamId;
 
-/// Unique client identifier.
+/// Unique client identifier. Correspond to its SteamId.
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Copy, Hash)]
-pub struct ClientId(pub u32);
+pub struct ClientId(pub u64);
+
 impl ClientId {
-    /// Return if this is the server. Aka: ClientId(0).
-    pub fn is_server(&self) -> bool {
+    /// Return if this is a valid id. Aka: ClientId(0).
+    pub fn is_valid(&self) -> bool {
         self.0 == 0
     }
 }
@@ -27,6 +27,6 @@ impl SectorId {
     }
 }
 
-/// Unique system identifier. Also correspond to its position in Sector.
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Copy, Hash)]
-pub struct SystemId(pub SectorId, u8);
+// /// Unique system identifier. Also correspond to its position in Sector.
+// #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Copy, Hash)]
+// pub struct SystemId(pub SectorId, u8);

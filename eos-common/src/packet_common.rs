@@ -28,28 +28,13 @@ pub enum ClientGlobalPacket {
     },
 }
 
-/// Packet originating from client. Meant for things outside a sector ex: trade, quest channel message.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum ClientLoginPacket {
-    Invalid,
-    /// Client send his username and app version.
-    Hello {
-        username: String,
-        app_version: u32,
-    },
-    /// TODO: Client send his hashed password.
-    Auth {
-        hashed_password: Vec<u8>,
-    },
-}
-
 /// Packet originating from server.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ServerPacket {
     Invalid,
     /// TODO: Server respond to client hello with a salt and wait for client to respond.
-    Hello {
-        salt: Vec<u8>,
+    LoginResult {
+        success: bool,
     },
     /// TODO: Server send position, velocity and wish position of fleets nearby.
     FleetsPositionVelWish {
@@ -78,12 +63,8 @@ impl PacketId for ClientGlobalPacket {
     const ID: u8 = 1;
 }
 
-impl PacketId for ClientLoginPacket {
-    const ID: u8 = 2;
-}
-
 impl PacketId for ServerPacket {
-    const ID: u8 = 3;
+    const ID: u8 = 2;
 }
 
 pub trait Packetable {
@@ -121,22 +102,9 @@ impl Packetable for ClientGlobalPacket {
     }
 }
 
-impl Packetable for ClientLoginPacket {
-    fn serialize(&self) -> (Vec<u8>, u8) {
-        (bincode::serialize(self).unwrap_or_default(), 2)
-    }
-
-    fn deserialize(bytes: &[u8]) -> Self
-    where
-        Self: Sized,
-    {
-        bincode::deserialize(bytes).unwrap_or_default()
-    }
-}
-
 impl Packetable for ServerPacket {
     fn serialize(&self) -> (Vec<u8>, u8) {
-        (bincode::serialize(self).unwrap_or_default(), 3)
+        (bincode::serialize(self).unwrap_or_default(), 2)
     }
 
     fn deserialize(bytes: &[u8]) -> Self
@@ -154,12 +122,6 @@ impl Default for ClientLocalPacket {
 }
 
 impl Default for ClientGlobalPacket {
-    fn default() -> Self {
-        Self::Invalid
-    }
-}
-
-impl Default for ClientLoginPacket {
     fn default() -> Self {
         Self::Invalid
     }
