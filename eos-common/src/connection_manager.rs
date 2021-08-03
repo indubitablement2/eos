@@ -2,7 +2,7 @@ use crate::const_var::*;
 use crate::idx::ClientId;
 use crate::packet_common::*;
 use bytes::{Buf, BufMut, BytesMut};
-use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
+use flume::{bounded, unbounded, Receiver, Sender};
 use log::*;
 use parking_lot::RwLock;
 use std::convert::TryInto;

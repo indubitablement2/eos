@@ -13,7 +13,8 @@ glam = "0.17.1"
 # nalgebra = { version = "0.28.0", features = ["serde-serialize"]}
 
 tokio = { version = "1.6.2", features = ["full"] }
-crossbeam-channel = "0.5.1"
+# crossbeam-channel = "0.5.1"
+flume = "0.10.7"
 parking_lot = "0.11.1"
 ahash = "0.7.4"
 
@@ -24,4 +25,4 @@ rand = "0.8.4"
 
 # bytes = "1.0.1"
 
-steamworks = { git = "https://github.com/Noxime/steamworks-rs.git", features = ["serde"] }
+# steamworks = { git = "https://github.com/Noxime/steamworks-rs.git", features = ["serde"] }
