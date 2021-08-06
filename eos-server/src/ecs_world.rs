@@ -3,7 +3,7 @@ use crate::ecs_system::*;
 use crate::global::GlobalListWrapper;
 use ahash::AHashMap;
 use bevy_ecs::prelude::*;
-use crossbeam_channel::Sender;
+use flume::Sender;
 use eos_common::data::FleetData;
 use eos_common::{const_var::*, idx::*};
 use glam::*;
@@ -32,7 +32,7 @@ impl SpaceGrid {
         // Temporary map that hold channel to be distributed.
         let mut t_map = AHashMap::with_capacity(NUM_SECTOR);
         for i in 0..NUM_SECTOR {
-            let channel = crossbeam_channel::unbounded::<FleetData>();
+            let channel = flume::unbounded::<FleetData>();
             t_map.insert(i, channel);
         }
 

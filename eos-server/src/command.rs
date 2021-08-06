@@ -1,17 +1,17 @@
 use crate::global::GlobalList;
-use eos_common::packet_mod::*;
+use eos_common::packet_common::*;
 use parking_lot::RwLock;
 use std::{convert::TryInto, sync::Arc};
 
 /// Control server with console commands.
 pub struct ServerCommand {
-    command_receiver: crossbeam_channel::Receiver<(String, i32)>,
+    command_receiver: flume::Receiver<(String, i32)>,
     broadcasting: bool,
 }
 
 impl ServerCommand {
     pub fn new() -> ServerCommand {
-        let (command_sender, command_receiver) = crossbeam_channel::bounded::<(String, i32)>(0);
+        let (command_sender, command_receiver) = flume::bounded::<(String, i32)>(0);
 
         std::thread::spawn(move || {
             loop {

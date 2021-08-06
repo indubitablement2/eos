@@ -16,8 +16,9 @@ pub const SECTOR_HALF_SIZE: f32 = 8192.0;
 pub const SECTOR_SIZE: f32 = SECTOR_HALF_SIZE * 2.0;
 
 /// Size allocated for each connection to write and unparsed.
-pub const CONNECTION_BUF_SIZE: usize = 16384;
-pub const CLIENT_LOCAL_PACKET_BUFFER: usize = 8;
+pub const CONNECTION_BUF_SIZE: usize = 8192;
+pub const PACKET_BUFFER: usize = 8;
+pub const CONNECTION_READ_BUF_SIZE: usize = 2048;
 
 /// How long a socket can spend in the login step without answering.
 pub const MAX_LOGIN_WAIT: std::time::Duration = std::time::Duration::from_secs(5);

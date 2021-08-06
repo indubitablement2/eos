@@ -1,10 +1,10 @@
 use ahash::AHashSet;
-use crossbeam_channel::{bounded, Receiver, Sender};
+use flume::{bounded, Receiver, Sender};
 use eos_common::connection_manager::*;
 use eos_common::const_var::*;
 use eos_common::data::FleetData;
 use eos_common::idx::*;
-use eos_common::packet_mod::*;
+use eos_common::packet_common::*;
 use parking_lot::RwLock;
 use std::net::IpAddr;
 use std::net::SocketAddr;
@@ -16,9 +16,9 @@ use std::{
 
 use crate::global::GlobalList;
 
-// * Accept TcpStream, convert to Connection and send to login loop.
+// * Accept TcpStream and send to login loop.
 
-// * Wait for ClientHello.
+// TODO Wait for ClientHello.
 
 // TODO Check that username exist.
 
@@ -34,7 +34,9 @@ use crate::global::GlobalList;
 
 // TODO Gather the client data. Look at dc first.
 
-// * Send to sector.
+// 
+
+// TODO Send to main.
 
 /// Connection that have fully passed login process.
 struct LoginSuccess {

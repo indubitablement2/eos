@@ -1,5 +1,5 @@
 use ahash::AHashMap;
-use crossbeam_channel::{unbounded, Receiver, Sender};
+use flume::{unbounded, Receiver, Sender};
 use eos_common::connection_manager::Connection;
 use eos_common::idx::*;
 use parking_lot::RwLock;

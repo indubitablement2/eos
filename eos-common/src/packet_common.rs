@@ -28,14 +28,24 @@ pub enum ClientGlobalPacket {
     },
 }
 
-/// Packet originating from server.
+/// Packet originating from server or for client login.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum ServerPacket {
+pub enum OtherPacket {
     Invalid,
-    /// TODO: Server respond to client hello with a salt and wait for client to respond.
+
+    /// Server respond to client Login.
     LoginResult {
         success: bool,
     },
+    /// Packet originating from client. Used for login.
+    ClientLogin {
+        /// Use eos_common::const_var::APP_VERSION
+        app_version: u32,
+        steam_id: ClientId,
+        /// Convert the ticket from GetAuthSessionTicket from binary to hex into an appropriately sized byte character array.
+        ticket: String,
+    },
+
     /// TODO: Server send position, velocity and wish position of fleets nearby.
     FleetsPositionVelWish {
         id: Vec<FleetId>,
@@ -63,7 +73,7 @@ impl PacketId for ClientGlobalPacket {
     const ID: u8 = 1;
 }
 
-impl PacketId for ServerPacket {
+impl PacketId for OtherPacket {
     const ID: u8 = 2;
 }
 
@@ -102,7 +112,7 @@ impl Packetable for ClientGlobalPacket {
     }
 }
 
-impl Packetable for ServerPacket {
+impl Packetable for OtherPacket {
     fn serialize(&self) -> (Vec<u8>, u8) {
         (bincode::serialize(self).unwrap_or_default(), 2)
     }
@@ -127,7 +137,7 @@ impl Default for ClientGlobalPacket {
     }
 }
 
-impl Default for ServerPacket {
+impl Default for OtherPacket {
     fn default() -> Self {
         Self::Invalid
     }

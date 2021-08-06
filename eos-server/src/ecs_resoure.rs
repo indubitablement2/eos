@@ -1,6 +1,6 @@
 use crate::global::GlobalList;
 use bevy_ecs::prelude::*;
-use crossbeam_channel::{Receiver, Sender};
+use flume::{Receiver, Sender};
 use eos_common::data::*;
 use eos_common::idx::*;
 use parking_lot::RwLock;
