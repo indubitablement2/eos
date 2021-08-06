@@ -24,7 +24,7 @@ fn main() {
         .write_style_or("LOG_STYLE", "always");
     env_logger::init_from_env(env);
 
-    info!("Starting server");
+    info!("Starting server...");
 
     // Disconnect
     // let (to_disconnect_sender, to_disconnect_receiver) = crossbeam_channel::unbounded::<client::ClientData>();

@@ -7,7 +7,7 @@ use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 pub struct GlobalListWrapper {
-    /// If None, the list is being updated on another thread.
+    /// Many important information. Only updated on main.
     pub global_list: Arc<RwLock<GlobalList>>,
     /// Used to modify GlobalList.
     pub global_list_channel: GlobalListChannel,

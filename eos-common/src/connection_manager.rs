@@ -29,6 +29,7 @@ impl Connection {
         self.packet_to_send_sender.try_send(serialized_packet).is_ok()
     }
 }
+unsafe impl Send for Connection {}
 
 /// The other part of a Connection where raw data is parsed into Packet.
 struct InverseConnection {

@@ -67,7 +67,7 @@ impl ServerCommand {
     pub fn process_command(&mut self, exit: &mut bool, accept_login: &mut bool, global_list: &Arc<RwLock<GlobalList>>) {
         if let Ok((cmd, value)) = self.command_receiver.try_recv() {
             if self.broadcasting {
-                let say = ServerPacket::Broadcast {
+                let say = OtherPacket::Broadcast {
                     importance: value.try_into().unwrap_or_default(),
                     message: cmd,
                 }
