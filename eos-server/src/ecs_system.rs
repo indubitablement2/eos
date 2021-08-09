@@ -26,18 +26,18 @@ pub fn get_new_fleet(sec_com: Res<SectorCommunicationRes>, sector_id: Res<Sector
 
 // Receive packets and check for disconnect.
 pub fn read_packet(query: Query<&ClientIdComp, Without<SystemComp>>, global_list: Res<GlobalListRes>) {
-    // Lock global_list.
-    let global_list_read = global_list.0.read();
+    // // Lock global_list.
+    // let global_list_read = global_list.0.read();
 
-    query.for_each_mut(|client_id| {
-        if let Some(connection) = global_list_read.connected_client.get(&client_id.0) {
-            connection.local_packets.read().iter().for_each(|packet| match packet {
-                eos_common::packet_common::ClientLocalPacket::Invalid => todo!(),
-                eos_common::packet_common::ClientLocalPacket::ClientFleetWishLocation { fleet_id, location } => todo!(),
-                eos_common::packet_common::ClientLocalPacket::Broadcast { message } => todo!(),
-            });
-        }
-    });
+    // query.for_each_mut(|client_id| {
+    //     if let Some(connection) = global_list_read.connected_client.get(&client_id.0) {
+    //         connection.local_packets.read().iter().for_each(|packet| match packet {
+    //             eos_common::packet_common::ClientLocalPacket::Invalid => todo!(),
+    //             eos_common::packet_common::ClientLocalPacket::ClientFleetWishLocation { fleet_id, location } => todo!(),
+    //             eos_common::packet_common::ClientLocalPacket::Broadcast { message } => todo!(),
+    //         });
+    //     }
+    // });
 }
 
 /// Update velocity and movement state.

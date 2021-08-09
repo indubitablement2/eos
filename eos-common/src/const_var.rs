@@ -20,17 +20,14 @@ pub const CONNECTION_BUF_SIZE: usize = 8192;
 pub const PACKET_BUFFER: usize = 8;
 pub const CONNECTION_READ_BUF_SIZE: usize = 2048;
 
+pub const LOGIN_LOOP_LISTENING_DURATION: std::time::Duration = std::time::Duration::from_millis(200);
 /// How long a socket can spend in the login step without answering.
 pub const MAX_LOGIN_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
-/// Max new Connection the listening loop will accept before pausing.
-pub const LISTENING_BUFFER: usize = 16;
-/// Min duration a banned address will have to wait after being temp ban.
-pub const LISTENING_TEMP_BAN_DURATION: std::time::Duration = std::time::Duration::from_secs(10);
 /// Max LoginSuccess login loop will send before pausing.
 pub const LOGIN_SUCCESS_BUFFER: usize = 32;
 /// Min duration a banned address will have to wait after being temp ban.
-pub const LOGIN_TEMP_BAN_DURATION: std::time::Duration = std::time::Duration::from_secs(300);
+pub const LOGIN_TEMP_BAN_DURATION: std::time::Duration = std::time::Duration::from_secs(20);
 /// Max number of simultanious login processed.
-pub const LOGIN_PROGRESS_BUFFER: usize = 64;
+pub const LOGIN_PROGRESS_BUFFER: usize = 128;
 /// How long a successful login will prevent anyone trying to login with the same ClientId.
-pub const RECENTLY_REMOVED_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+pub const RECENTLY_REMOVED_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);

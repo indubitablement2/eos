@@ -1,45 +1,24 @@
 use ahash::AHashSet;
-use flume::{bounded, Receiver, Sender};
 use eos_common::connection_manager::*;
 use eos_common::const_var::*;
 use eos_common::data::FleetData;
 use eos_common::idx::*;
 use eos_common::packet_common::*;
-use parking_lot::RwLock;
-use std::net::IpAddr;
-use std::net::SocketAddr;
-use std::sync::Arc;
-use std::{
-    thread::sleep,
-    time::{Duration, Instant},
-};
+use flume::{bounded, Receiver, Sender};
+use std::mem::swap;
+use tokio::time::Instant;
 
 use crate::global::GlobalList;
 
-// * Accept TcpStream and send to login loop.
-
-// TODO Wait for ClientHello.
-
-// TODO Check that username exist.
-
-// TODO Make salt.
-
-// TODO Send salt to the client.
-
-// TODO Hash client password with salt.
-
-// TODO Compare hash.
-
-// TODO Set as loged-in to prevent someone else from taking this account.
-
-// TODO Gather the client data. Look at dc first.
-
-// 
-
+// * Accept TcpStream, convert to Connection and send to login loop.
+// * Wait for ClientLogin.
+// * Verify with steam.
+// TODO Gather the client's data.
+// TODO Check ban.
 // TODO Send to main.
 
 /// Connection that have fully passed login process.
-struct LoginSuccess {
+pub struct LoginSuccess {
     pub connection: Connection,
     pub client_id: ClientId,
     /// FleetData fetched from database.
@@ -52,16 +31,8 @@ struct LoginInProgress {
     /// Used to prevent Connection from sitting in login for too long.
     pub last_answer: Instant,
     pub connection: Connection,
-    pub step: LoginStep,
     pub client_id: ClientId,
-    pub username: String,
-}
-
-#[derive(PartialEq)]
-enum LoginStep {
-    WaitingForClientHello,
-    WaitingForClientHash,
-    Ready,
+    pub ticket: String,
 }
 
 /// Continually try to login client.
@@ -74,142 +45,49 @@ pub struct LoginThread {
 impl LoginThread {
     /// There should only be one of these.
     pub fn new(connection_starter: ConnectionStarter) -> LoginThread {
-        // Create channel to send new connection from listening loop to login loop.
-        let (con_sender, con_receiver) = bounded::<Connection>(LISTENING_BUFFER);
-
         // Create channel to send success login.
+        // TODO: use global list channel.
         let (login_success_sender, login_success_receiver) = bounded(LOGIN_SUCCESS_BUFFER);
-
-        // Start listening loop.
-        std::thread::spawn(move || {
-            listening_loop(con_sender, connection_starter);
-        });
+        let runtime_handle = connection_starter.runtime_handle.clone();
 
         // Start login loop.
-        std::thread::spawn(move || {
-            login_loop(con_receiver, login_success_sender);
-        });
+        runtime_handle.spawn(login_loop(connection_starter, login_success_sender));
 
         LoginThread { login_success_receiver }
     }
 
-    /// Receive login from the login loop.
-    pub fn process_login(&self, global_list: &Arc<RwLock<GlobalList>>, sector_sender: &[Sender<FleetData>]) {
-        let mut global_list_write = global_list.write();
-
-        while let Ok(login_success) = self.login_success_receiver.try_recv() {
-            trace!(
-                "Client {:?} connected: {:?}",
-                login_success.client_id,
-                login_success.connection.address
-            );
-            // * Add to connected.
-            if let Some(old_connection) = global_list_write
+    /// Take successful login and add them to GlobalList. Add their fleets to ecs.
+    pub fn process_login(&self, global_list: &mut GlobalList, sector_sender: &[Sender<FleetData>]) {
+        while let Ok(new_login) = self.login_success_receiver.try_recv() {
+            // Add to GlobalList.
+            if global_list
                 .connected_client
-                .insert(login_success.client_id, login_success.connection)
+                .insert(new_login.client_id, new_login.connection)
+                .is_some()
             {
-                debug!(
-                    "Someone connected with an already connected ClientId: {:?}",
-                    login_success.client_id
-                );
-                old_connection.send_packet(
-                    ServerPacket::Broadcast {
-                        importance: 0,
-                        message: "Someone logged-in this account. If this is unintended, you should change your password."
-                            .to_string(),
-                    }
-                    .serialize(),
-                );
+                trace!("Two clients logged-in with the same {:?}", new_login.client_id);
             }
 
-            // * Send their fleets to sectors, if they are not there already.
-            for mut fleet in login_success.database_fleet_data {
-                if !global_list_write.fleet_current_sector.contains_key(&fleet.fleet_id) {
-                    for i in 0..3 {
-                        // TODO: Add to const var
-                        let sec_id =
-                            (usize::from(fleet.location.sector_id.0) + rand::random::<usize>() * i) % sector_sender.len();
-                        if let Some(sector_send) = sector_sender.get(sec_id) {
-                            trace!("Sending fleet {:?} to sector {}", &fleet.fleet_id, &sec_id);
-                            match sector_send.send(fleet) {
-                                Ok(_) => break,
-                                Err(err) => {
-                                    fleet = err.0;
-                                    debug!("Could not send fleet {:?} to sector {}", &fleet.fleet_id, &sec_id);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // TODO: Check that fleet is not in game and send to sector.
         }
     }
 }
 
-/// Accept new socket, convert to Connection then send to login loop.
-fn listening_loop(con_sender: Sender<Connection>, connection_starter: ConnectionStarter) {
+async fn login_loop(connection_starter: ConnectionStarter, login_success_sender: Sender<LoginSuccess>) {
     // Start listening for new socket.
-    let listener = std::net::TcpListener::bind(eos_common::const_var::SERVER_PORT).unwrap();
+    let listener = tokio::net::TcpListener::bind(SERVER_PORT).await.unwrap();
     info!("Listening on {:?}", listener.local_addr());
 
-    // Prevent address from trying to connect too fast.
-    let mut temp_banned_address = AHashSet::with_capacity(512);
-    let mut new_temp_banned_address = AHashSet::with_capacity(512);
-    let mut last_temp_banned_address_clear = Instant::now();
+    // Used to send request to steam web api.
+    let steam_client = reqwest::Client::new();
 
-    loop {
-        if let Ok((new_socket, address)) = listener.accept() {
-            trace!("Accepted new socket: {}", &address);
-
-            // Check if we should clear temp banned address.
-            if last_temp_banned_address_clear.elapsed() > LISTENING_TEMP_BAN_DURATION {
-                std::mem::swap(&mut temp_banned_address, &mut new_temp_banned_address);
-                new_temp_banned_address.clear();
-                last_temp_banned_address_clear = Instant::now();
-            }
-
-            // Check if address is banned.
-            if temp_banned_address.contains(&address.ip()) {
-                trace!("Banned address was denied connection.");
-                continue;
-            }
-
-            // Prevent this address from reconnecting for a while.
-            temp_banned_address.insert(address.ip());
-            new_temp_banned_address.insert(address.ip());
-
-            // Convert TcpStream to Connection.
-            match connection_starter.create_connection(new_socket, address) {
-                Some(new_connection) => {
-                    // Block until login loop receive.
-                    if let Err(err) = con_sender.send(new_connection) {
-                        error!("Listening loop terminated: {:?}", &err);
-                        return;
-                    }
-                }
-                None => {
-                    debug!("Listening loop could not create connection.");
-                }
-            }
-        }
-    }
-}
-
-/// Verify username and app version.
-/// Send salt.
-/// Verify hashed password.
-/// Load user data.
-/// Send to sector.
-fn login_loop(con_receiver: Receiver<Connection>, login_success_sender: Sender<LoginSuccess>) {
     // Store LoginInProgress. This should not grow.
     let mut in_progress: Vec<LoginInProgress> = Vec::with_capacity(LOGIN_PROGRESS_BUFFER);
+    let mut in_progress_future = Vec::with_capacity(LOGIN_PROGRESS_BUFFER);
 
-    // To remove (position) from in_progress, because of success or failure.
-    let mut to_remove: Vec<usize> = Vec::with_capacity(LOGIN_PROGRESS_BUFFER);
-
-    // Address that have done something wrong.
-    let mut temp_warned_address = AHashSet::with_capacity(256);
-    let mut temp_banned_address = AHashSet::with_capacity(256);
+    // Address that can not reconnect for a while..
+    let mut temp_banned_address = AHashSet::with_capacity(LOGIN_PROGRESS_BUFFER * 10);
+    let mut new_temp_banned_address = AHashSet::with_capacity(LOGIN_PROGRESS_BUFFER * 10);
     let mut last_temp_banned_address_clear = Instant::now();
 
     // Keep a buffer of client recently removed(success or failure), so that they can not relog too fast and cause double login.
@@ -217,197 +95,257 @@ fn login_loop(con_receiver: Receiver<Connection>, login_success_sender: Sender<L
     let mut new_recently_removed: AHashSet<ClientId> = AHashSet::with_capacity(LOGIN_PROGRESS_BUFFER * 10);
     let mut last_recently_removed_clear = Instant::now();
 
-    loop {
-        let start_instant = Instant::now();
+    let mut exit = false;
 
-        // * Check if we should clear temp banned address.
+    while !exit {
+        // * Check if we should clear temp_banned_address.
         if last_temp_banned_address_clear.elapsed() > LOGIN_TEMP_BAN_DURATION {
-            std::mem::swap(&mut temp_warned_address, &mut temp_banned_address);
-            temp_banned_address.clear();
+            swap(&mut new_temp_banned_address, &mut temp_banned_address);
+            new_temp_banned_address.clear();
             last_temp_banned_address_clear = Instant::now();
         }
 
-        // * Get some new Connection, if we have space.
-        while in_progress.len() < LOGIN_PROGRESS_BUFFER {
-            match con_receiver.try_recv() {
-                Ok(new_connection) => {
-                    if temp_banned_address.contains(&new_connection.address.ip()) {
-                        trace!("Login loop received a temp banned address from listening loop.");
-                        continue;
-                    }
-                    // Convert to LoginInProgress.
-                    in_progress.push(LoginInProgress {
-                        last_answer: Instant::now(),
-                        connection: new_connection,
-                        step: LoginStep::WaitingForClientHello,
-                        username: String::new(),
-                        client_id: ClientId(0),
-                    });
+        let timeout = Instant::now() + LOGIN_LOOP_LISTENING_DURATION;
+
+        // * Get some new Connection.
+        while let Ok(result) = tokio::time::timeout_at(timeout, listener.accept()).await {
+            if let Ok((new_socket, address)) = result {
+                trace!("Accepted new socket: {}", &address);
+
+                // Check if address is banned.
+                if temp_banned_address.contains(&address.ip()) {
+                    trace!("Banned address was denied connection.");
+                    continue;
                 }
-                Err(err) => {
-                    match err {
-                        crossbeam_channel::TryRecvError::Empty => {
-                            // Running out of new Connection.
-                            break;
-                        }
-                        crossbeam_channel::TryRecvError::Disconnected => {
-                            error!("Login loop terminated. Sender dropped.");
-                            return;
-                        }
-                    }
-                }
+
+                // Prevent this address from reconnecting for a while.
+                temp_banned_address.insert(address.ip());
+                new_temp_banned_address.insert(address.ip());
+
+                // Convert to Connection.
+                let new_connection = connection_starter.create_connection(new_socket);
+
+                // Add to in_progress.
+                in_progress.push(LoginInProgress {
+                    last_answer: Instant::now(),
+                    connection: new_connection,
+                    client_id: ClientId(0),
+                    ticket: String::new(),
+                });
+            }
+
+            // Check if we are at max capacity.
+            if in_progress.len() >= LOGIN_PROGRESS_BUFFER {
+                break;
             }
         }
 
-        // * Iterate over all LoginInProgress.
-        in_progress.iter_mut().enumerate().for_each(|(i, progress)| {
-            // * Check if Connection is disconnected.
-            if progress.connection.is_disconnected() {
-                trace!("Connection disconnected while trying to login.");
-                warn(
-                    &progress.connection.address,
-                    &mut temp_warned_address,
-                    &mut temp_banned_address,
-                );
-                to_remove.push(i);
-            }
+        // * Try to login all LoginInProgress in parallel.
+        in_progress.drain(..).for_each(|progress| {
+            in_progress_future.push(
+                connection_starter
+                    .runtime_handle
+                    .spawn(login_one(progress, steam_client.clone())),
+            );
+        });
 
-            // * Check if Connection is not responding in time.
-            if progress.last_answer.elapsed() >= eos_common::const_var::MAX_LOGIN_WAIT {
-                trace!("Connection is not responding during login.");
-                warn(
-                    &progress.connection.address,
-                    &mut temp_warned_address,
-                    &mut temp_banned_address,
-                );
-                to_remove.push(i);
-            }
+        in_progress_future.drain(..).for_each(|handle| {
+            match connection_starter.runtime_handle.block_on(handle) {
+                Ok(future_result) => {
+                    match future_result {
+                        Ok(success) => {
+                            // Check if ClientId was not used recently.
+                            debug_assert_ne!(success.client_id.0, 0);
+                            if recently_removed.contains(&success.client_id) {
+                                trace!("Some client tried to login while its client_id is still in recently_removed.");
+                                success.connection.send_packet(
+                                    OtherPacket::Broadcast {
+                                        importance: 0,
+                                        message: "Wait at least 20 seconds before retrying to login.".to_string(),
+                                    }
+                                    .serialize(),
+                                );
+                            } else {
+                                // Add ClientId to recently_removed.
+                                recently_removed.insert(success.client_id);
+                                new_recently_removed.insert(success.client_id);
 
-            // * Check that this client_id did not try to login recently.
-            if recently_removed.contains(&progress.client_id) {
-                trace!("Some client tried to login while its client_id is still in recently_removed.");
-                progress.connection.send_packet(
-                    ServerPacket::Broadcast {
-                        importance: 0,
-                        message: "Wait at least 20 seconds before retrying to login.".to_string(),
-                    }
-                    .serialize(),
-                );
-                to_remove.push(i);
-            }
-
-            match progress.step {
-                LoginStep::WaitingForClientHello => {
-                    if let Ok(packet) = progress.connection.login_packet.try_recv() {
-                        match packet {
-                            ClientLoginPacket::Hello { username, app_version } => {
-                                // * Check app version.
-                                if app_version != APP_VERSION {
-                                    trace!("Client app version ({}) does not match server ({})", app_version, APP_VERSION);
-                                    progress.connection.send_packet(
-                                        ServerPacket::Broadcast {
-                                            importance: 0,
-                                            message: "Your app version does not match with server.".to_string(),
-                                        }
-                                        .serialize(),
-                                    );
-                                    warn(
-                                        &progress.connection.address,
-                                        &mut temp_warned_address,
-                                        &mut temp_banned_address,
-                                    );
-                                    to_remove.push(i);
-                                } else {
-                                    progress.last_answer = Instant::now();
-                                    progress.username = username.to_owned();
-                                    // TODO: Check if username exist.
-                                    // TODO: Fetch password.
-                                    // TODO: Hash password with salt.
-                                    // TODO: Send salt.
-                                    progress.step = LoginStep::WaitingForClientHash;
+                                // Send success to GlobalList.
+                                if let Err(err) = login_success_sender.send(success) {
+                                    error!("Error while sending successful login: {:?}", err);
+                                    exit = true;
                                 }
                             }
-                            _ => {
-                                // * Client sent wrong packet or gibberish.
-                                debug!(
-                                    "Temp banned {:?}, because first packet was not ClientHello.",
-                                    &progress.connection.address
-                                );
-                                temp_banned_address.insert(progress.connection.address.ip());
-                                to_remove.push(i);
+                        }
+                        Err(login_unsuccessful) => {
+                            if let Some(unsuccessful) = login_unsuccessful {
+                                // Give another chance if under wait threshold.
+                                if unsuccessful.last_answer.elapsed() < MAX_LOGIN_WAIT {
+                                    in_progress.push(unsuccessful);
+                                } else {
+                                    trace!("Client did not answer in time while login-in.");
+                                }
                             }
                         }
                     }
                 }
-                LoginStep::WaitingForClientHash => {
-                    // TODO: skip auth for now.
-                    progress.last_answer = Instant::now();
-                    progress.client_id = ClientId(rand::random());
-                    progress.step = LoginStep::Ready;
-                }
-                _ => {
-                    to_remove.push(i);
+                Err(future_err) => {
+                    debug!("A login attempt did not complete: {:?}", future_err);
                 }
             }
         });
 
-        // * Send/remove
-        to_remove.sort_unstable();
-        to_remove.dedup();
-        to_remove.reverse();
-        to_remove.drain(..).for_each(|i| {
-            if i > in_progress.len() {
-                warn!("Tried to swap_remove from in_progress with index out of bound: {}", i);
-            } else {
-                let removed_progress = in_progress.swap_remove(i);
-
-                if removed_progress.step == LoginStep::Ready {
-                    debug_assert_ne!(removed_progress.client_id.0, 0);
-                    recently_removed.insert(removed_progress.client_id);
-                    new_recently_removed.insert(removed_progress.client_id);
-                    get_data_and_send(removed_progress, &login_success_sender);
-                }
-            }
-        });
-
-        // * Clear old recently removed client_id.
+        // * Clear recently_removed client_id.
         if last_recently_removed_clear.elapsed() > RECENTLY_REMOVED_TIMEOUT {
-            last_recently_removed_clear = Instant::now();
-
-            recently_removed = new_recently_removed.clone();
+            swap(&mut recently_removed, &mut new_recently_removed);
             new_recently_removed.clear();
-        }
-
-        // * Sleep until at least 100ms have passed from last update.
-        let remaining = MAIN_LOOP_DURATION.saturating_sub(start_instant.elapsed());
-        if !Duration::is_zero(&remaining) {
-            sleep(remaining);
+            last_recently_removed_clear = Instant::now();
         }
     }
 }
 
-/// Add address to warn and maybe temp ban.
-fn warn(address: &SocketAddr, warned: &mut AHashSet<IpAddr>, banned: &mut AHashSet<IpAddr>) {
-    if !warned.insert(address.ip()) {
-        banned.insert(address.ip());
-        trace!("Temp banned {:?}", address.ip());
+async fn login_one(
+    mut progress: LoginInProgress,
+    steam_client: reqwest::Client,
+) -> Result<LoginSuccess, Option<LoginInProgress>> {
+    // * Look for ClientLogin.
+    if progress.client_id.0 == 0 {
+        match progress.connection.other_packet_receiver.try_recv() {
+            Ok(packet) => {
+                match packet {
+                    OtherPacket::ClientLogin {
+                        app_version,
+                        steam_id,
+                        ticket,
+                    } => {
+                        // Check app version.
+                        if app_version != APP_VERSION {
+                            trace!("Client app version ({}) does not match server ({})", app_version, APP_VERSION);
+                            progress.connection.send_packet(
+                                OtherPacket::Broadcast {
+                                    importance: 0,
+                                    message: "Your app version does not match with server.".to_string(),
+                                }
+                                .serialize(),
+                            );
+                            return Err(Option::None);
+                        }
+
+                        // Check if ClientId is valid.
+                        if !steam_id.is_valid() {
+                            trace!("Some client tried to login with client_id 0.");
+                            return Err(Option::None);
+                        }
+
+                        // Check if ClientId was not used recently.
+                        // if recently_removed.contains(&steam_id) {
+                        //     trace!("Some client tried to login while its client_id is still in recently_removed.");
+                        //     progress.connection.send_packet(
+                        //         OtherPacket::Broadcast {
+                        //             importance: 0,
+                        //             message: "Wait at least 20 seconds before retrying to login.".to_string(),
+                        //         }
+                        //         .serialize(),
+                        //     );
+                        //     return Err(Option::None);
+                        // }
+
+                        // All good. Put data into progress.
+                        progress.client_id = steam_id;
+                        progress.ticket = ticket;
+                    }
+                    _ => {
+                        trace!("Some client sent wrong packet while trying to login.");
+                        return Err(Option::None);
+                    }
+                }
+            }
+            Err(err) => {
+                match err {
+                    flume::TryRecvError::Empty => {
+                        // Nothing to read. Try again next time.
+                        return Err(Some(progress));
+                    }
+                    flume::TryRecvError::Disconnected => {
+                        trace!("Disconnected while trying to login.");
+                        return Err(Option::None);
+                    }
+                }
+            }
+        }
+    }
+
+    // * Verify ticket with steam.
+    match steam_client.get(format!(
+        "https://partner.steam-api.com/ISteamUserAuth/AuthenticateUserTicket/v1/?key=45B6C4EFE51FDC92AB87FCF8ACC96405&appid=1638530&ticket={}",
+        progress.ticket
+    ))
+    .send().await {
+        Ok(resp) => {
+            let steam_auth_json = resp.json::<SteamJson>().await.unwrap_or_default();
+
+            // Check steam result.
+            if !steam_auth_json.response.params.result.as_str().eq("OK") {
+                debug!("Steam denied a client: {}", &steam_auth_json.response.params.result);
+                return Err(Option::None);
+            }
+
+            // Check if given ClientId match steam id.
+            if steam_auth_json.response.params.steamid.parse::<u64>().unwrap_or_default() != progress.client_id.0 {
+                debug!("Login failed: steamid {} and ClientId {} don't match.", steam_auth_json.response.params.steamid, progress.client_id.0);
+                return Err(Option::None);
+            }
+
+            // TODO: Fetch user's data.
+            let database_fleet_data = Vec::new();
+
+            // TODO: Check ban
+
+            // Successful login.
+            Ok(LoginSuccess {
+                connection: progress.connection,
+                client_id: progress.client_id,
+                database_fleet_data,
+            })
+        }
+        Err(err) => {
+            debug!("Err while trying to login client: {:?}", err);
+            Err(Option::None)
+        }
     }
 }
 
-/// Fetch the user's FleetData and send to main.
-fn get_data_and_send(progress: LoginInProgress, login_success_sender: &Sender<LoginSuccess>) {
-    // TODO: Try to fetch FleetData from file.
+#[derive(serde::Deserialize, Debug)]
+struct SteamJson {
+    pub response: SteamResponse,
+}
 
-    let fleet_datas = vec![];
-
-    let login_success = LoginSuccess {
-        connection: progress.connection,
-        client_id: progress.client_id,
-        database_fleet_data: fleet_datas,
-    };
-
-    // Send.
-    if let Err(err) = login_success_sender.send(login_success) {
-        error!("Error while sending LoginSuccess: {:?}", &err);
+impl Default for SteamJson {
+    fn default() -> Self {
+        SteamJson {
+            response: SteamResponse {
+                params: SteamParams {
+                    result: "Failed to reach steam.".to_string(),
+                    steamid: String::new(),
+                    ownersteamid: String::new(),
+                    vacbanned: false,
+                    publisherbanned: false,
+                },
+            },
+        }
     }
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct SteamResponse {
+    pub params: SteamParams,
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct SteamParams {
+    pub result: String,
+    pub steamid: String,
+    pub ownersteamid: String,
+    pub vacbanned: bool,
+    pub publisherbanned: bool,
 }

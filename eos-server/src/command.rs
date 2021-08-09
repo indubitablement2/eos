@@ -1,7 +1,6 @@
 use crate::global::GlobalList;
 use eos_common::packet_common::*;
-use parking_lot::RwLock;
-use std::{convert::TryInto, sync::Arc};
+use std::convert::TryInto;
 
 /// Control server with console commands.
 pub struct ServerCommand {
@@ -64,7 +63,7 @@ impl ServerCommand {
         }
     }
 
-    pub fn process_command(&mut self, exit: &mut bool, accept_login: &mut bool, global_list: &Arc<RwLock<GlobalList>>) {
+    pub fn process_command(&mut self, exit: &mut bool, accept_login: &mut bool, global_list: &GlobalList) {
         if let Ok((cmd, value)) = self.command_receiver.try_recv() {
             if self.broadcasting {
                 let say = OtherPacket::Broadcast {
@@ -74,7 +73,7 @@ impl ServerCommand {
                 .serialize();
 
                 // Send to all client.
-                global_list.read().connected_client.values().for_each(|connection| {
+                global_list.connected_client.values().for_each(|connection| {
                     connection.send_packet(say.clone());
                 });
 
@@ -103,7 +102,7 @@ impl ServerCommand {
                     self.broadcasting = true;
                 }
                 "connected" => {
-                    info!("{}", global_list.read().connected_client.len());
+                    info!("{}", global_list.connected_client.len());
                 }
                 "disconnect" => {
                     error!("TODO");

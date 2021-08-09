@@ -36,7 +36,7 @@ fn main() {
     let (mut space_grid, sector_senders) = ecs_world::SpaceGrid::new(&global_list_wrapper);
 
     // Connection.
-    let mut polling_thread = eos_common::connection_manager::PollingThread::new(true);
+    let polling_thread = eos_common::connection_manager::PollingThread::new(true);
 
     // Login.
     let login = login::LoginThread::new(polling_thread.connection_starter.clone());
@@ -66,7 +66,7 @@ fn main() {
 
         // * Get new Connection from login loop.
         if accept_login {
-            login.process_login(&global_list_wrapper.global_list, &sector_senders);
+            login.process_login(&mut global_list_wrapper.global_list, &sector_senders);
         }
 
         // * Update global list.

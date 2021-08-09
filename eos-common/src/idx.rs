@@ -7,9 +7,9 @@ use serde::{Deserialize, Serialize};
 pub struct ClientId(pub u64);
 
 impl ClientId {
-    /// Return if this is a valid id. Aka: ClientId(0).
+    /// Return if this is a valid id. Aka: not ClientId(0).
     pub fn is_valid(&self) -> bool {
-        self.0 == 0
+        self.0 != 0
     }
 }
 

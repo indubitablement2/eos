@@ -6,14 +6,12 @@ use std::net::TcpStream;
 
 fn main() {
     println!("Connecting...");
-    let socket = TcpStream::connect(SERVER_ADDR).unwrap();
+    let std_socket = TcpStream::connect(SERVER_ADDR).unwrap();
 
     let pt = connection_manager::PollingThread::new(false);
 
-    let connection = pt
-        .connection_starter
-        .create_connection(socket)
-        .unwrap();
+    let socket = pt.connection_starter.convert_std_to_tokio(std_socket).unwrap();
+    let connection = pt.connection_starter.create_connection(socket);
 
     println!("Sending client hello...");
     assert!(connection.send_packet(

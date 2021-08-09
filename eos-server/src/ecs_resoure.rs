@@ -1,10 +1,8 @@
 use crate::global::GlobalList;
 use bevy_ecs::prelude::*;
-use flume::{Receiver, Sender};
 use eos_common::data::*;
 use eos_common::idx::*;
-use parking_lot::RwLock;
-use std::sync::Arc;
+use flume::{Receiver, Sender};
 use std::time::Instant;
 
 /// This sector's unique Id.
@@ -36,7 +34,9 @@ pub struct SectorCommunicationRes {
     // to_disconnect_sender: Sender<ClientData>,
 }
 
-/// Ref to the GlobalList.
-pub struct GlobalListRes(pub Arc<RwLock<GlobalList>>);
+/// Pointer to the GlobalList. Require unsafe code to utilise.
+pub struct GlobalListRes(pub *const Box<GlobalList>);
+unsafe impl Send for GlobalListRes {}
+unsafe impl Sync for GlobalListRes {}
 
 pub struct FleetInSystemRes(Vec<Vec<Entity>>);

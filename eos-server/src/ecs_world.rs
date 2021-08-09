@@ -1,11 +1,12 @@
 use crate::ecs_resoure::*;
 use crate::ecs_system::*;
+use crate::global::GlobalList;
 use crate::global::GlobalListWrapper;
 use ahash::AHashMap;
 use bevy_ecs::prelude::*;
-use flume::Sender;
 use eos_common::data::FleetData;
 use eos_common::{const_var::*, idx::*};
+use flume::Sender;
 use glam::*;
 use rayon::prelude::*;
 use std::convert::TryInto;
@@ -80,11 +81,7 @@ impl SpaceGrid {
             };
 
             // Adding sector to SpaceGrid.
-            sectors.push(Sector::new(
-                SectorId(i.try_into().unwrap()),
-                sec_com,
-                GlobalListRes(global_list_wrapper.global_list.clone()),
-            ));
+            sectors.push(Sector::new(SectorId(i.try_into().unwrap()), sec_com, global_list_wrapper));
         }
 
         (SpaceGrid { sectors }, senders_copy)
@@ -109,7 +106,9 @@ pub struct Sector {
 
 impl Sector {
     /// Make a new Sector from various parameter.
-    fn new(id: SectorId, sec_com: SectorCommunicationRes, global_list_res: GlobalListRes) -> Sector {
+    fn new(id: SectorId, sec_com: SectorCommunicationRes, global_list_wrapper: &GlobalListWrapper) -> Sector {
+        let global_list_res = GlobalListRes(&global_list_wrapper.global_list as *const Box<GlobalList>);
+
         let mut world = World::default();
         world.insert_resource(sec_com);
         world.insert_resource(SectorIdRes(id));

@@ -30,6 +30,7 @@ impl Connection {
     }
 }
 unsafe impl Send for Connection {}
+unsafe impl Sync for Connection {}
 
 /// The other part of a Connection where raw data is parsed into Packet.
 struct InverseConnection {
@@ -65,61 +66,56 @@ pub struct ConnectionStarter {
     /// Used to start new connection.
     con_sender: Sender<InverseConnection>,
     /// Used to convert std TcpStream to tokio TcpStream.
-    runtime_handle: tokio::runtime::Handle,
+    pub runtime_handle: tokio::runtime::Handle,
 }
 impl ConnectionStarter {
-    /// Convert std TcpStream to Connection.
-    /// Add a new socket that will be polled on call to poll.
-    pub fn create_connection(&self, new_socket: std::net::TcpStream) -> Option<Connection> {
-        // Convert to tokio TcpStream.
-        let tokio_socket_result;
+    /// Convert a std TcpStream Convert to tokio TcpStream.
+    pub fn convert_std_to_tokio(&self, new_socket: std::net::TcpStream) -> Option<tokio::net::TcpStream> {
         if new_socket.set_nonblocking(true).is_ok() {
-            tokio_socket_result = self.runtime_handle.block_on(async {
+            return self.runtime_handle.block_on(async {
                 if let Ok(result) = TcpStream::from_std(new_socket) {
                     return Some(result);
                 }
-                trace!("Error while converting async.");
+                trace!("Error while converting to async.");
                 Option::None
             });
         } else {
             trace!("Error while setting non blocking.");
             return Option::None;
         }
+    }
 
+    /// Add a new socket that will be polled on call to poll.
+    pub fn create_connection(&self, new_socket: tokio::net::TcpStream) -> Connection {
         let (packet_to_send_sender, packet_to_send_receiver) = bounded(PACKET_BUFFER);
         let (client_global_packet_sender, client_global_packets_receiver) = bounded(PACKET_BUFFER);
         let (other_packet_sender, other_packet_receiver) = bounded(PACKET_BUFFER);
         let client_local_packets = Vec::with_capacity(PACKET_BUFFER);
         let client_local_packets_pointer = &client_local_packets as *const Vec<ClientLocalPacket>;
 
-        if let Some(tokio_socket) = tokio_socket_result {
-            let inv_con = InverseConnection {
-                socket: tokio_socket,
-                current_packet_type: u8::MAX,
-                current_packet_size: 0,
-                unparsed_data_buffer: BytesMut::with_capacity(CONNECTION_BUF_SIZE),
-                write_bytes_buffer: BytesMut::with_capacity(CONNECTION_BUF_SIZE),
-                read_byte_buffer: [0; CONNECTION_READ_BUF_SIZE],
-                packet_to_send_receiver,
-                client_local_packets,
-                client_global_packet_sender,
-                other_packet_sender,
-            };
+        let inv_con = InverseConnection {
+            socket: new_socket,
+            current_packet_type: u8::MAX,
+            current_packet_size: 0,
+            unparsed_data_buffer: BytesMut::with_capacity(CONNECTION_BUF_SIZE),
+            write_bytes_buffer: BytesMut::with_capacity(CONNECTION_BUF_SIZE),
+            read_byte_buffer: [0; CONNECTION_READ_BUF_SIZE],
+            packet_to_send_receiver,
+            client_local_packets,
+            client_global_packet_sender,
+            other_packet_sender,
+        };
 
-            if let Err(err) = self.con_sender.try_send(inv_con) {
-                error!("Could not send inv_con to polling thread. It may have panicked: {:?}", &err);
-                return Option::None;
-            }
-
-            return Some(Connection {
-                packet_to_send_sender,
-                client_local_packets_pointer,
-                client_global_packets_receiver,
-                other_packet_receiver,
-            });
+        if let Err(err) = self.con_sender.try_send(inv_con) {
+            error!("Could not send inv_con to polling thread. It may have panicked: {:?}", &err);
         }
-        trace!("Could not create connection.");
-        Option::None
+
+        Connection {
+            packet_to_send_sender,
+            client_local_packets_pointer,
+            client_global_packets_receiver,
+            other_packet_receiver,
+        }
     }
 }
 
@@ -128,6 +124,8 @@ pub struct PollingThread {
     pub current_active_socket: Arc<AtomicUsize>,
     /// Used to start polling.
     start_poll_sender: Sender<bool>,
+    /// Can be used to spawn tasks that run on this runtime.
+    pub runtime_handle: tokio::runtime::Handle,
     /// Used to start new connection.
     pub connection_starter: ConnectionStarter,
 }
@@ -140,6 +138,7 @@ impl PollingThread {
             true => rt = Builder::new_multi_thread().enable_all().build().unwrap(),
             false => rt = Builder::new_multi_thread().worker_threads(1).enable_all().build().unwrap(),
         }
+        let runtime_handle = rt.handle().clone();
 
         // Create channel used to start polling.
         let (start_poll_sender, start_poll_receiver) = bounded::<bool>(0);
@@ -163,6 +162,7 @@ impl PollingThread {
         PollingThread {
             start_poll_sender,
             current_active_socket,
+            runtime_handle,
             connection_starter,
         }
     }
