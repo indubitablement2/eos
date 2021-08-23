@@ -7,7 +7,6 @@ use eos_common::packet_common::*;
 use flume::{bounded, Receiver, Sender};
 use std::mem::swap;
 use tokio::time::Instant;
-
 use crate::global::GlobalList;
 
 // * Accept TcpStream, convert to Connection and send to login loop.
@@ -15,7 +14,7 @@ use crate::global::GlobalList;
 // * Verify with steam.
 // TODO Gather the client's data.
 // TODO Check ban.
-// TODO Send to main.
+// * Send to main.
 
 /// Connection that have fully passed login process.
 pub struct LoginSuccess {
@@ -46,7 +45,6 @@ impl LoginThread {
     /// There should only be one of these.
     pub fn new(connection_starter: ConnectionStarter) -> LoginThread {
         // Create channel to send success login.
-        // TODO: use global list channel.
         let (login_success_sender, login_success_receiver) = bounded(LOGIN_SUCCESS_BUFFER);
         let runtime_handle = connection_starter.runtime_handle.clone();
 
@@ -309,7 +307,7 @@ async fn login_one(
             })
         }
         Err(err) => {
-            debug!("Err while trying to login client: {:?}", err);
+            debug!("Error contacting steam while trying to login a client: {:?}", err);
             Err(Option::None)
         }
     }
