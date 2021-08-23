@@ -33,6 +33,12 @@ They chose a base ship and customize some of it's property.
 
 (no guarantee this ship will even work)
 
+### Free to play pirate
+Can play the game for free as a pirate "faction". Need to buy the full game to get access to all ships.
+
+### Sell fleet slot
+Can only control one fleet by default. Additional slot can be bought.
+
 ### Server cost
 Estimate US$800 / months.
 
