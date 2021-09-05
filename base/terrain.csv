@@ -1,0 +1,5 @@
+name,texture_path,movement_modifier,fertility,spawn_humidity,wet
+mud,res://assets/terrain/mud.png,60,50,100,mud
+soil,res://assets/terrain/dirt.png,90,100,50,mud
+rocky_dirt,res://assets/terrain/rocky_dirt.png,90,70,40,mud
+sand,res://assets/terrain/sand.png,70,60,15,mud

@@ -1,0 +1,17 @@
+[package]
+name = "chaos_cascade"
+version = "0.1.0"
+authors = ["indubitablement2 <jeanmichel88@hotmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+# gdnative = {version = "0.9.3"}
+gdnative = { path = "../../godot-rust-2sept/gdnative" }
+
+bevy_ecs = "0.5.0"
+simdnoise = "3.1.6"
+rand = "0.8.4"
+crossbeam-channel = "0.5.1"

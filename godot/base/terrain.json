@@ -1,0 +1,34 @@
+[
+  {
+    "name": "mud",
+    "texture_path": "res://assets/terrain/mud.png",
+    "movement_modifier": 60,
+    "fertility": 50,
+    "spawn_humidity": 100,
+    "wet": "mud"
+  },
+  {
+    "name": "soil",
+    "texture_path": "res://assets/terrain/dirt.png",
+    "movement_modifier": 90,
+    "fertility": 100,
+    "spawn_humidity": 50,
+    "wet": "mud"
+  },
+  {
+    "name": "rocky_dirt",
+    "texture_path": "res://assets/terrain/rocky_dirt.png",
+    "movement_modifier": 90,
+    "fertility": 70,
+    "spawn_humidity": 40,
+    "wet": "mud"
+  },
+  {
+    "name": "sand",
+    "texture_path": "res://assets/terrain/sand.png",
+    "movement_modifier": 70,
+    "fertility": 60,
+    "spawn_humidity": 15,
+    "wet": "mud"
+  }
+]
