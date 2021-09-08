@@ -1,9 +1,18 @@
 use gdnative::core_types::Vector2;
 
-/// A location inside the chunk grid.
-pub struct Location {
-    pub location_on_chunk: i64,
-    pub location_on_tile: Vector2,
+/// Entity's current chunk.
+pub struct ChunkLocation {
+    pub current_chunk: u32
+}
+
+/// Entity's current tile.
+pub struct TileLocation {
+    pub current_tile: u32
+}
+
+/// Position relative to current chunk center.
+pub struct Position {
+    pub position: Vector2
 }
 
 /// Always tends toward 0.
@@ -11,6 +20,7 @@ pub struct Velocity {
     pub vel: Vector2
 }
 
-pub struct Path {
-    // path array
+/// Activate chunks around it. Used on players.
+pub struct ChunkInvoker {
+
 }

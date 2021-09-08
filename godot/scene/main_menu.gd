@@ -6,7 +6,7 @@ enum States {MAIN_MENU, OPTION, NEW_GAME, EXIT, START}
 var current_state := 0
 var previous_state := 0
 
-
+func _unhandled_input(event: InputEvent) -> void:
 func _ready() -> void:
 	for child in get_children():
 		child.set_visible(false)

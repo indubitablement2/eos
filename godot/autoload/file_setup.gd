@@ -17,7 +17,7 @@ func _init() -> void:
 			push_error("Error trying to make " + GlobalVariable.MODS_FOLDER)
 	
 	# Copy base to user://mods folder.
-	if dir.open(TODO!) != OK:
+	if dir.open(GlobalVariable.MODS_FOLDER) != OK:
 		push_error("Can not open ")
 		return
 	dir.list_dir_begin()

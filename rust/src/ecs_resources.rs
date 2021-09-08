@@ -3,10 +3,5 @@ pub struct GameParameter {
 }
 
 pub struct Time {
-    pub tick: u32
-}
-pub struct Terrain {
-    pub width: u16,
-    pub height: u16,
-    pub terrain: Vec<u8>,
+    pub tick: u64
 }

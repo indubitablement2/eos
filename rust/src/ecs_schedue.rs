@@ -3,7 +3,7 @@ use crate::ecs_resources::*;
 use crate::ecs_systems::*;
 
 use bevy_ecs::prelude::*;
-use crossbeam_channel::*;
+use flume::*;
 
 /// Parameter/command that are passed to the shedule.
 ///
@@ -17,7 +17,7 @@ pub struct Run {
 ///
 /// Shedule will send this after each update.
 pub struct PostUpdate {
-    pub tick: u32,
+    pub tick: u64,
     pub terrain: Option<Vec<u8>>,
 }
 
@@ -32,13 +32,13 @@ pub fn init_generate(width: u16, height: u16,) -> (Sender<Run>, Receiver<PostUpd
         height.into(),
     );
 
-    let terrain = Terrain{
-        width,
-        height,
-        terrain: generated_terrain
-    };
+    // let terrain = Terrain{
+    //     width,
+    //     height,
+    //     terrain: generated_terrain
+    // };
 
-    world.insert_resource(terrain);
+    // world.insert_resource(terrain);
 
     start_shedule(world)
 }
@@ -77,8 +77,8 @@ fn start_shedule(mut world: World) -> (Sender<Run>, Receiver<PostUpdate>) {
 fn runner(
     mut world: World,
     mut schedule: Schedule,
-    run_receiver: crossbeam_channel::Receiver<Run>,
-    post_update_sender: crossbeam_channel::Sender<PostUpdate>,
+    run_receiver: flume::Receiver<Run>,
+    post_update_sender: flume::Sender<PostUpdate>,
 ) {
     loop {
         // Wait for a new run.
@@ -88,9 +88,9 @@ fn runner(
             // * Gather data requested by run.
             // Terrain.
             let mut terrain = Option::None;
-            if run.force_query_terrain || run.query_terrain_on_update && world.is_resource_changed::<Terrain>() {
-                terrain = Some(world.get_resource::<Terrain>().unwrap().terrain.clone());
-            }
+            // if run.force_query_terrain || run.query_terrain_on_update && world.is_resource_changed::<Terrain>() {
+            //     terrain = Some(world.get_resource::<Terrain>().unwrap().terrain.clone());
+            // }
             
             // * Construct PostUpdate.
             let post_update = PostUpdate {
