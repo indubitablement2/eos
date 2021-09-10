@@ -1,13 +1,12 @@
 pub mod chunk_generator;
 
-pub mod ecs_resources;
-pub mod ecs_systems;
-pub mod ecs_schedue;
 pub mod ecs_components;
+pub mod ecs_resources;
+pub mod ecs_schedue;
+pub mod ecs_systems;
 
-mod godot_ecs;
 pub mod ecs_input;
-pub mod networking;
+mod godot_ecs;
 
 use gdnative::prelude::{godot_init, InitHandle};
 

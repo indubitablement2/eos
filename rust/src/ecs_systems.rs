@@ -1,9 +1,9 @@
-use crate::ecs_resources::*;
 use crate::ecs_components::*;
+use crate::ecs_resources::*;
 
 use bevy_ecs::prelude::*;
 
-pub fn time_system(mut time: ResMut<Time>) {
+pub fn time_system(mut time: ResMut<TimeRes>) {
     time.tick += 1;
 }
 
@@ -13,8 +13,7 @@ pub fn time_system(mut time: ResMut<Time>) {
 //         location.location_on_tile += velocity.vel;
 
 //         // Apply tile change if needed.
-        
-        
+
 //         // Decrease velocity.
 //         velocity.vel *= game_param.drag;
 //     });

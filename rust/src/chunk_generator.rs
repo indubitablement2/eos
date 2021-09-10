@@ -22,8 +22,7 @@ pub fn generate(width: usize, height: usize) -> Vec<u8> {
             result.push(2);
         } else if v <= 0.6 {
             result.push(3);
-        }
-         else {
+        } else {
             result.push(0);
         }
     });
