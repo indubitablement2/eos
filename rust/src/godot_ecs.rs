@@ -1,5 +1,5 @@
-use crate::ecs_schedue::*;
-use crate::ecs_components::*;
+use crate::battlescape_schedue::*;
+use crate::battlescape_components::*;
 use std::convert::TryInto;
 use gdnative::api::*;
 use gdnative::prelude::*;
@@ -56,7 +56,7 @@ impl GodotEcs {
 
         let visual_server = gdnative::api::VisualServer::godot_singleton();
 
-        let body_set = self.ecs_world.world.get_resource::<crate::ecs_resources::BodySetRes>().unwrap();
+        let body_set = self.ecs_world.world.get_resource::<crate::battlescape_resources::BodySetRes>().unwrap();
         // let mut query_physic = self.ecs_world.world.query::<(&Renderable, &PhysicBodyHandle)>();
         // let mut query_pos = self.ecs_world.world.query::<(&Renderable, &Position)>();
         // query_physic.iter(&self.ecs_world.world).for_each(|(_renderable, physic_body_handle)| {

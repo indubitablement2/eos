@@ -1,5 +1,5 @@
-use crate::ecs_components::*;
-use crate::ecs_resources::*;
+use crate::battlescape_components::*;
+use crate::battlescape_resources::*;
 use bevy_ecs::prelude::*;
 use rapier2d::prelude::*;
 

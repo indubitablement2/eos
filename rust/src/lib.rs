@@ -1,9 +1,9 @@
-pub mod ecs_components;
-pub mod ecs_resources;
-pub mod ecs_schedue;
-pub mod ecs_systems;
+pub mod battlescape_components;
+pub mod battlescape_resources;
+pub mod battlescape_schedue;
+pub mod battlescape_systems;
 
-pub mod ecs_input;
+pub mod battlescape_input;
 mod godot_ecs;
 pub mod battlescape;
 

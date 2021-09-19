@@ -1,6 +1,6 @@
-use crate::ecs_components::*;
-use crate::ecs_resources::*;
-use crate::ecs_systems::*;
+use crate::battlescape_components::*;
+use crate::battlescape_resources::*;
+use crate::battlescape_systems::*;
 use bevy_ecs::prelude::*;
 use gdnative::prelude::*;
 use rapier2d::na;
