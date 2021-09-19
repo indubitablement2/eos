@@ -10,15 +10,11 @@ use rapier2d::prelude::*;
 use crossbeam_channel::*;
 
 pub struct UpdateRequest {
-    /// How many times the ecs should update before returning a result.
-    pub num_update: u32,
     pub send_render: bool,
     pub spawn_ship: Option<(Vector2, f32)>,
 }
 
 pub struct UpdateResult {
-    /// How many update were completed.
-    pub num_update: u32,
 }
 
 pub struct Battlescape {
@@ -46,9 +42,8 @@ impl Battlescape {
     }
 
     /// Send an update request to the ecs.
-    pub fn update(&mut self, mut update_request: UpdateRequest) -> Result<(), crossbeam_channel::SendError<UpdateRequest>> {
-        update_request.num_update = update_request.num_update.max(1);
-        self.pending_update += update_request.num_update;
+    pub fn update(&mut self, update_request: UpdateRequest) -> Result<(), crossbeam_channel::SendError<UpdateRequest>> {
+        self.pending_update += 1;
         self.request_sender.send(update_request)
     }
 
@@ -56,8 +51,8 @@ impl Battlescape {
     pub fn wait_to_complete(&mut self, deadline: Instant) -> Result<UpdateResult, crossbeam_channel::RecvTimeoutError> {
         let result = self.result_receiver.recv_deadline(deadline);
 
-        if let Ok(update_result) = &result {
-            self.pending_update -= update_result.num_update;
+        if result.is_ok() {
+            self.pending_update -= 1;
         }
 
         result
@@ -78,7 +73,7 @@ fn battlescape_runner(request_receiver: Receiver<UpdateRequest>, result_sender: 
 
         // Send result back.
         if result_sender.send(UpdateResult {
-            num_update: 1,
+
         }).is_err() {
             break;
         }
