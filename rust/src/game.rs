@@ -1,4 +1,5 @@
 use std::convert::TryInto;
+use std::mem::replace;
 
 use crate::battlescape::*;
 use ahash::AHashMap;
@@ -21,6 +22,7 @@ struct RenderRes {
     pub mesh_rid: Rid,
     pub multimesh_rid: Rid,
     pub multimesh_allocate: i32,
+    pub texture: Ref<TextureArray>,
     pub texture_rid: Rid,
     pub normal_texture_rid: Rid,
     pub render_data: Option<(TypedArray<f32>, i64)>,
@@ -40,9 +42,7 @@ impl Game {
     }
 
     #[export]
-    unsafe fn _ready(&mut self, _owner: &Node2D) {
-
-    }
+    unsafe fn _ready(&mut self, _owner: &Node2D) {}
 
     /// Free the rid we created.
     #[export]
@@ -71,7 +71,7 @@ impl Game {
     }
 
     #[export]
-    unsafe fn _draw(&mut self, _owner: &Node2D, _enable: bool) {
+    unsafe fn _draw(&mut self, _owner: &Node2D) {
         if let Some((render_data, num_instances)) = self.render_res.render_data.take() {
             let visual_server = gdnative::api::VisualServer::godot_singleton();
             visual_server.multimesh_set_as_bulk_array(self.render_res.multimesh_rid, render_data);
@@ -80,7 +80,7 @@ impl Game {
                 self.render_res.canvas_rid,
                 self.render_res.multimesh_rid,
                 self.render_res.texture_rid,
-                self.render_res.normal_texture_rid,
+                self.render_res.texture_rid,
             );
         }
     }
@@ -104,17 +104,18 @@ impl RenderRes {
         let multimesh_rid = visual_server.multimesh_create();
         visual_server.multimesh_set_mesh(multimesh_rid, mesh_rid);
         visual_server.multimesh_allocate(
-            multimesh_rid, 
+            multimesh_rid,
             multimesh_allocate.into(),
             VisualServer::MULTIMESH_TRANSFORM_2D,
             VisualServer::MULTIMESH_COLOR_NONE,
-            VisualServer::MULTIMESH_CUSTOM_DATA_FLOAT
+            VisualServer::MULTIMESH_CUSTOM_DATA_FLOAT,
         );
-        
-        let texture = ResourceLoader::godot_singleton().load("path", "", true);
 
+        make_atlas();
+        let texture = TextureArray::new();
+        let texture_rid = texture.get_rid();
         // todo: material and shader params.
-        
+
         // todo: Add ships textures.
 
         RenderRes {
@@ -122,7 +123,8 @@ impl RenderRes {
             mesh_rid,
             multimesh_rid,
             multimesh_allocate,
-            texture_rid: Rid::new(),
+            texture: texture.into_shared(),
+            texture_rid,
             normal_texture_rid: Rid::new(),
             render_data: Option::None,
         }
@@ -178,10 +180,34 @@ fn init_basic_mesh(visual_server: &VisualServer, mesh_rid: Rid) {
     arr.set(VisualServer::ARRAY_INDEX.try_into().unwrap(), indices);
 
     visual_server.mesh_add_surface_from_arrays(
-        mesh_rid, 
-        VisualServer::PRIMITIVE_TRIANGLES, 
+        mesh_rid,
+        VisualServer::PRIMITIVE_TRIANGLES,
         arr.into_shared(),
         VariantArray::new().into_shared(),
-        97280
+        97280,
     );
+}
+
+fn make_atlas() -> () {
+    let dir = Directory::new();
+
+    // Check if atlas already exist.
+
+    // Get all sprites name.
+    let mut sprites_names = Vec::with_capacity(1024);
+    if dir.open("res://sprites").is_err() {
+        godot_error!("Could not open 'res://sprites'.");
+        return;
+    }
+    if dir.list_dir_begin(true, true).is_err() {
+        godot_error!("Could not list dir.");
+        return;
+    }
+    let mut file_name = dir.get_next().to_string();
+    while !file_name.is_empty() {
+        godot_print!("{}", file_name);
+        sprites_names.push(replace(&mut file_name, dir.get_next().to_string()));
+    }
+
+    // Check if hash match.
 }
