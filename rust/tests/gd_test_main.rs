@@ -1,5 +1,5 @@
 use nalgebra::Isometry2;
-use rapier2d::na as na;
+use rapier2d::na;
 
 #[test]
 fn matrix_are_hard() {

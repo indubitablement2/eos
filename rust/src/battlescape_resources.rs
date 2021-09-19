@@ -35,5 +35,5 @@ pub struct ColliderSetRes(pub ColliderSet);
 /// All that is needed to render sprites.
 pub struct RenderRes {
     pub render_data: Option<TypedArray<f32>>,
-    pub visible_instance: i32,
+    pub visible_instance: i64,
 }

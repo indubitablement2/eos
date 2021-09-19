@@ -1,17 +1,16 @@
+pub mod battlescape;
 pub mod battlescape_components;
+pub mod battlescape_input;
 pub mod battlescape_resources;
 pub mod battlescape_schedue;
 pub mod battlescape_systems;
-
-pub mod battlescape_input;
-mod godot_ecs;
-pub mod battlescape;
+mod game;
 
 use gdnative::prelude::{godot_init, InitHandle};
 
 // Function that registers all exposed classes to Godot
 fn init(handle: InitHandle) {
-    handle.add_class::<godot_ecs::GodotEcs>();
+    handle.add_class::<game::Game>();
 }
 
 // Macros that create the entry-points of the dynamic library.

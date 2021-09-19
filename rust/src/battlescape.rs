@@ -1,12 +1,12 @@
 use crate::battlescape_components::*;
 use crate::battlescape_resources::*;
 use crate::battlescape_systems::*;
-use std::time::Instant;
 use bevy_ecs::prelude::*;
+use crossbeam_channel::*;
 use gdnative::prelude::*;
 use rapier2d::na;
 use rapier2d::prelude::*;
-use crossbeam_channel::*;
+use std::time::Instant;
 
 pub struct UpdateRequest {
     /// If render data is requested, how many instances are allowed. Otherwise send 0 to skip rendering step.
@@ -16,10 +16,11 @@ pub struct UpdateRequest {
 
 pub struct UpdateResult {
     /// If a render was requested, this is the bulk array and the number of visible sprites.
-    pub render_data: Option<(TypedArray<f32>, i32)>,
+    pub render_data: Option<(TypedArray<f32>, i64)>,
 }
 
 pub struct Battlescape {
+    pub id: u64,
     /// How many updates are in queue.
     pub pending_update: u32,
     request_sender: Sender<UpdateRequest>,
@@ -27,8 +28,8 @@ pub struct Battlescape {
 }
 
 impl Battlescape {
-    /// Init the ecs by creating a new world or loading one and a default schedule.
-    pub fn new() -> Battlescape {
+    /// Init the ecs by creating a new world (or loading one) and a default schedule.
+    pub fn new(id: u64) -> Battlescape {
         let (request_sender, request_receiver) = unbounded();
         let (result_sender, result_receiver) = unbounded();
 
@@ -37,6 +38,7 @@ impl Battlescape {
         });
 
         Battlescape {
+            id,
             pending_update: 0,
             request_sender,
             result_receiver,
@@ -90,7 +92,11 @@ fn pre_update(world: &mut World, update_request: &UpdateRequest) {
         unsafe {
             let mut render_data = TypedArray::new();
             render_data.resize(num_render * 12);
-            world.get_resource_unchecked_mut::<RenderRes>().unwrap().render_data.replace(render_data);
+            world
+                .get_resource_unchecked_mut::<RenderRes>()
+                .unwrap()
+                .render_data
+                .replace(render_data);
         }
     }
 }
@@ -99,19 +105,21 @@ fn post_update(world: &mut World, update_request: &UpdateRequest) -> UpdateResul
     // Take the render data from the ecs.
     let mut render_data = Option::None;
     if let Some(num_render) = update_request.send_render {
-        let mut render_res =  unsafe { world.get_resource_unchecked_mut::<RenderRes>().unwrap() };
+        let mut render_res = unsafe { world.get_resource_unchecked_mut::<RenderRes>().unwrap() };
         let ecs_render_data = render_res.render_data.take().unwrap_or_default();
-        
+
         if ecs_render_data.len() == num_render * 12 {
             render_data.replace((ecs_render_data, render_res.visible_instance));
         } else {
-            godot_warn!("Expected render data of size {}, but got {} from ecs. Sending empty array instead.", num_render * 12, ecs_render_data.len());
+            godot_warn!(
+                "Expected render data of size {}, but got {} from ecs. Sending empty array instead.",
+                num_render * 12,
+                ecs_render_data.len()
+            );
         }
     }
 
-    UpdateResult {
-        render_data,
-    }
+    UpdateResult { render_data }
 }
 
 /// This just add a ball for now.
@@ -127,7 +135,8 @@ fn add_ship(world: &mut World, position: Vector2, rotation: f32) {
     let body_handle = body_set.0.insert(body);
     let collider_handle = collider_set.0.insert_with_parent(collider, body_handle, &mut body_set.0);
 
-    world.spawn()
+    world
+        .spawn()
         .insert(Renderable {})
         .insert(PhysicBodyHandle(body_handle))
         .insert(PhysicCollisionHandle(collider_handle));
