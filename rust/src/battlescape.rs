@@ -9,11 +9,14 @@ use rapier2d::prelude::*;
 use crossbeam_channel::*;
 
 pub struct UpdateRequest {
-    pub send_render: bool,
+    /// If render data is requested, how many instances are allowed. Otherwise send 0 to skip rendering step.
+    pub send_render: Option<i32>,
     pub spawn_ship: Option<(Vector2, f32)>,
 }
 
 pub struct UpdateResult {
+    /// If a render was requested, this is the bulk array and the number of visible sprites.
+    pub render_data: Option<(TypedArray<f32>, i32)>,
 }
 
 pub struct Battlescape {
@@ -30,7 +33,7 @@ impl Battlescape {
         let (result_sender, result_receiver) = unbounded();
 
         std::thread::spawn(move || {
-            battlescape_runner(request_receiver, result_sender)
+            battlescape_runner(request_receiver, result_sender);
         });
 
         Battlescape {
@@ -63,19 +66,51 @@ fn battlescape_runner(request_receiver: Receiver<UpdateRequest>, result_sender: 
     let mut schedule = init_schedule();
 
     while let Ok(update_request) = request_receiver.recv() {
-        // Spawn a ship.
-        if let Some((pos, rot)) = update_request.spawn_ship {
-            add_ship(&mut world, pos, rot);
-        }
+        // Prepare ecs update.
+        pre_update(&mut world, &update_request);
 
+        // Update ecs.
         schedule.run_once(&mut world);
 
         // Send result back.
-        if result_sender.send(UpdateResult {
-
-        }).is_err() {
+        if result_sender.send(post_update(&mut world, &update_request)).is_err() {
             break;
         }
+    }
+}
+
+fn pre_update(world: &mut World, update_request: &UpdateRequest) {
+    // Spawn a ship.
+    if let Some((pos, rot)) = update_request.spawn_ship {
+        add_ship(world, pos, rot);
+    }
+
+    // Prepare render data array.
+    if let Some(num_render) = update_request.send_render {
+        unsafe {
+            let mut render_data = TypedArray::new();
+            render_data.resize(num_render * 12);
+            world.get_resource_unchecked_mut::<RenderRes>().unwrap().render_data.replace(render_data);
+        }
+    }
+}
+
+fn post_update(world: &mut World, update_request: &UpdateRequest) -> UpdateResult {
+    // Take the render data from the ecs.
+    let mut render_data = Option::None;
+    if let Some(num_render) = update_request.send_render {
+        let mut render_res =  unsafe { world.get_resource_unchecked_mut::<RenderRes>().unwrap() };
+        let ecs_render_data = render_res.render_data.take().unwrap_or_default();
+        
+        if ecs_render_data.len() == num_render * 12 {
+            render_data.replace((ecs_render_data, render_res.visible_instance));
+        } else {
+            godot_warn!("Expected render data of size {}, but got {} from ecs. Sending empty array instead.", num_render * 12, ecs_render_data.len());
+        }
+    }
+
+    UpdateResult {
+        render_data,
     }
 }
 

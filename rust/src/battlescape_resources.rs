@@ -1,5 +1,5 @@
 // use bevy_ecs::prelude::*;
-use gdnative::core_types::Rid;
+use gdnative::core_types::TypedArray;
 use rapier2d::prelude::*;
 
 /// Modify the game.
@@ -34,6 +34,6 @@ pub struct ColliderSetRes(pub ColliderSet);
 
 /// All that is needed to render sprites.
 pub struct RenderRes {
-    pub multimesh_rid: Rid,
-    pub multimesh_allocate: i32,
+    pub render_data: Option<TypedArray<f32>>,
+    pub visible_instance: i32,
 }

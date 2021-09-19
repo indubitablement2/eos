@@ -42,48 +42,47 @@ pub fn physic_system(
 
 /// TODO: Draw order.
 pub fn draw_system(
-    render_res: Res<RenderRes>, 
+    mut render_res: ResMut<RenderRes>, 
     body_set: Res<BodySetRes>,
     query_physic: Query<(&Renderable, &PhysicBodyHandle)>, 
     _query: Query<(&Renderable, &Position)>
 ) {
-    let mut render_data = gdnative::core_types::Float32Array::new();
-    render_data.resize(render_res.multimesh_allocate);
+    if let Some(render_data) = &mut render_res.render_data {
+        let mut instances = 0;
+        {
+            let mut render_data_write = render_data.write();
+            let mut i = 0;
+            query_physic.for_each(|(_renderable, body_handle)| {
+                // transform 8, color 0, custom 4
+                let body_mat = body_set.0.get(body_handle.0).unwrap().position().to_matrix();
+                
+                // Write transform.
+                render_data_write[i] = body_mat[(0, 0)];
+                render_data_write[i+1] = body_mat[(0, 1)];
+                // render_data_write[i+2] = 0.0;
+                render_data_write[i+3] = body_mat[(0, 2)];
+                render_data_write[i+4] = body_mat[(1, 0)];
+                render_data_write[i+5] = body_mat[(1, 1)];
+                // render_data_write[i+6] = 0.0;
+                render_data_write[i+7] = body_mat[(1, 2)];
 
-    // Number of visible instances.
-    let mut instances = 0i64;
+                // TODO: Color.
 
-    {
-        let mut render_data_write = render_data.write();
-        let mut i = 0;
-        query_physic.for_each(|(_renderable, body_handle)| {
-            // transform 8, color 0, custom 4
-            let body_mat = body_set.0.get(body_handle.0).unwrap().position().to_matrix();
-            
-            // Write transform.
-            render_data_write[i] = body_mat[(0, 0)];
-            render_data_write[i+1] = body_mat[(0, 1)];
-            // render_data_write[i+2] = 0.0;
-            render_data_write[i+3] = body_mat[(0, 2)];
-            render_data_write[i+4] = body_mat[(1, 0)];
-            render_data_write[i+5] = body_mat[(1, 1)];
-            // render_data_write[i+6] = 0.0;
-            render_data_write[i+7] = body_mat[(1, 2)];
+                // Write custom data.
+                render_data_write[i+8] = f32::from_bits(0);
+                // render_data_write[i+9] = 0.0;
+                // render_data_write[i+11] = 0.0;
+                // render_data_write[i+12] = 0.0;
 
-            // TODO: Color.
+                i += 13;
+                instances += 1;
+            });
+        }
 
-            // Write custom data.
-            render_data_write[i+8] = f32::from_bits(0);
-            // render_data_write[i+9] = 0.0;
-            // render_data_write[i+11] = 0.0;
-            // render_data_write[i+12] = 0.0;
-
-            i += 13;
-            instances += 1;
-        });
+        render_res.visible_instance = instances;
     }
 
-    let visual_server = unsafe { gdnative::api::VisualServer::godot_singleton() };
-    visual_server.multimesh_set_as_bulk_array(render_res.multimesh_rid, render_data);
-    visual_server.multimesh_set_visible_instances(render_res.multimesh_rid, instances);
+    // let visual_server = unsafe { gdnative::api::VisualServer::godot_singleton() };
+    // visual_server.multimesh_set_as_bulk_array(render_res.multimesh_rid, render_data);
+    // visual_server.multimesh_set_visible_instances(render_res.multimesh_rid, instances);
 }
