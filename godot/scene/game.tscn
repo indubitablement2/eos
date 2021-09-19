@@ -1,16 +1,18 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=8 format=2]
 
 [ext_resource path="res://native/Chunk.gdns" type="Script" id=1]
 [ext_resource path="res://shaders/terrain.material" type="Material" id=2]
 [ext_resource path="res://component/Camera.tscn" type="PackedScene" id=3]
 [ext_resource path="res://scene/game.gd" type="Script" id=4]
 [ext_resource path="res://assets/icon/godot-ferris-32x32.png" type="Texture" id=5]
+[ext_resource path="res://shaders/sprite_display.material" type="Material" id=6]
 
-[sub_resource type="ImageTexture" id=1]
+[sub_resource type="ImageTexture" id=3]
 flags = 0
 flags = 0
 
 [node name="Game" type="Node2D"]
+material = ExtResource( 6 )
 script = ExtResource( 4 )
 
 [node name="Camera2D" parent="." instance=ExtResource( 3 )]
@@ -18,10 +20,11 @@ script = ExtResource( 4 )
 [node name="Chunk" type="Sprite" parent="."]
 material = ExtResource( 2 )
 scale = Vector2( 32, 32 )
-texture = SubResource( 1 )
+texture = SubResource( 3 )
 script = ExtResource( 1 )
 
 [node name="Sprite" type="Sprite" parent="."]
+modulate = Color( 0, 0.866667, 0.137255, 1 )
 position = Vector2( 32, 32 )
 texture = ExtResource( 5 )
 centered = false

@@ -20,6 +20,6 @@ func _init() -> void:
 	if dir.open(GlobalVariable.MODS_FOLDER) != OK:
 		push_error("Can not open ")
 		return
-	dir.list_dir_begin()
+#	dir.list_dir_begin()
 	
 	queue_free()

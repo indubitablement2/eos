@@ -24,7 +24,7 @@ GlobalVariable="*res://autoload/global_variable.gd"
 FileSetup="*res://autoload/file_setup.gd"
 AudioMgr="*res://autoload/audio_mgr.gd"
 ModMgr="*res://autoload/mod_mgr.gd"
-TexturePacker="*res://autoload/texture_packer.gd"
+SpritePacker="*res://autoload/sprite_packer.gd"
 SceneChanger="*res://autoload/scene_changer.gd"
 
 [custom]
@@ -93,4 +93,5 @@ common/physics_fps=30
 
 [rendering]
 
+threads/thread_model=2
 environment/default_environment="res://default_env.tres"

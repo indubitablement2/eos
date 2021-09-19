@@ -1,14 +1,70 @@
 extends Node2D
 
-var wait_for_update = 60
+onready var canvas_rid := get_canvas_item()
+onready var mesh_rid := VisualServer.mesh_create()
+onready var multimesh_rid := VisualServer.multimesh_create()
+
+onready var viewport_size := get_tree().get_root().get_size()
+
+onready var def := []
+onready var def_img := Image.new()
+onready var def_tex := ImageTexture.new()
+
+onready var tex_rid := SpritePacker.tex.get_rid()
 
 func _ready() -> void:
-	get_node("Chunk").init_generate_chunk(256, 256)
-	# Update once to receive render data.
-	get_node("Chunk").update()
+	_init_mesh()
+	_init_mat()
+	allocate_mesh(100)
 
-#func _process(_delta):
-#	wait_for_update -= 1
-#	if wait_for_update <= 0:
-#		wait_for_update = 60
-#		get_node("Game").update()
+func _draw() -> void:
+	# get data from currently displayed scape.
+	VisualServer.canvas_item_add_multimesh(canvas_rid, multimesh_rid, tex_rid)
+
+func _exit_tree() -> void:
+	VisualServer.free_rid(multimesh_rid)
+	VisualServer.free_rid(mesh_rid)
+
+func allocate_mesh(num: int) -> void:
+	VisualServer.multimesh_allocate(multimesh_rid, num, VisualServer.MULTIMESH_TRANSFORM_2D, VisualServer.MULTIMESH_COLOR_NONE, VisualServer.MULTIMESH_CUSTOM_DATA_FLOAT)
+
+# Setup base mesh and multimesh.
+func _init_mesh() -> void:
+	var vertices := PoolVector2Array()
+	vertices.push_back(Vector2(-0.5, -0.5))
+	vertices.push_back(Vector2(0.5, -0.5))
+	vertices.push_back(Vector2(0.5, 0.5))
+	vertices.push_back(Vector2(-0.5, 0.5))
+	
+	var uvs := PoolVector2Array()
+	uvs.push_back(Vector2(0, 0));
+	uvs.push_back(Vector2(1, 0));
+	uvs.push_back(Vector2(1, 1));
+	uvs.push_back(Vector2(0, 1));
+	
+	var colors := PoolColorArray()
+	colors.push_back(Color(1, 1, 1, 1));
+	colors.push_back(Color(1, 1, 1, 1));
+	colors.push_back(Color(1, 1, 1, 1));
+	colors.push_back(Color(1, 1, 1, 1));
+	
+	var indices := PoolIntArray()
+	indices.push_back(0);
+	indices.push_back(1);
+	indices.push_back(2);
+	indices.push_back(2);
+	indices.push_back(3);
+	indices.push_back(0);
+	
+	var arr := []
+	arr.resize(VisualServer.ARRAY_MAX)
+	arr[VisualServer.ARRAY_VERTEX] = vertices
+	arr[VisualServer.ARRAY_TEX_UV] = uvs
+	arr[VisualServer.ARRAY_COLOR] = colors
+	arr[VisualServer.ARRAY_INDEX] = indices
+	
+	VisualServer.mesh_add_surface_from_arrays(mesh_rid, VisualServer.PRIMITIVE_TRIANGLES, arr)
+	VisualServer.multimesh_set_mesh(multimesh_rid, mesh_rid)
+
+func _init_mat() -> void:
+	get_material().set_shader_param("def_texture", def_tex)

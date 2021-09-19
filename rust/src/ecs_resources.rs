@@ -1,12 +1,39 @@
+// use bevy_ecs::prelude::*;
+use gdnative::core_types::Rid;
+use rapier2d::prelude::*;
+
+/// Modify the game.
 pub struct GameParameterRes {
     pub drag: f32, // Velocity is multiplied by this each tick.
 }
 
 pub struct TimeRes {
-    /// One tick is one second of simulated time.
     pub tick: u32,
-    /// Time in second that is not a full tick. When above 1, tick is incremented and tick_accumulator is reduced by 1.
-    pub time_accumulator: f32,
-    /// Delta from Godot.
-    pub delta: f32,
+}
+
+// ! Physic
+
+pub struct PhysicsPipelineRes(pub PhysicsPipeline);
+pub struct IntegrationParametersRes(pub IntegrationParameters);
+pub struct IslandManagerRes(pub IslandManager);
+pub struct BroadPhaseRes(pub BroadPhase);
+pub struct NarrowPhaseRes(pub NarrowPhase);
+pub struct JointSetRes(pub JointSet);
+pub struct CCDSolverRes(pub CCDSolver);
+pub struct EventCollectorRes(pub ChannelEventCollector);
+
+pub struct ContactEventReceiverRes(pub crossbeam_channel::Receiver<ContactEvent>);
+pub struct IntersectionEventReceiverRes(pub crossbeam_channel::Receiver<IntersectionEvent>);
+
+/// Rigid body set from rapier.
+pub struct BodySetRes(pub RigidBodySet);
+/// Collider set from rapier.
+pub struct ColliderSetRes(pub ColliderSet);
+
+// ! Render
+
+/// All that is needed to render sprites.
+pub struct RenderRes {
+    pub multimesh_rid: Rid,
+    pub multimesh_allocate: i32,
 }
