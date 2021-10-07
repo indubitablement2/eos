@@ -1,5 +1,4 @@
 use gdnative::core_types::Vector2;
-use rapier2d::prelude::*;
 
 /// Entity's current tile.
 pub struct TileLocation {
@@ -18,8 +17,6 @@ pub struct Velocity {
 
 pub struct Renderable {}
 
-pub struct PhysicBodyHandle(pub RigidBodyHandle);
-pub struct PhysicCollisionHandle(pub ColliderHandle);
 // /// On which layers this entity reside.
 // pub struct PhysicLayer {
 //     pub layer_mask: u32,

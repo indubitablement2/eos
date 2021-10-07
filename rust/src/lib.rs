@@ -1,10 +1,11 @@
-pub mod battlescape;
-pub mod battlescape_components;
-pub mod battlescape_input;
-pub mod battlescape_resources;
-pub mod battlescape_schedue;
-pub mod battlescape_systems;
+pub mod constants;
+pub mod ecs;
+pub mod ecs_components;
+pub mod ecs_input;
+pub mod ecs_resources;
+pub mod ecs_systems;
 mod game;
+pub mod render_pipeline;
 
 use gdnative::prelude::{godot_init, InitHandle};
 
