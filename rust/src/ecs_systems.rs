@@ -1,9 +1,12 @@
-use crate::ecs_components::*;
 use crate::ecs_resources::*;
 use bevy_ecs::prelude::*;
 
-pub fn time_system(mut time: ResMut<TimeRes>) {
-    time.tick += 1;
+pub fn time_system(mut time: ResMut<TimeRes>, param: Res<GameParameterRes>) {
+    time.time += time.delta;
+    if time.time >= param.day_lenght {
+        time.time -= param.day_lenght;
+        time.days += 1;
+    }
 }
 
 // pub fn apply_velocity(query: Query<(&Velocity, &mut Position)>) {
@@ -53,4 +56,7 @@ pub fn time_system(mut time: ResMut<TimeRes>) {
 
 //         render_res.visible_instance = instances;
 //     }
+
+// ! DO NOT NEED TO fill the rest of the render data array with 0 as extra instance are invisible.
+
 // }

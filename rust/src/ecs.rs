@@ -1,13 +1,12 @@
 use crate::constants::*;
-use crate::ecs_components::*;
 use crate::ecs_resources::*;
 use crate::ecs_systems::*;
 use bevy_ecs::prelude::*;
 use gdnative::prelude::*;
+use std::mem::take;
 
 pub struct EcsUpdateResult {
-    /// This is the bulk array and the number of visible sprites.
-    pub render_data: (TypedArray<f32>, i64),
+    pub render_res: RenderRes,
 }
 
 pub struct Ecs {
@@ -24,42 +23,31 @@ impl Ecs {
         }
     }
 
-    /// Send an update request to the ecs.
-    pub fn update(&mut self, delta: f32) -> EcsUpdateResult {
-        // * Pre-update:
+    /// Update the ecs.
+    pub unsafe fn update(&mut self, delta: f32) -> EcsUpdateResult {
+        self.pre_update(delta);
+        self.schedule.run_once(&mut self.world);
+        self.post_update()
+    }
+
+    /// Prepare to update.
+    unsafe fn pre_update(&mut self, delta: f32) {
+        // Set delta.
+        self.world.get_resource_unchecked_mut::<TimeRes>().unwrap().delta = delta.into();
+
         // Prepare render data array.
-        unsafe {
-            let mut render_data = TypedArray::new();
-            render_data.resize(NUM_RENDER * 12);
-            self.world
-                .get_resource_unchecked_mut::<RenderRes>()
-                .unwrap()
-                .render_data
-                .replace(render_data);
+        let mut render_res = self.world.get_resource_unchecked_mut::<RenderRes>().unwrap();
+        render_res.render_data.resize(NUM_RENDER * 12);
+    }
+
+    /// Finish update and fetch render data.
+    unsafe fn post_update(&mut self) -> EcsUpdateResult {
+        
+
+        EcsUpdateResult {
+            // Take the render data from the ecs and replace it with default.
+            render_res: take(&mut self.world.get_resource_unchecked_mut::<RenderRes>().unwrap()),
         }
-
-        // * Update:
-
-        // * Post-update:
-        // Take the render data from the ecs.
-        // let mut render_data = Option::None;
-        // if let Some(num_render) = update_request.send_render {
-        //     let mut render_res = unsafe { world.get_resource_unchecked_mut::<RenderRes>().unwrap() };
-        //     let ecs_render_data = render_res.render_data.take().unwrap_or_default();
-
-        //     if ecs_render_data.len() == num_render * 12 {
-        //         render_data.replace((ecs_render_data, render_res.visible_instance));
-        //     } else {
-        //         godot_warn!(
-        //             "Expected render data of size {}, but got {} from ecs. Sending empty array instead.",
-        //             num_render * 12,
-        //             ecs_render_data.len()
-        //         );
-        //     }
-
-        // }
-
-        todo!()
     }
 }
 
@@ -67,8 +55,14 @@ fn init_world() -> World {
     let mut world = World::default();
 
     // Insert other resources.
-    world.insert_resource(TimeRes { tick: 0 });
-    world.insert_resource(GameParameterRes { drag: 0.75 });
+    world.insert_resource(TimeRes::default());
+    world.insert_resource(GameParameterRes::default());
+
+    // Render resource.
+    world.insert_resource(RenderRes {
+        render_data: TypedArray::new(),
+        visible_instance: 0,
+    });
 
     world
 }
