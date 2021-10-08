@@ -1,5 +1,5 @@
-use crate::ecs_resources::*;
 use crate::constants::*;
+use crate::ecs_resources::*;
 use bevy_ecs::prelude::*;
 
 pub fn time_system(mut time: ResMut<TimeRes>, param: Res<GameParameterRes>) {
@@ -67,7 +67,6 @@ pub fn prepare_render(mut render_res: ResMut<RenderRes>) {
 // ! DO NOT NEED TO fill the rest of the render data array with 0 as extra instance are invisible.
 
 // }
-
 
 /// Send the render data to Godot for rendering.
 pub fn render_finalize(render_res: Res<RenderRes>) {

@@ -18,9 +18,7 @@ impl Game {
 
     /// The "constructor" of the class.
     fn new(_owner: &Node2D) -> Self {
-        Game {
-            ecs: None,
-        }
+        Game { ecs: None }
     }
 
     #[export]
@@ -31,7 +29,10 @@ impl Game {
         if let Some(ecs) = &self.ecs {
             // Free the rids we created.
             let visual_server = gdnative::api::VisualServer::godot_singleton();
-            let render_res = ecs.world.get_resource_unchecked_mut::<crate::ecs_resources::RenderRes>().unwrap();
+            let render_res = ecs
+                .world
+                .get_resource_unchecked_mut::<crate::ecs_resources::RenderRes>()
+                .unwrap();
             visual_server.free_rid(render_res.multimesh_rid);
             visual_server.free_rid(render_res.mesh_rid);
         }

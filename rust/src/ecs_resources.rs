@@ -1,6 +1,6 @@
 // use bevy_ecs::prelude::*;
-use gdnative::core_types::*;
 use gdnative::api::*;
+use gdnative::core_types::*;
 
 use crate::constants::NUM_RENDER;
 

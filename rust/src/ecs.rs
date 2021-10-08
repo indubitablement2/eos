@@ -31,8 +31,7 @@ impl Ecs {
     }
 
     /// Finish update.
-    unsafe fn post_update(&mut self) {
-    }
+    unsafe fn post_update(&mut self) {}
 }
 
 fn init_world(canvas_rid: Rid, texture_rid: Rid) -> World {
