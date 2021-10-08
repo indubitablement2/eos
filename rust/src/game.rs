@@ -1,5 +1,4 @@
 use crate::ecs::*;
-use crate::render_pipeline::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
 
@@ -9,8 +8,7 @@ use gdnative::prelude::*;
 #[inherit(Node2D)]
 #[register_with(Self::register_builder)]
 pub struct Game {
-    ecs: Ecs,
-    render_pipeline: RenderPipeline,
+    ecs: Option<Ecs>,
 }
 
 #[methods]
@@ -19,35 +17,42 @@ impl Game {
     fn register_builder(_builder: &ClassBuilder<Self>) {}
 
     /// The "constructor" of the class.
-    fn new(owner: &Node2D) -> Self {
+    fn new(_owner: &Node2D) -> Self {
         Game {
-            ecs: Ecs::new(),
-            render_pipeline: RenderPipeline::new(owner),
+            ecs: None,
         }
     }
 
     #[export]
     unsafe fn _ready(&mut self, _owner: &Node2D) {}
 
-    /// Free the rid we created.
     #[export]
     unsafe fn _exit_tree(&mut self, _owner: &Node2D) {
-        let visual_server = gdnative::api::VisualServer::godot_singleton();
-        visual_server.free_rid(self.render_pipeline.multimesh_rid);
-        visual_server.free_rid(self.render_pipeline.mesh_rid);
+        if let Some(ecs) = &self.ecs {
+            // Free the rids we created.
+            let visual_server = gdnative::api::VisualServer::godot_singleton();
+            let render_res = ecs.world.get_resource_unchecked_mut::<crate::ecs_resources::RenderRes>().unwrap();
+            visual_server.free_rid(render_res.multimesh_rid);
+            visual_server.free_rid(render_res.mesh_rid);
+        }
     }
 
     #[export]
     unsafe fn _process(&mut self, _owner: &Node2D, delta: f32) {
-        let update_result = self.ecs.update(delta);
-        self.render_pipeline.maybe_render_res = Some(update_result.render_res);
-        self.render_pipeline.render();
-
-        // Render
+        if let Some(ecs) = &mut self.ecs {
+            ecs.update(delta);
+        }
     }
 
     #[export]
     unsafe fn _draw(&mut self, _owner: &Node2D) {}
+
+    #[export]
+    unsafe fn init_ecs(&mut self, owner: &Node2D, texture_rid: Rid) {
+        if self.ecs.is_none() {
+            self.ecs = Some(Ecs::new(owner.get_canvas_item(), texture_rid))
+        }
+    }
 
     #[export]
     unsafe fn test(&mut self, _ownder: &Node2D) {
@@ -65,9 +70,19 @@ impl Game {
         godot_print!("t1: {:?}", &t1);
         godot_print!("t2 push: {:?}", &t2);
 
-        let t3 = t2.clone();
+        let mut t3 = t2.clone();
         godot_print!("t1: {:?}", &t1);
         godot_print!("t2: {:?}", &t2);
         godot_print!("t3 clone t2: {:?}", &t3);
+
+        t3.set(0, 50.0);
+        godot_print!("t1: {:?}", &t1);
+        godot_print!("t2: {:?}", &t2);
+        godot_print!("t3 set 50.0: {:?}", &t3);
+
+        t2.resize(0);
+        godot_print!("t1: {:?}", &t1);
+        godot_print!("t2 resize 0: {:?}", &t2);
+        godot_print!("t3: {:?}", &t3);
     }
 }
