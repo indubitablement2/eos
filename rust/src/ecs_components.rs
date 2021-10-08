@@ -15,7 +15,10 @@ pub struct VelocityComp {
     pub velocity: Vec2,
 }
 
-pub struct SpriteComp {}
+pub struct SpriteComp {
+    pub sprite_id: u32,
+    pub color: (f32, f32, f32),
+}
 
 // /// On which layers this entity reside.
 // pub struct PhysicLayer {
