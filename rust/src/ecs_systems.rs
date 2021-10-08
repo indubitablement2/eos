@@ -24,7 +24,7 @@ pub fn prepare_render(mut render_res: ResMut<RenderRes>) {
 pub fn move_floating_origin(
     player_res: Res<PlayerRes>,
     mut floating_origin_res: ResMut<FloatingOriginRes>,
-    mut query: Query<&mut Position>,
+    mut query: Query<&mut PositionComp>,
 ) {
     // Find how far the player is to the floating origin (this is just his position in single player).
     let mut difference = Vec2::ZERO;
@@ -100,6 +100,11 @@ pub fn move_floating_origin(
 // ! DO NOT NEED TO fill the rest of the render data array with 0 as extra instance are invisible.
 
 // }
+
+/// TODO: Fetch sprite entity and make a bulk data array.
+pub fn render_prepare_sprites() {
+    todo!()
+}
 
 /// Send the render data to Godot for rendering.
 pub fn render_finalize(render_res: Res<RenderRes>) {

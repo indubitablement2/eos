@@ -1,21 +1,21 @@
 use glam::{IVec2, Vec2};
 
 /// Entity's current tile.
-pub struct TileLocation {
+pub struct TileLocationComp {
     pub current_tile: IVec2,
 }
 
 /// Position relative to floating origin.
-pub struct Position {
+pub struct PositionComp {
     pub position: Vec2,
 }
 
 /// Always tends toward 0.
-pub struct Velocity {
+pub struct VelocityComp {
     pub velocity: Vec2,
 }
 
-pub struct Sprite {}
+pub struct SpriteComp {}
 
 // /// On which layers this entity reside.
 // pub struct PhysicLayer {
