@@ -39,35 +39,35 @@ impl Game {
 
     #[export]
     unsafe fn _process(&mut self, _owner: &Node2D, delta: f32) {
-        self.ecs.update(delta);
-        // start battlescape
-        // let num_render = self.render_res.multimesh_allocate;
-        // self.battlescapes.values_mut().for_each(|bc| {
-        //     let update_request = UpdateRequest {
-        //         send_render: Some(num_render),
-        //         spawn_ship: Option::None,
-        //     };
-        //     if bc.update(update_request).is_err() {
-        //         // TODO: Remove battlescape.
-        //         godot_error!("Can not send to Battlescape. It probably crashed.");
-        //     }
-        // });
+        let update_result = self.ecs.update(delta);
+        self.render_pipeline.maybe_render_res = Some(update_result.render_res);
+        self.render_pipeline.render();
 
-        // todo: wait for result
+        // Render
     }
 
     #[export]
-    unsafe fn _draw(&mut self, _owner: &Node2D) {
-        if let Some((render_data, num_instances)) = self.render_pipeline.render_data.take() {
-            let visual_server = gdnative::api::VisualServer::godot_singleton();
-            visual_server.multimesh_set_as_bulk_array(self.render_pipeline.multimesh_rid, render_data);
-            visual_server.multimesh_set_visible_instances(self.render_pipeline.multimesh_rid, num_instances);
-            visual_server.canvas_item_add_multimesh(
-                self.render_pipeline.canvas_rid,
-                self.render_pipeline.multimesh_rid,
-                self.render_pipeline.texture_rid,
-                self.render_pipeline.texture_rid,
-            );
-        }
+    unsafe fn _draw(&mut self, _owner: &Node2D) {}
+
+    #[export]
+    unsafe fn test(&mut self, _ownder: &Node2D) {
+        println!("hello");
+        let mut t1: TypedArray<f32> = TypedArray::default();
+        let mut t2 = t1.clone();
+        godot_print!("t1 empty: {:?}", &t1);
+        godot_print!("t2 clone: {:?}", &t2);
+
+        t1.push(123.4);
+        godot_print!("t1 push: {:?}", &t1);
+        godot_print!("t2: {:?}", &t2);
+
+        t2.push(8.8);
+        godot_print!("t1: {:?}", &t1);
+        godot_print!("t2 push: {:?}", &t2);
+
+        let t3 = t2.clone();
+        godot_print!("t1: {:?}", &t1);
+        godot_print!("t2: {:?}", &t2);
+        godot_print!("t3 clone t2: {:?}", &t3);
     }
 }

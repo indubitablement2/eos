@@ -42,8 +42,6 @@ impl Ecs {
 
     /// Finish update and fetch render data.
     unsafe fn post_update(&mut self) -> EcsUpdateResult {
-        
-
         EcsUpdateResult {
             // Take the render data from the ecs and replace it with default.
             render_res: take(&mut self.world.get_resource_unchecked_mut::<RenderRes>().unwrap()),

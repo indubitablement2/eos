@@ -2,6 +2,7 @@ use gdnative::api::*;
 use gdnative::prelude::*;
 use std::convert::TryInto;
 use std::mem::replace;
+use crate::ecs_resources::RenderRes;
 
 /// All that is needed to render sprites.
 pub struct RenderPipeline {
@@ -11,8 +12,10 @@ pub struct RenderPipeline {
     pub multimesh_allocate: i32,
     pub texture: Ref<TextureArray>,
     pub texture_rid: Rid,
+    /// Unused.
     pub normal_texture_rid: Rid,
-    pub render_data: Option<(TypedArray<f32>, i64)>,
+    /// RenderRes taken from the Ecs.
+    pub maybe_render_res: Option<RenderRes>,
 }
 
 impl RenderPipeline {
@@ -52,7 +55,22 @@ impl RenderPipeline {
             texture: texture.into_shared(),
             texture_rid,
             normal_texture_rid: Rid::new(),
-            render_data: Option::None,
+            maybe_render_res: None,
+        }
+    }
+
+    pub fn render(&mut self) {
+        if let Some(render_res) = self.maybe_render_res.take() {
+            let visual_server = unsafe { gdnative::api::VisualServer::godot_singleton() };
+
+            visual_server.multimesh_set_as_bulk_array(self.multimesh_rid, render_res.render_data);
+            visual_server.multimesh_set_visible_instances(self.multimesh_rid, render_res.visible_instance);
+            visual_server.canvas_item_add_multimesh(
+                self.canvas_rid,
+                self.multimesh_rid,
+                self.texture_rid,
+                self.normal_texture_rid,
+            );
         }
     }
 }

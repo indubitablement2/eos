@@ -28,3 +28,6 @@ modulate = Color( 0, 0.866667, 0.137255, 1 )
 position = Vector2( 32, 32 )
 texture = ExtResource( 5 )
 centered = false
+
+[node name="Game" type="Node2D" parent="."]
+script = ExtResource( 1 )
