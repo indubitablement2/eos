@@ -1,21 +1,23 @@
-use gdnative::core_types::Vector2;
+use glam::Vec2;
 
 /// Entity's current tile.
 pub struct TileLocation {
     pub current_tile: u32,
 }
 
-/// Position relative to map top left corner.
+/// Position relative to player's current tile.
 pub struct Position {
-    pub position: Vector2,
+    pub position: Vec2,
 }
 
 /// Always tends toward 0.
 pub struct Velocity {
-    pub velocity: Vector2,
+    pub velocity: Vec2,
 }
 
-pub struct Renderable {}
+pub struct Sprite {
+    
+}
 
 // /// On which layers this entity reside.
 // pub struct PhysicLayer {

@@ -1,6 +1,7 @@
 // use bevy_ecs::prelude::*;
 use gdnative::api::*;
 use gdnative::core_types::*;
+use glam::DVec2;
 
 use crate::constants::NUM_RENDER;
 
@@ -8,8 +9,8 @@ use crate::constants::NUM_RENDER;
 pub struct GameParameterRes {
     /// Velocity is multiplied by this each tick.
     pub drag: f32,
-    /// How many seconds a day last.
-    pub day_lenght: f64,
+    /// How many real seconds a day last.
+    pub day_lenght: f32,
 }
 impl Default for GameParameterRes {
     fn default() -> Self {
@@ -23,10 +24,10 @@ impl Default for GameParameterRes {
 pub struct TimeRes {
     /// Number of days elapsed.
     pub days: u32,
-    /// Time in seconds for this day.
-    pub time: f64,
+    /// Time in real seconds for this day.
+    pub time: f32,
     /// Time elapsed since last update.
-    pub delta: f64,
+    pub delta: f32,
 }
 impl Default for TimeRes {
     fn default() -> Self {
@@ -37,6 +38,12 @@ impl Default for TimeRes {
         }
     }
 }
+
+pub struct FloatingOrigin {
+    /// Position relative to true origine (0.0, 0.0).
+    pub floating_origin_position: DVec2,
+}
+
 
 // ! Physic
 

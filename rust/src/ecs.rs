@@ -27,7 +27,7 @@ impl Ecs {
     /// Prepare to update.
     unsafe fn pre_update(&mut self, delta: f32) {
         // Set delta.
-        self.world.get_resource_unchecked_mut::<TimeRes>().unwrap().delta = delta.into();
+        self.world.get_resource_unchecked_mut::<TimeRes>().unwrap().delta = delta;
     }
 
     /// Finish update.
