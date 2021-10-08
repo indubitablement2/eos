@@ -1,6 +1,9 @@
 use crate::constants::*;
+use crate::ecs_components::*;
 use crate::ecs_resources::*;
 use bevy_ecs::prelude::*;
+use gdnative::godot_print;
+use glam::Vec2;
 
 pub fn time_system(mut time: ResMut<TimeRes>, param: Res<GameParameterRes>) {
     time.time += time.delta;
@@ -13,6 +16,36 @@ pub fn time_system(mut time: ResMut<TimeRes>, param: Res<GameParameterRes>) {
 pub fn prepare_render(mut render_res: ResMut<RenderRes>) {
     if render_res.render_data.len() == NUM_RENDER * DATA_PER_INSTANCE {
         render_res.render_data.resize(NUM_RENDER * 12);
+    }
+}
+
+/// Move the floating origin to the player if it past a threshold.
+/// TODO: Move floating origin to the center of players cluster for multiplayer.
+pub fn move_floating_origin(
+    player_res: Res<PlayerRes>,
+    mut floating_origin_res: ResMut<FloatingOriginRes>,
+    mut query: Query<&mut Position>,
+) {
+    // Find how far the player is to the floating origin (this is just his position in single player).
+    let mut difference = Vec2::ZERO;
+    if let Ok(player_position) = query.get_mut(player_res.entity) {
+        difference = player_position.position;
+    }
+
+    if difference.length() > MAX_FLOATING_ORIGIN_DISTANCE_TO_PLAYER {
+        // TODO: Move origin position and tile.
+        floating_origin_res.floating_origin_position += difference.as_dvec2();
+
+        // Move every entity with position.
+        query.for_each_mut(|mut pos| {
+            pos.position -= difference;
+        });
+
+        godot_print!(
+            "Moved floating origin to {:?}. Difference: {:?}.",
+            &floating_origin_res.floating_origin_position,
+            difference
+        );
     }
 }
 

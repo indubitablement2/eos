@@ -1,9 +1,10 @@
-// use bevy_ecs::prelude::*;
+use crate::constants::NUM_RENDER;
+use bevy_ecs::prelude::Entity;
 use gdnative::api::*;
 use gdnative::core_types::*;
 use glam::DVec2;
-
-use crate::constants::NUM_RENDER;
+use glam::IVec2;
+use std::convert::TryFrom;
 
 /// Modify the game.
 pub struct GameParameterRes {
@@ -39,11 +40,38 @@ impl Default for TimeRes {
     }
 }
 
-pub struct FloatingOrigin {
-    /// Position relative to true origine (0.0, 0.0).
+pub struct FloatingOriginRes {
+    /// Floating origin position relative to true origine (0.0, 0.0).
     pub floating_origin_position: DVec2,
+    /// Floating origin tile location.
+    pub floating_origin_tile: IVec2,
 }
 
+/// Tiles that are loaded. This is like a rect2 on all possible tiles.
+pub struct LoadedChunkRes {
+    /// First tile in this chunk.
+    pub position_start: IVec2,
+    /// Dimention of the chunk.
+    pub extend: IVec2,
+    /// Helper derived from position and extend.
+    width: i32,
+    /// Loaded tiles are stored in a contiguous array.
+    pub tiles: Vec<()>, // TODO
+}
+impl LoadedChunkRes {
+    /// Return the tile index inside tiles array. Value is clamped if outside this chunk.
+    #[inline]
+    pub fn get_tile_index(&self, tile: IVec2) -> usize {
+        let relative_position = tile - self.position_start;
+        usize::try_from(relative_position.x + relative_position.y * self.width)
+            .unwrap_or_default()
+            .min(self.tiles.len())
+    }
+}
+
+pub struct PlayerRes {
+    pub entity: Entity,
+}
 
 // ! Physic
 

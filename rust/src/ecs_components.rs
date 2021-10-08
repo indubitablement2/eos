@@ -1,11 +1,11 @@
-use glam::Vec2;
+use glam::{IVec2, Vec2};
 
 /// Entity's current tile.
 pub struct TileLocation {
-    pub current_tile: u32,
+    pub current_tile: IVec2,
 }
 
-/// Position relative to player's current tile.
+/// Position relative to floating origin.
 pub struct Position {
     pub position: Vec2,
 }
@@ -15,9 +15,7 @@ pub struct Velocity {
     pub velocity: Vec2,
 }
 
-pub struct Sprite {
-    
-}
+pub struct Sprite {}
 
 // /// On which layers this entity reside.
 // pub struct PhysicLayer {

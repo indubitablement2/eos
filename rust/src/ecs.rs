@@ -18,6 +18,8 @@ impl Ecs {
     }
 
     /// Update the ecs.
+    /// # Safety
+    /// Make sure all ecs resources are initialized and unborrowed or this may panic.
     pub unsafe fn update(&mut self, delta: f32) {
         self.pre_update(delta);
         self.schedule.run_once(&mut self.world);
