@@ -13,4 +13,3 @@ func _ready() -> void:
 	
 	# Done. Go to main menu.
 	SceneChanger.change_scene(SceneChanger.MAIN_MENU)
-	get_canvas()
