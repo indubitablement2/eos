@@ -18,6 +18,8 @@ impl Game {
 
     /// The "constructor" of the class.
     fn new(_owner: &Node2D) -> Self {
+        let engine = gdnative::api::engine::Engine::godot_singleton();
+        let singleton = engine.get_singleton("Hi").unwrap();
         Game { ecs: None }
     }
 
