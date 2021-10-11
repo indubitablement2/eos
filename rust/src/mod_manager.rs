@@ -9,6 +9,7 @@ use crate::constants::MOD_CONFIG_FILE_PATH;
 #[register_with(Self::register_builder)]
 pub struct ModManager {
     mod_config: ModConfig,
+    game_def: Option<GameDef>,
     /// The atlas texture where all sprites are packed.
     atlas_texture: Option<Ref<TextureArray>>,
 }
@@ -23,6 +24,7 @@ impl ModManager {
         Self {
             mod_config: ModConfig::default(),
             atlas_texture: None,
+            game_def: None
         }
     }
 
@@ -35,7 +37,11 @@ impl ModManager {
             let data_read = data.read();
             if let Ok(new_mod_config) = bincode::deserialize::<ModConfig>(&data_read) {
                 self.mod_config = new_mod_config;
+            } else {
+                godot_error!("Could not deserialize mod config.");
             }
+        } else {
+            godot_error!("Could not open {}.", MOD_CONFIG_FILE_PATH);
         }
         file.close();
     }
@@ -67,4 +73,11 @@ impl Default for ModConfig {
             num_enabled_mod: 0,
         }
     }
+}
+
+pub struct GameDef {
+
+}
+impl GameDef {
+
 }
