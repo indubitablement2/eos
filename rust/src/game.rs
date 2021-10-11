@@ -18,13 +18,17 @@ impl Game {
 
     /// The "constructor" of the class.
     fn new(_owner: &Node2D) -> Self {
-        let engine = gdnative::api::engine::Engine::godot_singleton();
-        let singleton = engine.get_singleton("Hi").unwrap();
         Game { ecs: None }
     }
 
     #[export]
-    unsafe fn _ready(&mut self, _owner: &Node2D) {}
+    unsafe fn _ready(&mut self, _owner: &Node2D) {
+        // let asd = autoload::<Node>("asd").unwrap();
+        // let cm = asd.cast_instance::<ConfigManager>().unwrap().claim().assume_safe();
+        // let n = cm.map(|a, b| {
+        //     a.config.audio_config.music_volume;
+        // });
+    }
 
     #[export]
     unsafe fn _exit_tree(&mut self, _owner: &Node2D) {

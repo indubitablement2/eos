@@ -1,4 +1,4 @@
-use crate::constants::NUM_RENDER;
+use crate::constants::*;
 use bevy_ecs::prelude::Entity;
 use gdnative::api::*;
 use gdnative::core_types::*;
@@ -111,13 +111,16 @@ impl RenderRes {
             VisualServer::MULTIMESH_CUSTOM_DATA_FLOAT,
         );
 
+        let mut render_data = TypedArray::new();
+        render_data.resize(NUM_RENDER * DATA_PER_INSTANCE);
+
         Self {
             canvas_rid,
             mesh_rid,
             multimesh_rid,
             texture_rid,
             normal_texture_rid: Rid::new(),
-            render_data: TypedArray::new(),
+            render_data,
             visible_instance: 0,
         }
     }

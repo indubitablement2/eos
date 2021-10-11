@@ -5,17 +5,11 @@ use bevy_ecs::prelude::*;
 use gdnative::godot_print;
 use glam::Vec2;
 
-pub fn time_system(mut time: ResMut<TimeRes>, param: Res<GameParameterRes>) {
-    time.time += time.delta;
-    if time.time >= param.day_lenght {
-        time.time -= param.day_lenght;
-        time.days += 1;
-    }
-}
-
-pub fn prepare_render(mut render_res: ResMut<RenderRes>) {
-    if render_res.render_data.len() == NUM_RENDER * DATA_PER_INSTANCE {
-        render_res.render_data.resize(NUM_RENDER * 12);
+pub fn time_system(mut time_res: ResMut<TimeRes>, param_res: Res<GameParameterRes>) {
+    time_res.time += time_res.delta;
+    if time_res.time >= param_res.day_lenght {
+        time_res.time -= param_res.day_lenght;
+        time_res.days += 1;
     }
 }
 
@@ -108,16 +102,14 @@ pub fn render_prepare_sprites() {
 
 /// Send the render data to Godot for rendering.
 pub fn render_finalize(render_res: Res<RenderRes>) {
-    if render_res.render_data.len() == NUM_RENDER * DATA_PER_INSTANCE {
-        let visual_server = unsafe { gdnative::api::VisualServer::godot_singleton() };
+    let visual_server = unsafe { gdnative::api::VisualServer::godot_singleton() };
 
-        visual_server.multimesh_set_as_bulk_array(render_res.multimesh_rid, render_res.render_data.clone());
-        visual_server.multimesh_set_visible_instances(render_res.multimesh_rid, render_res.visible_instance);
-        visual_server.canvas_item_add_multimesh(
-            render_res.canvas_rid,
-            render_res.multimesh_rid,
-            render_res.texture_rid,
-            render_res.normal_texture_rid,
-        );
-    }
+    visual_server.multimesh_set_as_bulk_array(render_res.multimesh_rid, render_res.render_data.clone());
+    visual_server.multimesh_set_visible_instances(render_res.multimesh_rid, render_res.visible_instance);
+    visual_server.canvas_item_add_multimesh(
+        render_res.canvas_rid,
+        render_res.multimesh_rid,
+        render_res.texture_rid,
+        render_res.normal_texture_rid,
+    );
 }

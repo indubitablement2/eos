@@ -2,6 +2,8 @@ use gdnative::api::*;
 use gdnative::prelude::*;
 use serde::{Serialize, Deserialize};
 
+use crate::constants::MOD_CONFIG_FILE_PATH;
+
 #[derive(NativeClass)]
 #[inherit(Node)]
 #[register_with(Self::register_builder)]
@@ -25,10 +27,30 @@ impl ModManager {
     }
 
     #[export]
-    unsafe fn _ready(&mut self, _owner: &Node) {}
+    unsafe fn _ready(&mut self, _owner: &Node) {
+        // Load mod config.
+        let file = File::new();
+        if file.open(MOD_CONFIG_FILE_PATH, File::READ).is_ok() {
+            let data = file.get_var(false).to_byte_array();
+            let data_read = data.read();
+            if let Ok(new_mod_config) = bincode::deserialize::<ModConfig>(&data_read) {
+                self.mod_config = new_mod_config;
+            }
+        }
+        file.close();
+    }
 
     #[export]
-    unsafe fn _exit_tree(&mut self, _owner: &Node) {}
+    unsafe fn _exit_tree(&mut self, _owner: &Node) {
+        // Save mod config.
+        let file = File::new();
+        if file.open(MOD_CONFIG_FILE_PATH, File::WRITE).is_ok() {
+            if let Ok(data) = bincode::serialize(&self.mod_config) {
+                file.store_var(TypedArray::from_vec(data), false);
+            }
+        }
+        file.close();
+    }
 }
 
 #[derive(Serialize, Deserialize)]
