@@ -7,9 +7,12 @@ func _init() -> void:
 	var dir := Directory.new()
 	
 	# Base folders.
-	if !dir.dir_exists(GlobalVariable.SAVES_FOLDER):
-		if dir.make_dir_recursive(GlobalVariable.SAVES_FOLDER) != OK:
-			push_error("Error trying to make " + GlobalVariable.SAVES_FOLDER)
+	if !dir.dir_exists(GlobalVariable.WORLD_FOLDER):
+		if dir.make_dir_recursive(GlobalVariable.WORLD_FOLDER) != OK:
+			push_error("Error trying to make " + GlobalVariable.WORLD_FOLDER)
+	if !dir.dir_exists(GlobalVariable.CHARACTER_FOLDER):
+		if dir.make_dir_recursive(GlobalVariable.CHARACTER_FOLDER) != OK:
+			push_error("Error trying to make " + GlobalVariable.CHARACTER_FOLDER)
 	if !dir.dir_exists(GlobalVariable.MODS_FOLDER):
 		if dir.make_dir_recursive(GlobalVariable.MODS_FOLDER) != OK:
 			push_error("Error trying to make " + GlobalVariable.MODS_FOLDER)

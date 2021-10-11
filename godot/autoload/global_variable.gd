@@ -14,7 +14,8 @@ const NUM_ENABLED_MOD = "custom/mod/num_enabled_mod"
 const MOD_ORDER = "custom/mod/mod_order"
 
 # Folder path
-const SAVES_FOLDER = "user://saves"
-const MODS_FOLDER = "user://mods"
+const MODS_FOLDER = "user://mods/"
+const WORLD_FOLDER = "user://worlds/"
+const CHARACTER_FOLDER = "user://characters/"
 
 const BASE_FOLDER = "res://base/"

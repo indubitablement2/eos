@@ -1,8 +1,7 @@
+use crate::constants::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
 use serde::{Serialize, Deserialize};
-
-use crate::constants::MOD_CONFIG_FILE_PATH;
 
 #[derive(NativeClass)]
 #[inherit(Node)]
@@ -30,20 +29,13 @@ impl ModManager {
 
     #[export]
     unsafe fn _ready(&mut self, _owner: &Node) {
-        // Load mod config.
-        let file = File::new();
-        if file.open(MOD_CONFIG_FILE_PATH, File::READ).is_ok() {
-            let data = file.get_var(false).to_byte_array();
-            let data_read = data.read();
-            if let Ok(new_mod_config) = bincode::deserialize::<ModConfig>(&data_read) {
-                self.mod_config = new_mod_config;
-            } else {
-                godot_error!("Could not deserialize mod config.");
-            }
-        } else {
-            godot_error!("Could not open {}.", MOD_CONFIG_FILE_PATH);
-        }
-        file.close();
+            // let data = file.get_var(false).to_byte_array();
+            // let data_read = data.read();
+            // if let Ok(new_mod_config) = bincode::deserialize::<ModConfig>(&data_read) {
+            //     self.mod_config = new_mod_config;
+            // } else {
+            //     godot_error!("Could not deserialize mod config.");
+            // }
     }
 
     #[export]

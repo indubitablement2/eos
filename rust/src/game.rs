@@ -1,6 +1,9 @@
+use crate::constants::*;
 use crate::ecs::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
+use serde::{Deserialize, Serialize};
+use std::convert::TryInto;
 
 /// Layer between godot and rust.
 /// Godot is used for input/rendering. Rust is used for game logic.
@@ -8,7 +11,11 @@ use gdnative::prelude::*;
 #[inherit(Node2D)]
 #[register_with(Self::register_builder)]
 pub struct Game {
+    name: String,
     ecs: Option<Ecs>,
+    mod_order: Vec<String>,
+    game_def: Option<GameDef>,
+    sprite_atlas: Option<Ref<TextureArray, Unique>>,
 }
 
 #[methods]
@@ -18,7 +25,13 @@ impl Game {
 
     /// The "constructor" of the class.
     fn new(_owner: &Node2D) -> Self {
-        Game { ecs: None }
+        Game {
+            name: String::new(),
+            ecs: None,
+            mod_order: Vec::new(),
+            game_def: None,
+            sprite_atlas: None,
+        }
     }
 
     #[export]
@@ -31,7 +44,9 @@ impl Game {
     }
 
     #[export]
-    unsafe fn _exit_tree(&mut self, _owner: &Node2D) {
+    unsafe fn _exit_tree(&mut self, owner: &Node2D) {
+        self.save_world(owner);
+
         if let Some(ecs) = &self.ecs {
             // Free the rids we created.
             let visual_server = gdnative::api::VisualServer::godot_singleton();
@@ -54,42 +69,129 @@ impl Game {
     #[export]
     unsafe fn _draw(&mut self, _owner: &Node2D) {}
 
+    /// Load a world.
     #[export]
-    unsafe fn init_ecs(&mut self, owner: &Node2D, texture_rid: Rid) {
-        if self.ecs.is_none() {
-            self.ecs = Some(Ecs::new(owner.get_canvas_item(), texture_rid))
+    unsafe fn load_world(&mut self, owner: &Node2D, world_name: String) {
+        self.name = world_name;
+        let world_path: String = format!("{}{}/", WORLDS_PATH, self.name);
+
+        // Load mod order.
+        let mod_order = load_mod_order(&world_path);
+
+        // TODO: Load GameDef or create a new one.
+        let game_def = GameDef::new();
+
+        // Load atlas texture or create a new one.
+        let sprite_atlas = load_sprite_atlas(&world_path);
+
+        // Create Ecs.
+        self.ecs = Some(Ecs::new(owner.get_canvas_item(), sprite_atlas.get_rid()));
+
+        self.mod_order = mod_order;
+        self.game_def = Some(game_def);
+        self.sprite_atlas = Some(sprite_atlas);
+    }
+
+    /// Save this world.
+    #[export]
+    unsafe fn save_world(&mut self, _owner: &Node2D) {
+        if !self.name.is_empty() {
+        } else {
+            godot_warn!("Can not save unnamed world.");
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GameDef {}
+impl GameDef {
+    fn new() -> Self {
+        GameDef {}
+    }
+}
+
+/// Load sprite atlas order.
+fn load_mod_order(world_path: &String) -> Vec<String> {
+    let mut mod_order = Vec::new();
+
+    let file = File::new();
+
+    let mod_order_path = format!("{}mod_order", &world_path);
+
+    if file.open(&mod_order_path, File::READ).is_ok() {
+        let mut line = file.get_line().to_string();
+        while !line.is_empty() {
+            mod_order.push(line);
+            line = file.get_line().to_string();
+        }
+    } else {
+        godot_error!("Could not open {}.", mod_order_path);
+    }
+
+    file.close();
+
+    mod_order
+}
+
+/// Load sprite atlas texture or create a new one.
+fn load_sprite_atlas(world_path: &String) -> Ref<TextureArray, Unique> {
+    let mut atlas_order = Vec::new();
+
+    let file = File::new();
+
+    let atlas_order_path = format!("{}atlas", world_path);
+
+    // Load sprite atlas order.
+    if file.open(&atlas_order_path, File::READ).is_ok() {
+        let mut line = file.get_line();
+        while !line.is_empty() {
+            atlas_order.push(line);
+            line = file.get_line();
+        }
+    } else {
+        godot_error!("Could not open {}.", atlas_order_path);
+    }
+
+    file.close();
+
+    if atlas_order.is_empty() {
+        return create_new_sprite_atlas();
+    }
+
+    let mut sprite_atlas = TextureArray::new();
+    sprite_atlas.create(
+        SPRITE_ATLAS_SIZE,
+        SPRITE_ATLAS_SIZE,
+        atlas_order.len().try_into().unwrap(),
+        Image::FORMAT_DXT5, // TODO: Check if compression is good.
+        0,
+    );
+
+    // Load sprite atlas.
+    let img = Image::new().into_shared();
+    for (i, path) in atlas_order.into_iter().enumerate() {
+        unsafe {
+            if img.assume_safe().load(path).is_ok() {
+                if let Err(err) = img
+                    .assume_safe()
+                    .compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_GENERIC, 0.7) // TODO: Check if compression is good.
+                {
+                    godot_warn!("Error while compressing image: {:?}.", err);
+                    sprite_atlas = create_new_sprite_atlas();
+                    break;
+                }
+                sprite_atlas.set_layer_data(img.assume_safe(), i.try_into().unwrap());
+            } else {
+                godot_warn!("Can not load an image from sprite atlas.");
+                sprite_atlas = create_new_sprite_atlas();
+                break;
+            }
         }
     }
 
-    #[export]
-    unsafe fn test(&mut self, _ownder: &Node2D) {
-        println!("hello");
-        let mut t1: TypedArray<f32> = TypedArray::default();
-        let mut t2 = t1.clone();
-        godot_print!("t1 empty: {:?}", &t1);
-        godot_print!("t2 clone: {:?}", &t2);
+    sprite_atlas
+}
 
-        t1.push(123.4);
-        godot_print!("t1 push: {:?}", &t1);
-        godot_print!("t2: {:?}", &t2);
-
-        t2.push(8.8);
-        godot_print!("t1: {:?}", &t1);
-        godot_print!("t2 push: {:?}", &t2);
-
-        let mut t3 = t2.clone();
-        godot_print!("t1: {:?}", &t1);
-        godot_print!("t2: {:?}", &t2);
-        godot_print!("t3 clone t2: {:?}", &t3);
-
-        t3.set(0, 50.0);
-        godot_print!("t1: {:?}", &t1);
-        godot_print!("t2: {:?}", &t2);
-        godot_print!("t3 set 50.0: {:?}", &t3);
-
-        t2.resize(0);
-        godot_print!("t1: {:?}", &t1);
-        godot_print!("t2 resize 0: {:?}", &t2);
-        godot_print!("t3: {:?}", &t3);
-    }
+fn create_new_sprite_atlas() -> Ref<TextureArray, Unique> {
+    todo!()
 }
