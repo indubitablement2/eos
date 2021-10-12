@@ -1,6 +1,8 @@
 pub mod constants;
 pub mod render_util;
 
+pub mod game_def;
+
 pub mod ecs;
 pub mod ecs_components;
 pub mod ecs_input;
@@ -8,6 +10,7 @@ pub mod ecs_resources;
 pub mod ecs_systems;
 
 mod game;
+
 
 use gdnative::prelude::{godot_init, InitHandle};
 

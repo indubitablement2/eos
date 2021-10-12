@@ -1,8 +1,8 @@
 use crate::constants::*;
 use crate::ecs::*;
+use crate::game_def::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
 /// Layer between godot and rust.
@@ -13,7 +13,6 @@ use std::convert::TryInto;
 pub struct Game {
     name: String,
     ecs: Option<Ecs>,
-    mod_order: Vec<String>,
     game_def: Option<GameDef>,
     sprite_atlas: Option<Ref<TextureArray, Unique>>,
 }
@@ -28,7 +27,6 @@ impl Game {
         Game {
             name: String::new(),
             ecs: None,
-            mod_order: Vec::new(),
             game_def: None,
             sprite_atlas: None,
         }
@@ -75,11 +73,8 @@ impl Game {
         self.name = world_name;
         let world_path: String = format!("{}{}/", WORLDS_PATH, self.name);
 
-        // Load mod order.
-        let mod_order = load_mod_order(&world_path);
-
         // TODO: Load GameDef or create a new one.
-        let game_def = GameDef::new();
+        let (game_def, sprites_paths) = GameDef::new(&world_path);
 
         // Load atlas texture or create a new one.
         let sprite_atlas = load_sprite_atlas(&world_path);
@@ -87,7 +82,6 @@ impl Game {
         // Create Ecs.
         self.ecs = Some(Ecs::new(owner.get_canvas_item(), sprite_atlas.get_rid()));
 
-        self.mod_order = mod_order;
         self.game_def = Some(game_def);
         self.sprite_atlas = Some(sprite_atlas);
     }
@@ -100,37 +94,6 @@ impl Game {
             godot_warn!("Can not save unnamed world.");
         }
     }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct GameDef {}
-impl GameDef {
-    fn new() -> Self {
-        GameDef {}
-    }
-}
-
-/// Load sprite atlas order.
-fn load_mod_order(world_path: &String) -> Vec<String> {
-    let mut mod_order = Vec::new();
-
-    let file = File::new();
-
-    let mod_order_path = format!("{}mod_order", &world_path);
-
-    if file.open(&mod_order_path, File::READ).is_ok() {
-        let mut line = file.get_line().to_string();
-        while !line.is_empty() {
-            mod_order.push(line);
-            line = file.get_line().to_string();
-        }
-    } else {
-        godot_error!("Could not open {}.", mod_order_path);
-    }
-
-    file.close();
-
-    mod_order
 }
 
 /// Load sprite atlas texture or create a new one.
@@ -174,7 +137,7 @@ fn load_sprite_atlas(world_path: &String) -> Ref<TextureArray, Unique> {
             if img.assume_safe().load(path).is_ok() {
                 if let Err(err) = img
                     .assume_safe()
-                    .compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_GENERIC, 0.7) // TODO: Check if compression is good.
+                    .compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_GENERIC, 0.7) // TODO: Check if compression is good. Don't need to compress here.
                 {
                     godot_warn!("Error while compressing image: {:?}.", err);
                     sprite_atlas = create_new_sprite_atlas();
