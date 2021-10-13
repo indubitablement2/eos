@@ -74,7 +74,7 @@ impl Game {
         let world_path: String = format!("{}{}/", WORLDS_PATH, self.name);
 
         // TODO: Load GameDef or create a new one.
-        let (game_def, sprites_paths) = GameDef::new(&world_path);
+        let game_def = GameDef::new(&world_path);
 
         // Load atlas texture or create a new one.
         let sprite_atlas = load_sprite_atlas(&world_path);

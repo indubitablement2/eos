@@ -10,6 +10,7 @@ pub mod ecs_resources;
 pub mod ecs_systems;
 
 mod game;
+pub mod range;
 
 
 use gdnative::prelude::{godot_init, InitHandle};
