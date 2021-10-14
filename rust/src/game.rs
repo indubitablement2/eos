@@ -73,11 +73,11 @@ impl Game {
         self.name = world_name;
         let world_path: String = format!("{}{}/", WORLDS_PATH, self.name);
 
-        // TODO: Load GameDef or create a new one.
-        let game_def = GameDef::new(&world_path);
+        // Load GameDef or create a new one.
+        let game_def = GameDef::load(&world_path);
 
         // Load atlas texture or create a new one.
-        let sprite_atlas = load_sprite_atlas(&world_path);
+        let sprite_atlas = load_sprite_atlas(&world_path); // TODO
 
         // Create Ecs.
         self.ecs = Some(Ecs::new(owner.get_canvas_item(), sprite_atlas.get_rid()));
@@ -97,7 +97,7 @@ impl Game {
 }
 
 /// Load sprite atlas texture or create a new one.
-fn load_sprite_atlas(world_path: &String) -> Ref<TextureArray, Unique> {
+fn load_sprite_atlas(world_path: &str) -> Ref<TextureArray, Unique> {
     let mut atlas_order = Vec::new();
 
     let file = File::new();
@@ -121,7 +121,7 @@ fn load_sprite_atlas(world_path: &String) -> Ref<TextureArray, Unique> {
         return create_new_sprite_atlas();
     }
 
-    let mut sprite_atlas = TextureArray::new();
+    let sprite_atlas = TextureArray::new();
     sprite_atlas.create(
         SPRITE_ATLAS_SIZE,
         SPRITE_ATLAS_SIZE,
@@ -137,17 +137,16 @@ fn load_sprite_atlas(world_path: &String) -> Ref<TextureArray, Unique> {
             if img.assume_safe().load(path).is_ok() {
                 if let Err(err) = img
                     .assume_safe()
-                    .compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_GENERIC, 0.7) // TODO: Check if compression is good. Don't need to compress here.
+                    .compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_GENERIC, 0.7)
+                // TODO: Check if compression is good. Don't need to compress here.
                 {
                     godot_warn!("Error while compressing image: {:?}.", err);
-                    sprite_atlas = create_new_sprite_atlas();
-                    break;
+                    return create_new_sprite_atlas();
                 }
                 sprite_atlas.set_layer_data(img.assume_safe(), i.try_into().unwrap());
             } else {
                 godot_warn!("Can not load an image from sprite atlas.");
-                sprite_atlas = create_new_sprite_atlas();
-                break;
+                return create_new_sprite_atlas();
             }
         }
     }
@@ -155,6 +154,16 @@ fn load_sprite_atlas(world_path: &String) -> Ref<TextureArray, Unique> {
     sprite_atlas
 }
 
+// todo
 fn create_new_sprite_atlas() -> Ref<TextureArray, Unique> {
-    todo!()
+    let sprite_atlas = TextureArray::new();
+    sprite_atlas.create(
+        SPRITE_ATLAS_SIZE,
+        SPRITE_ATLAS_SIZE,
+        1,
+        Image::FORMAT_DXT5, // TODO: Check if compression is good.
+        0,
+    );
+    
+    sprite_atlas
 }

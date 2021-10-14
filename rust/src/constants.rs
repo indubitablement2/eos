@@ -1,5 +1,5 @@
 pub const APP_NAME: &str = "chaos_cascade";
-pub const BASE_GAME: &str = "res://base/";
+pub const BASE_GAME_PATH: &str = "res://base/";
 
 /// Maximum number of renderable sprites.
 pub const NUM_RENDER: i32 = 30000;

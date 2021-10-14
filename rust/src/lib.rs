@@ -1,7 +1,8 @@
-pub mod constants;
-pub mod render_util;
+#![feature(drain_filter)]
 
+pub mod constants;
 pub mod game_def;
+pub mod render_util;
 
 pub mod ecs;
 pub mod ecs_components;
@@ -10,8 +11,6 @@ pub mod ecs_resources;
 pub mod ecs_systems;
 
 mod game;
-pub mod range;
-
 
 use gdnative::prelude::{godot_init, InitHandle};
 

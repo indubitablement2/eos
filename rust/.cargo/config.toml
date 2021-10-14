@@ -1,0 +1,6 @@
+[unstable]
+unstable-options = true
+
+[build]
+# This will copy _.so to godot. You need to chance this if you are not on linux.
+out-dir = "../lib/x86_64-unknown-linux-gnu"

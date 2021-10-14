@@ -1,5 +1,3 @@
-
-
 #[test]
 fn modulo() {
     for i in 1..10 {
