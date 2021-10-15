@@ -2,7 +2,7 @@
 
 pub mod constants;
 pub mod game_def;
-pub mod render_util;
+pub mod utils;
 
 pub mod ecs;
 pub mod ecs_components;

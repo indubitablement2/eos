@@ -74,7 +74,7 @@ impl Game {
         let world_path: String = format!("{}{}/", WORLDS_PATH, self.name);
 
         // Load GameDef or create a new one.
-        let game_def = GameDef::load(&world_path);
+        let game_def = GameDef::load(&world_path, true, true);
 
         // Load atlas texture or create a new one.
         let sprite_atlas = load_sprite_atlas(&world_path); // TODO
@@ -164,6 +164,6 @@ fn create_new_sprite_atlas() -> Ref<TextureArray, Unique> {
         Image::FORMAT_DXT5, // TODO: Check if compression is good.
         0,
     );
-    
+
     sprite_atlas
 }

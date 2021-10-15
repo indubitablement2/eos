@@ -97,7 +97,7 @@ impl RenderRes {
 
         // Create mesh.
         let mesh_rid = visual_server.mesh_create();
-        crate::render_util::init_basic_mesh(visual_server, mesh_rid);
+        crate::utils::init_basic_mesh(visual_server, mesh_rid);
 
         // Create multimesh.
         let multimesh_allocate = NUM_RENDER;

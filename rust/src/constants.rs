@@ -11,6 +11,7 @@ pub const SPRITE_ATLAS_SIZE: i64 = 4096;
 pub const MAX_FLOATING_ORIGIN_DISTANCE_TO_PLAYER: f32 = 10000.0;
 
 pub const MODS_PATH: &str = "user://mods/";
+pub const MOD_CACHE: &str = "user://mod_caches/";
 pub const WORLDS_PATH: &str = "user://worlds/";
 pub const CHARACTERS_PATH: &str = "user://characters/";
 
