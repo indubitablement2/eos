@@ -11,6 +11,7 @@ pub mod ecs_resources;
 pub mod ecs_systems;
 
 mod game;
+pub mod yaml_components;
 
 use gdnative::prelude::{godot_init, InitHandle};
 

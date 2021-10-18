@@ -70,20 +70,26 @@ impl Game {
     /// Load a world.
     #[export]
     unsafe fn load_world(&mut self, owner: &Node2D, world_name: String) {
-        self.name = world_name;
         let world_path: String = format!("{}{}/", WORLDS_PATH, self.name);
 
         // Load GameDef or create a new one.
-        let game_def = GameDef::load(&world_path, true, true);
+        match GameDef::load(&world_path, true, true) {
+            Ok(game_def) => {
+                // Load atlas texture or create a new one.
+                let sprite_atlas = load_sprite_atlas(&world_path); // TODO
 
-        // Load atlas texture or create a new one.
-        let sprite_atlas = load_sprite_atlas(&world_path); // TODO
+                // Create Ecs.
+                self.ecs = Some(Ecs::new(owner.get_canvas_item(), sprite_atlas.get_rid()));
 
-        // Create Ecs.
-        self.ecs = Some(Ecs::new(owner.get_canvas_item(), sprite_atlas.get_rid()));
-
-        self.game_def = Some(game_def);
-        self.sprite_atlas = Some(sprite_atlas);
+                self.name = world_name;
+                self.game_def = Some(game_def);
+                self.sprite_atlas = Some(sprite_atlas);
+            }
+            Err(err) => {
+                godot_error!("Failed loading mods: {:?}", err);
+                // TODO: send error message.
+            }
+        }
     }
 
     /// Save this world.

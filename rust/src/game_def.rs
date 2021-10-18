@@ -1,12 +1,15 @@
 use crate::constants::*;
-use ahash::AHashMap;
+use crate::yaml_components::*;
 use gdnative::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, hash::{Hash, Hasher}, str::pattern::Pattern};
+use std::{
+    convert::TryFrom,
+    hash::{Hash, Hasher},
+};
 
 #[derive(Serialize, Deserialize)]
 pub struct GameDef {
-    pub monsters: Vec<Monster>,
+    pub entities_bundles: Vec<Vec<EcsComponents>>,
     /// The individual sprite location.
     pub sprites_paths: Vec<String>,
     /// The order in which mods are loaded.
@@ -14,24 +17,11 @@ pub struct GameDef {
 }
 impl GameDef {
     /// Load a cached game_def or create a new one.
-    pub fn load(world_path: &str, try_load_from_cache: bool, save_if_new: bool) -> Self {
+    pub fn load(world_path: &str, try_load_from_cache: bool, save_if_new: bool) -> Result<Self, GameDefLoadError> {
         let file = gdnative::api::File::new();
 
-        // Get mod order.
-        let mut mod_order = vec![ModInfo::default()];
-        let mod_order_path = format!("{}mod_order", &world_path);
-        if file.open(&mod_order_path, gdnative::api::File::READ).is_ok() {
-            let data = file.get_as_text().to_string();
-            if let Ok(loaded_mod_order) = serde_yaml::from_str::<Vec<ModInfo>>(&data) {
-                mod_order = loaded_mod_order;
-                godot_print!("Loaded mod order:\n{:?}", &mod_order);
-            } else {
-                godot_warn!("Could not deserialize loaded mod_order. Using default instead.");
-            }
-        } else {
-            godot_warn!("Could not open {}. Using default instead.", mod_order_path);
-        }
-        file.close();
+        // Get mod_order.
+        let mod_order = load_mod_order(world_path);
 
         // Hash mod_order to string. This will be the name of the cached game_def.
         let mut hasher = ahash::AHasher::new_with_keys(1667, 420);
@@ -50,7 +40,7 @@ impl GameDef {
                     if game_def.mod_order == mod_order {
                         godot_print!("Found cached game def.");
                         file.close();
-                        return game_def;
+                        return Ok(game_def);
                     } else {
                         godot_error!(
                             "Found matching cached game_def, but mor_order don't match.\n{:?}\n{:?}",
@@ -68,89 +58,109 @@ impl GameDef {
             godot_print!("Did not find cached game_def. Making and caching a new one.");
         }
 
-        let game_def = GameDef::new(mod_order);
-        
+        // Create a new game_def.
+        let game_def_result = GameDef::new(mod_order);
 
         // Save game_def for faster load time.
         if save_if_new {
-            if file.open(&game_def_path, gdnative::api::File::WRITE).is_ok() {
-                if let Ok(data) = bincode::serialize(&game_def) {
-                    let num_byte = i64::try_from(data.len()).unwrap_or_default();
-                    file.store_64(num_byte);
-                    file.store_buffer(TypedArray::from_vec(data));
+            if let Ok(game_def) = &game_def_result {
+                if file.open(&game_def_path, gdnative::api::File::WRITE).is_ok() {
+                    if let Ok(data) = bincode::serialize(game_def) {
+                        let num_byte = i64::try_from(data.len()).unwrap_or_default();
+                        file.store_64(num_byte);
+                        file.store_buffer(TypedArray::from_vec(data));
+                    } else {
+                        godot_error!("Could not serialize game_def to cache it.");
+                    }
                 } else {
-                    godot_error!("Could not serialize game_def to cache it.");
+                    godot_error!("Could not open {} to cahce game_def.", &game_def_path);
                 }
-            } else {
-                godot_error!("Could not open {} to cahce game_def.", &game_def_path);
+                file.close();
             }
-            file.close();
         }
 
-        game_def
+        game_def_result
     }
 
-    fn new(mod_order: Vec<ModInfo>) -> Self {
+    fn new(mod_order: Vec<ModInfo>) -> Result<Self, GameDefLoadError> {
         let dir = gdnative::api::Directory::new();
+        let file = gdnative::api::File::new();
+
+        // Path are relative to mod folder.
+        // Path: user://mods/my mod/ver_1_002_123/asset/mon.yaml would result in ("asset/mon.yaml", mod_id).
 
         let mut folder_path_to_parse = Vec::with_capacity(256);
-        
-        // All the yaml file that were found ordered by first to last mod to load.
-        let mut yaml_path = Vec::with_capacity(1024);
 
-        // All the png file that were found keyed by their name.
-        // eg: res://base/asset/monster/monster_walk_00_#.png
-        // Last number is important as it the number of oriantation.
-        // In the above example, the sprite name would be asset/monster/monster_walk_00
-        // TODO
-        let mut png_path = AHashMap::with_capacity(1024);
+        // All the yaml file that were found ordered by first to last mod to load.
+        let mut yaml_paths = Vec::with_capacity(1024);
 
         // Start by adding all mod folders.
-        mod_order.iter().rev().for_each(|mod_info| {
-            folder_path_to_parse.push(mod_info.get_path());
-        });
+        for mod_id in 0..mod_order.len() {
+            folder_path_to_parse.push(("".to_string(), mod_id));
+        }
 
-        while let Some(path) = folder_path_to_parse.pop() {
-            if dir.open(path).is_ok() {
+        // Find all yaml files.
+        while let Some((path, mod_id)) = folder_path_to_parse.pop() {
+            if dir.open(format!("{}{}", mod_order[mod_id].get_path(), &path)).is_ok() {
                 if dir.list_dir_begin(true, true).is_ok() {
                     let mut file_name = dir.get_next().to_string();
                     while !file_name.is_empty() {
                         if dir.current_is_dir() {
                             godot_print!("found dir: {}", &file_name);
-                            folder_path_to_parse.push(format!("{}{}/", &path, &file_name));
+                            folder_path_to_parse.push((format!("{}{}/", &path, &file_name), mod_id));
                         } else if file_name.ends_with(".yaml") {
                             godot_print!("found yaml: {}", &file_name);
-                            yaml_path.push(format!("{}{}", &path, &file_name));
-                        } else if let Some(file_parsed_name) = file_name.strip_suffix(".png") {
-                            godot_print!("found png: {}", &file_name);
-                            // Here we need to parse the name of the png in case it has multiple orientation.
-                            
-                            // png_path.push(path.clone() + file_name);
-                        } else {
-                            godot_warn!{"found unknow: {}", &file_name}
+                            yaml_paths.push((format!("{}{}", &path, &file_name), mod_id));
                         }
                         file_name = dir.get_next().to_string();
                     }
                     dir.list_dir_end();
                 } else {
-                    godot_error!("Could not list dir in: {}.", path);
+                    return Err(GameDefLoadError::CouldNotListDir(path));
                 }
             } else {
-                // TODO: Missing mod cancel loading world.
-                godot_error!("Could not open folder: {}.", path);
+                return Err(GameDefLoadError::MissingMod(path));
             }
         }
 
-        Self {
-            monsters: todo!(),
-            sprites_paths: todo!(),
-            mod_order: todo!(),
+        // Parse all yaml into a vector of vector of YamlComponents.
+        let mut list_yaml_components = Vec::with_capacity(yaml_paths.len() * 20);
+        for (yaml_relative_path, mod_id) in yaml_paths.into_iter() {
+            let abs_path = format!("{}{}", mod_order[mod_id].get_path(), &yaml_relative_path);
+            if file.open(&abs_path, gdnative::api::File::READ).is_ok() {
+                if let Ok(mut yaml_components) = serde_yaml::from_str::<Vec<Vec<YamlComponents>>>(&file.get_as_text().to_string())
+                {
+                    list_yaml_components.append(&mut yaml_components);
+                } else {
+                    return Err(GameDefLoadError::CouldNotDeserializeYaml(abs_path));
+                }
+            } else {
+                return Err(GameDefLoadError::CouldNotOpenYaml(abs_path));
+            }
+        }
+
+        // Parse YamlComponents to EcsComponents.
+        match parse_yaml_components(&list_yaml_components) {
+            Ok((entities_bundles, sprites_paths)) => Ok(Self {
+                entities_bundles,
+                sprites_paths,
+                mod_order,
+            }),
+            Err(err) => Err(err),
         }
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum GameDefLoadError {
+    MissingMod(String),
+    CouldNotListDir(String),
+    CouldNotOpenYaml(String),
+    CouldNotDeserializeYaml(String),
+}
+
 /// Represent a mod with its version.
-#[derive(Hash, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Hash, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct ModInfo {
     pub name: String,
     pub version: String,
@@ -220,20 +230,9 @@ fn load_mod_order(world_path: &str) -> Vec<ModInfo> {
             line = file.get_csv_line(",");
         }
     } else {
-        godot_warn!("Could not open {}.", mod_order_path);
+        godot_error!("Could not open {}.", mod_order_path);
     }
     file.close();
-
-    // // Check that each mod exist.
-    // let dir = Directory::new();
-    // mod_order.drain_filter(|mod_name| {
-    //     let mod_path = get_mod_path(mod_name);
-    //     if dir.dir_exists(&mod_path) {
-    //         return false;
-    //     }
-    //     godot_warn!("Could not find {} at {}.", mod_name, &mod_path);
-    //     true
-    // });
 
     // Make sure we a have at least one mod.
     if mod_order.is_empty() {
@@ -243,36 +242,4 @@ fn load_mod_order(world_path: &str) -> Vec<ModInfo> {
     godot_print!("Loaded mod_order: {:?}.", &mod_order);
 
     mod_order
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Monster {
-    name: String,
-    description: String,
-    default_faction: usize,
-
-    size: f32,
-
-    anim_idle: usize,
-    anim_run: usize,
-    material: usize,
-
-    max_hp: i32,
-    // TODO: Damage/armor.
-    speed: f32,
-
-    aggression: i32,
-    morale: i32,
-
-    vision_day: i32,
-    vision_night: i32,
-
-    death_drop: Vec<Drop>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Drop {
-    item: usize,
-    quantity: (u32, u32),
-    chance: (u32, u32),
 }

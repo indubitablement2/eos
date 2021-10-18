@@ -36,6 +36,17 @@ fn main() {
 
     assert_eq!(sp, m.sprite);
     assert_eq!(m, deser);
+
+    println!("\n\n");
+
+    let cloud = GameData::Cloud {
+        color: glam::vec3(0.5, 1.0, 0.2),
+        size: 450.0,
+    };
+
+    let cloud_yaml = serde_yaml::to_string(&cloud).unwrap();
+
+    println!("{}", cloud_yaml);
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -52,4 +63,10 @@ struct Drop {
     item: String,
     amount: Range<u32>,
     chance: (u32, u32),
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+enum GameData {
+    Monster { name: String, hp: i32, damage: i32 },
+    Cloud { color: glam::Vec3, size: f32 },
 }

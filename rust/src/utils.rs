@@ -58,16 +58,3 @@ pub fn init_basic_mesh(visual_server: &VisualServer, mesh_rid: Rid) {
         97280,
     );
 }
-
-/// Return the number the string ends with.
-/// # Examples
-/// "hello_123_0555" would return Some("0555").
-pub fn get_number_sufix(s: &str) -> Option<String> {
-    for a in s[..0] {
-        
-    }
-}
-#[test]
-fn test_get_number_sufix() {
-
-}
