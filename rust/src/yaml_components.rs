@@ -164,6 +164,7 @@ pub fn parse_yaml_components(
 
     entity_bundles.shrink_to_fit();
 
+    // Transform faction_names hashmap to a vector named factions.
     let mut factions = faction_names.keys().map(|s| s.to_owned()).collect::<Vec<String>>();
     factions.sort_by(|a, b| {
         faction_names

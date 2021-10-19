@@ -70,7 +70,7 @@ impl Game {
     /// Load a world.
     #[export]
     unsafe fn load_world(&mut self, owner: &Node2D, world_name: String) {
-        let world_path: String = format!("{}{}/", WORLDS_PATH, self.name);
+        let world_path: String = format!("{}{}/", WORLDS_PATH, world_name);
 
         // Load GameDef or create a new one.
         match GameDef::load(&world_path, true, true) {
