@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 // ! Component that can come from mods.
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Name(String);
+pub struct Name(pub String);
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-pub struct DefaultFaction(u32);
+pub struct DefaultFaction(pub u32);
 
 // ! Components that can't be serialized.
 

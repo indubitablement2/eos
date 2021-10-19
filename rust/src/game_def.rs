@@ -130,7 +130,7 @@ impl GameDef {
             if file.open(&abs_path, gdnative::api::File::READ).is_ok() {
                 if let Ok(mut yaml_components) = serde_yaml::from_str::<Vec<Vec<YamlComponents>>>(&file.get_as_text().to_string())
                 {
-                    list_yaml_components.append(&mut yaml_components);
+                    list_yaml_components.push(yaml_components);
                 } else {
                     return Err(GameDefLoadError::CouldNotDeserializeYaml(abs_path));
                 }

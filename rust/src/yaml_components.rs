@@ -1,4 +1,5 @@
 use crate::ecs_components::*;
+use bevy_ecs::component::Component;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -74,9 +75,12 @@ pub enum EcsComponents {
 /// Conert YamlComponents to EcsComponents and the path to their sprite asset they.
 /// Order need to be preserved in the sprite vector as components will only keep a usize to reference their sprite.
 pub fn parse_yaml_components(
-    yaml_components: &[Vec<YamlComponents>],
+    yaml_components: &[Vec<Vec<YamlComponents>>],
 ) -> Result<(Vec<Vec<EcsComponents>>, Vec<String>), crate::game_def::GameDefLoadError> {
     // TODO: If can't find sprite file, sprite_id = 0.
     // TODO: Auto check for rotated sprite t, tr, r, br, b, bl, l, tl
+
+    
+
     todo!()
 }
