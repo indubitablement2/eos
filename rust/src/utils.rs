@@ -1,3 +1,5 @@
+// TODO: Move this. Don't want to keep a mushpot of random function.
+
 use gdnative::api::*;
 use gdnative::prelude::*;
 use std::convert::TryInto;
