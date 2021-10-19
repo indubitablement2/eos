@@ -90,6 +90,7 @@ impl EcsComponents {
 pub fn parse_yaml_components(
     yaml_components: Vec<Vec<Vec<YamlComponents>>>,
 ) -> Result<(Vec<Vec<EcsComponents>>, Vec<String>), crate::game_def::GameDefLoadError> {
+    // TODO: Don't try to find sprite location. This is the job of the sprite packer.
     // TODO: If can't find sprite file, sprite_id = 0.
     // TODO: Auto check for rotated sprite t, tr, r, br, b, bl, l, tl
 

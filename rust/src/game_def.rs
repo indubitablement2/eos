@@ -10,7 +10,7 @@ use std::{
 #[derive(Serialize, Deserialize)]
 pub struct GameDef {
     pub entities_bundles: Vec<Vec<EcsComponents>>,
-    /// The individual sprite location.
+    /// The individual sprite location. We keep this to quickly remake the sprite array in case it is deleted.
     pub sprites_paths: Vec<String>,
     /// The order in which mods are loaded.
     pub mod_order: Vec<ModInfo>,
