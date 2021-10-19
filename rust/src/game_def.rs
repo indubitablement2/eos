@@ -124,12 +124,11 @@ impl GameDef {
         }
 
         // Parse all yaml into a vector of vector of YamlComponents.
-        let mut list_yaml_components = Vec::with_capacity(yaml_paths.len() * 20);
+        let mut list_yaml_components = Vec::with_capacity(yaml_paths.len());
         for (yaml_relative_path, mod_id) in yaml_paths.into_iter() {
             let abs_path = format!("{}{}", mod_order[mod_id].get_path(), &yaml_relative_path);
             if file.open(&abs_path, gdnative::api::File::READ).is_ok() {
-                if let Ok(mut yaml_components) = serde_yaml::from_str::<Vec<Vec<YamlComponents>>>(&file.get_as_text().to_string())
-                {
+                if let Ok(yaml_components) = serde_yaml::from_str::<Vec<Vec<YamlComponents>>>(&file.get_as_text().to_string()) {
                     list_yaml_components.push(yaml_components);
                 } else {
                     return Err(GameDefLoadError::CouldNotDeserializeYaml(abs_path));
@@ -140,7 +139,7 @@ impl GameDef {
         }
 
         // Parse YamlComponents to EcsComponents.
-        match parse_yaml_components(&list_yaml_components) {
+        match parse_yaml_components(list_yaml_components) {
             Ok((entities_bundles, sprites_paths)) => Ok(Self {
                 entities_bundles,
                 sprites_paths,

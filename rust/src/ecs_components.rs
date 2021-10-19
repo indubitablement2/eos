@@ -1,15 +1,26 @@
 use glam::{IVec2, Vec2};
 use serde::{Deserialize, Serialize};
 
-// ! Component that can come from mods.
+// #[component(storage = "SparseSet")]
+// Faster add/remove, slower iteration than default.
 
+// ! Component that directly come from mods.
+
+/// A reference to the bundle this entity came from as well as the name(referenceId) of the bundle.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+pub struct BundleReferenceId(pub usize);
+
+// ! Components that can't directly come from mods.
+
+/// The display name of the entity.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Name(pub String);
 
+/// The faction of the entity.
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-pub struct DefaultFaction(pub u32);
+pub struct Faction(pub usize);
 
-// ! Components that can't be serialized.
+// TODO: Clean these.
 
 /// Entity's current tile.
 pub struct TileLocationComp {
