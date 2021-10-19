@@ -118,6 +118,9 @@ impl GameDef {
                         } else if file_name.ends_with(".yaml") {
                             godot_print!("found yaml: {}", &file_name);
                             yaml_paths.push((format!("{}{}", &path, &file_name), mod_id));
+                        } else if file_name.ends_with(".json") {
+                            godot_print!("found json: {}", &file_name);
+                            yaml_paths.push((format!("{}{}", &path, &file_name), mod_id));
                         }
                         file_name = dir.get_next().to_string();
                     }
