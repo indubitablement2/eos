@@ -41,6 +41,7 @@ impl Game {
         // });
     }
 
+    /// TODO: For some reason this get called twice.
     #[export]
     unsafe fn _exit_tree(&mut self, owner: &Node2D) {
         self.save_world(owner);
@@ -73,29 +74,24 @@ impl Game {
         let world_path: String = format!("{}{}/", WORLDS_PATH, world_name);
 
         // Load GameDef or create a new one.
-        match GameDef::load(&world_path, true, true) {
-            Ok(game_def) => {
-                // Load atlas texture or create a new one.
-                let sprite_atlas = load_sprite_atlas(&world_path); // TODO
+        let game_def = GameDef::load(&world_path, true, true);
 
-                // Create Ecs.
-                self.ecs = Some(Ecs::new(owner.get_canvas_item(), sprite_atlas.get_rid()));
+        // Load atlas texture or create a new one.
+        let sprite_atlas = load_sprite_atlas(&world_path); // TODO
 
-                self.name = world_name;
-                self.game_def = Some(game_def);
-                self.sprite_atlas = Some(sprite_atlas);
-            }
-            Err(err) => {
-                godot_error!("Failed loading mods: {:?}", err);
-                // TODO: send error message.
-            }
-        }
+        // Create Ecs.
+        self.ecs = Some(Ecs::new(owner.get_canvas_item(), sprite_atlas.get_rid()));
+
+        self.name = world_name;
+        self.game_def = Some(game_def);
+        self.sprite_atlas = Some(sprite_atlas);
     }
 
     /// Save this world.
     #[export]
     unsafe fn save_world(&mut self, _owner: &Node2D) {
         if !self.name.is_empty() {
+            // TODO: Save world.
         } else {
             godot_warn!("Can not save unnamed world.");
         }

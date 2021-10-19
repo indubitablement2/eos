@@ -9,6 +9,7 @@ use std::{
 
 #[derive(Serialize, Deserialize)]
 pub struct GameDef {
+    pub corrupted: bool,
     pub entities_bundles: Vec<Vec<EcsComponents>>,
     /// The individual sprite location. We keep this to quickly remake the sprite array in case it is deleted.
     pub sprites_paths: Vec<String>,
@@ -16,8 +17,8 @@ pub struct GameDef {
     pub mod_order: Vec<ModInfo>,
 }
 impl GameDef {
-    /// Load a cached game_def or create a new one.
-    pub fn load(world_path: &str, try_load_from_cache: bool, save_if_new: bool) -> Result<Self, GameDefLoadError> {
+    /// Load a cached game_def or create a new one. Return true if it is corrupted.
+    pub fn load(world_path: &str, try_load_from_cache: bool, save_if_new: bool) -> Self {
         let file = gdnative::api::File::new();
 
         // Get mod_order.
@@ -40,7 +41,9 @@ impl GameDef {
                     if game_def.mod_order == mod_order {
                         godot_print!("Found cached game def.");
                         file.close();
-                        return Ok(game_def);
+
+                        debug_assert!(!game_def.corrupted);
+                        return game_def;
                     } else {
                         godot_error!(
                             "Found matching cached game_def, but mor_order don't match.\n{:?}\n{:?}",
@@ -59,32 +62,36 @@ impl GameDef {
         }
 
         // Create a new game_def.
-        let game_def_result = GameDef::new(mod_order);
+        let game_def = GameDef::new(mod_order);
 
         // Save game_def for faster load time.
-        if save_if_new {
-            if let Ok(game_def) = &game_def_result {
-                if file.open(&game_def_path, gdnative::api::File::WRITE).is_ok() {
-                    if let Ok(data) = bincode::serialize(game_def) {
-                        let num_byte = i64::try_from(data.len()).unwrap_or_default();
-                        file.store_64(num_byte);
-                        file.store_buffer(TypedArray::from_vec(data));
-                    } else {
-                        godot_error!("Could not serialize game_def to cache it.");
-                    }
+        if save_if_new && !game_def.corrupted {
+            if file.open(&game_def_path, gdnative::api::File::WRITE).is_ok() {
+                if let Ok(data) = bincode::serialize(&game_def) {
+                    let num_byte = i64::try_from(data.len()).unwrap_or_default();
+                    file.store_64(num_byte);
+                    file.store_buffer(TypedArray::from_vec(data));
+                    godot_print!("Cached GameDef.");
                 } else {
-                    godot_error!("Could not open {} to cahce game_def.", &game_def_path);
+                    godot_error!("Could not serialize game_def to cache it.");
                 }
-                file.close();
+            } else {
+                godot_error!("Could not open {} to cahce game_def.", &game_def_path);
             }
+            file.close();
+        } else {
+            godot_print!("Not caching GameDef.");
         }
 
-        game_def_result
+        game_def
     }
 
-    fn new(mod_order: Vec<ModInfo>) -> Result<Self, GameDefLoadError> {
+    /// This does a best effort to compile all mods. Return a potentialy corrupted GameDef if any error where encountered.
+    fn new(mod_order: Vec<ModInfo>) -> Self {
         let dir = gdnative::api::Directory::new();
         let file = gdnative::api::File::new();
+
+        let mut corrupted = false;
 
         // Path are relative to mod folder.
         // Path: user://mods/my mod/ver_1_002_123/asset/mon.yaml would result in ("asset/mon.yaml", mod_id).
@@ -116,10 +123,12 @@ impl GameDef {
                     }
                     dir.list_dir_end();
                 } else {
-                    return Err(GameDefLoadError::CouldNotListDir(path));
+                    corrupted = true;
+                    godot_error!("Could not list dir for {}. Ignoring this folder.", path);
                 }
             } else {
-                return Err(GameDefLoadError::MissingMod(path));
+                corrupted = true;
+                godot_error!("Could not open {}. Ignoring this folder.", path);
             }
         }
 
@@ -131,31 +140,25 @@ impl GameDef {
                 if let Ok(yaml_components) = serde_yaml::from_str::<Vec<Vec<YamlComponents>>>(&file.get_as_text().to_string()) {
                     list_yaml_components.push(yaml_components);
                 } else {
-                    return Err(GameDefLoadError::CouldNotDeserializeYaml(abs_path));
+                    // Ignore this file as it can not be deserialized.
+                    corrupted = true;
+                    godot_error!("Could not deserialize Yaml {}. Ignoring file.", abs_path);
                 }
             } else {
-                return Err(GameDefLoadError::CouldNotOpenYaml(abs_path));
+                corrupted = true;
+                godot_error!("Could not open Yaml {}. Ignoring file.", abs_path);
             }
         }
 
         // Parse YamlComponents to EcsComponents.
-        match parse_yaml_components(list_yaml_components) {
-            Ok((entities_bundles, sprites_paths)) => Ok(Self {
-                entities_bundles,
-                sprites_paths,
-                mod_order,
-            }),
-            Err(err) => Err(err),
+        let yaml_parse_result = YamlParseResult::parse_yaml_components(list_yaml_components);
+        Self {
+            corrupted: corrupted && yaml_parse_result.corrupted,
+            entities_bundles: yaml_parse_result.entity_bundles,
+            sprites_paths: yaml_parse_result.sprites,
+            mod_order,
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum GameDefLoadError {
-    MissingMod(String),
-    CouldNotListDir(String),
-    CouldNotOpenYaml(String),
-    CouldNotDeserializeYaml(String),
 }
 
 /// Represent a mod with its version.

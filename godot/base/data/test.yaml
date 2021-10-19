@@ -1,0 +1,8 @@
+---
+ReferenceId: default
+Name: default.
+DefaultFaction: zombie
+---
+ReferenceId: test_monster
+Name: a test.
+DefaultFaction: zombie
