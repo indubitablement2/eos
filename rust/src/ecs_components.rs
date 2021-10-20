@@ -20,6 +20,13 @@ pub struct Name(pub String);
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct Faction(pub usize);
 
+/// A sprite and a color.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+pub struct Sprite {
+    pub sprite_id: usize,
+    pub color: [f32; 4],
+}
+
 // TODO: Clean these.
 
 /// Entity's current tile.
@@ -35,11 +42,6 @@ pub struct PositionComp {
 /// Always tends toward 0.
 pub struct VelocityComp {
     pub velocity: Vec2,
-}
-
-pub struct SpriteComp {
-    pub sprite_id: u32,
-    pub color: (f32, f32, f32),
 }
 
 // /// On which layers this entity reside.

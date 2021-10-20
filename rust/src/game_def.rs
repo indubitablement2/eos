@@ -1,6 +1,7 @@
 use crate::constants::*;
 use crate::yaml_components::*;
 use gdnative::prelude::*;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::{
     convert::TryFrom,
@@ -10,7 +11,8 @@ use std::{
 #[derive(Serialize, Deserialize)]
 pub struct GameDef {
     pub corrupted: bool,
-    pub entities_bundles: Vec<Vec<EcsComponents>>,
+    #[serde(with = "indexmap::serde_seq")]
+    pub entities_bundles: IndexMap<String, Vec<EcsComponents>>,
     /// The individual sprite location. We keep this to quickly remake the sprite array in case it is deleted.
     pub sprites_paths: Vec<String>,
     /// The order in which mods are loaded.
@@ -156,7 +158,7 @@ impl GameDef {
         // Parse YamlComponents to EcsComponents.
         let yaml_parse_result = YamlParseResult::parse_yaml_components(list_yaml_components);
         Self {
-            corrupted: corrupted && yaml_parse_result.corrupted,
+            corrupted: corrupted,
             entities_bundles: yaml_parse_result.entity_bundles,
             sprites_paths: yaml_parse_result.sprites,
             mod_order,
