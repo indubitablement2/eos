@@ -150,7 +150,10 @@ impl YamlParseResult {
                                 }
                             } else {
                                 sprite_component_pos = current_bundle.len();
-                                current_bundle.push(EcsComponents::Sprite(Sprite { sprite_id: id, color: [1.0; 4] }));
+                                current_bundle.push(EcsComponents::Sprite(Sprite {
+                                    sprite_id: id,
+                                    color: [1.0; 4],
+                                }));
                             }
                         }
                         YamlComponents::Color(v) => {
@@ -168,7 +171,10 @@ impl YamlParseResult {
                                 }
                             } else {
                                 sprite_component_pos = current_bundle.len();
-                                current_bundle.push(EcsComponents::Sprite(Sprite { sprite_id: 0, color: new_col }));
+                                current_bundle.push(EcsComponents::Sprite(Sprite {
+                                    sprite_id: 0,
+                                    color: new_col,
+                                }));
                             }
                         }
                         YamlComponents::DeathTrigger(_) => todo!(),

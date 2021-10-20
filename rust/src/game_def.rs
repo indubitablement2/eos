@@ -158,7 +158,7 @@ impl GameDef {
         // Parse YamlComponents to EcsComponents.
         let yaml_parse_result = YamlParseResult::parse_yaml_components(list_yaml_components);
         Self {
-            corrupted: corrupted,
+            corrupted,
             entities_bundles: yaml_parse_result.entity_bundles,
             sprites_paths: yaml_parse_result.sprites,
             mod_order,
