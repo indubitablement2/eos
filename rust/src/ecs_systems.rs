@@ -2,7 +2,6 @@ use crate::constants::*;
 use crate::ecs_components::*;
 use crate::ecs_resources::*;
 use bevy_ecs::prelude::*;
-use gdnative::godot_print;
 use glam::Vec2;
 
 pub fn time_system(mut time_res: ResMut<TimeRes>, param_res: Res<GameParameterRes>) {
@@ -35,11 +34,11 @@ pub fn move_floating_origin(
             pos.position -= difference;
         });
 
-        godot_print!(
-            "Moved floating origin to {:?}. Difference: {:?}.",
-            &floating_origin_res.floating_origin_position,
-            difference
-        );
+        // godot_print!(
+        //     "Moved floating origin to {:?}. Difference: {:?}.",
+        //     &floating_origin_res.floating_origin_position,
+        //     difference
+        // );
     }
 }
 
@@ -100,16 +99,16 @@ pub fn render_prepare_sprites() {
     todo!()
 }
 
-/// Send the render data to Godot for rendering.
-pub fn render_finalize(render_res: Res<RenderRes>) {
-    let visual_server = unsafe { gdnative::api::VisualServer::godot_singleton() };
+// /// Send the render data to Godot for rendering.
+// pub fn render_finalize(render_res: Res<RenderRes>) {
+// let visual_server = unsafe { gdnative::api::VisualServer::godot_singleton() };
 
-    visual_server.multimesh_set_as_bulk_array(render_res.multimesh_rid, render_res.render_data.clone());
-    visual_server.multimesh_set_visible_instances(render_res.multimesh_rid, render_res.visible_instance);
-    visual_server.canvas_item_add_multimesh(
-        render_res.canvas_rid,
-        render_res.multimesh_rid,
-        render_res.texture_rid,
-        render_res.normal_texture_rid,
-    );
-}
+// visual_server.multimesh_set_as_bulk_array(render_res.multimesh_rid, render_res.render_data.clone());
+// visual_server.multimesh_set_visible_instances(render_res.multimesh_rid, render_res.visible_instance);
+// visual_server.canvas_item_add_multimesh(
+//     render_res.canvas_rid,
+//     render_res.multimesh_rid,
+//     render_res.texture_rid,
+//     render_res.normal_texture_rid,
+// );
+// }

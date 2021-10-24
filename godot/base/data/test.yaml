@@ -2,6 +2,8 @@
 - - ReferenceId: default
   - Name: default
   - DefaultFaction: zombie
+  - Sprite: sp/colors
 - - ReferenceId: test_monster
   - Name: a test
   - DefaultFaction: zombie
+  - Sprite: sp/wide_test

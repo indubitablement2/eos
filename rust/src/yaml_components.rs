@@ -1,4 +1,4 @@
-use crate::ecs_components::*;
+use crate::{ecs_components::*, game_def::ModInfo};
 use gdnative::{godot_print, godot_warn};
 use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
@@ -88,36 +88,38 @@ impl EcsComponents {
     }
 }
 
+#[derive(Debug)]
 pub struct YamlParseResult {
     pub entity_bundles: IndexMap<String, Vec<EcsComponents>>,
     pub factions: Vec<String>,
-    pub sprites: Vec<String>,
+    /// Does not include .png prefix.
+    pub sprite_paths: IndexSet<String>,
 }
 impl YamlParseResult {
     /// Conert YamlComponents to EcsComponents and the path to their sprite assets.
     /// Order need to be preserved in the resulting sprites vector as components will only keep a usize to reference their sprites.
-    pub fn parse_yaml_components(yaml_components: Vec<Vec<Vec<YamlComponents>>>) -> Self {
+    pub fn parse_yaml_components(yaml_components: Vec<(Vec<Vec<YamlComponents>>, usize)>, mod_order: &[ModInfo]) -> Self {
         // TODO: Don't try to find sprite location. This is the job of the sprite packer.
         // TODO: If can't find sprite file, sprite_id = 0.
         // TODO: Auto check for rotated sprite t, tr, r, br, b, bl, l, tl
 
         // Get the number of bundle we have to parse.
         let num_bundle = yaml_components.iter().fold(0, |acc, yaml_group| {
-            acc + yaml_group.iter().fold(0, |acc, yaml_bundle| acc + yaml_bundle.len())
+            acc + yaml_group.0.iter().fold(0, |acc, yaml_bundle| acc + yaml_bundle.len())
         });
 
         // The name of a bundle with the bundle itself. Order is important.
         let mut entity_bundles: IndexMap<String, Vec<EcsComponents>> = IndexMap::with_capacity(num_bundle);
 
-        // The names of factions their id.
+        // The names of factions and their id.
         let mut faction_names: IndexSet<String> = IndexSet::with_capacity(32);
 
-        // The path to sprites. Does not include auto rotation like t, tr, r, etc.
+        // The absolute path to sprites. Does not include auto rotation like t, tr, r, etc.
         let mut sprite_paths: IndexSet<String> = IndexSet::with_capacity(num_bundle * 6);
         // Sprite [0] is reserved for error.
         sprite_paths.insert("error".to_string());
 
-        for yaml_group in yaml_components.into_iter() {
+        for (yaml_group, mod_id) in yaml_components.into_iter() {
             for yaml_bundle in yaml_group.into_iter() {
                 // A new bundle where we will add parsed YamlComponents.
                 let mut current_bundle: Vec<EcsComponents> = Vec::with_capacity(yaml_bundle.len());
@@ -142,7 +144,7 @@ impl YamlParseResult {
                             current_bundle.push(EcsComponents::Faction(Faction(id)));
                         }
                         YamlComponents::Sprite(v) => {
-                            let (id, _) = sprite_paths.insert_full(v);
+                            let (id, _) = sprite_paths.insert_full(format!("{}{}", mod_order[mod_id].get_path(), v));
 
                             if let Some(comp) = current_bundle.get_mut(sprite_component_pos) {
                                 if let EcsComponents::Sprite(ecs_sprite_comp) = comp {
@@ -209,12 +211,11 @@ impl YamlParseResult {
 
         // Transform hashsets to vectors.
         let factions = faction_names.into_iter().collect::<Vec<String>>();
-        let sprites = sprite_paths.into_iter().collect::<Vec<String>>();
 
         Self {
             entity_bundles,
             factions,
-            sprites,
+            sprite_paths,
         }
     }
 }
