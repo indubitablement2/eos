@@ -219,8 +219,6 @@ impl GameDef {
 
         // Parse YamlComponents to EcsComponents.
         let yaml_parse_result = YamlParseResult::parse_yaml_components(list_yaml_components, &mod_order);
-
-        // TODO: Used for debug.
         godot_print!("\n{:?}\n", yaml_parse_result);
 
         // Sprite components reference this vector to know what id to send to the vertex shader. Negative id are flipped.

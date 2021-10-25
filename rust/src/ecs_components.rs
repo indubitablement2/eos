@@ -35,7 +35,7 @@ pub struct TileLocationComp {
 }
 
 /// Position relative to floating origin.
-pub struct PositionComp {
+pub struct Position {
     pub position: Vec2,
 }
 

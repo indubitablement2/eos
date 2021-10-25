@@ -6,7 +6,7 @@ pub const ERR_SPRITE_PATH: &str = "res://error.png";
 pub const NUM_RENDER: i32 = 30000;
 /// Matrix2 = 8 + custom_8bit = 1
 pub const DATA_PER_INSTANCE: i32 = 9;
-pub const BULK_ARRAY_SIZE: usize = (NUM_RENDER * DATA_PER_INSTANCE) as usize;
+pub const BULK_ARRAY_SIZE: i32 = NUM_RENDER * DATA_PER_INSTANCE;
 /// Sprite atlas size is a power of 2 at or above this size.
 pub const MIN_SPRITE_ATLAS_SIZE: i64 = 2048;
 pub const MAX_SPRITE_ATLAS: usize = 15;
