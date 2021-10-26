@@ -3,14 +3,14 @@ use glam::DVec2;
 use glam::IVec2;
 use std::convert::TryFrom;
 
-/// Modify the game.
-pub struct GameParameterRes {
+/// Modify the world.
+pub struct WorldParameterRes {
     /// Velocity is multiplied by this each tick.
     pub drag: f32,
     /// How many real seconds a day last.
     pub day_lenght: f32,
 }
-impl Default for GameParameterRes {
+impl Default for WorldParameterRes {
     fn default() -> Self {
         Self {
             drag: 0.75,

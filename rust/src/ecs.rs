@@ -1,7 +1,7 @@
 use crate::ecs_render_pipeline::*;
 use crate::ecs_resources::*;
 use crate::ecs_systems::*;
-use crate::game_def::GameDef;
+use crate::def::Def;
 use bevy_ecs::prelude::*;
 use gdnative::prelude::*;
 // use gdnative::prelude::*;
@@ -13,9 +13,9 @@ pub struct Ecs {
 
 impl Ecs {
     /// Init the ecs by creating a new world (or loading one) and a default schedule.
-    pub fn new(owner: &Node2D, game_def: &GameDef) -> Self {
+    pub fn new(owner: &Node2D, def: &Def) -> Self {
         Self {
-            world: init_world(owner, game_def),
+            world: init_world(owner, def),
             schedule: init_schedule(),
         }
     }
@@ -39,14 +39,14 @@ impl Ecs {
     unsafe fn post_update(&mut self) {}
 }
 
-fn init_world(owner: &Node2D, game_def: &GameDef) -> World {
+fn init_world(owner: &Node2D, def: &Def) -> World {
     let mut world = World::default();
 
     // Insert other resources.
     world.insert_resource(TimeRes::default());
-    world.insert_resource(GameParameterRes::default());
+    world.insert_resource(WorldParameterRes::default());
     // Render resource.
-    world.insert_resource(RenderRes::new(owner, game_def));
+    world.insert_resource(RenderRes::new(owner, def));
 
     world
 }

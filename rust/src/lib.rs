@@ -1,7 +1,7 @@
 #![feature(drain_filter)]
 
 pub mod constants;
-pub mod game_def;
+pub mod def;
 
 pub mod ecs;
 pub mod ecs_components;
@@ -12,13 +12,13 @@ pub mod ecs_systems;
 pub mod ecs_render_pipeline;
 pub mod yaml_components;
 
-mod game;
+mod world;
 
 use gdnative::prelude::{godot_init, InitHandle};
 
 // Function that registers all exposed classes to Godot
 fn init(handle: InitHandle) {
-    handle.add_class::<game::Game>();
+    handle.add_class::<world::World>();
 }
 
 // Macros that create the entry-points of the dynamic library.

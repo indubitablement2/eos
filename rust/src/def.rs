@@ -12,8 +12,8 @@ use std::{
 };
 
 #[derive(Serialize, Deserialize)]
-pub struct GameDef {
-    /// If an error occurred while making this GameDef. It won't be cached.
+pub struct Def {
+    /// If an error occurred while making this Def. It won't be cached.
     pub corrupted: bool,
 
     #[serde(with = "indexmap::serde_seq")]
@@ -39,64 +39,64 @@ pub struct GameDef {
     #[serde(skip)]
     pub sprite_array_texture: Option<Ref<TextureArray, Unique>>,
 }
-impl GameDef {
-    /// Load a cached GameDef or create a new one. Return true if it is corrupted.
+impl Def {
+    /// Load a cached Def or create a new one. Return true if it is corrupted.
     pub fn load(world_path: &str, try_load_from_cache: bool, save_if_new: bool) -> Self {
         let file = gdnative::api::File::new();
 
         // Get mod_order.
         let mod_order = load_mod_order(world_path);
 
-        // Hash mod_order to string. This will be the name of the cached GameDef.
+        // Hash mod_order to string. This will be the name of the cached Def.
         let mut hasher = ahash::AHasher::new_with_keys(1667, 420);
         mod_order.hash(&mut hasher);
         let hashed_mod_order = hasher.finish();
 
         let cache_path = format!("{}{}/", CACHE, format!("{:x}", hashed_mod_order));
-        let game_def_path = format!("{}def", cache_path);
+        let def_path = format!("{}def", cache_path);
 
-        // Load cached GameDef if it already exist.
+        // Load cached Def if it already exist.
         if try_load_from_cache {
-            if file.open(&game_def_path, gdnative::api::File::READ).is_ok() {
+            if file.open(&def_path, gdnative::api::File::READ).is_ok() {
                 let num_byte = file.get_64();
                 let data = file.get_buffer(num_byte);
                 let data_read = data.read();
-                if let Ok(game_def) = bincode::deserialize::<GameDef>(&data_read) {
+                if let Ok(def) = bincode::deserialize::<Def>(&data_read) {
                     // Small check to make semi sure that we did not read gibberish.
-                    if game_def.corrupted {
-                        godot_error!("Found matching cached GameDef, but it is corrupted. This should never happen.");
-                    } else if game_def.mod_order != mod_order {
+                    if def.corrupted {
+                        godot_error!("Found matching cached Def, but it is corrupted. This should never happen.");
+                    } else if def.mod_order != mod_order {
                         godot_error!(
-                            "Found matching cached GameDef, but mod order don't match. Making a new one.\n{:?}\n{:?}",
-                            &game_def.mod_order,
+                            "Found matching cached Def, but mod order don't match. Making a new one.\n{:?}\n{:?}",
+                            &def.mod_order,
                             &mod_order
                         );
                     } else {
                         // Load atlases
-                        if let Ok(game_def) = load_cached_atlas(game_def) {
+                        if let Ok(def) = load_cached_atlas(def) {
                             file.close();
-                            godot_print!("Loaded cached GameDef and sprite atlases.");
-                            return game_def;
+                            godot_print!("Loaded cached Def and sprite atlases.");
+                            return def;
                         } else {
-                            godot_warn!("Found GameDef, but not sprite atlas. Making a new one.");
+                            godot_warn!("Found Def, but not sprite atlas. Making a new one.");
                         }
                     }
                 } else {
-                    godot_error!("Found GameDef, but could not deserialize it. Making a new one.");
+                    godot_error!("Found Def, but could not deserialize it. Making a new one.");
                 }
             }
-            // We did not find a cached GameDef.
+            // We did not find a cached Def.
             file.close();
-            godot_print!("Did not find cached GameDef. Making and caching a new one.");
+            godot_print!("Did not find cached Def. Making and caching a new one.");
         }
 
-        // Create a new GameDef.
-        let game_def = GameDef::new(mod_order);
+        // Create a new Def.
+        let def = Def::new(mod_order);
 
-        // Save game_def for faster load time.
+        // Save Def for faster load time.
         if save_if_new {
-            if game_def.corrupted {
-                godot_warn!("Not caching GameDef has it is corrupted.");
+            if def.corrupted {
+                godot_warn!("Not caching Def has it is corrupted.");
             } else {
                 // Create dir.
                 let dir = Directory::new();
@@ -104,37 +104,37 @@ impl GameDef {
                     godot_error!("Could not create dir {}. {}.", &cache_path, err);
                 }
 
-                // Cache GameDef.
-                match file.open(&game_def_path, File::WRITE) {
+                // Cache Def.
+                match file.open(&def_path, File::WRITE) {
                     Ok(_) => {
-                        if let Ok(data) = bincode::serialize(&game_def) {
+                        if let Ok(data) = bincode::serialize(&def) {
                             let num_byte = i64::try_from(data.len()).unwrap_or_default();
                             file.store_64(num_byte);
                             file.store_buffer(TypedArray::from_vec(data));
-                            godot_print!("Cached GameDef.");
+                            godot_print!("Cached Def.");
                         } else {
-                            godot_error!("Could not serialize GameDef to cache it.");
+                            godot_error!("Could not serialize Def to cache it.");
                         }
                     }
                     Err(err) => {
-                        godot_error!("Could not open {} to cache GameDef. {}.", &game_def_path, err.to_string());
+                        godot_error!("Could not open {} to cache Def. {}.", &def_path, err.to_string());
                     }
                 } 
                 file.close();
 
                 // Cache atlases and def images.
                 unsafe {
-                    if let Some(img) = &game_def.vertex_def_image {
+                    if let Some(img) = &def.vertex_def_image {
                         if img.assume_safe().save_png(format!("{}vertex_def.png", &cache_path)).is_err() {
                             godot_error!("Could not cache vertex_def image.");
                         }
                     }
-                    if let Some(img) = &game_def.fragment_def_image {
+                    if let Some(img) = &def.fragment_def_image {
                         if img.assume_safe().save_png(format!("{}fragment_def.png", &cache_path)).is_err() {
                             godot_error!("Could not cache fragment_def image.");
                         }
                     }
-                    if let Some(atlases) = &game_def.sprite_atlases {
+                    if let Some(atlases) = &def.sprite_atlases {
                         atlases.iter().enumerate().for_each(|(i, img)| {
                             if img.assume_safe().save_png(format!("{}atlas_{:02}.png", &cache_path, i)).is_err() {
                                 godot_error!("Could not cache atlas image.");
@@ -144,13 +144,13 @@ impl GameDef {
                 }
             }
         } else {
-            godot_print!("Not caching GameDef.");
+            godot_print!("Not caching Def.");
         }
 
-        game_def
+        def
     }
 
-    /// This does a best effort to compile all mods. Return a potentialy corrupted GameDef if any error where encountered.
+    /// This does a best effort to compile all mods. Return a potentialy corrupted Def if any error where encountered.
     fn new(mod_order: Vec<ModInfo>) -> Self {
         let dir = gdnative::api::Directory::new();
         let file = gdnative::api::File::new();
@@ -504,8 +504,8 @@ impl ModInfo {
     /// user://mods/A super mod/10_10 extra plus/
     pub fn get_path(&self) -> String {
         if self.name == APP_NAME {
-            // The base game is in res://base/
-            BASE_GAME_PATH.to_string()
+            // The base mod is in res://base/
+            BASE_MOD_PATH.to_string()
         } else if !self.version.is_empty() {
             // A regular mod is in user://mods/mod_name/version_name/
             format!("{}{}/{}/", MODS_PATH, self.name, self.version).replace(".", "_")
@@ -626,6 +626,6 @@ fn load_image(path: &str) -> Option<Ref<Image, Shared>> {
     }
 }
 
-fn load_cached_atlas(mut game_def: GameDef) -> Result<GameDef, GameDef> {
+fn load_cached_atlas(mut def: Def) -> Result<Def, Def> {
     todo!()
 }

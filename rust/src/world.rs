@@ -1,32 +1,32 @@
 use crate::constants::*;
 use crate::ecs::Ecs;
 use crate::ecs_render_pipeline::RenderRes;
-use crate::game_def::GameDef;
+use crate::def::Def;
 use gdnative::api::*;
 use gdnative::prelude::*;
 
 /// Layer between godot and rust.
-/// Godot is used for input/rendering. Rust is used for game logic.
+/// Godot is used for input/rendering. Rust is used for logic.
 #[derive(NativeClass)]
 #[inherit(Node2D)]
 #[register_with(Self::register_builder)]
-pub struct Game {
+pub struct World {
     name: String,
     ecs: Option<Ecs>,
-    game_def: Option<GameDef>,
+    def: Option<Def>,
 }
 
 #[methods]
-impl Game {
+impl World {
     // Register the builder for methods, properties and/or signals.
     fn register_builder(_builder: &ClassBuilder<Self>) {}
 
     /// The "constructor" of the class.
     fn new(_owner: &Node2D) -> Self {
-        Game {
+        World {
             name: String::new(),
             ecs: None,
-            game_def: None,
+            def: None,
         }
     }
 
@@ -85,15 +85,15 @@ impl Game {
     unsafe fn load_world(&mut self, owner: &Node2D, world_name: String) {
         let world_path: String = format!("{}{}/", WORLDS_PATH, world_name);
 
-        // Load GameDef or create a new one.
+        // Load Def or create a new one.
         // TODO: Add parameter in load_world function.
-        let game_def = GameDef::load(&world_path, false, true);
+        let def = Def::load(&world_path, false, true);
 
         // Create Ecs.
-        self.ecs = Some(Ecs::new(owner, &game_def));
+        self.ecs = Some(Ecs::new(owner, &def));
 
         self.name = world_name;
-        self.game_def = Some(game_def);
+        self.def = Some(def);
 
         owner.update();
     }

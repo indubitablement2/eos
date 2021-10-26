@@ -3,7 +3,7 @@ use glam::{vec2, Mat3};
 #[test]
 fn matrix_are_hard() {
     let gv = vec2(50.0, 33.3);
-    let gmat = Mat3::from_scale_angle_translation(vec2(1.0, 1.0), 1.22, gv);
+    let gmat = Mat3::from_scale_angle_translation(vec2(1.0, 1.0), 1.0, gv);
 
     println!("{:?}", &gmat);
 

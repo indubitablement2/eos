@@ -5,7 +5,7 @@ use crate::ecs_resources::*;
 use bevy_ecs::prelude::*;
 use glam::Vec2;
 
-pub fn time_system(mut time_res: ResMut<TimeRes>, param_res: Res<GameParameterRes>) {
+pub fn time_system(mut time_res: ResMut<TimeRes>, param_res: Res<WorldParameterRes>) {
     time_res.time += time_res.delta;
     if time_res.time >= param_res.day_lenght {
         time_res.time -= param_res.day_lenght;
@@ -48,10 +48,10 @@ pub fn draw_sprite_system(mut render_res: ResMut<RenderRes>, query: Query<(&Spri
     let mut instances = 0;
     
     {
-        let render_data_write = render_res.render_data.write();
-        query.for_each(|(sprite, pos)| {
-            render_res.render_data
-        });
+        // let render_data_write = render_res.render_data.write();
+        // query.for_each(|(sprite, pos)| {
+        //     render_res.render_data
+        // });
     }
 
 

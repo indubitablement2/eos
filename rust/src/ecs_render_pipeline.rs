@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::game_def::GameDef;
+use crate::def::Def;
 use gdnative::api::*;
 use gdnative::prelude::*;
 
@@ -18,7 +18,7 @@ pub struct RenderRes {
     pub visible_instance: i64,
 }
 impl RenderRes {
-    pub fn new(owner: &Node2D, game_def: &GameDef) -> Self {
+    pub fn new(owner: &Node2D, def: &Def) -> Self {
         let visual_server = unsafe { gdnative::api::VisualServer::godot_singleton() };
 
         // Create mesh.
@@ -42,7 +42,7 @@ impl RenderRes {
             canvas_rid: owner.get_canvas(),
             mesh_rid,
             multimesh_rid,
-            texture_rid: game_def.sprite_array_texture.as_ref().unwrap().get_rid(),
+            texture_rid: def.sprite_array_texture.as_ref().unwrap().get_rid(),
             normal_texture_rid: Rid::new(),
             render_data,
             visible_instance: 0,
