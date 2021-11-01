@@ -2,6 +2,7 @@
 
 pub mod collision;
 pub mod generation;
+pub mod server;
 
 use collision::*;
 use crossbeam_channel::*;

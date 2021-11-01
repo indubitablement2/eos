@@ -2,6 +2,7 @@ use gdnative::api::*;
 use gdnative::prelude::*;
 use strategyscape::generation::GenerationParameters;
 use strategyscape::*;
+use strategyscape::server::Server;
 use std::time::{Instant, Duration};
 
 /// Layer between godot and rust.
@@ -11,11 +12,7 @@ use std::time::{Instant, Duration};
 #[register_with(Self::register_builder)]
 pub struct Game {
     name: String,
-    server: bool,
-    strategyscape_runner_handle: StrategyscapeRunnerHandle,
-    strategyscape: Option<Strategyscape>,
-    /// How long since the last strategyscape update.
-    last_update_delta: f64,
+    server: Option<Server>,
 }
 
 #[methods]
@@ -27,10 +24,7 @@ impl Game {
     fn new(_owner: &Node2D) -> Self {
         Game {
             name: String::new(),
-            server: true,
-            strategyscape_runner_handle: StrategyscapeRunnerHandle::new(),
-            strategyscape: None,
-            last_update_delta: 0.0,
+            server: Some(Server::new()),
         }
     }
 
@@ -60,26 +54,8 @@ impl Game {
 
     #[export]
     unsafe fn _process(&mut self, _owner: &Node2D, delta: f64) {
-        let start_instant = Instant::now();
-
-        if let Some(strategyscape) = self.strategyscape.take() {
-            self.last_update_delta += delta;
-            if self.last_update_delta >= 1.0 {
-                self.last_update_delta = 0.0;
-
-                godot_print!("Sending Strategyscape to runner thread.");
-                self.strategyscape_runner_handle
-                    .request_sender
-                    .send(strategyscape)
-                    .expect("Should be hable to send Strategyscape.");
-            }
-        } else {
-            let deadline = start_instant + Duration::from_secs_f64(delta);
-            if let Ok(strategyscape) = self.strategyscape_runner_handle.result_receiver.recv_deadline(deadline) {
-                self.strategyscape.replace(strategyscape);
-            } else {
-                godot_print!("Could not receive Strategyscape this frame. Trying again next frame.");
-            }
+        if let Some(server) = &mut self.server {
+            server.tick(Duration::from_secs_f64(delta));
         }
     }
 
@@ -89,21 +65,23 @@ impl Game {
 
     #[export]
     unsafe fn _draw(&mut self, owner: &Node2D) {
-        if let Some(strategyscape) = &self.strategyscape {
-            for (translation, radius) in strategyscape.get_systems() {
-                owner.draw_circle(
-                    Vector2 {
-                        x: translation.x,
-                        y: translation.y,
-                    },
-                    radius.into(),
-                    Color {
-                        r: 1.0,
-                        g: 1.0,
-                        b: 1.0,
-                        a: 0.4,
-                    },
-                );
+        if let Some(server) = &self.server {
+            if let Some(strategyscape) = &server.strategyscape {
+                for (translation, radius) in strategyscape.get_systems() {
+                    owner.draw_circle(
+                        Vector2 {
+                            x: translation.x,
+                            y: translation.y,
+                        },
+                        radius.into(),
+                        Color {
+                            r: 1.0,
+                            g: 1.0,
+                            b: 1.0,
+                            a: 0.4,
+                        },
+                    );
+                }
             }
         }
 
@@ -133,21 +111,23 @@ impl Game {
         // self.ecs = Some(Ecs::new(owner, &def));
         // self.def = Some(def);
 
-        let mut strategyscape = Strategyscape::new();
+        if let Some(server) = &mut self.server {
+            if let Some(strategyscape) = &mut server.strategyscape {
+                let mut gen = GenerationParameters {
+                    seed: 1477,
+                    rng: GenerationParameters::get_rgn_from_seed(1477),
+                    mods: (),
+                    system_density_buffer_height: 64,
+                    system_density_buffer_width: 64,
+                    system_density_buffer: (0..64 * 64).into_iter().map(|_| 0.5f32).collect(),
+                    system_density_multiplier: 1.0,
+                };
 
-        let mut gen = GenerationParameters {
-            seed: 1477,
-            rng: GenerationParameters::get_rgn_from_seed(1477),
-            mods: (),
-            system_density_buffer_height: 64,
-            system_density_buffer_width: 64,
-            system_density_buffer: (0..64 * 64).into_iter().map(|_| 0.5f32).collect(),
-            system_density_multiplier: 1.0,
-        };
-        gen.generate_system(&mut strategyscape);
+                gen.generate_system(strategyscape);
+            }
+        }
 
         self.name = world_name;
-        self.strategyscape = Some(strategyscape);
 
         owner.update();
     }
