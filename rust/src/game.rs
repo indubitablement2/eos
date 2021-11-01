@@ -1,9 +1,8 @@
 use gdnative::api::*;
 use gdnative::prelude::*;
+use std::time::Duration;
 use strategyscape::generation::GenerationParameters;
-use strategyscape::*;
 use strategyscape::server::Server;
-use std::time::{Instant, Duration};
 
 /// Layer between godot and rust.
 /// Godot is used for input/rendering. Rust is used for logic.
@@ -53,7 +52,10 @@ impl Game {
     }
 
     #[export]
-    unsafe fn _process(&mut self, _owner: &Node2D, delta: f64) {
+    unsafe fn _process(&mut self, _owner: &Node2D, mut delta: f64) {
+        // Somehow delta can be negative...
+        delta = delta.clamp(0.0, 1.0);
+
         if let Some(server) = &mut self.server {
             server.tick(Duration::from_secs_f64(delta));
         }

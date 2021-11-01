@@ -8,7 +8,6 @@ pub struct Server {
     pub last_update_delta: Duration,
     pub strategyscape: Option<Strategyscape>,
     strategyscape_runner_handle: StrategyscapeRunnerHandle,
-    
 }
 impl Server {
     /// Initialize a server with default parameters.

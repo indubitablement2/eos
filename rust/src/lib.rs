@@ -13,7 +13,6 @@ pub mod ecs_render_pipeline;
 pub mod yaml_components;
 
 mod game;
-pub mod universe;
 
 use gdnative::prelude::{godot_init, InitHandle};
 
