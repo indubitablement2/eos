@@ -1,12 +1,12 @@
 ![Project Logo](./godot/assets/godot-ferris-128x128.png)
 
-starsector
-stellaris
-borderlands
-morrowing
+-starsector
+-stellaris
+-borderlands
+-morrowing
 
-core storm in p-space that needs to be avoided
-faction owned expensive/rare fast travel rings
+-core storm in p-space that needs to be avoided
+-faction owned expensive/rare fast travel rings
 
 # chaos-cascade
 > Put the description here!

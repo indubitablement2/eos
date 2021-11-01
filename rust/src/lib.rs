@@ -12,13 +12,14 @@ pub mod ecs_systems;
 pub mod ecs_render_pipeline;
 pub mod yaml_components;
 
-mod world;
+mod game;
+pub mod universe;
 
 use gdnative::prelude::{godot_init, InitHandle};
 
 // Function that registers all exposed classes to Godot
 fn init(handle: InitHandle) {
-    handle.add_class::<world::World>();
+    handle.add_class::<game::Game>();
 }
 
 // Macros that create the entry-points of the dynamic library.

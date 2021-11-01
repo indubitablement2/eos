@@ -46,7 +46,7 @@ pub fn move_floating_origin(
 /// TODO: Draw order.
 pub fn draw_sprite_system(mut render_res: ResMut<RenderRes>, query: Query<(&Sprite, &Position)>) {
     let mut instances = 0;
-    
+
     {
         // let render_data_write = render_res.render_data.write();
         // query.for_each(|(sprite, pos)| {
@@ -54,8 +54,7 @@ pub fn draw_sprite_system(mut render_res: ResMut<RenderRes>, query: Query<(&Spri
         // });
     }
 
-
-    // let mut i = 0; 
+    // let mut i = 0;
     // query_physic.for_each(|(_renderable, body_handle)| {
     //     // transform 8, color 0, custom 4
     //     let body_mat = body_set.0.get(body_handle.0).unwrap().position().to_matrix();

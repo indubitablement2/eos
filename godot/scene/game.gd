@@ -26,6 +26,11 @@ func _exit_tree() -> void:
 	VisualServer.free_rid(multimesh_rid)
 	VisualServer.free_rid(mesh_rid)
 
+func _process(delta: float) -> void:
+	if Input.is_mouse_button_pressed(1):
+		print("placing system at: " + str(get_global_mouse_position()))
+		$Game.new_system(get_global_mouse_position())
+
 func allocate_mesh(num: int) -> void:
 	VisualServer.multimesh_allocate(multimesh_rid, num, VisualServer.MULTIMESH_TRANSFORM_2D, VisualServer.MULTIMESH_COLOR_NONE, VisualServer.MULTIMESH_CUSTOM_DATA_FLOAT)
 

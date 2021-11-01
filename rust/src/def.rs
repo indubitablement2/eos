@@ -119,7 +119,7 @@ impl Def {
                     Err(err) => {
                         godot_error!("Could not open {} to cache Def. {}.", &def_path, err.to_string());
                     }
-                } 
+                }
                 file.close();
 
                 // Cache atlases and def images.
@@ -130,13 +130,21 @@ impl Def {
                         }
                     }
                     if let Some(img) = &def.fragment_def_image {
-                        if img.assume_safe().save_png(format!("{}fragment_def.png", &cache_path)).is_err() {
+                        if img
+                            .assume_safe()
+                            .save_png(format!("{}fragment_def.png", &cache_path))
+                            .is_err()
+                        {
                             godot_error!("Could not cache fragment_def image.");
                         }
                     }
                     if let Some(atlases) = &def.sprite_atlases {
                         atlases.iter().enumerate().for_each(|(i, img)| {
-                            if img.assume_safe().save_png(format!("{}atlas_{:02}.png", &cache_path, i)).is_err() {
+                            if img
+                                .assume_safe()
+                                .save_png(format!("{}atlas_{:02}.png", &cache_path, i))
+                                .is_err()
+                            {
                                 godot_error!("Could not cache atlas image.");
                             }
                         });
@@ -354,7 +362,7 @@ impl Def {
                 if let Some(just_swapped) = items.last() {
                     *items_map.get_mut(&just_swapped.data).expect("item should be in items_map.") = items.len() - 1;
                 }
-                
+
                 // Blitz the sprites into the atlas.
                 atlas_image.blit_rect(
                     &sprites[id],

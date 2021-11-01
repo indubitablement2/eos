@@ -1,4 +1,4 @@
-use crate::{ecs_components::*, def::ModInfo};
+use crate::{def::ModInfo, ecs_components::*};
 use gdnative::{godot_print, godot_warn};
 use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
