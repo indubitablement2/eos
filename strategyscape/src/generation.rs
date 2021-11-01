@@ -28,6 +28,12 @@ impl GenerationParameters {
         let num_attempt =
             (strategyscape.bound.volume() / (System::SMALL * 2.0).powi(2) * self.system_density_multiplier) as usize;
 
+        let translation: Vector2<f32> = vector![
+            self.rng.gen_range(strategyscape.bound.mins.x..strategyscape.bound.maxs.x),
+            self.rng.gen_range(strategyscape.bound.mins.y..strategyscape.bound.maxs.y)
+        ];
+        // TODO: Divide in quadrant.
+
         for attempt_number in 0..num_attempt {
             let completion = attempt_number as f32 / num_attempt as f32;
 
@@ -36,7 +42,7 @@ impl GenerationParameters {
                 self.rng.gen_range(strategyscape.bound.mins.y..strategyscape.bound.maxs.y)
             ];
 
-            let uv: Vector2<f32> = translation.abs().component_div(&strategyscape.bound.extents());
+            let uv: Vector2<f32> = (translation + strategyscape.bound.half_extents()).component_div(&strategyscape.bound.extents());
 
             // Check density.
             if completion > self.sample_system_density(uv) {
@@ -78,7 +84,7 @@ impl GenerationParameters {
             // Add this circle as a new system.
             let collider_handle = strategyscape.body_set_bundle.collider_set.insert(collider);
             strategyscape.systems.insert(collider_handle, System {});
-            strategyscape.query_pipeline_bundle.update(&strategyscape.body_set_bundle);
+            // strategyscape.query_pipeline_bundle.update(&strategyscape.body_set_bundle);
         }
 
         // TODO: Find neighboring systems.

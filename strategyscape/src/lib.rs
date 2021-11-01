@@ -50,7 +50,7 @@ impl Strategyscape {
 
         Self {
             tick: 0,
-            bound: AABB::from_half_extents(point![0.0, 0.0], vector![512.0, 512.0]),
+            bound: AABB::from_half_extents(point![0.0, 0.0], vector![2048.0, 2048.0]),
             collision_pipeline_bundle: CollisionPipelineBundle::new(channel_event_collector),
             query_pipeline_bundle: QueryPipelineBundle::new(),
             body_set_bundle: BodySetBundle::new(),

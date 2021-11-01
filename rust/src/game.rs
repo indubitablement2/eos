@@ -133,4 +133,53 @@ impl Game {
 
         owner.update();
     }
+
+    /// Generate a new world.
+    #[export]
+    unsafe fn generate_world(&mut self, owner: &Node2D, world_name: String, gen_img: Ref<Image, Shared>) {
+        // let world_path: String = format!("{}{}/", WORLDS_PATH, world_name);
+
+        // // Load Def or create a new one.
+        // // TODO: Add parameter in load_world function.
+        // let def = Def::load(&world_path, false, true);
+
+        // // Create Ecs.
+        // self.ecs = Some(Ecs::new(owner, &def));
+        // self.def = Some(def);
+
+        // Extract the density buffer from the image.
+        // TODO: Is this safe?
+        let gen_img = gen_img.assume_safe();
+        let (h, w) = (gen_img.get_height(), gen_img.get_width());
+        let mut system_density_buffer = Vec::with_capacity((w * h) as usize);
+        gen_img.lock();
+        for y in 0..h {
+            for x in 0..w {
+                let col = gen_img.get_pixel(x, y);
+                // TODO: Define what color is what. r = danger/storm, b = density, g = ?
+                system_density_buffer.push(col.b);
+            }
+        }
+        gen_img.unlock();
+
+        if let Some(server) = &mut self.server {
+            if let Some(strategyscape) = &mut server.strategyscape {
+                let mut gen = GenerationParameters {
+                    seed: 1477,
+                    rng: GenerationParameters::get_rgn_from_seed(1477),
+                    mods: (),
+                    system_density_buffer_height: h as usize,
+                    system_density_buffer_width: w as usize,
+                    system_density_buffer,
+                    system_density_multiplier: 1.0,
+                };
+
+                gen.generate_system(strategyscape);
+            }
+        }
+
+        self.name = world_name;
+
+        owner.update();
+    }
 }

@@ -13,7 +13,9 @@ onready var def_tex := ImageTexture.new()
 onready var tex_rid := SpritePacker.tex.get_rid()
 
 func _ready() -> void:
-	$Game.load_world("test world")
+	var gen_img := Image.new()
+	gen_img.load("res://assets/generation/galaxy_gen.png")
+	$Game.generate_world("test world", gen_img)
 #	_init_mesh()
 #	_init_mat()
 #	allocate_mesh(100)
