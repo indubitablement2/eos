@@ -1,13 +1,8 @@
-use crate::constants::*;
-use crate::def::Def;
-use crate::ecs::Ecs;
-use crate::ecs_render_pipeline::RenderRes;
-use ahash::AHashMap;
 use gdnative::api::*;
 use gdnative::prelude::*;
-use rand::random;
 use strategyscape::generation::GenerationParameters;
-use strategyscape::Strategyscape;
+use strategyscape::*;
+use std::time::{Instant, Duration};
 
 /// Layer between godot and rust.
 /// Godot is used for input/rendering. Rust is used for logic.
@@ -16,7 +11,11 @@ use strategyscape::Strategyscape;
 #[register_with(Self::register_builder)]
 pub struct Game {
     name: String,
-    strategyscape: Strategyscape,
+    server: bool,
+    strategyscape_runner_handle: StrategyscapeRunnerHandle,
+    strategyscape: Option<Strategyscape>,
+    /// How long since the last strategyscape update.
+    last_update_delta: f64,
 }
 
 #[methods]
@@ -28,7 +27,10 @@ impl Game {
     fn new(_owner: &Node2D) -> Self {
         Game {
             name: String::new(),
-            strategyscape: Strategyscape::new(),
+            server: true,
+            strategyscape_runner_handle: StrategyscapeRunnerHandle::new(),
+            strategyscape: None,
+            last_update_delta: 0.0,
         }
     }
 
@@ -43,7 +45,7 @@ impl Game {
 
     /// For some reason this gets called twice.
     #[export]
-    unsafe fn _exit_tree(&mut self, owner: &Node2D) {
+    unsafe fn _exit_tree(&mut self, _owner: &Node2D) {
         // self.save_world(owner);
 
         // // Free the rids we created.
@@ -57,10 +59,28 @@ impl Game {
     }
 
     #[export]
-    unsafe fn _process(&mut self, _owner: &Node2D, delta: f32) {
-        // if let Some(ecs) = &mut self.ecs {
-        //     ecs.update(delta);
-        // }
+    unsafe fn _process(&mut self, _owner: &Node2D, delta: f64) {
+        let start_instant = Instant::now();
+
+        if let Some(strategyscape) = self.strategyscape.take() {
+            self.last_update_delta += delta;
+            if self.last_update_delta >= 1.0 {
+                self.last_update_delta = 0.0;
+
+                godot_print!("Sending Strategyscape to runner thread.");
+                self.strategyscape_runner_handle
+                    .request_sender
+                    .send(strategyscape)
+                    .expect("Should be hable to send Strategyscape.");
+            }
+        } else {
+            let deadline = start_instant + Duration::from_secs_f64(delta);
+            if let Ok(strategyscape) = self.strategyscape_runner_handle.result_receiver.recv_deadline(deadline) {
+                self.strategyscape.replace(strategyscape);
+            } else {
+                godot_print!("Could not receive Strategyscape this frame. Trying again next frame.");
+            }
+        }
     }
 
     // #[export]
@@ -69,20 +89,22 @@ impl Game {
 
     #[export]
     unsafe fn _draw(&mut self, owner: &Node2D) {
-        for (translation, radius) in self.strategyscape.get_systems() {
-            owner.draw_circle(
-                Vector2 {
-                    x: translation.x,
-                    y: translation.y,
-                },
-                radius.into(),
-                Color {
-                    r: 1.0,
-                    g: 1.0,
-                    b: 1.0,
-                    a: 0.4,
-                },
-            );
+        if let Some(strategyscape) = &self.strategyscape {
+            for (translation, radius) in strategyscape.get_systems() {
+                owner.draw_circle(
+                    Vector2 {
+                        x: translation.x,
+                        y: translation.y,
+                    },
+                    radius.into(),
+                    Color {
+                        r: 1.0,
+                        g: 1.0,
+                        b: 1.0,
+                        a: 0.4,
+                    },
+                );
+            }
         }
 
         // if let Some(ecs) = &self.ecs {
@@ -111,8 +133,7 @@ impl Game {
         // self.ecs = Some(Ecs::new(owner, &def));
         // self.def = Some(def);
 
-        self.name = world_name;
-        self.strategyscape = Strategyscape::new();
+        let mut strategyscape = Strategyscape::new();
 
         let mut gen = GenerationParameters {
             seed: 1477,
@@ -123,28 +144,11 @@ impl Game {
             system_density_buffer: (0..64 * 64).into_iter().map(|_| 0.5f32).collect(),
             system_density_multiplier: 1.0,
         };
-        gen.generate_system(&mut self.strategyscape);
+        gen.generate_system(&mut strategyscape);
+
+        self.name = world_name;
+        self.strategyscape = Some(strategyscape);
 
         owner.update();
     }
-
-    /// Place a system.
-    #[export]
-    unsafe fn new_system(&mut self, owner: &Node2D, translation: Vector2) {
-        // if let Some(world) = &mut self.world {
-        //     world.add_system(nalgebra::vector![translation.x, translation.y]);
-        // }
-
-        owner.update();
-    }
-
-    // /// Save this world.
-    // #[export]
-    // unsafe fn save_world(&mut self, _owner: &Node2D) {
-    //     if !self.name.is_empty() {
-    //         // TODO: Save world.
-    //     } else {
-    //         godot_warn!("Can not save unnamed world.");
-    //     }
-    // }
 }

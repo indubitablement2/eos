@@ -50,9 +50,9 @@ impl GenerationParameters {
             };
 
             let collider = ColliderBuilder::ball(radius)
-                .translation(translation)
                 .sensor(true)
                 .active_events(ActiveEvents::INTERSECTION_EVENTS)
+                .translation(translation)
                 .collision_groups(InteractionGroups::new(
                     System::COLLISION_MEMBERSHIP,
                     Player::COLLISION_MEMBERSHIP,
@@ -79,7 +79,6 @@ impl GenerationParameters {
             let collider_handle = strategyscape.body_set_bundle.collider_set.insert(collider);
             strategyscape.systems.insert(collider_handle, System {});
             strategyscape.query_pipeline_bundle.update(&strategyscape.body_set_bundle);
-
         }
 
         // TODO: Find neighboring systems.

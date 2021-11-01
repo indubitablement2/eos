@@ -22,10 +22,12 @@ impl System {
     const LARGE: f32 = System::SMALL * 2.0;
 }
 
-pub struct Player {}
+pub struct Player {
+    pub id: PlayerID,
+}
 impl Player {
     const COLLISION_MEMBERSHIP: u32 = 0b0000000000000001;
-    const MIN_REALITY_BUBBLE_SIZE: f32 = 512.0;
+    const MIN_REALITY_BUBBLE_SIZE: f32 = 256.0;
 }
 
 pub struct Strategyscape {
@@ -57,6 +59,14 @@ impl Strategyscape {
         }
     }
 
+    pub fn update(&mut self) {
+        self.tick += 1;
+
+        // Update collisions.
+        self.collision_pipeline_bundle.step(&mut self.body_set_bundle);
+        self.query_pipeline_bundle.update(&mut self.body_set_bundle);
+    }
+
     /// Get the position and radius of every system.
     pub fn get_systems(&self) -> Vec<(Vector2<f32>, f32)> {
         let mut systems = Vec::with_capacity(self.systems.len());
@@ -71,14 +81,31 @@ impl Strategyscape {
 
         systems
     }
+
+    pub fn add_player(&mut self, id: PlayerID, translation: Vector2<f32>) {
+        let collider = ColliderBuilder::ball(Player::MIN_REALITY_BUBBLE_SIZE)
+            .sensor(true)
+            .active_events(ActiveEvents::INTERSECTION_EVENTS)
+            .translation(translation)
+            .collision_groups(InteractionGroups {
+                memberships: Player::COLLISION_MEMBERSHIP,
+                filter: Player::COLLISION_MEMBERSHIP | System::COLLISION_MEMBERSHIP,
+            })
+            .build();
+
+        // Add collider and Player.
+        let collider_handle = self.body_set_bundle.collider_set.insert(collider);
+        self.players.insert(collider_handle, Player { id });
+    }
 }
 
-pub struct StrategyscapeHandle {
+/// Contain channels to send/receive Strategyscape if you want to update it on a separate thread.
+pub struct StrategyscapeRunnerHandle {
     pub request_sender: Sender<Strategyscape>,
     pub result_receiver: Receiver<Strategyscape>,
 }
-impl StrategyscapeHandle {
-    /// Create a Strategyscape with default parameters.
+impl StrategyscapeRunnerHandle {
+    /// Create a Strategyscape runner thread and chennels for communication.
     pub fn new() -> Self {
         let (request_sender, request_receiver) = bounded(0);
         let (result_sender, result_receiver) = bounded(0);
@@ -125,7 +152,7 @@ impl StrategyscapeHandle {
     // }
 }
 
-pub struct StrategyscapeRunner {
+struct StrategyscapeRunner {
     request_receiver: Receiver<Strategyscape>,
     result_sender: Sender<Strategyscape>,
 }
@@ -141,23 +168,12 @@ impl StrategyscapeRunner {
     /// Start the runner thread.
     fn spawn_loop(self) {
         std::thread::spawn(move || {
-            while let Ok(strategyscape) = self.request_receiver.recv() {
-                if self.result_sender.send(main_loop(strategyscape)).is_err() {
+            while let Ok(mut strategyscape) = self.request_receiver.recv() {
+                strategyscape.update();
+                if self.result_sender.send(strategyscape).is_err() {
                     break;
                 }
             }
         });
     }
-}
-
-fn main_loop(mut strategyscape: Strategyscape) -> Strategyscape {
-    strategyscape.tick += 1;
-
-    // Update collisions.
-    strategyscape
-        .collision_pipeline_bundle
-        .step(&mut strategyscape.body_set_bundle);
-    strategyscape.query_pipeline_bundle.update(&mut strategyscape.body_set_bundle);
-
-    strategyscape
 }
