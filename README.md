@@ -6,7 +6,10 @@ borderlands
 morrowing
 
 core storm in p-space that needs to be avoided
+
 faction owned expensive/rare fast travel rings
+
+manualy aimed weapon cost less energy to fire.
 
 # chaos-cascade
 > Put the description here!
