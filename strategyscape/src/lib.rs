@@ -5,7 +5,7 @@ pub mod generation;
 pub mod server;
 
 use collision::*;
-use crossbeam_channel::*;
+use rapier2d::crossbeam::channel::*;
 use indexmap::IndexMap;
 use rapier2d::na::{vector, Vector2};
 use rapier2d::prelude::*;

@@ -32,7 +32,7 @@ impl GenerationParameters {
             self.rng.gen_range(strategyscape.bound.mins.x..strategyscape.bound.maxs.x),
             self.rng.gen_range(strategyscape.bound.mins.y..strategyscape.bound.maxs.y)
         ];
-        // TODO: Divide in quadrant.
+        // TODO: Process in checkboard patern to avoid updating query pipeline each times.
 
         for attempt_number in 0..num_attempt {
             let completion = attempt_number as f32 / num_attempt as f32;
