@@ -1,18 +1,16 @@
 #![feature(test)]
 
 pub mod collision;
+pub mod connection_manager;
 pub mod generation;
+pub mod packets;
 pub mod server;
 
 use collision::*;
-use rapier2d::crossbeam::channel::*;
 use indexmap::IndexMap;
+use rapier2d::crossbeam::channel::*;
 use rapier2d::na::{vector, Vector2};
 use rapier2d::prelude::*;
-
-pub struct PlayerID {
-    pub id: u64,
-}
 
 pub struct System {}
 impl System {
@@ -23,8 +21,10 @@ impl System {
     const LARGE: f32 = System::SMALL * 2.0;
 }
 
+#[derive(Debug, Clone)]
 pub struct Player {
-    pub id: PlayerID,
+    pub id: u64,
+    pub name: String,
 }
 impl Player {
     const COLLISION_MEMBERSHIP: u32 = 0b0000000000000001;
@@ -83,7 +83,7 @@ impl Strategyscape {
         systems
     }
 
-    pub fn add_player(&mut self, id: PlayerID, translation: Vector2<f32>) {
+    pub fn add_player(&mut self, player: Player, translation: Vector2<f32>) {
         let collider = ColliderBuilder::ball(Player::MIN_REALITY_BUBBLE_SIZE)
             .sensor(true)
             .active_events(ActiveEvents::INTERSECTION_EVENTS)
@@ -96,7 +96,21 @@ impl Strategyscape {
 
         // Add collider and Player.
         let collider_handle = self.body_set_bundle.collider_set.insert(collider);
-        self.players.insert(collider_handle, Player { id });
+        self.players.insert(collider_handle, player);
+    }
+
+    pub fn get_players(&self) -> Vec<(Player, Vector2<f32>, f32)> {
+        let mut players = Vec::with_capacity(self.players.len());
+
+        for (collider_handle, player) in self.players.iter() {
+            if let Some(collider) = self.body_set_bundle.collider_set.get(*collider_handle) {
+                if let Some(ball) = collider.shape().as_ball() {
+                    players.push((player.to_owned(), collider.translation().to_owned(), ball.radius));
+                }
+            }
+        }
+
+        players
     }
 }
 

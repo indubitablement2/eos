@@ -1,4 +1,5 @@
 pub const APP_NAME: &str = "chaos_cascade";
+
 pub const BASE_MOD_PATH: &str = "res://base/";
 pub const ERR_SPRITE_PATH: &str = "res://error.png";
 

@@ -1,17 +1,24 @@
+use crate::client::Client;
+use crate::godot_logger::GodotLogger;
 use gdnative::api::*;
 use gdnative::prelude::*;
 use std::time::Duration;
 use strategyscape::generation::GenerationParameters;
 use strategyscape::server::Server;
+use strategyscape::*;
 
 /// Layer between godot and rust.
 /// Godot is used for input/rendering. Rust is used for logic.
+/// This is either a client (multiplayer) or a server and a client (singleplayer).
 #[derive(NativeClass)]
 #[inherit(Node2D)]
 #[register_with(Self::register_builder)]
 pub struct Game {
     name: String,
+    // Receive input from clients. Send command to clients.
     server: Option<Server>,
+    // Send input to server. Receive command from server.
+    client: Client,
 }
 
 #[methods]
@@ -21,9 +28,15 @@ impl Game {
 
     /// The "constructor" of the class.
     fn new(_owner: &Node2D) -> Self {
-        Game {
-            name: String::new(),
-            server: Some(Server::new()),
+        if let Ok(client) = Client::connect_local() {
+            Game {
+                name: String::new(),
+                server: Some(Server::new()),
+                client,
+            }
+        } else {
+            godot_error!("Could not connect to local host.");
+            todo!()
         }
     }
 
@@ -69,6 +82,7 @@ impl Game {
     unsafe fn _draw(&mut self, owner: &Node2D) {
         if let Some(server) = &self.server {
             if let Some(strategyscape) = &server.strategyscape {
+                // Draw the systems.
                 for (translation, radius) in strategyscape.get_systems() {
                     owner.draw_circle(
                         Vector2 {
@@ -81,6 +95,23 @@ impl Game {
                             g: 1.0,
                             b: 1.0,
                             a: 0.4,
+                        },
+                    );
+                }
+
+                // Draw the players.
+                for (_player, translation, radius) in strategyscape.get_players() {
+                    owner.draw_circle(
+                        Vector2 {
+                            x: translation.x,
+                            y: translation.y,
+                        },
+                        radius.into(),
+                        Color {
+                            r: 1.0,
+                            g: 0.0,
+                            b: 0.0,
+                            a: 0.6,
                         },
                     );
                 }
@@ -136,33 +167,24 @@ impl Game {
 
     /// Generate a new world.
     #[export]
-    unsafe fn generate_world(&mut self, owner: &Node2D, world_name: String, gen_img: Ref<Image, Shared>) {
+    unsafe fn generate_world(&mut self, owner: &Node2D, world_name: String, density_img: Ref<Image, Shared>) {
         // let world_path: String = format!("{}{}/", WORLDS_PATH, world_name);
 
-        // // Load Def or create a new one.
-        // // TODO: Add parameter in load_world function.
-        // let def = Def::load(&world_path, false, true);
-
-        // // Create Ecs.
-        // self.ecs = Some(Ecs::new(owner, &def));
-        // self.def = Some(def);
-
         // Extract the density buffer from the image.
-        // TODO: Is this safe?
-        let gen_img = gen_img.assume_safe();
-        let (h, w) = (gen_img.get_height(), gen_img.get_width());
+        let density_img = density_img.assume_safe();
+        let (h, w) = (density_img.get_height(), density_img.get_width());
         let mut system_density_buffer = Vec::with_capacity((w * h) as usize);
-        gen_img.lock();
+        density_img.lock();
         for y in 0..h {
             for x in 0..w {
-                let col = gen_img.get_pixel(x, y);
-                // TODO: Define what color is what. r = danger/storm, b = density, g = ?
-                system_density_buffer.push(col.b);
+                let col = density_img.get_pixel(x, y);
+                system_density_buffer.push(col.r);
             }
         }
-        gen_img.unlock();
+        density_img.unlock();
 
         if let Some(server) = &mut self.server {
+            // TODO: Generate a new Strategyscape should not be there.
             if let Some(strategyscape) = &mut server.strategyscape {
                 let mut gen = GenerationParameters {
                     seed: 1477,
@@ -173,8 +195,16 @@ impl Game {
                     system_density_buffer,
                     system_density_multiplier: 1.0,
                 };
-
                 gen.generate_system(strategyscape);
+
+                // TODO: Add ourself as a player should not be there.
+                strategyscape.add_player(
+                    Player {
+                        id: 0,
+                        name: "Test".to_string(),
+                    },
+                    rapier2d::na::vector![0.0f32, 0.0f32],
+                );
             }
         }
 

@@ -1,4 +1,6 @@
 #![feature(drain_filter)]
+#[macro_use]
+extern crate log;
 
 pub mod constants;
 pub mod def;
@@ -12,12 +14,23 @@ pub mod ecs_systems;
 pub mod ecs_render_pipeline;
 pub mod yaml_components;
 
+mod client;
 mod game;
+mod godot_logger;
 
 use gdnative::prelude::{godot_init, InitHandle};
+use godot_logger::GodotLogger;
+
+static LOGGER: GodotLogger = GodotLogger;
 
 // Function that registers all exposed classes to Godot
 fn init(handle: InitHandle) {
+    // Init GodotLogger.
+    log::set_logger(&LOGGER)
+        .map(|()| log::set_max_level(log::LevelFilter::Debug))
+        .expect("can not start logger");
+    info!("Started logger.");
+
     handle.add_class::<game::Game>();
 }
 
