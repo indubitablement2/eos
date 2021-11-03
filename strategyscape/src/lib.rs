@@ -1,4 +1,7 @@
 #![feature(test)]
+#![feature(int_roundings)]
+#[macro_use]
+extern crate log;
 
 pub mod collision;
 pub mod connection_manager;

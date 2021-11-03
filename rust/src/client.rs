@@ -11,6 +11,8 @@ impl Client {
         let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0)))?;
         let server_address = socket.local_addr()?;
 
+        info!("Connected to loopback {:?}", server_address);
+
         Ok(Self {
             socket,
             server_address,
@@ -24,6 +26,9 @@ impl Client {
             Ipv4Addr::UNSPECIFIED,
             server_address.port(),
         )))?;
+
+        info!("Connected to server {:?}", server_address);
+
         Ok(Self {
             socket,
             server_address,

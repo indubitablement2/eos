@@ -1,11 +1,24 @@
-// use std::net::UdpSocket;
+// use crate::packets::Packet;
+// use bytes::BytesMut;
+// use rapier2d::crossbeam::channel::*;
+// use tokio::net::{TcpStream, UdpSocket};
+
+// /// We will fragment larger Packet.
+// const MAX_DATAGRAM_SIZE: usize = 400;
+
+// /// How is the Packet sent.
+// pub struct PacketSendCommand {
+//     /// Redundantly send the same packet multiple times.
+//     num_send: u32,
+//     /// Requesting an acknowledgement that the packet was received.
+//     reliable_send: bool,
+// }
 
 // /// Easily send and receive Packet.
 // pub struct Connection {
 //     /// Queue some Packet to be sent in batch next time poll is called.
-//     pub packet_to_send_sender: Sender<Packet>,
-
-//     /// Packet usualy from the server. Only used on client or for client login.
+//     pub packet_sender: Sender<(Packet, PacketSendCommand)>,
+//     /// Packet usualy from the server.
 //     pub packet_receiver: Receiver<Packet>,
 // }
 
