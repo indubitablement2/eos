@@ -86,7 +86,11 @@ pub struct UdpServerDeserialized {
     pub player_inputs: Vec<UdpClient>,
 }
 impl UdpServerDeserialized {
-    pub fn deserialize(buffer: &[u8]) -> Self {
+    pub fn deserialize(buffer: &[u8]) -> Option<Self> {
+        if (buffer.len() < UdpClient::PAYLOAD_SIZE + 2) || (buffer.len() - 2) % UdpClient::PAYLOAD_SIZE != 0 {
+            return None;
+        }
+
         let tick = u16::from_be_bytes([buffer[0], buffer[1]]);
 
         let player_inputs = buffer[2..]
@@ -94,6 +98,6 @@ impl UdpServerDeserialized {
             .map(|chunk| UdpClient::deserialize(chunk))
             .collect();
 
-        Self { tick, player_inputs }
+        Some(Self { tick, player_inputs })
     }
 }
