@@ -1,6 +1,6 @@
 use crossbeam_channel::*;
 use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
-use strategyscape::packets::{UdpClient, UdpServerDeserialized, MAX_DATAGRAM_SIZE};
+use common::packets::{UdpClient, UdpServerDeserialized, MAX_DATAGRAM_SIZE};
 
 pub struct Client {
     local: bool,
@@ -85,7 +85,7 @@ impl ClientRunner {
                     match self.udp_to_send_receiver.try_recv() {
                         Ok(packet) => {
                             // We send without care for any errors that could occur as these packet are dispensable.
-                            match  self.socket.send(&packet.serialize()) {
+                            match self.socket.send(&packet.serialize()) {
                                 Ok(num) => {
                                     if num != UdpClient::PAYLOAD_SIZE {
                                         warn!("Sent {} bytes to the server while it should've been {}. The server will not be hable to deserialize that.", num, UdpClient::PAYLOAD_SIZE);

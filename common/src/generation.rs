@@ -23,21 +23,21 @@ impl GenerationParameters {
         Xoshiro256PlusPlus::seed_from_u64(seed)
     }
 
-    pub fn generate_system(&mut self, strategyscape: &mut Strategyscape) {
+    pub fn generate_system(&mut self, metascape: &mut Metascape) {
         // How many systems we will try to place randomly.
         let num_attempt =
-            (strategyscape.bound.volume() / (System::SMALL * 2.0).powi(2) * self.system_density_multiplier) as usize;
+            (metascape.bound.volume() / (System::SMALL * 2.0).powi(2) * self.system_density_multiplier) as usize;
 
         for attempt_number in 0..num_attempt {
             let completion = attempt_number as f32 / num_attempt as f32;
 
             let translation: Vector2<f32> = vector![
-                self.rng.gen_range(strategyscape.bound.mins.x..strategyscape.bound.maxs.x),
-                self.rng.gen_range(strategyscape.bound.mins.y..strategyscape.bound.maxs.y)
+                self.rng.gen_range(metascape.bound.mins.x..metascape.bound.maxs.x),
+                self.rng.gen_range(metascape.bound.mins.y..metascape.bound.maxs.y)
             ];
 
             let uv: Vector2<f32> =
-                (translation + strategyscape.bound.half_extents()).component_div(&strategyscape.bound.extents());
+                (translation + metascape.bound.half_extents()).component_div(&metascape.bound.extents());
 
             // Check density.
             if completion > self.sample_system_density(uv) {
@@ -61,11 +61,11 @@ impl GenerationParameters {
                 .build();
 
             // Test if it overlap with any existing system.
-            if strategyscape
+            if metascape
                 .query_pipeline_bundle
                 .query_pipeline
                 .intersection_with_shape(
-                    &strategyscape.body_set_bundle.collider_set,
+                    &metascape.body_set_bundle.collider_set,
                     &Isometry2::new(translation, 0.0),
                     collider.shape(),
                     InteractionGroups::all(),
@@ -77,9 +77,9 @@ impl GenerationParameters {
             }
 
             // Add this circle as a new system.
-            let collider_handle = strategyscape.body_set_bundle.collider_set.insert(collider);
-            strategyscape.systems.insert(collider_handle, System {});
-            strategyscape.query_pipeline_bundle.update(&strategyscape.body_set_bundle);
+            let collider_handle = metascape.body_set_bundle.collider_set.insert(collider);
+            metascape.systems.insert(collider_handle, System {});
+            metascape.query_pipeline_bundle.update(&metascape.body_set_bundle);
         }
 
         // TODO: Find neighboring systems.

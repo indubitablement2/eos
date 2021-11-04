@@ -4,16 +4,22 @@
 extern crate log;
 
 pub mod collision;
-pub mod connection_manager;
 pub mod generation;
 pub mod packets;
 pub mod server;
+
+use std::time::Duration;
 
 use collision::*;
 use crossbeam_channel::*;
 use indexmap::IndexMap;
 use rapier2d::na::{vector, Vector2};
 use rapier2d::prelude::*;
+
+/// How long between each Battlescape tick.
+pub const GAME_UPDATE_INTERVAL: Duration = Duration::from_millis(50);
+/// How long between each Metascape update.
+pub const METASCAPE_UPDATE_INTERVAL: Duration = Duration::from_secs(1);
 
 pub struct System {}
 impl System {
@@ -34,7 +40,7 @@ impl Player {
     const MIN_REALITY_BUBBLE_SIZE: f32 = 256.0;
 }
 
-pub struct Strategyscape {
+pub struct Metascape {
     pub tick: u64,
     pub bound: AABB,
 
@@ -46,8 +52,8 @@ pub struct Strategyscape {
     pub systems: IndexMap<ColliderHandle, System>,
     pub players: IndexMap<ColliderHandle, Player>,
 }
-impl Strategyscape {
-    /// Create a new Strategyscape with default parameters.
+impl Metascape {
+    /// Create a new Metascape with default parameters.
     pub fn new() -> Self {
         let (collision_events_bundle, channel_event_collector) = CollisionEventsBundle::new();
 
@@ -117,18 +123,18 @@ impl Strategyscape {
     }
 }
 
-/// Contain channels to send/receive Strategyscape if you want to update it on a separate thread.
-pub struct StrategyscapeRunnerHandle {
-    pub request_sender: Sender<Strategyscape>,
-    pub result_receiver: Receiver<Strategyscape>,
+/// Contain channels to send/receive Metascape if you want to update it on a separate thread.
+pub struct MetascapeRunnerHandle {
+    pub request_sender: Sender<Metascape>,
+    pub result_receiver: Receiver<Metascape>,
 }
-impl StrategyscapeRunnerHandle {
-    /// Create a Strategyscape runner thread and chennels for communication.
+impl MetascapeRunnerHandle {
+    /// Create a Metascape runner thread and chennels for communication.
     pub fn new() -> Self {
         let (request_sender, request_receiver) = bounded(0);
         let (result_sender, result_receiver) = bounded(0);
 
-        let runner = StrategyscapeRunner::new(request_receiver, result_sender);
+        let runner = MetascapeRunner::new(request_receiver, result_sender);
         runner.spawn_loop();
 
         Self {
@@ -170,13 +176,13 @@ impl StrategyscapeRunnerHandle {
     // }
 }
 
-struct StrategyscapeRunner {
-    request_receiver: Receiver<Strategyscape>,
-    result_sender: Sender<Strategyscape>,
+struct MetascapeRunner {
+    request_receiver: Receiver<Metascape>,
+    result_sender: Sender<Metascape>,
 }
-impl StrategyscapeRunner {
+impl MetascapeRunner {
     /// Make a new runner.
-    fn new(request_receiver: Receiver<Strategyscape>, result_sender: Sender<Strategyscape>) -> Self {
+    fn new(request_receiver: Receiver<Metascape>, result_sender: Sender<Metascape>) -> Self {
         Self {
             request_receiver,
             result_sender,
@@ -186,9 +192,9 @@ impl StrategyscapeRunner {
     /// Start the runner thread.
     fn spawn_loop(self) {
         std::thread::spawn(move || {
-            while let Ok(mut strategyscape) = self.request_receiver.recv() {
-                strategyscape.update();
-                if self.result_sender.send(strategyscape).is_err() {
+            while let Ok(mut metascape) = self.request_receiver.recv() {
+                metascape.update();
+                if self.result_sender.send(metascape).is_err() {
                     break;
                 }
             }

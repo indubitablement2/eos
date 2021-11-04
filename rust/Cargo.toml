@@ -10,7 +10,7 @@ crate-type = ["cdylib", "staticlib"]
 [dependencies]
 log = { version = "0.4.14", features = ["release_max_level_off"] }
 
-strategyscape = { path = "../strategyscape" }
+common = { path = "../common" }
 gdnative = { git = "https://github.com/godot-rust/godot-rust.git", rev = "976ca4676ffe4b97f381473926ef8d9a595ea599" }
 bevy_ecs = "0.5.0"
 

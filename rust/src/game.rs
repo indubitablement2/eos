@@ -1,11 +1,12 @@
 use crate::client::Client;
-use crate::godot_logger::GodotLogger;
 use gdnative::api::*;
 use gdnative::prelude::*;
+use std::net::Ipv4Addr;
+use std::net::SocketAddrV4;
 use std::time::Duration;
-use strategyscape::generation::GenerationParameters;
-use strategyscape::server::Server;
-use strategyscape::*;
+use common::generation::GenerationParameters;
+use common::server::Server;
+use common::*;
 
 /// Layer between godot and rust.
 /// Godot is used for input/rendering. Rust is used for logic.
@@ -28,10 +29,18 @@ impl Game {
 
     /// The "constructor" of the class.
     fn new(_owner: &Node2D) -> Self {
+        let client = match Client::new(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0)) {
+            Ok(c) => Some(c),
+            Err(err) => {
+                error!("Error while creating Client: {:?}.", err);
+                None
+            }
+        };
+
         Game {
             name: String::new(),
             server: Some(Server::new()),
-            client: None,
+            client,
         }
     }
 
@@ -76,9 +85,9 @@ impl Game {
     #[export]
     unsafe fn _draw(&mut self, owner: &Node2D) {
         if let Some(server) = &self.server {
-            if let Some(strategyscape) = &server.strategyscape {
+            if let Some(metascape) = &server.metascape {
                 // Draw the systems.
-                for (translation, radius) in strategyscape.get_systems() {
+                for (translation, radius) in metascape.get_systems() {
                     owner.draw_circle(
                         Vector2 {
                             x: translation.x,
@@ -95,7 +104,7 @@ impl Game {
                 }
 
                 // Draw the players.
-                for (_player, translation, radius) in strategyscape.get_players() {
+                for (_player, translation, radius) in metascape.get_players() {
                     owner.draw_circle(
                         Vector2 {
                             x: translation.x,
@@ -140,7 +149,7 @@ impl Game {
         // self.def = Some(def);
 
         if let Some(server) = &mut self.server {
-            if let Some(strategyscape) = &mut server.strategyscape {
+            if let Some(metascape) = &mut server.metascape {
                 let mut gen = GenerationParameters {
                     seed: 1477,
                     rng: GenerationParameters::get_rgn_from_seed(1477),
@@ -151,7 +160,7 @@ impl Game {
                     system_density_multiplier: 1.0,
                 };
 
-                gen.generate_system(strategyscape);
+                gen.generate_system(metascape);
             }
         }
 
@@ -179,8 +188,8 @@ impl Game {
         density_img.unlock();
 
         if let Some(server) = &mut self.server {
-            // TODO: Generate a new Strategyscape should not be there.
-            if let Some(strategyscape) = &mut server.strategyscape {
+            // TODO: Generate a new Metascape should not be there.
+            if let Some(metascape) = &mut server.metascape {
                 let mut gen = GenerationParameters {
                     seed: 1477,
                     rng: GenerationParameters::get_rgn_from_seed(1477),
@@ -190,10 +199,10 @@ impl Game {
                     system_density_buffer,
                     system_density_multiplier: 1.0,
                 };
-                gen.generate_system(strategyscape);
+                gen.generate_system(metascape);
 
                 // TODO: Add ourself as a player should not be there.
-                strategyscape.add_player(
+                metascape.add_player(
                     Player {
                         id: 0,
                         name: "Test".to_string(),
