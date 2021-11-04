@@ -1,8 +1,8 @@
-use crate::*;
+use crate::metascape::*;
 use rand::Rng;
 use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoshiro256PlusPlus;
-use rapier2d::na::{Isometry2, Vector2};
+use rapier2d::{na::{Isometry2, Vector2, vector}, prelude::*};
 
 pub struct GenerationParameters {
     pub seed: u64,

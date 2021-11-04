@@ -6,7 +6,7 @@ use std::net::SocketAddrV4;
 use std::time::Duration;
 use common::generation::GenerationParameters;
 use common::server::Server;
-use common::*;
+use common::metascape::*;
 
 /// Layer between godot and rust.
 /// Godot is used for input/rendering. Rust is used for logic.

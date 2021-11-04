@@ -1,4 +1,4 @@
-use crate::*;
+use crate::metascape::*;
 use std::time::Duration;
 
 /// Get client inputs and send back command ~20hz.
