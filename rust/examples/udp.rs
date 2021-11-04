@@ -3,12 +3,15 @@ use std::thread::sleep;
 use std::time::Duration;
 
 fn main() {
-    let so1 = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let so1 = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0)).unwrap();
 
-    let so2 = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let so2 = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0)).unwrap();
 
     so1.connect(so2.local_addr().unwrap()).unwrap();
     so2.connect(so1.local_addr().unwrap()).unwrap();
+
+    println!("so1: {:?} to {:?}", so1.local_addr().unwrap(), so1.peer_addr().unwrap());
+    println!("so2: {:?} to {:?}", so2.local_addr().unwrap(), so2.peer_addr().unwrap());
 
     let mut buf = [0u8; 1024];
 

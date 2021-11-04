@@ -18,5 +18,6 @@ indexmap = {version = "1.7.0", features = ["serde"] }
 
 rapier2d = "0.11.1"
 
+crossbeam-channel = "0.5.1"
 tokio = { version = "1.13.0", features = ["full"] }
 bytes = "1.1.0"

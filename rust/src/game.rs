@@ -18,7 +18,7 @@ pub struct Game {
     // Receive input from clients. Send command to clients.
     server: Option<Server>,
     // Send input to server. Receive command from server.
-    client: Client,
+    client: Option<Client>,
 }
 
 #[methods]
@@ -28,15 +28,10 @@ impl Game {
 
     /// The "constructor" of the class.
     fn new(_owner: &Node2D) -> Self {
-        if let Ok(client) = Client::connect_local() {
-            Game {
-                name: String::new(),
-                server: Some(Server::new()),
-                client,
-            }
-        } else {
-            godot_error!("Could not connect to local host.");
-            todo!()
+        Game {
+            name: String::new(),
+            server: Some(Server::new()),
+            client: None,
         }
     }
 

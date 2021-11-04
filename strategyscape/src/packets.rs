@@ -1,3 +1,5 @@
+pub const MAX_DATAGRAM_SIZE: usize = 512;
+
 /// Sent to the server over Udp ~60 times per seconds.
 pub struct UdpClient {
     /// The angle of the capital ship wish direction.

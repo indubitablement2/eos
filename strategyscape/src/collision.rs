@@ -1,4 +1,4 @@
-use rapier2d::crossbeam::channel::*;
+use crossbeam_channel::*;
 use rapier2d::prelude::*;
 
 pub struct BodySetBundle {
