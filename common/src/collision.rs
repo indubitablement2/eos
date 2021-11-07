@@ -1,34 +1,21 @@
 use crossbeam_channel::*;
 use rapier2d::prelude::*;
 
-pub struct BodySetBundle {
-    pub collider_set: ColliderSet,
-    /// Unused.
-    pub _rigid_body_set: RigidBodySet,
-}
-impl BodySetBundle {
-    pub fn new() -> Self {
-        Self {
-            collider_set: ColliderSet::new(),
-            _rigid_body_set: RigidBodySet::new(),
-        }
-    }
-}
-
 pub struct CollisionEventsBundle {
-    pub contact_recv: Receiver<ContactEvent>,
+    /// Unused.
+    _contact_recv: Receiver<ContactEvent>,
     pub intersection_recv: Receiver<IntersectionEvent>,
 }
 impl CollisionEventsBundle {
     pub fn new() -> (Self, ChannelEventCollector) {
         // Initialize the event collector.
-        let (contact_send, contact_recv) = unbounded();
+        let (contact_send, _contact_recv) = unbounded();
         let (intersection_send, intersection_recv) = unbounded();
         let event_handler = ChannelEventCollector::new(intersection_send, contact_send);
 
         (
             Self {
-                contact_recv,
+                _contact_recv,
                 intersection_recv,
             },
             event_handler,
@@ -52,13 +39,13 @@ impl CollisionPipelineBundle {
         }
     }
 
-    pub fn step(&mut self, body_set_bundle: &mut BodySetBundle) {
+    pub fn update(&mut self, collider_set: &mut ColliderSet) {
         self.collision_pipeline.step(
             0.0,
             &mut self.broad_phase,
             &mut self.narrow_phase,
-            &mut body_set_bundle._rigid_body_set,
-            &mut body_set_bundle.collider_set,
+            &mut RigidBodySet::new(),
+            collider_set,
             &(),
             &self.channel_event_collector,
         );
@@ -79,11 +66,11 @@ impl QueryPipelineBundle {
     }
 
     /// Update the acceleration structure on the query pipeline.
-    pub fn update(&mut self, body_set_bundle: &BodySetBundle) {
+    pub fn update(&mut self, collider_set: &ColliderSet) {
         self.query_pipeline.update_with_mode(
             &self._island_manager,
-            &body_set_bundle._rigid_body_set,
-            &body_set_bundle.collider_set,
+            &RigidBodySet::new(),
+            collider_set,
             QueryPipelineMode::CurrentPosition,
         );
     }

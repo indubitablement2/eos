@@ -1,23 +1,26 @@
+use common::packets::*;
 use crossbeam_channel::*;
 use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
-use common::packets::{UdpClient, UdpServerDeserialized, MAX_DATAGRAM_SIZE};
 
 pub struct Client {
     local: bool,
     udp_to_send_sender: Sender<UdpClient>,
-    udp_received_receiver: Receiver<UdpServerDeserialized>,
+    udp_received_receiver: Receiver<UdpServer>,
+
+    local_addr: SocketAddrV4,
+    peer_addr: SocketAddrV4,
 }
 impl Client {
     /// Try to connect to a server. This could also be set to loopback if server is also the client.
     pub fn new(server_address: SocketAddrV4) -> Result<Self, std::io::Error> {
-        let socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))?;
+        let local_addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0);
+        let socket = UdpSocket::bind(local_addr)?;
         socket.connect(server_address)?;
         socket.set_nonblocking(true)?;
 
         info!(
             "Client connected. Server addr: {:?}. My addr: {:?}.",
-            &socket.peer_addr()?,
-            &socket.local_addr()?
+            &server_address, &local_addr
         );
 
         // Create the channels.
@@ -31,7 +34,17 @@ impl Client {
             local: *server_address.ip() == Ipv4Addr::LOCALHOST,
             udp_to_send_sender,
             udp_received_receiver,
+            local_addr,
+            peer_addr: server_address,
         })
+    }
+
+    pub fn get_local_addr(&self) -> SocketAddrV4 {
+        self.local_addr
+    }
+
+    pub fn get_peer_addr(&self) -> SocketAddrV4 {
+        self.peer_addr
     }
 
     /// If we are connect to loopback address.
@@ -45,7 +58,7 @@ impl Client {
     }
 
     /// Need to send to be hable to receive anything.
-    pub fn receive_udp(&self) -> Vec<UdpServerDeserialized> {
+    pub fn receive_udp(&self) -> Vec<UdpServer> {
         self.udp_received_receiver.try_iter().collect()
     }
 }
@@ -55,23 +68,19 @@ struct ClientRunner {
     /// Socket connected to the server.
     socket: UdpSocket,
     /// Packet received from the server will be sent to this channel.
-    udp_received_sender: Sender<UdpServerDeserialized>,
+    udp_received_sender: Sender<UdpServer>,
     /// Packet to send to the server will be received from this channel.
     udp_to_send_receiver: Receiver<UdpClient>,
     /// Generic buffer used for intermediary socket read.
-    datagram_recv_buffer: [u8; MAX_DATAGRAM_SIZE],
+    datagram_recv_buffer: [u8; UdpServer::MAX_SIZE],
 }
 impl ClientRunner {
-    fn new(
-        socket: UdpSocket,
-        udp_received_sender: Sender<UdpServerDeserialized>,
-        udp_to_send_receiver: Receiver<UdpClient>,
-    ) -> Self {
+    fn new(socket: UdpSocket, udp_received_sender: Sender<UdpServer>, udp_to_send_receiver: Receiver<UdpClient>) -> Self {
         Self {
             socket,
             udp_received_sender,
             udp_to_send_receiver,
-            datagram_recv_buffer: [0u8; MAX_DATAGRAM_SIZE],
+            datagram_recv_buffer: [0u8; UdpServer::MAX_SIZE],
         }
     }
 
@@ -79,30 +88,25 @@ impl ClientRunner {
         std::thread::spawn(move || {
             info!("ClientReceiver thread started.");
 
-            'main: loop {
-                // Send packet to server.
-                loop {
-                    match self.udp_to_send_receiver.try_recv() {
-                        Ok(packet) => {
-                            // We send without care for any errors that could occur as these packet are dispensable.
-                            match self.socket.send(&packet.serialize()) {
-                                Ok(num) => {
-                                    if num != UdpClient::PAYLOAD_SIZE {
-                                        warn!("Sent {} bytes to the server while it should've been {}. The server will not be hable to deserialize that.", num, UdpClient::PAYLOAD_SIZE);
-                                    } else {
-                                        trace!("Send {} bytes to server.", num);
-                                    }
+            loop {
+                // Send a packet to server.
+                match self.udp_to_send_receiver.recv() {
+                    Ok(packet) => {
+                        // We send without care for any errors that could occur as these packet are dispensable.
+                        match self.socket.send(&packet.serialize()) {
+                            Ok(num) => {
+                                if num != UdpClient::PAYLOAD_SIZE {
+                                    warn!("Sent {} bytes to the server while it should've been {}. The server will not be hable to deserialize that.", num, UdpClient::PAYLOAD_SIZE);
+                                } else {
+                                    trace!("Send {} bytes to server.", num);
                                 }
-                                Err(err) => trace!("Error while sending udp packet {}.", err),
                             }
+                            Err(err) => trace!("Error while sending udp packet {}.", err),
                         }
-                        Err(err) => {
-                            if err == TryRecvError::Disconnected {
-                                info!("ClientRunner disconnected.");
-                                break 'main;
-                            }
-                            break;
-                        }
+                    }
+                    Err(_err) => {
+                        info!("ClientRunner disconnected.");
+                        break;
                     }
                 }
 
@@ -111,18 +115,10 @@ impl ClientRunner {
                     trace!("Got {} bytes from server.", num);
 
                     // Deserialize buffer.
-                    match UdpServerDeserialized::deserialize(&self.datagram_recv_buffer[..num]) {
-                        Some(packet) => {
-                            // We don't care about the result. Receiver will disconnect if this ClientRunner is dropped.
-                            let _ = self.udp_received_sender.send(packet);
-                        }
-                        None => {
-                            warn!(
-                                "ClientReceiver error while trying to deserialize server packet. Ignoring packet. {:?}",
-                                &self.datagram_recv_buffer[..num]
-                            );
-                        }
-                    }
+                    // We don't care about the result. Receiver will disconnect if this ClientRunner is dropped.
+                    let _ = self
+                        .udp_received_sender
+                        .send(UdpServer::deserialize(&self.datagram_recv_buffer[..num]));
                 }
             }
 

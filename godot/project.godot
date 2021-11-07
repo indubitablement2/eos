@@ -89,7 +89,7 @@ game_camera_drag={
 
 [physics]
 
-common/physics_fps=30
+common/physics_fps=20
 3d/active_soft_world=false
 
 [rendering]

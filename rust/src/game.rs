@@ -1,12 +1,13 @@
 use crate::client::Client;
+use common::generation::GenerationParameters;
+use common::metascape::*;
+use common::packets::UdpClient;
 use gdnative::api::*;
 use gdnative::prelude::*;
+use nalgebra::vector;
 use std::net::Ipv4Addr;
 use std::net::SocketAddrV4;
 use std::time::Duration;
-use common::generation::GenerationParameters;
-use common::server::Server;
-use common::metascape::*;
 
 /// Layer between godot and rust.
 /// Godot is used for input/rendering. Rust is used for logic.
@@ -17,7 +18,7 @@ use common::metascape::*;
 pub struct Game {
     name: String,
     // Receive input from clients. Send command to clients.
-    server: Option<Server>,
+    metascape: Option<Metascape>,
     // Send input to server. Receive command from server.
     client: Option<Client>,
 }
@@ -29,18 +30,16 @@ impl Game {
 
     /// The "constructor" of the class.
     fn new(_owner: &Node2D) -> Self {
-        let client = match Client::new(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0)) {
-            Ok(c) => Some(c),
-            Err(err) => {
-                error!("Error while creating Client: {:?}.", err);
-                None
-            }
-        };
+        // Connect localy.
+        let client = Client::new(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0)).unwrap();
+        let mut metascape = Metascape::new();
+        // Add my fleet.
+        metascape.add_client_with_fleet(ClientID { id: 53 }, client.get_local_addr(), vector![0.0, 0.0]);
 
         Game {
             name: String::new(),
-            server: Some(Server::new()),
-            client,
+            metascape: Some(metascape),
+            client: Some(client),
         }
     }
 
@@ -68,57 +67,61 @@ impl Game {
         // }
     }
 
-    #[export]
-    unsafe fn _process(&mut self, _owner: &Node2D, mut delta: f64) {
-        // Somehow delta can be negative...
-        delta = delta.clamp(0.0, 1.0);
-
-        if let Some(server) = &mut self.server {
-            server.tick(Duration::from_secs_f64(delta));
-        }
-    }
-
     // #[export]
-    // unsafe fn _physic_process(&mut self, _owner: &Node2D, delta: f32) {
+    // unsafe fn _process(&mut self, _owner: &Node2D, mut delta: f64) {
+    //     // Somehow delta can be negative...
+    //     delta = delta.clamp(0.0, 1.0);
     // }
 
     #[export]
-    unsafe fn _draw(&mut self, owner: &Node2D) {
-        if let Some(server) = &self.server {
-            if let Some(metascape) = &server.metascape {
-                // Draw the systems.
-                for (translation, radius) in metascape.get_systems() {
-                    owner.draw_circle(
-                        Vector2 {
-                            x: translation.x,
-                            y: translation.y,
-                        },
-                        radius.into(),
-                        Color {
-                            r: 1.0,
-                            g: 1.0,
-                            b: 1.0,
-                            a: 0.4,
-                        },
-                    );
-                }
+    unsafe fn _physics_process(&mut self, owner: &Node2D, _delta: f64) {
+        if let Some(client) = &mut self.client {
+            let wish_pos = owner.get_global_mouse_position();
+            let packet = UdpClient::Metascape {
+                wish_position: vector![wish_pos.x, wish_pos.y],
+            };
+            client.send_udp(packet).unwrap();
+        }
 
-                // Draw the players.
-                for (_player, translation, radius) in metascape.get_players() {
-                    owner.draw_circle(
-                        Vector2 {
-                            x: translation.x,
-                            y: translation.y,
-                        },
-                        radius.into(),
-                        Color {
-                            r: 1.0,
-                            g: 0.0,
-                            b: 0.0,
-                            a: 0.6,
-                        },
-                    );
-                }
+        if let Some(metascape) = &mut self.metascape {
+            metascape.update();
+        }
+
+        owner.update();
+    }
+
+    #[export]
+    unsafe fn _draw(&mut self, owner: &Node2D) {
+        if let Some(metascape) = &self.metascape {
+            // Draw the fleets.
+            for (detection_pos, detection_radius, detector_pos, detector_radius) in metascape.get_fleets() {
+                owner.draw_circle(
+                    Vector2 {
+                        x: detection_pos.x,
+                        y: detection_pos.y,
+                    },
+                    detection_radius.into(),
+                    Color {
+                        r: 1.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a: 0.5,
+                    },
+                );
+
+                owner.draw_circle(
+                    Vector2 {
+                        x: detector_pos.x,
+                        y: detector_pos.y,
+                    },
+                    detector_radius.into(),
+                    Color {
+                        r: 0.0,
+                        g: 0.0,
+                        b: 1.0,
+                        a: 0.5,
+                    },
+                );
             }
         }
 
@@ -148,20 +151,18 @@ impl Game {
         // self.ecs = Some(Ecs::new(owner, &def));
         // self.def = Some(def);
 
-        if let Some(server) = &mut self.server {
-            if let Some(metascape) = &mut server.metascape {
-                let mut gen = GenerationParameters {
-                    seed: 1477,
-                    rng: GenerationParameters::get_rgn_from_seed(1477),
-                    mods: (),
-                    system_density_buffer_height: 64,
-                    system_density_buffer_width: 64,
-                    system_density_buffer: (0..64 * 64).into_iter().map(|_| 0.5f32).collect(),
-                    system_density_multiplier: 1.0,
-                };
+        if let Some(metascape) = &mut self.metascape {
+            let mut gen = GenerationParameters {
+                seed: 1477,
+                rng: GenerationParameters::get_rgn_from_seed(1477),
+                mods: (),
+                system_density_buffer_height: 64,
+                system_density_buffer_width: 64,
+                system_density_buffer: (0..64 * 64).into_iter().map(|_| 0.5f32).collect(),
+                system_density_multiplier: 1.0,
+            };
 
-                gen.generate_system(metascape);
-            }
+            gen.generate_system(metascape);
         }
 
         self.name = world_name;
@@ -187,30 +188,29 @@ impl Game {
         }
         density_img.unlock();
 
-        if let Some(server) = &mut self.server {
-            // TODO: Generate a new Metascape should not be there.
-            if let Some(metascape) = &mut server.metascape {
-                let mut gen = GenerationParameters {
-                    seed: 1477,
-                    rng: GenerationParameters::get_rgn_from_seed(1477),
-                    mods: (),
-                    system_density_buffer_height: h as usize,
-                    system_density_buffer_width: w as usize,
-                    system_density_buffer,
-                    system_density_multiplier: 1.0,
-                };
-                gen.generate_system(metascape);
+        // if let Some(server) = &mut self.server {
+        //     // TODO: Generate a new Metascape should not be there.
+        //     if let Some(metascape) = &mut server.metascape {
+        //         let mut gen = GenerationParameters {
+        //             seed: 1477,
+        //             rng: GenerationParameters::get_rgn_from_seed(1477),
+        //             mods: (),
+        //             system_density_buffer_height: h as usize,
+        //             system_density_buffer_width: w as usize,
+        //             system_density_buffer,
+        //             system_density_multiplier: 1.0,
+        //         };
+        //         gen.generate_system(metascape);
 
-                // TODO: Add ourself as a player should not be there.
-                metascape.add_player(
-                    Player {
-                        id: 0,
-                        name: "Test".to_string(),
-                    },
-                    rapier2d::na::vector![0.0f32, 0.0f32],
-                );
-            }
-        }
+        //         // TODO: Add ourself as a player should not be there.
+        //         // metascape.add_player(
+        //         //     Player {
+        //         //         id: 0,
+        //         //     },
+        //         //     rapier2d::na::vector![0.0f32, 0.0f32],
+        //         // );
+        //     }
+        // }
 
         self.name = world_name;
 

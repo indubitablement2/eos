@@ -4,7 +4,7 @@ use log::{Level, Metadata, Record};
 pub struct GodotLogger;
 
 impl log::Log for GodotLogger {
-    fn enabled(&self, _metadata: &Metadata) -> bool {
+    fn enabled(&self, metadata: &Metadata) -> bool {
         true
     }
 
@@ -21,6 +21,7 @@ impl log::Log for GodotLogger {
             match record.level() {
                 Level::Error => godot_error!("{}", message),
                 Level::Warn => godot_warn!("{}", message),
+                Level::Trace => println!("{}", message),
                 _ => godot_print!("{}", message),
             }
         }

@@ -2,7 +2,10 @@ use crate::metascape::*;
 use rand::Rng;
 use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoshiro256PlusPlus;
-use rapier2d::{na::{Isometry2, Vector2, vector}, prelude::*};
+use rapier2d::{
+    na::{vector, Isometry2, Vector2},
+    prelude::*,
+};
 
 pub struct GenerationParameters {
     pub seed: u64,
@@ -25,8 +28,7 @@ impl GenerationParameters {
 
     pub fn generate_system(&mut self, metascape: &mut Metascape) {
         // How many systems we will try to place randomly.
-        let num_attempt =
-            (metascape.bound.volume() / (System::SMALL * 2.0).powi(2) * self.system_density_multiplier) as usize;
+        let num_attempt = (metascape.bound.volume() / (System::SIZE * 2.0).powi(2) * self.system_density_multiplier) as usize;
 
         for attempt_number in 0..num_attempt {
             let completion = attempt_number as f32 / num_attempt as f32;
@@ -36,28 +38,21 @@ impl GenerationParameters {
                 self.rng.gen_range(metascape.bound.mins.y..metascape.bound.maxs.y)
             ];
 
-            let uv: Vector2<f32> =
-                (translation + metascape.bound.half_extents()).component_div(&metascape.bound.extents());
+            let uv: Vector2<f32> = (translation + metascape.bound.half_extents()).component_div(&metascape.bound.extents());
 
             // Check density.
             if completion > self.sample_system_density(uv) {
                 continue;
             }
 
-            let radius = match self.rng.gen_range(0..3) {
-                0 => System::SMALL,
-                1 => System::MEDIUM,
-                _ => System::LARGE,
-            };
+            // TODO: Temporary size constant. This should come from what is inside the system.
+            let radius = System::SIZE;
 
             let collider = ColliderBuilder::ball(radius)
                 .sensor(true)
                 .active_events(ActiveEvents::INTERSECTION_EVENTS)
                 .translation(translation)
-                .collision_groups(InteractionGroups::new(
-                    System::COLLISION_MEMBERSHIP,
-                    Player::COLLISION_MEMBERSHIP,
-                ))
+                .collision_groups(InteractionGroups::new(System::COLLISION_MEMBERSHIP, 0))
                 .build();
 
             // Test if it overlap with any existing system.
@@ -65,7 +60,7 @@ impl GenerationParameters {
                 .query_pipeline_bundle
                 .query_pipeline
                 .intersection_with_shape(
-                    &metascape.body_set_bundle.collider_set,
+                    &metascape.collider_set,
                     &Isometry2::new(translation, 0.0),
                     collider.shape(),
                     InteractionGroups::all(),
@@ -77,9 +72,9 @@ impl GenerationParameters {
             }
 
             // Add this circle as a new system.
-            let collider_handle = metascape.body_set_bundle.collider_set.insert(collider);
+            let collider_handle = metascape.collider_set.insert(collider);
             metascape.systems.insert(collider_handle, System {});
-            metascape.query_pipeline_bundle.update(&metascape.body_set_bundle);
+            metascape.query_pipeline_bundle.update(&metascape.collider_set);
         }
 
         // TODO: Find neighboring systems.
