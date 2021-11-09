@@ -74,8 +74,7 @@ pub enum UdpClient {
     },
 }
 impl UdpClient {
-    /// TODO: What is the size of a UdpClient?
-    pub const FIXED_SIZE: usize = 50;
+    pub const FIXED_SIZE: usize = 21;
 
     /// Serialize into a buffer ready to be sent over Udp.
     pub fn serialize(&self) -> Vec<u8> {
@@ -86,6 +85,20 @@ impl UdpClient {
     pub fn deserialize(buffer: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
         bincode::deserialize(buffer)
     }
+}
+
+#[test]
+fn test_udp_client() {
+    let og = UdpClient::Battlescape {
+        wish_input: BattlescapeInput {
+            fire_toggle: true,
+            wish_dir: 123.4,
+            aim_dir: 777.7,
+            wish_dir_force: 10.01,
+        },
+        acknowledge_command: 50,
+    };
+    assert_eq!(og.serialize().len(), UdpClient::FIXED_SIZE);
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
