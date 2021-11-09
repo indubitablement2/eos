@@ -369,27 +369,16 @@ impl Metascape {
         }
     }
 
-    /// TODO: DELETE ME
-    pub fn get_fleets(&self) -> Vec<(Vector2<f32>, f32, Vector2<f32>, f32)> {
-        let mut fleets = Vec::with_capacity(self.fleets.len());
+    /// Get all ball colliders as (position, radius). Useful for debug display.
+    pub fn get_balls(&self) -> Vec<(Vector2<f32>, f32)> {
+        let mut balls = Vec::with_capacity(self.collider_set.len());
 
-        for fleet in self.fleets.values() {
-            if let Some(detection_collider) = self.collider_set.get(fleet.detection_handle) {
-                if let Some(detection_ball) = detection_collider.shape().as_ball() {
-                    if let Some(detector_collider) = self.collider_set.get(fleet.detector_handle) {
-                        if let Some(detector_ball) = detector_collider.shape().as_ball() {
-                            fleets.push((
-                                *detection_collider.translation(),
-                                detection_ball.radius,
-                                *detector_collider.translation(),
-                                detector_ball.radius,
-                            ))
-                        }
-                    }
-                }
+        for (_, collider) in self.collider_set.iter() {
+            if let Some(ball) = collider.shape().as_ball() {
+                balls.push((*collider.translation(), ball.radius));
             }
         }
 
-        fleets
+        balls
     }
 }

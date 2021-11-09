@@ -93,28 +93,11 @@ impl Game {
     #[export]
     unsafe fn _draw(&mut self, owner: &Node2D) {
         if let Some(metascape) = &self.metascape {
-            // Draw the fleets.
-            for (detection_pos, detection_radius, detector_pos, detector_radius) in metascape.get_fleets() {
+            // Draw the balls.
+            for (pos, radius) in metascape.get_balls().into_iter() {
                 owner.draw_circle(
-                    Vector2 {
-                        x: detection_pos.x,
-                        y: detection_pos.y,
-                    },
-                    detection_radius.into(),
-                    Color {
-                        r: 1.0,
-                        g: 0.0,
-                        b: 0.0,
-                        a: 0.5,
-                    },
-                );
-
-                owner.draw_circle(
-                    Vector2 {
-                        x: detector_pos.x,
-                        y: detector_pos.y,
-                    },
-                    detector_radius.into(),
+                    Vector2 { x: pos.x, y: pos.y },
+                    radius.into(),
                     Color {
                         r: 0.0,
                         g: 0.0,
@@ -124,18 +107,6 @@ impl Game {
                 );
             }
         }
-
-        // if let Some(ecs) = &self.ecs {
-        //     if let Some(render_res) = ecs.world.get_resource::<RenderRes>() {
-        //         let visual_server = gdnative::api::VisualServer::godot_singleton();
-        //         visual_server.canvas_item_add_multimesh(
-        //             owner.get_canvas(),
-        //             render_res.multimesh_rid,
-        //             render_res.texture_rid,
-        //             render_res.normal_texture_rid
-        //         );
-        //     }
-        // }
     }
 
     /// Load a world.
