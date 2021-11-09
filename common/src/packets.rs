@@ -1,26 +1,42 @@
-use std::net::SocketAddr;
-
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct LoginPacket {
     pub is_steam: bool,
     pub token: u64,
     pub udp_address: SocketAddr,
 }
 impl LoginPacket {
-    /// TODO: What is the size of a SocketAddr?
-    pub const FIXED_SIZE: usize = 100;
+    pub const FIXED_SIZE: usize = 40;
 
     pub fn serialize(&self) -> Vec<u8> {
-        bincode::serialize(self).unwrap()
+        let payload = bincode::serialize(self).unwrap();
+        let mut v = Vec::with_capacity(payload.len() + 1);
+        v.push(payload.len() as u8);
+        v.extend_from_slice(&payload);
+        v
     }
 
     /// Deserialize from a buffer received from Udp.
     pub fn deserialize(buffer: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
-        bincode::deserialize(buffer)
+        let size = buffer[0] as usize;
+        bincode::deserialize(&buffer[1..size + 1])
     }
+}
+
+#[test]
+fn test_login_packet() {
+    let og = LoginPacket {
+        is_steam: false,
+        token: 255,
+        udp_address: SocketAddr::new(
+            std::net::IpAddr::V6(std::net::Ipv6Addr::new(123, 444, 555, 7211, 1123, 34509, 111, 953)),
+            747,
+        ),
+    };
+    assert_eq!(og, LoginPacket::deserialize(&og.serialize()).unwrap());
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -36,7 +52,12 @@ pub struct BattlescapeInput {
 }
 impl Default for BattlescapeInput {
     fn default() -> Self {
-        Self { fire_toggle: false, wish_dir: 0.0, aim_dir: 0.0, wish_dir_force: 0.0 }
+        Self {
+            fire_toggle: false,
+            wish_dir: 0.0,
+            aim_dir: 0.0,
+            wish_dir_force: 0.0,
+        }
     }
 }
 

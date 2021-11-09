@@ -365,8 +365,6 @@ impl Metascape {
     pub fn disconnect_client(&mut self, client_id: ClientID) {
         // Remove client.
         if let Some(client) = self.clients.remove(&client_id) {
-
-            
             info!("Disconnected {:?}.", client_id);
         }
     }
