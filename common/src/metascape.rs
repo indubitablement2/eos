@@ -1,17 +1,10 @@
 use crate::collision::*;
 use crate::connection_manager::*;
-use crate::packets;
 use crate::packets::*;
-use crossbeam_channel::Receiver;
-use crossbeam_channel::Sender;
 use indexmap::IndexMap;
 use rapier2d::na::{vector, Vector2};
 use rapier2d::prelude::*;
-use std::net::Ipv4Addr;
-use std::net::SocketAddr;
-use std::net::SocketAddrV4;
 use std::ops::Add;
-use std::thread::spawn;
 use std::time::Duration;
 
 // command: server send those to clients inside Battlescape, so that they can update.
@@ -105,17 +98,6 @@ impl Fleet {
     }
 }
 
-/// Multiple colliders wraped together.
-pub struct FleetColliderHandles {
-    /// The collider that make this fleet detected.
-    detection_handle: ColliderHandle,
-    /// The collider that detect other fleet. Follow detection_collider.
-    pub detector_handle: ColliderHandle,
-}
-impl FleetColliderHandles {
-    fn set_position(pos: Vector2<f32>) {}
-}
-
 /// An ongoing battle on the Metascape.
 /// If no client are controlling a fleet, it will be crudely simulated by the Metascape.
 #[derive(Debug, Clone)]
@@ -188,6 +170,28 @@ impl Metascape {
         })
     }
 
+    fn get_new_connection(&mut self) {
+        while let Ok(connection) = self.connection_manager.new_connection_receiver.try_recv() {
+            // TODO: Add a new fleet untill load/save is implemented.
+            let fleet_id = self.create_fleet(Some(connection.client_id), vector![0.0, 0.0]);
+
+            let client_id = connection.client_id;
+
+            // Create client.
+            let client = Client {
+                fleet_control: Some(fleet_id),
+                connection,
+                input_battlescape: BattlescapeInput::default(),
+                unacknowledged_commands: IndexMap::new(),
+            };
+
+            // Add to Metascape.
+            if self.clients.insert(client_id, client).is_some() {
+                info!("{:?} was disconnected as a new connection took this client.", client_id);
+            }
+        }
+    }
+
     /// Get and process clients udp packets.
     fn get_client_udp_input(&mut self) {
         for (client_id, client) in &self.clients {
@@ -239,16 +243,8 @@ impl Metascape {
     /// Apply calculated velocity to fleets.
     fn apply_fleet_velocity(&mut self) {
         for fleet in self.fleets.values() {
-            let mut new_pos = vector![0.0f32, 0.0];
-            // Set detection pos
-            if let Some(detection_collider) = self.collider_set.get_mut(fleet.detection_handle) {
-                new_pos = detection_collider.translation().add(fleet.velocity);
-                detection_collider.set_translation(new_pos);
-            }
-            // Also set detector to the same position.
-            if let Some(detector_collider) = self.collider_set.get_mut(fleet.detector_handle) {
-                detector_collider.set_translation(new_pos);
-            }
+            let new_pos = fleet.get_position(&self.collider_set).add(fleet.velocity);
+            fleet.set_position(&mut self.collider_set, new_pos);
         }
     }
 
@@ -279,7 +275,10 @@ impl Metascape {
 
     pub fn update(&mut self) {
         self.tick += 1;
+        self.get_new_connection();
         self.get_client_udp_input();
+        self.flush_disconnect_queue();
+
         self.calc_fleet_velocity();
         self.apply_fleet_velocity();
 
@@ -291,7 +290,9 @@ impl Metascape {
         // TODO: Make next Battlescape command and add it to Client's unacknowledged commands.
 
         self.update_collision_pipelines();
+
         self.send_udp();
+        self.flush_disconnect_queue();
     }
 
     /// Get the position and radius of every system.
@@ -310,8 +311,8 @@ impl Metascape {
         systems
     }
 
-    /// TODO: Only used for testing untill tcp is implemented.
-    pub fn add_client_with_fleet(&mut self, client_id: ClientID, address: SocketAddr, translation: Vector2<f32>) {
+    /// Add a new fleet to the metascape and return its id.
+    fn create_fleet(&mut self, owner: Option<ClientID>, translation: Vector2<f32>) -> FleetID {
         // Create colliders.
         let detection_collider = ColliderBuilder::ball(50.0)
             .sensor(true)
@@ -322,7 +323,6 @@ impl Metascape {
                 filter: Fleet::DETECTOR_COLLISION_MEMBERSHIP,
             })
             .build();
-
         let detector_collider = ColliderBuilder::ball(90.0)
             .sensor(true)
             .active_events(ActiveEvents::INTERSECTION_EVENTS)
@@ -340,7 +340,7 @@ impl Metascape {
         // Add new fleet.
         let fleet_id = FleetID { id: 100 };
         let new_fleet = Fleet {
-            owner: Some(client_id),
+            owner,
             battlescape: None,
             wish_position: vector![0.0, 0.0],
             velocity: vector![0.0, 0.0],
@@ -349,27 +349,7 @@ impl Metascape {
         };
         self.fleets.insert(fleet_id, new_fleet);
 
-        // Add laminar address entry.
-        // self.laminar_addresses.insert(address, client_id);
-
-        // Send a packet to the address to initialize a laminar connection.
-        // let _ = self.udp_packet_sender.send(Packet::unreliable(address, vec![]));
-
-        // Create Client.
-        // let new_client = Client {
-        //     fleet_control: Some(fleet_id),
-        //     input_battlescape: packets::BattlescapeInput {
-        //         fire_toggle: false,
-        //         wish_dir: 0.0,
-        //         aim_dir: 0.0,
-        //         wish_dir_force: 0.0,
-        //     },
-        //     unacknowledged_commands: IndexMap::new(),
-        //     udp_address: address,
-        // };
-
-        // Add Client.
-        // self.clients.insert(client_id, new_client);
+        fleet_id
     }
 
     pub fn flush_disconnect_queue(&mut self) {

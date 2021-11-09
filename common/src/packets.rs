@@ -34,6 +34,11 @@ pub struct BattlescapeInput {
     /// The absolute force of the capital ship wish direction.
     pub wish_dir_force: f32,
 }
+impl Default for BattlescapeInput {
+    fn default() -> Self {
+        Self { fire_toggle: false, wish_dir: 0.0, aim_dir: 0.0, wish_dir_force: 0.0 }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum UdpClient {
