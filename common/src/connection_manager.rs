@@ -32,20 +32,27 @@ pub struct ConnectionsManager {
     pub new_connection_receiver: crossbeam_channel::Receiver<Connection>,
     _rt: Runtime,
     server_addresses: ServerAddresses,
+    local: bool,
 }
 impl ConnectionsManager {
-    pub fn new() -> Result<Self> {
+    pub fn new(local: bool) -> Result<Self> {
         // Create tokio runtime.
         let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
         info!("Create server tokio runtime.");
 
+        // TODO: Use v6, but fall back to v4.
+        let addr = match local {
+            true => SocketAddrV6::new(Ipv6Addr::LOCALHOST, 0, 0, 0),
+            false => SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0),
+        };
+
         // Create TcpListener.
-        let tcp_listener = rt.block_on(async { TcpListener::bind(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0)).await })?;
+        let tcp_listener = rt.block_on(async { TcpListener::bind(addr).await })?;
         info!("Created server TcpListener");
 
         // Create UdpSocket.
         let udp_socket =
-            Arc::new(rt.block_on(async { UdpSocket::bind(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0)).await })?);
+            Arc::new(rt.block_on(async { UdpSocket::bind(addr).await })?);
         info!("Created server UdpSocket");
 
         // Save addresses.
@@ -67,6 +74,7 @@ impl ConnectionsManager {
             new_connection_sender,
             udp_socket,
             udp_senders.clone(),
+            local,
         ));
         info!("Started login loop.");
 
@@ -76,11 +84,16 @@ impl ConnectionsManager {
             new_connection_receiver,
             _rt: rt,
             server_addresses,
+            local,
         })
     }
 
     pub fn get_addresses(&self) -> ServerAddresses {
         self.server_addresses
+    }
+
+    pub fn is_local(&self) -> bool {
+        self.local
     }
 }
 
@@ -89,6 +102,7 @@ async fn login_loop(
     new_connection_sender: crossbeam_channel::Sender<Connection>,
     udp_socket: Arc<UdpSocket>,
     udp_senders: Arc<Mutex<HashMap<SocketAddr, crossbeam_channel::Sender<UdpClient>>>>,
+    local: bool,
 ) {
     loop {
         match tcp_listener.accept().await {
@@ -100,6 +114,7 @@ async fn login_loop(
                     new_connection_sender.clone(),
                     udp_socket.clone(),
                     udp_senders.clone(),
+                    local,
                 ));
             }
             Err(err) => {
@@ -115,6 +130,7 @@ async fn first_packet(
     new_connection_sender: crossbeam_channel::Sender<Connection>,
     udp_socket: Arc<UdpSocket>,
     udp_senders: Arc<Mutex<HashMap<SocketAddr, crossbeam_channel::Sender<UdpClient>>>>,
+    local: bool,
 ) {
     // Wrap stream into buffers.
     let (r, w) = new_tcp_stream.into_split();
@@ -146,6 +162,7 @@ async fn first_packet(
                                 new_connection_sender,
                                 udp_socket,
                                 udp_senders,
+                                local,
                             )
                             .await;
                             return;
@@ -168,15 +185,33 @@ async fn first_packet(
 async fn try_login(
     login_packet: LoginPacket,
     buf_read: BufReader<OwnedReadHalf>,
-    buf_write: BufWriter<OwnedWriteHalf>,
+    mut buf_write: BufWriter<OwnedWriteHalf>,
     tcp_addr: SocketAddr,
     new_connection_sender: crossbeam_channel::Sender<Connection>,
     udp_socket: Arc<UdpSocket>,
     udp_senders: Arc<Mutex<HashMap<SocketAddr, crossbeam_channel::Sender<UdpClient>>>>,
+    local: bool,
 ) {
-    // TODO: Check token.
-    let client_id = ClientID { id: 123 };
+    // Check credential.
+    let client_id = match local {
+        true => ClientID { id: 0 },
+        false => {
+            // TODO: Check token.
+            todo!()
+        }
+    };
 
+    // Send LoginResponse.
+    if let Err(err) = buf_write.write(&LoginResponsePacket::Accepted.serialize()).await {
+        warn!("{:?} while trying to write LoginResponsePacket to {}. Aborting login...", err, tcp_addr);
+        return;
+    }
+    if let Err(err) =buf_write.flush().await {
+        warn!("{:?} while trying to flush LoginResponsePacket to {}. Aborting login...", err, tcp_addr);
+        return;
+    }
+
+    // Start runner.
     let (udp_sender, udp_to_send) = tokio::sync::mpsc::channel(32);
     spawn(send_udp(udp_to_send, udp_socket, login_packet.udp_address));
 

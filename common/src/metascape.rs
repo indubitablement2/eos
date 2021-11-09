@@ -132,7 +132,7 @@ pub struct Metascape {
     pub collider_set: ColliderSet,
     pub collision_events_bundle: CollisionEventsBundle,
 
-    connection_manager: ConnectionsManager,
+    pub connection_manager: ConnectionsManager,
     /// Connection that will be disconnected next update.
     pub disconnect_queue: Vec<ClientID>,
     /// Connected clients.
@@ -148,11 +148,11 @@ impl Metascape {
     pub const UPDATE_INTERVAL: Duration = Duration::from_millis(50);
 
     /// Create a new Metascape with default parameters.
-    pub fn new() -> tokio::io::Result<Self> {
+    pub fn new(local: bool) -> tokio::io::Result<Self> {
         // Create the rapier intersection channel.
         let (collision_events_bundle, channel_event_collector) = CollisionEventsBundle::new();
 
-        let connection_manager = ConnectionsManager::new()?;
+        let connection_manager = ConnectionsManager::new(local)?;
 
         Ok(Self {
             tick: 0,

@@ -26,6 +26,29 @@ impl LoginPacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum LoginResponsePacket {
+    Accepted,
+    Unknow,
+}
+impl LoginResponsePacket {
+    pub const FIXED_SIZE: usize = 1;
+
+    pub fn serialize(&self) -> Vec<u8> {
+        match self {
+            LoginResponsePacket::Accepted => vec![0],
+            LoginResponsePacket::Unknow => vec![255],
+        }
+    }
+
+    pub fn deserialize(buffer: &[u8]) -> Self {
+        match buffer[0] {
+            0 => Self::Accepted,
+            _ => Self::Unknow,
+        }
+    }
+}
+
 #[test]
 fn test_login_packet() {
     let og = LoginPacket {

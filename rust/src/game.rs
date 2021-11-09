@@ -31,14 +31,14 @@ impl Game {
     /// The "constructor" of the class.
     fn new(_owner: &Node2D) -> Self {
         // Connect localy.
-        let client = Client::new(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0)).unwrap();
-        // let mut metascape = Metascape::new();
+        let metascape = Metascape::new(true).unwrap();
+        let client = Client::new(metascape.connection_manager.get_addresses()).unwrap();
         // // Add my fleet.
         // metascape.add_client_with_fleet(ClientID { id: 53 }, client.get_local_addr(), vector![0.0, 0.0]);
 
         Game {
             name: String::new(),
-            metascape: None,
+            metascape: Some(metascape),
             client: Some(client),
         }
     }
@@ -80,7 +80,7 @@ impl Game {
             let packet = UdpClient::Metascape {
                 wish_position: vector![wish_pos.x, wish_pos.y],
             };
-            client.send_udp(packet).unwrap();
+            // client.send_udp(packet).unwrap();
         }
 
         if let Some(metascape) = &mut self.metascape {
