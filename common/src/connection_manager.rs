@@ -22,9 +22,16 @@ pub struct Connection {
     pub tcp_receiver: crossbeam_channel::Receiver<TcpClient>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ServerAddresses {
+    pub tcp_address: SocketAddr,
+    pub udp_address: SocketAddr,
+}
+
 pub struct ConnectionsManager {
     pub new_connection_receiver: crossbeam_channel::Receiver<Connection>,
     _rt: Runtime,
+    server_addresses: ServerAddresses,
 }
 impl ConnectionsManager {
     pub fn new() -> Result<Self> {
@@ -41,6 +48,12 @@ impl ConnectionsManager {
             Arc::new(rt.block_on(async { UdpSocket::bind(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0)).await })?);
         info!("Created server UdpSocket");
 
+        // Save addresses.
+        let server_addresses = ServerAddresses {
+            tcp_address: tcp_listener.local_addr()?,
+            udp_address: udp_socket.local_addr()?,
+        };
+
         // Start udp receiver loop.
         let udp_senders = Arc::new(Mutex::new(HashMap::with_capacity(32)));
         rt.spawn(recv_udp(udp_senders.clone(), udp_socket.clone()));
@@ -52,15 +65,22 @@ impl ConnectionsManager {
         rt.spawn(login_loop(
             tcp_listener,
             new_connection_sender,
-            udp_socket.clone(),
+            udp_socket,
             udp_senders.clone(),
         ));
         info!("Started login loop.");
 
+        info!("Server ready. \n {:?}", server_addresses);
+
         Ok(Self {
             new_connection_receiver,
             _rt: rt,
+            server_addresses,
         })
+    }
+
+    pub fn get_addresses(&self) -> ServerAddresses {
+        self.server_addresses
     }
 }
 
