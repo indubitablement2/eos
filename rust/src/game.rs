@@ -32,13 +32,13 @@ impl Game {
     fn new(_owner: &Node2D) -> Self {
         // Connect localy.
         let client = Client::new(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0)).unwrap();
-        let mut metascape = Metascape::new();
-        // Add my fleet.
-        metascape.add_client_with_fleet(ClientID { id: 53 }, client.get_local_addr(), vector![0.0, 0.0]);
+        // let mut metascape = Metascape::new();
+        // // Add my fleet.
+        // metascape.add_client_with_fleet(ClientID { id: 53 }, client.get_local_addr(), vector![0.0, 0.0]);
 
         Game {
             name: String::new(),
-            metascape: Some(metascape),
+            metascape: None,
             client: Some(client),
         }
     }

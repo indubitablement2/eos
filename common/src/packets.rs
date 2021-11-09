@@ -1,5 +1,27 @@
+use std::net::SocketAddr;
+
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LoginPacket {
+    pub is_steam: bool,
+    pub token: u64,
+    pub udp_address: SocketAddr,
+}
+impl LoginPacket {
+    /// TODO: What is the size of a SocketAddr?
+    pub const FIXED_SIZE: usize = 100;
+
+    pub fn serialize(&self) -> Vec<u8> {
+        bincode::serialize(self).unwrap()
+    }
+
+    /// Deserialize from a buffer received from Udp.
+    pub fn deserialize(buffer: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
+        bincode::deserialize(buffer)
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BattlescapeInput {
@@ -26,6 +48,9 @@ pub enum UdpClient {
     },
 }
 impl UdpClient {
+    /// TODO: What is the size of a UdpClient?
+    pub const FIXED_SIZE: usize = 50;
+
     /// Serialize into a buffer ready to be sent over Udp.
     pub fn serialize(&self) -> Vec<u8> {
         bincode::serialize(self).unwrap()
@@ -52,6 +77,42 @@ impl UdpServer {
         bincode::serialize(self).unwrap()
     }
 
+    pub fn deserialize(buffer: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
+        bincode::deserialize(buffer)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum TcpClient {}
+impl TcpClient {
+    pub const MAX_SIZE: usize = 131072;
+
+    /// Adds a 32bits header representing payload size.
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut payload = bincode::serialize(self).unwrap();
+        let mut v = (payload.len() as u32).to_be_bytes().to_vec();
+        v.append(&mut payload);
+        v
+    }
+
+    /// Expect no header.
+    pub fn deserialize(buffer: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
+        bincode::deserialize(buffer)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum TcpServer {}
+impl TcpServer {
+    /// Adds a 32bits header representing payload size.
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut payload = bincode::serialize(self).unwrap();
+        let mut v = (payload.len() as u32).to_be_bytes().to_vec();
+        v.append(&mut payload);
+        v
+    }
+
+    /// Expect no header.
     pub fn deserialize(buffer: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
         bincode::deserialize(buffer)
     }

@@ -72,7 +72,7 @@ struct ClientRunner {
     /// Packet to send to the server will be received from this channel.
     udp_to_send_receiver: Receiver<UdpClient>,
     /// Generic buffer used for intermediary socket read.
-    datagram_recv_buffer: [u8; UdpServer::MAX_SIZE],
+    datagram_recv_buffer: [u8; 123],
 }
 impl ClientRunner {
     fn new(socket: UdpSocket, udp_received_sender: Sender<UdpServer>, udp_to_send_receiver: Receiver<UdpClient>) -> Self {
@@ -80,7 +80,7 @@ impl ClientRunner {
             socket,
             udp_received_sender,
             udp_to_send_receiver,
-            datagram_recv_buffer: [0u8; UdpServer::MAX_SIZE],
+            datagram_recv_buffer: [0u8; 123],
         }
     }
 
@@ -95,8 +95,8 @@ impl ClientRunner {
                         // We send without care for any errors that could occur as these packet are dispensable.
                         match self.socket.send(&packet.serialize()) {
                             Ok(num) => {
-                                if num != UdpClient::PAYLOAD_SIZE {
-                                    warn!("Sent {} bytes to the server while it should've been {}. The server will not be hable to deserialize that.", num, UdpClient::PAYLOAD_SIZE);
+                                if num != 123 {
+                                    warn!("Sent {} bytes to the server while it should've been {}. The server will not be hable to deserialize that.", num, 123);
                                 } else {
                                     trace!("Send {} bytes to server.", num);
                                 }
@@ -116,9 +116,9 @@ impl ClientRunner {
 
                     // Deserialize buffer.
                     // We don't care about the result. Receiver will disconnect if this ClientRunner is dropped.
-                    let _ = self
-                        .udp_received_sender
-                        .send(UdpServer::deserialize(&self.datagram_recv_buffer[..num]));
+                    // let _ = self
+                    //     .udp_received_sender
+                    //     .send(UdpServer::deserialize(&self.datagram_recv_buffer[..num]));
                 }
             }
 
