@@ -1,12 +1,10 @@
 use crate::collision::*;
+use crate::connection_manager::*;
 use crate::packets;
 use crate::packets::*;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use indexmap::IndexMap;
-use laminar::Packet;
-use laminar::Socket;
-use laminar::SocketEvent;
 use rapier2d::na::{vector, Vector2};
 use rapier2d::prelude::*;
 use std::net::Ipv4Addr;
@@ -40,7 +38,8 @@ pub struct Client {
     /// The fleet currently controlled by this client.
     pub fleet_control: Option<FleetID>,
 
-    pub udp_address: SocketAddr,
+    pub connection: Connection,
+
     /// What this client's next Battlescape input will be.
     pub input_battlescape: BattlescapeInput,
     /// Resend previous battlescape commands if they have not been acknowledged.
@@ -74,10 +73,9 @@ pub struct Fleet {
     pub wish_position: Vector2<f32>,
     pub velocity: Vector2<f32>,
     /// The collider that make this fleet detected.
-    /// TODO: Wrap these with a set_position() so they stick together. Also one should not exist without the other anyway.
-    pub detection_handle: ColliderHandle,
-    /// The collider that detect other fleet. Follow detection_collider.
-    pub detector_handle: ColliderHandle,
+    detection_handle: ColliderHandle,
+    /// The collider that detect other fleet.
+    detector_handle: ColliderHandle,
     // TODO: Goal: What this fleet want to do? (so that it does not just chase a client forever.)
     // TODO: Add factions
     // pub faction: FactionID,
@@ -85,6 +83,37 @@ pub struct Fleet {
 impl Fleet {
     pub const DETECTION_COLLISION_MEMBERSHIP: u32 = 2 ^ 1;
     pub const DETECTOR_COLLISION_MEMBERSHIP: u32 = 2 ^ 2;
+
+    /// Fleet are composed of multiple colliders. This function move them at the same time.
+    pub fn set_position(&self, collider_set: &mut ColliderSet, position: Vector2<f32>) {
+        // Set detection position
+        if let Some(detection_collider) = collider_set.get_mut(self.detection_handle) {
+            detection_collider.set_translation(position);
+        }
+        // Also set detector to the same position.
+        if let Some(detector_collider) = collider_set.get_mut(self.detector_handle) {
+            detector_collider.set_translation(position);
+        }
+    }
+
+    pub fn get_position(&self, collider_set: &ColliderSet) -> Vector2<f32> {
+        if let Some(collider) = collider_set.get(self.detection_handle) {
+            *collider.translation()
+        } else {
+            vector![0.0, 0.0]
+        }
+    }
+}
+
+/// Multiple colliders wraped together.
+pub struct FleetColliderHandles {
+    /// The collider that make this fleet detected.
+    detection_handle: ColliderHandle,
+    /// The collider that detect other fleet. Follow detection_collider.
+    pub detector_handle: ColliderHandle,
+}
+impl FleetColliderHandles {
+    fn set_position(pos: Vector2<f32>) {}
 }
 
 /// An ongoing battle on the Metascape.
@@ -121,13 +150,9 @@ pub struct Metascape {
     pub collider_set: ColliderSet,
     pub collision_events_bundle: CollisionEventsBundle,
 
-    pub udp_packet_sender: Sender<Packet>,
-    pub udp_packet_receiver: Receiver<SocketEvent>,
-
-    /// Used when receiving udp packets.
-    /// Don't send to these addresses as they may be slightly outdated.
-    /// Send to the address in client instead.
-    pub laminar_addresses: IndexMap<SocketAddr, ClientID>,
+    connection_manager: ConnectionsManager,
+    /// Connection that will be disconnected next update.
+    pub disconnect_queue: Vec<ClientID>,
     /// Connected clients.
     pub clients: IndexMap<ClientID, Client>,
 
@@ -141,158 +166,61 @@ impl Metascape {
     pub const UPDATE_INTERVAL: Duration = Duration::from_millis(50);
 
     /// Create a new Metascape with default parameters.
-    pub fn new() -> Result<Self, ()> {
+    pub fn new() -> tokio::io::Result<Self> {
         // Create the rapier intersection channel.
         let (collision_events_bundle, channel_event_collector) = CollisionEventsBundle::new();
 
-        match Socket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0)) {
-            Ok(mut udp_socket) => {
-                // Get the channels from the Socket.
-                let udp_packet_sender = udp_socket.get_packet_sender();
-                let udp_packet_receiver = udp_socket.get_event_receiver();
+        let connection_manager = ConnectionsManager::new()?;
 
-                // Start polling on a separate thread.
-                // TODO: This can not be stopped. Maybe add an Arc<bool> in there?
-                spawn(move || udp_socket.start_polling_with_duration(Some(Duration::from_millis(5))));
-
-                return Ok(Self {
-                    tick: 0,
-                    bound: AABB::from_half_extents(point![0.0, 0.0], vector![2048.0, 2048.0]),
-                    collision_pipeline_bundle: CollisionPipelineBundle::new(channel_event_collector),
-                    query_pipeline_bundle: QueryPipelineBundle::new(),
-                    collider_set: ColliderSet::new(),
-                    collision_events_bundle,
-                    udp_packet_sender,
-                    udp_packet_receiver,
-                    laminar_addresses: IndexMap::new(),
-                    clients: IndexMap::new(),
-                    fleets: IndexMap::new(),
-                    reality_bubbles: IndexMap::new(),
-                    systems: IndexMap::new(),
-                });
-            }
-            Err(err) => {
-                error!("Error while binding Metascape socket: {:?}.", err);
-                Err(())
-            }
-        }
-    }
-
-    /// Make sure that we don't have partially connected client.
-    fn check_clients(&mut self) {
-        // Disconnect any client without a laminar address.
-        self.clients
-            .iter()
-            .filter_map(|(client_id, client)| {
-                if self.laminar_addresses.get(&client.udp_address).is_none() {
-                    debug!("{:?} does not have a laminar address. Disconnecting...", client_id);
-                    Some(*client_id)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<ClientID>>()
-            .into_iter()
-            .for_each(|client_id| self.disconnect_client(client_id));
-
-        let mut addr_without_client = Vec::new();
-
-        // Disconnect any client with address not matching laminar address.
-        self.laminar_addresses
-            .iter()
-            .filter_map(|(addr, client_id)| {
-                if let Some(client) = self.clients.get(client_id) {
-                    if client.udp_address != *addr {
-                        Some(*client_id)
-                    } else {
-                        // All is fine.
-                        None
-                    }
-                } else {
-                    // Laminar address without client will be removed later.
-                    addr_without_client.push(*addr);
-                    None
-                }
-            })
-            .collect::<Vec<ClientID>>()
-            .into_iter()
-            .for_each(|client_id| {
-                self.disconnect_client(client_id);
-            });
-
-        // Remove any laminar address without a client.
-        addr_without_client.into_iter().for_each(|addr| {
-            self.laminar_addresses.remove(&addr);
-        });
+        Ok(Self {
+            tick: 0,
+            bound: AABB::from_half_extents(point![0.0, 0.0], vector![2048.0, 2048.0]),
+            collision_pipeline_bundle: CollisionPipelineBundle::new(channel_event_collector),
+            query_pipeline_bundle: QueryPipelineBundle::new(),
+            collider_set: ColliderSet::new(),
+            collision_events_bundle,
+            connection_manager,
+            disconnect_queue: Vec::new(),
+            clients: IndexMap::new(),
+            fleets: IndexMap::new(),
+            reality_bubbles: IndexMap::new(),
+            systems: IndexMap::new(),
+        })
     }
 
     /// Get and process clients udp packets.
     fn get_client_udp_input(&mut self) {
-        while let Ok(socket_event) = self.udp_packet_receiver.try_recv() {
-            match socket_event {
-                SocketEvent::Packet(packet) => {
-                    // Check that client is properly connected.
-                    if let Some(client_id) = self.laminar_addresses.get(&packet.addr()) {
-                        if let Some(client) = self.clients.get_mut(client_id) {
-                            // Deserialize packet.
-                            if let Ok(udp_client) = UdpClient::deserialize(packet.payload()) {
-                                trace!("Got {:?} from {}", &udp_client, packet.addr());
-                                match udp_client {
-                                    UdpClient::Battlescape {
-                                        wish_input,
-                                        acknowledge_command,
-                                    } => {
-                                        // Set as most recent Battlescape input.
-                                        client.input_battlescape = wish_input;
+        for (client_id, client) in &self.clients {
+            loop {
+                match client.connection.udp_receiver.try_recv() {
+                    Ok(packet) => {
+                        match packet {
+                            UdpClient::Battlescape {
+                                wish_input,
+                                acknowledge_command,
+                            } => {
+                                // TODO: Set next as battlescape input.
 
-                                        // Remove an acknowledged command from this client.
-                                        client.unacknowledged_commands.remove(&acknowledge_command);
-                                    }
-                                    UdpClient::Metascape { wish_position } => {
-                                        // Set wish location for the controlled fleet.
-                                        if let Some(fleet_id) = client.fleet_control {
-                                            if let Some(fleet) = self.fleets.get_mut(&fleet_id) {
-                                                fleet.wish_position = wish_position;
-                                            }
-                                        }
+                                // TODO: Remove an acknowledged command.
+
+                                todo!();
+                            }
+                            UdpClient::Metascape { wish_position } => {
+                                // Get controlled fleet.
+                                if let Some(fleet_id) = client.fleet_control {
+                                    // Get fleet.
+                                    if let Some(fleet) = self.fleets.get_mut(&fleet_id) {
+                                        fleet.wish_position = wish_position;
                                     }
                                 }
-                            } else {
-                                debug!(
-                                    "Received a client packet from {:?} that could not be deserialized. Ignoring...",
-                                    client_id
-                                );
                             }
-                        } else {
-                            warn!(
-                                "Received a packet from {:?} at {}, but can not find its client. Ignoring...",
-                                client_id,
-                                packet.addr()
-                            );
                         }
-                    } else {
-                        debug!(
-                            "Received a packet from a connected laminar socket at {}, but can not find its client. Ignoring...",
-                            packet.addr()
-                        );
                     }
-                }
-                SocketEvent::Connect(addr) => {
-                    // Check that addr was added.
-                    if self.laminar_addresses.get(&addr).is_none() {
-                        error!("Laminar socket connected, but can not find client. {}", &addr);
-                    }
-                }
-                SocketEvent::Timeout(addr) => {
-                    info!("Laminar connection at {} timedout.", &addr);
-                    if let Some(client_id) = self.laminar_addresses.remove(&addr) {
-                        self.disconnect_client(client_id);
-                    }
-                }
-                SocketEvent::Disconnect(addr) => {
-                    info!("Laminar connection at {} disconnected.", &addr);
-                    if let Some(client_id) = self.laminar_addresses.remove(&addr) {
-                        self.disconnect_client(client_id);
+                    Err(err) => {
+                        if err == crossbeam_channel::TryRecvError::Disconnected {
+                            self.disconnect_queue.push(*client_id);
+                        }
+                        break;
                     }
                 }
             }
@@ -300,6 +228,7 @@ impl Metascape {
     }
 
     /// Calculate fleet velocity based on wish position.
+    /// TODO: Fleets engaged in the same Battlescape should aggregate.
     fn calc_fleet_velocity(&mut self) {
         for fleet in self.fleets.values_mut() {
             fleet.velocity += fleet.wish_position;
@@ -307,8 +236,7 @@ impl Metascape {
         }
     }
 
-    /// Adds calculated velocity to fleets.
-    /// TODO: Fleets engaged in the same Battlescape should aggregate.
+    /// Apply calculated velocity to fleets.
     fn apply_fleet_velocity(&mut self) {
         for fleet in self.fleets.values() {
             let mut new_pos = vector![0.0f32, 0.0];
@@ -340,18 +268,17 @@ impl Metascape {
             .map(|collider| *collider.translation())
             .collect();
 
-        let payload = UdpServer::Metascape { fleets_position }.serialize();
+        let packet = UdpServer::Metascape { fleets_position };
 
-        for client in self.clients.values() {
-            let _ = self
-                .udp_packet_sender
-                .send(Packet::unreliable(client.udp_address, payload.clone()));
+        for (client_id, client) in &self.clients {
+            if client.connection.udp_sender.blocking_send(packet.clone()).is_err() {
+                self.disconnect_queue.push(*client_id);
+            }
         }
     }
 
     pub fn update(&mut self) {
         self.tick += 1;
-        self.check_clients();
         self.get_client_udp_input();
         self.calc_fleet_velocity();
         self.apply_fleet_velocity();
@@ -364,7 +291,6 @@ impl Metascape {
         // TODO: Make next Battlescape command and add it to Client's unacknowledged commands.
 
         self.update_collision_pipelines();
-
         self.send_udp();
     }
 
@@ -424,38 +350,45 @@ impl Metascape {
         self.fleets.insert(fleet_id, new_fleet);
 
         // Add laminar address entry.
-        self.laminar_addresses.insert(address, client_id);
+        // self.laminar_addresses.insert(address, client_id);
 
         // Send a packet to the address to initialize a laminar connection.
-        let _ = self.udp_packet_sender.send(Packet::unreliable(address, vec![]));
+        // let _ = self.udp_packet_sender.send(Packet::unreliable(address, vec![]));
 
         // Create Client.
-        let new_client = Client {
-            fleet_control: Some(fleet_id),
-            input_battlescape: packets::BattlescapeInput {
-                fire_toggle: false,
-                wish_dir: 0.0,
-                aim_dir: 0.0,
-                wish_dir_force: 0.0,
-            },
-            unacknowledged_commands: IndexMap::new(),
-            udp_address: address,
-        };
+        // let new_client = Client {
+        //     fleet_control: Some(fleet_id),
+        //     input_battlescape: packets::BattlescapeInput {
+        //         fire_toggle: false,
+        //         wish_dir: 0.0,
+        //         aim_dir: 0.0,
+        //         wish_dir_force: 0.0,
+        //     },
+        //     unacknowledged_commands: IndexMap::new(),
+        //     udp_address: address,
+        // };
 
         // Add Client.
-        self.clients.insert(client_id, new_client);
+        // self.clients.insert(client_id, new_client);
     }
 
-    /// Disconnect a client.
+    pub fn flush_disconnect_queue(&mut self) {
+        self.disconnect_queue
+            .drain(..)
+            .collect::<Vec<ClientID>>()
+            .into_iter()
+            .for_each(|client_id| self.disconnect_client(client_id));
+    }
+
+    /// Immediately disconnect a client.
     /// TODO: Save his stuff and what not.
     pub fn disconnect_client(&mut self, client_id: ClientID) {
         // Remove client.
         if let Some(client) = self.clients.remove(&client_id) {
-            // Remove address. This is redundant.
-            self.laminar_addresses.remove(&client.udp_address);
-        }
 
-        info!("Disconnected {:?}.", client_id);
+            
+            info!("Disconnected {:?}.", client_id);
+        }
     }
 
     /// TODO: DELETE ME

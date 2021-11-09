@@ -1,4 +1,3 @@
-use bytes::BytesMut;
 use std::{
     net::{Ipv6Addr, SocketAddrV6},
     thread::sleep,

@@ -23,7 +23,7 @@ impl LoginPacket {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BattlescapeInput {
     /// Toggle firing selected weapon group.
     pub fire_toggle: bool,
@@ -62,7 +62,7 @@ impl UdpClient {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum UdpServer {
     Battlescape {
         client_inputs: Vec<BattlescapeInput>,
