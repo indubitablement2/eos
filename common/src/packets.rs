@@ -13,9 +13,10 @@ impl LoginPacket {
 
     pub fn serialize(&self) -> Vec<u8> {
         let payload = bincode::serialize(self).unwrap();
-        let mut v = Vec::with_capacity(payload.len() + 1);
+        let mut v = Vec::with_capacity(LoginPacket::FIXED_SIZE);
         v.push(payload.len() as u8);
         v.extend_from_slice(&payload);
+        v.resize(LoginPacket::FIXED_SIZE, 0);
         v
     }
 
@@ -24,6 +25,20 @@ impl LoginPacket {
         let size = buffer[0] as usize;
         bincode::deserialize(&buffer[1..size + 1])
     }
+}
+
+#[test]
+fn test_login_packet() {
+    let og = LoginPacket {
+        is_steam: false,
+        token: 255,
+        udp_address: SocketAddr::new(
+            std::net::IpAddr::V6(std::net::Ipv6Addr::new(123, 444, 555, 7211, 1123, 34509, 111, 953)),
+            747,
+        ),
+    };
+    assert_eq!(og, LoginPacket::deserialize(&og.serialize()).unwrap());
+    assert_eq!(og.serialize().len(), LoginPacket::FIXED_SIZE);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -47,19 +62,6 @@ impl LoginResponsePacket {
             _ => Self::Unknow,
         }
     }
-}
-
-#[test]
-fn test_login_packet() {
-    let og = LoginPacket {
-        is_steam: false,
-        token: 255,
-        udp_address: SocketAddr::new(
-            std::net::IpAddr::V6(std::net::Ipv6Addr::new(123, 444, 555, 7211, 1123, 34509, 111, 953)),
-            747,
-        ),
-    };
-    assert_eq!(og, LoginPacket::deserialize(&og.serialize()).unwrap());
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -122,6 +124,7 @@ fn test_udp_client() {
         acknowledge_command: 50,
     };
     assert_eq!(og.serialize().len(), UdpClient::FIXED_SIZE);
+    // assert_eq!(og, UdpClient::deserialize(&og.serialize()).unwrap());
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

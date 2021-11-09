@@ -1,6 +1,11 @@
 use common::{connection_manager::ServerAddresses, packets::*};
 use crossbeam_channel::*;
-use std::{io::{Read, Write}, net::{Ipv6Addr, SocketAddr, SocketAddrV6, TcpStream, UdpSocket}, thread::spawn, time::Duration};
+use std::{
+    io::{Read, Write},
+    net::{Ipv6Addr, SocketAddr, SocketAddrV6, TcpStream, UdpSocket},
+    thread::spawn,
+    time::Duration,
+};
 
 pub struct Client {
     local: bool,
@@ -36,7 +41,7 @@ impl Client {
 
         // Create LoginPacket.
         let login_packet = match local {
-            true => LoginPacket{
+            true => LoginPacket {
                 is_steam: false,
                 token: 0,
                 udp_address: udp_socket.local_addr()?,
@@ -45,18 +50,24 @@ impl Client {
                 // TODO: Get a token from steam or main server.
                 todo!()
             }
-        }.serialize();
+        }
+        .serialize();
         info!("Created LoginPacket.");
+
+        // Set temporary timeouts.
+        tcp_stream.set_read_timeout(Some(Duration::from_secs(10)))?;
+        tcp_stream.set_write_timeout(Some(Duration::from_secs(10)))?;
+        info!("Successfully set temporary read/write timeout on tcp stream.");
 
         // Send LoginPacket.
         tcp_stream.write_all(&login_packet)?;
-        info!("Send LoginPacket.");
+        info!("Sent LoginPacket.");
 
         // Get server response.
         let mut buf = [0u8; LoginResponsePacket::FIXED_SIZE];
         tcp_stream.read_exact(&mut buf)?;
         let login_response = LoginResponsePacket::deserialize(&buf);
-        info!("Received {:?}.", login_response);
+        info!("Received login Response: {:?}.", login_response);
 
         // Processs LoginResponsePacket.
         if login_response != LoginResponsePacket::Accepted {
@@ -116,13 +127,9 @@ impl Client {
     }
 }
 
-fn udp_loop(udp_socket: UdpSocket, udp_to_send_receiver: Receiver<UdpClient>, udp_received_sender: Sender<UdpServer>) {
+fn udp_loop(udp_socket: UdpSocket, udp_to_send_receiver: Receiver<UdpClient>, udp_received_sender: Sender<UdpServer>) {}
 
-}
-
-fn tcp_loop(tcp_stream: TcpStream, tcp_to_send_receiver: Receiver<TcpClient>, tcp_received_sender: Sender<TcpServer>) {
-
-}
+fn tcp_loop(tcp_stream: TcpStream, tcp_to_send_receiver: Receiver<TcpClient>, tcp_received_sender: Sender<TcpServer>) {}
 
 /// Receive packet from the server.
 struct ClientRunner {

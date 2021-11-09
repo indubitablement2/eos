@@ -51,8 +51,7 @@ impl ConnectionsManager {
         info!("Created server TcpListener");
 
         // Create UdpSocket.
-        let udp_socket =
-            Arc::new(rt.block_on(async { UdpSocket::bind(addr).await })?);
+        let udp_socket = Arc::new(rt.block_on(async { UdpSocket::bind(addr).await })?);
         info!("Created server UdpSocket");
 
         // Save addresses.
@@ -141,7 +140,7 @@ async fn first_packet(
     // TODO: Add timeout duration.
     let mut first_packet_buffer = [0u8; LoginPacket::FIXED_SIZE];
     let mut cursor = 0usize;
-    loop {
+    while cursor < LoginPacket::FIXED_SIZE - 1 {
         match buf_read.read(&mut first_packet_buffer[cursor..]).await {
             Ok(num) => {
                 if num == 0 {
@@ -149,35 +148,32 @@ async fn first_packet(
                     return;
                 }
                 cursor += num;
-                if cursor == LoginPacket::FIXED_SIZE - 1 {
-                    // We should have enough bytes to deserialize LoginPacket.
-                    match LoginPacket::deserialize(&first_packet_buffer) {
-                        Ok(login_packet) => {
-                            info!("");
-                            try_login(
-                                login_packet,
-                                buf_read,
-                                buf_write,
-                                tcp_addr,
-                                new_connection_sender,
-                                udp_socket,
-                                udp_senders,
-                                local,
-                            )
-                            .await;
-                            return;
-                        }
-                        Err(err) => {
-                            info!("{:?} while deserializing LoginPacket. Aborting...", err);
-                            return;
-                        }
-                    }
-                }
+                trace!("LoginPacket {}/{}", cursor, LoginPacket::FIXED_SIZE - 1);
             }
             Err(err) => {
                 info!("{:?} while attempting to login. Aborting...", err);
                 return;
             }
+        }
+    }
+
+    match LoginPacket::deserialize(&first_packet_buffer) {
+        Ok(login_packet) => {
+            info!("Received LoginPacket from {}. Attempting login...", tcp_addr);
+            try_login(
+                login_packet,
+                buf_read,
+                buf_write,
+                tcp_addr,
+                new_connection_sender,
+                udp_socket,
+                udp_senders,
+                local,
+            )
+            .await;
+        }
+        Err(err) => {
+            info!("{:?} while deserializing LoginPacket. Aborting...", err);
         }
     }
 }
@@ -193,6 +189,7 @@ async fn try_login(
     local: bool,
 ) {
     // Check credential.
+    trace!("Verifying credential for {}.", tcp_addr);
     let client_id = match local {
         true => ClientID { id: 0 },
         false => {
@@ -200,14 +197,21 @@ async fn try_login(
             todo!()
         }
     };
+    info!("Verified credential for {}.", tcp_addr);
 
     // Send LoginResponse.
     if let Err(err) = buf_write.write(&LoginResponsePacket::Accepted.serialize()).await {
-        warn!("{:?} while trying to write LoginResponsePacket to {}. Aborting login...", err, tcp_addr);
+        warn!(
+            "{:?} while trying to write LoginResponsePacket to {}. Aborting login...",
+            err, tcp_addr
+        );
         return;
     }
-    if let Err(err) =buf_write.flush().await {
-        warn!("{:?} while trying to flush LoginResponsePacket to {}. Aborting login...", err, tcp_addr);
+    if let Err(err) = buf_write.flush().await {
+        warn!(
+            "{:?} while trying to flush LoginResponsePacket to {}. Aborting login...",
+            err, tcp_addr
+        );
         return;
     }
 
