@@ -158,7 +158,7 @@ async fn first_packet(
     }
 
     match LoginPacket::deserialize(&first_packet_buffer) {
-        Ok(login_packet) => {
+        Some(login_packet) => {
             info!("Received LoginPacket from {}. Attempting login...", tcp_addr);
             try_login(
                 login_packet,
@@ -172,8 +172,8 @@ async fn first_packet(
             )
             .await;
         }
-        Err(err) => {
-            info!("{:?} while deserializing LoginPacket. Aborting...", err);
+        None => {
+            info!("Error while deserializing LoginPacket. Aborting login...");
         }
     }
 }
@@ -282,7 +282,7 @@ async fn recv_udp(
                 }
 
                 // Deserialize packet.
-                if let Ok(packet) = UdpClient::deserialize(&buf) {
+                if let Some(packet) = UdpClient::deserialize(&buf) {
                     // Check if we have a channel for this addr.
                     if let Some(sender) = udp_senders.lock().unwrap().get(&addr) {
                         if sender.send(packet).is_err() {

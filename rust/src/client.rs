@@ -165,7 +165,7 @@ fn udp_loop(udp_socket: UdpSocket, udp_to_send_receiver: Receiver<UdpClient>, ud
                 }
 
                 // Deserialize packet.
-                if let Ok(packet) = UdpServer::deserialize(&recv_buf) {
+                if let Some(packet) = UdpServer::deserialize(&recv_buf) {
                     if udp_received_sender.send(packet).is_err() {
                         info!("Udp receiver channel dropped. Terminating udp loop...");
                         break 'main;

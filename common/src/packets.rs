@@ -9,21 +9,38 @@ pub struct LoginPacket {
     pub udp_address: SocketAddr,
 }
 impl LoginPacket {
-    pub const FIXED_SIZE: usize = 40;
+    pub const FIXED_SIZE: usize = 50;
 
     pub fn serialize(&self) -> Vec<u8> {
         let payload = bincode::serialize(self).unwrap();
-        let mut v = Vec::with_capacity(LoginPacket::FIXED_SIZE);
+        let mut v = Vec::with_capacity(Self::FIXED_SIZE);
         v.push(payload.len() as u8);
         v.extend_from_slice(&payload);
-        v.resize(LoginPacket::FIXED_SIZE, 0);
+        v.resize(Self::FIXED_SIZE, 0);
         v
     }
 
     /// Deserialize from a buffer received from Udp.
-    pub fn deserialize(buffer: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
-        let size = buffer[0] as usize;
-        bincode::deserialize(&buffer[1..size + 1])
+    pub fn deserialize(buffer: &[u8]) -> Option<Self> {
+        let size = match buffer.first() {
+            Some(b) => *b as usize,
+            None => {
+                return None;
+            }
+        };
+        
+        if size <= 1 {
+            return None;
+        }
+
+        if buffer.len() != size + 1 {
+            return None;
+        }
+
+        match bincode::deserialize::<Self>(&buffer[1..size + 1]) {
+            Ok(result) => Some(result),
+            Err(_) => None,
+        }
     }
 }
 
@@ -99,17 +116,40 @@ pub enum UdpClient {
     },
 }
 impl UdpClient {
-    /// TODO: These packet are always the same size.
-    pub const FIXED_SIZE: usize = 21;
+    /// These packets are always the same size.
+    pub const FIXED_SIZE: usize = 100;
 
     /// Serialize into a buffer ready to be sent over Udp.
     pub fn serialize(&self) -> Vec<u8> {
-        bincode::serialize(self).unwrap()
+        let payload = bincode::serialize(self).unwrap();
+        let mut v = Vec::with_capacity(Self::FIXED_SIZE);
+        v.push(payload.len() as u8);
+        v.extend_from_slice(&payload);
+        v.resize(Self::FIXED_SIZE, 0);
+        v
     }
 
     /// Deserialize from a buffer received from Udp.
-    pub fn deserialize(buffer: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
-        bincode::deserialize(buffer)
+    pub fn deserialize(buffer: &[u8]) -> Option<Self> {
+        let size = match buffer.first() {
+            Some(b) => *b as usize,
+            None => {
+                return None;
+            }
+        };
+        
+        if size <= 1 {
+            return None;
+        }
+
+        if buffer.len() != size + 1 {
+            return None;
+        }
+
+        match bincode::deserialize::<Self>(&buffer[1..size + 1]) {
+            Ok(result) => Some(result),
+            Err(_) => None,
+        }
     }
 
     /// TODO: Serialize directly into a buffer.
@@ -130,7 +170,6 @@ fn test_udp_client() {
         acknowledge_command: 50,
     };
     assert_eq!(og.serialize().len(), UdpClient::FIXED_SIZE);
-    // assert_eq!(og, UdpClient::deserialize(&og.serialize()).unwrap());
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -144,22 +183,50 @@ pub enum UdpServer {
     },
 }
 impl UdpServer {
-    /// TODO: These packet are always the same size.
-    pub const FIXED_SIZE: usize = 50;
+    /// These packet are always the same size.
+    pub const FIXED_SIZE: usize = 100;
 
     pub fn serialize(&self) -> Vec<u8> {
-        bincode::serialize(self).unwrap()
+        let payload = bincode::serialize(self).unwrap();
+        let mut v = Vec::with_capacity(Self::FIXED_SIZE);
+        v.push(payload.len() as u8);
+        v.extend_from_slice(&payload);
+        v.resize(Self::FIXED_SIZE, 0);
+        v
     }
 
-    pub fn deserialize(buffer: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
-        bincode::deserialize(buffer)
+    pub fn deserialize(buffer: &[u8]) -> Option<Self> {
+        let size = match buffer.first() {
+            Some(b) => *b as usize,
+            None => {
+                return None;
+            }
+        };
+        
+        if size <= 1 {
+            return None;
+        }
+
+        if buffer.len() != size + 1 {
+            return None;
+        }
+
+        match bincode::deserialize::<Self>(&buffer[1..size + 1]) {
+            Ok(result) => Some(result),
+            Err(_) => None,
+        }
+    }
+
+    /// TODO: Serialize directly into a buffer.
+    pub fn serialize_into(&self, mut _buf: &mut [u8]) {
+        todo!()
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum TcpClient {}
 impl TcpClient {
-    pub const MAX_SIZE: usize = 131072;
+    pub const MAX_SIZE: usize = 65536;
 
     /// Adds a 32bits header representing payload size.
     pub fn serialize(&self) -> Vec<u8> {
