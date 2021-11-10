@@ -20,7 +20,6 @@ impl LoginPacket {
         v
     }
 
-    /// Deserialize from a buffer received from Udp.
     pub fn deserialize(buffer: &[u8]) -> Option<Self> {
         let size = match buffer.first() {
             Some(b) => *b as usize,
@@ -33,7 +32,7 @@ impl LoginPacket {
             return None;
         }
 
-        if buffer.len() != size + 1 {
+        if buffer.len() < size + 1 {
             return None;
         }
 
@@ -142,7 +141,7 @@ impl UdpClient {
             return None;
         }
 
-        if buffer.len() != size + 1 {
+        if buffer.len() < size + 1 {
             return None;
         }
 
@@ -170,6 +169,8 @@ fn test_udp_client() {
         acknowledge_command: 50,
     };
     assert_eq!(og.serialize().len(), UdpClient::FIXED_SIZE);
+    println!("{:?}", &og);
+    println!("{:?}", UdpClient::deserialize(&og.serialize()).unwrap());
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -207,7 +208,7 @@ impl UdpServer {
             return None;
         }
 
-        if buffer.len() != size + 1 {
+        if buffer.len() < size + 1 {
             return None;
         }
 
