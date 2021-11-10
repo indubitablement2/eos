@@ -189,15 +189,22 @@ async fn try_login(
     local: bool,
 ) {
     // Check credential.
-    trace!("Verifying credential for {}.", tcp_addr);
     let client_id = match local {
-        true => ClientID { id: 0 },
+        true => {
+            info!("{} is connecting through loopback. Default ClientID 0...", tcp_addr);
+            ClientID { id: 0 }
+        }
         false => {
-            // TODO: Check token.
-            todo!()
+            if login_packet.is_steam {
+                // TODO: Check token.
+                error!("{} is trying to login with steam. Verifying credential... ***TODO***", tcp_addr);
+                todo!();
+            } else {
+                info!("{} tried to login without steam which is not implemented. Aborting login...", tcp_addr);
+                return;
+            }
         }
     };
-    info!("Verified credential for {}.", tcp_addr);
 
     // Send LoginResponse.
     if let Err(err) = buf_write.write(&LoginResponsePacket::Accepted.serialize()).await {
@@ -215,7 +222,7 @@ async fn try_login(
         return;
     }
 
-    // Start runner.
+    // Start runners.
     let (udp_sender, udp_to_send) = tokio::sync::mpsc::channel(32);
     spawn(send_udp(udp_to_send, udp_socket, login_packet.udp_address));
 
@@ -258,6 +265,7 @@ async fn send_udp(mut udp_to_send: tokio::sync::mpsc::Receiver<UdpServer>, udp_s
     }
 }
 
+/// Receive all udp packets.
 async fn recv_udp(
     udp_senders: Arc<Mutex<HashMap<SocketAddr, crossbeam_channel::Sender<UdpClient>>>>,
     udp_socket: Arc<UdpSocket>,
@@ -267,28 +275,28 @@ async fn recv_udp(
     loop {
         match udp_socket.recv_from(&mut buf).await {
             Ok((num, addr)) => {
-                // Check that size is good.
+                // Check number of bytes.
                 if num != UdpClient::FIXED_SIZE {
-                    trace!("{} sent an udp packet of unexpected size {}. Ignoring...", addr, num);
+                    trace!("{} sent an udp packet with missing bytes. Ignoring...", addr);
                     continue;
                 }
 
-                // Check if we have a channel for this addr.
-                if let Some(sender) = udp_senders.lock().unwrap().get(&addr) {
-                    // Deserialize packet.
-                    if let Ok(packet) = UdpClient::deserialize(&buf) {
+                // Deserialize packet.
+                if let Ok(packet) = UdpClient::deserialize(&buf) {
+                    // Check if we have a channel for this addr.
+                    if let Some(sender) = udp_senders.lock().unwrap().get(&addr) {
                         if sender.send(packet).is_err() {
                             debug!("{} 's channel is drop and should've been removed.", addr);
                         }
                     } else {
-                        trace!("{} sent an udp packet that could not be deserialized. Ignoring...", addr);
+                        trace!("{} sent an udp packet, but is not connected. Ignoring...", addr);
                     }
                 } else {
-                    trace!("{} sent an udp packet, but is not connected. Ignoring...", addr);
+                    trace!("{} sent an udp packet that could not be deserialized. Ignoring...", addr);
                 }
             }
             Err(err) => {
-                warn!("{:?} while receiving udp packet. Ignoring...", err);
+                warn!("{:?} while receiving udp packet from clients. Ignoring...", err);
             }
         }
     }

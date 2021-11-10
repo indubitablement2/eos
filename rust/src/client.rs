@@ -47,7 +47,7 @@ impl Client {
                 udp_address: udp_socket.local_addr()?,
             },
             false => {
-                // TODO: Get a token from steam or main server.
+                // TODO: Get a token from steam.
                 todo!()
             }
         }
@@ -127,70 +127,63 @@ impl Client {
     }
 }
 
-fn udp_loop(udp_socket: UdpSocket, udp_to_send_receiver: Receiver<UdpClient>, udp_received_sender: Sender<UdpServer>) {}
+fn udp_loop(udp_socket: UdpSocket, udp_to_send_receiver: Receiver<UdpClient>, udp_received_sender: Sender<UdpServer>) {
+    let mut recv_buf = [0u8; UdpServer::FIXED_SIZE];
+    
+    info!("Udp loop started.");
 
-fn tcp_loop(tcp_stream: TcpStream, tcp_to_send_receiver: Receiver<TcpClient>, tcp_received_sender: Sender<TcpServer>) {}
+    'main: loop {
+        // Send to server.
+        loop {
+            match udp_to_send_receiver.try_recv() {
+                Ok(packet) => {
+                    if let Err(err) = udp_socket.send(&packet.serialize()) {
+                        trace!("{} while sending udp packet. Ignoring...", err);
+                    }
+                }
+                Err(err) => {
+                    match err {
+                        TryRecvError::Empty => {
+                            break;
+                        }
+                        TryRecvError::Disconnected => {
+                            info!("Udp sender channel dropped. Terminating udp loop...");
+                            break 'main;
+                        }
+                    }
+                }
+            }
+        }
 
-/// Receive packet from the server.
-struct ClientRunner {
-    /// Socket connected to the server.
-    socket: UdpSocket,
-    /// Packet received from the server will be sent to this channel.
-    udp_received_sender: Sender<UdpServer>,
-    /// Packet to send to the server will be received from this channel.
-    udp_to_send_receiver: Receiver<UdpClient>,
-    /// Generic buffer used for intermediary socket read.
-    datagram_recv_buffer: [u8; 123],
-}
-impl ClientRunner {
-    fn new(socket: UdpSocket, udp_received_sender: Sender<UdpServer>, udp_to_send_receiver: Receiver<UdpClient>) -> Self {
-        Self {
-            socket,
-            udp_received_sender,
-            udp_to_send_receiver,
-            datagram_recv_buffer: [0u8; 123],
+        // Receive from server.
+        match udp_socket.recv(&mut recv_buf) {
+            Ok(num) => {
+                // Check number of bytes.
+                if num != UdpServer::FIXED_SIZE {
+                    warn!("Received an udp packet from server with missing bytes. Ignoring...");
+                    continue;
+                }
+
+                // Deserialize packet.
+                if let Ok(packet) = UdpServer::deserialize(&recv_buf) {
+                    if udp_received_sender.send(packet).is_err() {
+                        info!("Udp receiver channel dropped. Terminating udp loop...");
+                        break 'main;
+                    }
+                } else {
+                    warn!("Received an udp packet from server that could not be deserialized. Ignoring...");
+                }
+            }
+            Err(err) => {
+                warn!("{:?} while receiving udp packet from server. Ignoring...", err);
+            }
         }
     }
 
-    fn start(mut self) {
-        std::thread::spawn(move || {
-            info!("ClientReceiver thread started.");
+    info!("Udp loop finished.");
+}
 
-            loop {
-                // Send a packet to server.
-                match self.udp_to_send_receiver.recv() {
-                    Ok(packet) => {
-                        // We send without care for any errors that could occur as these packet are dispensable.
-                        match self.socket.send(&packet.serialize()) {
-                            Ok(num) => {
-                                if num != 123 {
-                                    warn!("Sent {} bytes to the server while it should've been {}. The server will not be hable to deserialize that.", num, 123);
-                                } else {
-                                    trace!("Send {} bytes to server.", num);
-                                }
-                            }
-                            Err(err) => trace!("Error while sending udp packet {}.", err),
-                        }
-                    }
-                    Err(_err) => {
-                        info!("ClientRunner disconnected.");
-                        break;
-                    }
-                }
-
-                // Receive packet from server.
-                while let Ok(num) = self.socket.recv(&mut self.datagram_recv_buffer) {
-                    trace!("Got {} bytes from server.", num);
-
-                    // Deserialize buffer.
-                    // We don't care about the result. Receiver will disconnect if this ClientRunner is dropped.
-                    // let _ = self
-                    //     .udp_received_sender
-                    //     .send(UdpServer::deserialize(&self.datagram_recv_buffer[..num]));
-                }
-            }
-
-            info!("ClientReceiver thread finished.");
-        });
-    }
+fn tcp_loop(tcp_stream: TcpStream, tcp_to_send_receiver: Receiver<TcpClient>, tcp_received_sender: Sender<TcpServer>) {
+    info!("Tcp loop started.");
+    info!("Tcp loop finished.");
 }

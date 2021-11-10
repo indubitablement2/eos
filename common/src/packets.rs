@@ -44,7 +44,7 @@ fn test_login_packet() {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LoginResponsePacket {
     Accepted,
-    Unknow,
+    Error,
 }
 impl LoginResponsePacket {
     pub const FIXED_SIZE: usize = 1;
@@ -52,14 +52,14 @@ impl LoginResponsePacket {
     pub fn serialize(&self) -> Vec<u8> {
         match self {
             LoginResponsePacket::Accepted => vec![0],
-            LoginResponsePacket::Unknow => vec![255],
+            LoginResponsePacket::Error => vec![255],
         }
     }
 
     pub fn deserialize(buffer: &[u8]) -> Self {
         match buffer[0] {
             0 => Self::Accepted,
-            _ => Self::Unknow,
+            _ => Self::Error,
         }
     }
 }
@@ -99,6 +99,7 @@ pub enum UdpClient {
     },
 }
 impl UdpClient {
+    /// TODO: These packet are always the same size.
     pub const FIXED_SIZE: usize = 21;
 
     /// Serialize into a buffer ready to be sent over Udp.
@@ -109,6 +110,11 @@ impl UdpClient {
     /// Deserialize from a buffer received from Udp.
     pub fn deserialize(buffer: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
         bincode::deserialize(buffer)
+    }
+
+    /// TODO: Serialize directly into a buffer.
+    pub fn serialize_into(&self, mut _buf: &mut [u8]) {
+        todo!()
     }
 }
 
@@ -138,6 +144,9 @@ pub enum UdpServer {
     },
 }
 impl UdpServer {
+    /// TODO: These packet are always the same size.
+    pub const FIXED_SIZE: usize = 50;
+
     pub fn serialize(&self) -> Vec<u8> {
         bincode::serialize(self).unwrap()
     }
