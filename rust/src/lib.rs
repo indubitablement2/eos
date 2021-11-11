@@ -29,7 +29,6 @@ fn init(handle: InitHandle) {
     log::set_logger(&LOGGER)
         .map(|()| log::set_max_level(log::LevelFilter::Trace))
         .expect("can not start logger");
-    info!("Started logger.");
 
     handle.add_class::<game::Game>();
 }

@@ -2,6 +2,12 @@ use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
+#[derive(Debug, Clone, Copy)]
+pub struct ServerAddresses {
+    pub tcp_address: SocketAddr,
+    pub udp_address: SocketAddr,
+}
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct LoginPacket {
     pub is_steam: bool,
@@ -27,7 +33,7 @@ impl LoginPacket {
                 return None;
             }
         };
-        
+
         if size <= 1 {
             return None;
         }
@@ -136,7 +142,7 @@ impl UdpClient {
                 return None;
             }
         };
-        
+
         if size <= 1 {
             return None;
         }
@@ -203,7 +209,7 @@ impl UdpServer {
                 return None;
             }
         };
-        
+
         if size <= 1 {
             return None;
         }

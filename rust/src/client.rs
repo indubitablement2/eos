@@ -1,4 +1,4 @@
-use common::{connection_manager::ServerAddresses, packets::*};
+use common::packets::*;
 use crossbeam_channel::*;
 use std::{
     io::{Read, Write},
@@ -67,7 +67,7 @@ impl Client {
         let mut buf = [0u8; LoginResponsePacket::FIXED_SIZE];
         tcp_stream.read_exact(&mut buf)?;
         let login_response = LoginResponsePacket::deserialize(&buf);
-        info!("Received login Response: {:?}.", login_response);
+        info!("Received login response from server: {:?}.", login_response);
 
         // Processs LoginResponsePacket.
         if login_response != LoginResponsePacket::Accepted {
@@ -129,7 +129,7 @@ impl Client {
 
 fn udp_loop(udp_socket: UdpSocket, udp_to_send_receiver: Receiver<UdpClient>, udp_received_sender: Sender<UdpServer>) {
     let mut recv_buf = [0u8; UdpServer::FIXED_SIZE];
-    
+
     info!("Udp loop started.");
 
     'main: loop {
@@ -141,41 +141,34 @@ fn udp_loop(udp_socket: UdpSocket, udp_to_send_receiver: Receiver<UdpClient>, ud
                         trace!("{} while sending udp packet. Ignoring...", err);
                     }
                 }
-                Err(err) => {
-                    match err {
-                        TryRecvError::Empty => {
-                            break;
-                        }
-                        TryRecvError::Disconnected => {
-                            info!("Udp sender channel dropped. Terminating udp loop...");
-                            break 'main;
-                        }
+                Err(err) => match err {
+                    TryRecvError::Empty => {
+                        break;
                     }
-                }
+                    TryRecvError::Disconnected => {
+                        info!("Udp sender channel dropped. Terminating udp loop...");
+                        break 'main;
+                    }
+                },
             }
         }
 
         // Receive from server.
-        match udp_socket.recv(&mut recv_buf) {
-            Ok(num) => {
-                // Check number of bytes.
-                if num != UdpServer::FIXED_SIZE {
-                    warn!("Received an udp packet from server with missing bytes. Ignoring...");
-                    continue;
-                }
-
-                // Deserialize packet.
-                if let Some(packet) = UdpServer::deserialize(&recv_buf) {
-                    if udp_received_sender.send(packet).is_err() {
-                        info!("Udp receiver channel dropped. Terminating udp loop...");
-                        break 'main;
-                    }
-                } else {
-                    warn!("Received an udp packet from server that could not be deserialized. Ignoring...");
-                }
+        while let Ok(num) = udp_socket.recv(&mut recv_buf) {
+            // Check number of bytes.
+            if num != UdpServer::FIXED_SIZE {
+                warn!("Received an udp packet from server with missing bytes. Ignoring...");
+                continue;
             }
-            Err(err) => {
-                warn!("{:?} while receiving udp packet from server. Ignoring...", err);
+
+            // Deserialize packet.
+            if let Some(packet) = UdpServer::deserialize(&recv_buf) {
+                if udp_received_sender.send(packet).is_err() {
+                    info!("Udp receiver channel dropped. Terminating udp loop...");
+                    break 'main;
+                }
+            } else {
+                warn!("Received an udp packet from server that could not be deserialized. Ignoring...");
             }
         }
     }

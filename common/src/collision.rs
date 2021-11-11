@@ -1,42 +1,72 @@
 use crossbeam_channel::*;
 use rapier2d::prelude::*;
 
-pub struct CollisionEventsBundle {
-    /// Unused.
-    _contact_recv: Receiver<ContactEvent>,
-    pub intersection_recv: Receiver<IntersectionEvent>,
+pub struct QueryBundle {
+    pub query_pipeline: QueryPipeline,
+    pub collider_set: ColliderSet,
+    _island_manager: IslandManager,
+    _rigid_body_set: RigidBodySet,
 }
-impl CollisionEventsBundle {
-    pub fn new() -> (Self, ChannelEventCollector) {
-        // Initialize the event collector.
-        let (contact_send, _contact_recv) = unbounded();
-        let (intersection_send, intersection_recv) = unbounded();
-        let event_handler = ChannelEventCollector::new(intersection_send, contact_send);
+impl QueryBundle {
+    pub fn new() -> Self {
+        Self {
+            query_pipeline: QueryPipeline::new(),
+            collider_set: ColliderSet::new(),
+            _island_manager: IslandManager::new(),
+            _rigid_body_set: RigidBodySet::new(),
+        }
+    }
 
-        (
-            Self {
-                _contact_recv,
-                intersection_recv,
-            },
-            event_handler,
-        )
+    /// Update the acceleration structure on the query pipeline.
+    pub fn update(&mut self) {
+        self.query_pipeline.update_with_mode(
+            &self._island_manager,
+            &self._rigid_body_set,
+            &mut self.collider_set,
+            QueryPipelineMode::CurrentPosition,
+        );
+    }
+
+    pub fn remove_collider(&mut self, collider_handle: ColliderHandle) -> Option<Collider> {
+        self.collider_set
+            .remove(collider_handle, &mut self._island_manager, &mut self._rigid_body_set, false)
     }
 }
 
+/// A physics event handler that collects only intersection events into a crossbeam channel.
+/// It discard collision events.
+struct IntersectionEventsCollector {
+    pub intersection_event_sender: Sender<IntersectionEvent>,
+}
+impl EventHandler for IntersectionEventsCollector {
+    fn handle_intersection_event(&self, event: IntersectionEvent) {
+        let _ = self.intersection_event_sender.send(event);
+    }
+
+    fn handle_contact_event(&self, _: ContactEvent, _: &ContactPair) {}
+}
+
 pub struct CollisionPipelineBundle {
-    pub collision_pipeline: CollisionPipeline,
-    pub broad_phase: BroadPhase,
-    pub narrow_phase: NarrowPhase,
-    pub channel_event_collector: ChannelEventCollector,
+    collision_pipeline: CollisionPipeline,
+    broad_phase: BroadPhase,
+    narrow_phase: NarrowPhase,
+    intersection_events_collector: IntersectionEventsCollector,
 }
 impl CollisionPipelineBundle {
-    pub fn new(channel_event_collector: ChannelEventCollector) -> Self {
-        Self {
-            collision_pipeline: CollisionPipeline::new(),
-            broad_phase: BroadPhase::new(),
-            narrow_phase: NarrowPhase::new(),
-            channel_event_collector,
-        }
+    pub fn new() -> (Self, Receiver<IntersectionEvent>) {
+        // Create the events channel.
+        let (intersection_event_sender, intersection_event_receiver) = unbounded();
+        (
+            Self {
+                collision_pipeline: CollisionPipeline::new(),
+                broad_phase: BroadPhase::new(),
+                narrow_phase: NarrowPhase::new(),
+                intersection_events_collector: IntersectionEventsCollector {
+                    intersection_event_sender,
+                },
+            },
+            intersection_event_receiver,
+        )
     }
 
     pub fn update(&mut self, collider_set: &mut ColliderSet) {
@@ -47,7 +77,7 @@ impl CollisionPipelineBundle {
             &mut RigidBodySet::new(),
             collider_set,
             &(),
-            &self.channel_event_collector,
+            &self.intersection_events_collector,
         );
     }
 }
@@ -55,7 +85,8 @@ impl CollisionPipelineBundle {
 pub struct QueryPipelineBundle {
     pub query_pipeline: QueryPipeline,
     /// Unused.
-    pub _island_manager: IslandManager,
+    _island_manager: IslandManager,
+    // collider_delete_queue: Vec<ColliderHandle>,
 }
 impl QueryPipelineBundle {
     pub fn new() -> Self {
@@ -74,4 +105,8 @@ impl QueryPipelineBundle {
             QueryPipelineMode::CurrentPosition,
         );
     }
+
+    // pub fn delete_collider(&self, collider_set: &mut ColliderSet) {
+    //     collider_set.remove(handle, islands, bodies, wake_up)
+    // }
 }

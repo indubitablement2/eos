@@ -5,9 +5,6 @@ use common::packets::UdpClient;
 use gdnative::api::*;
 use gdnative::prelude::*;
 use nalgebra::vector;
-use std::net::Ipv4Addr;
-use std::net::SocketAddrV4;
-use std::time::Duration;
 
 /// Layer between godot and rust.
 /// Godot is used for input/rendering. Rust is used for logic.
@@ -33,8 +30,6 @@ impl Game {
         // Connect localy.
         let metascape = Metascape::new(true).unwrap();
         let client = Client::new(metascape.connection_manager.get_addresses()).unwrap();
-        // // Add my fleet.
-        // metascape.add_client_with_fleet(ClientID { id: 53 }, client.get_local_addr(), vector![0.0, 0.0]);
 
         Game {
             name: String::new(),
@@ -80,7 +75,7 @@ impl Game {
             let packet = UdpClient::Metascape {
                 wish_position: vector![wish_pos.x, wish_pos.y],
             };
-            // client.send_udp(packet).unwrap();
+            client.udp_sender.send(packet).unwrap();
         }
 
         if let Some(metascape) = &mut self.metascape {

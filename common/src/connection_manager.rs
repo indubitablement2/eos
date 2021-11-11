@@ -22,12 +22,6 @@ pub struct Connection {
     pub tcp_receiver: crossbeam_channel::Receiver<TcpClient>,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct ServerAddresses {
-    pub tcp_address: SocketAddr,
-    pub udp_address: SocketAddr,
-}
-
 pub struct ConnectionsManager {
     pub new_connection_receiver: crossbeam_channel::Receiver<Connection>,
     _rt: Runtime,
@@ -48,11 +42,11 @@ impl ConnectionsManager {
 
         // Create TcpListener.
         let tcp_listener = rt.block_on(async { TcpListener::bind(addr).await })?;
-        info!("Created server TcpListener");
+        info!("Created server TcpListener.");
 
         // Create UdpSocket.
         let udp_socket = Arc::new(rt.block_on(async { UdpSocket::bind(addr).await })?);
-        info!("Created server UdpSocket");
+        info!("Created server UdpSocket.");
 
         // Save addresses.
         let server_addresses = ServerAddresses {
@@ -197,10 +191,16 @@ async fn try_login(
         false => {
             if login_packet.is_steam {
                 // TODO: Check token.
-                error!("{} is trying to login with steam. Verifying credential... ***TODO***", tcp_addr);
+                error!(
+                    "{} is trying to login with steam. Verifying credential... ***TODO***",
+                    tcp_addr
+                );
                 todo!();
             } else {
-                info!("{} tried to login without steam which is not implemented. Aborting login...", tcp_addr);
+                info!(
+                    "{} tried to login without steam which is not implemented. Aborting login...",
+                    tcp_addr
+                );
                 return;
             }
         }

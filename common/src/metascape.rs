@@ -1,10 +1,10 @@
 use crate::collision::*;
 use crate::connection_manager::*;
 use crate::packets::*;
+use crossbeam_channel::Receiver;
 use indexmap::IndexMap;
 use rapier2d::na::{vector, Vector2};
 use rapier2d::prelude::*;
-use std::ops::Add;
 use std::time::Duration;
 
 // command: server send those to clients inside Battlescape, so that they can update.
@@ -29,7 +29,7 @@ pub struct BattlescapeID {
 
 pub struct Client {
     /// The fleet currently controlled by this client.
-    pub fleet_control: Option<FleetID>,
+    pub fleet_control: FleetID,
 
     pub connection: Connection,
 
@@ -42,33 +42,29 @@ impl Client {
     /// The maximum number of element in unacknowledged_commands.
     /// Above that, the client should be kicked from the Battlescape.
     pub const MAX_UNACKOWLEDGED_COMMAND: usize = 32;
-}
 
-/// Client controlled fleet will cause a more polished simulation in this radius.
-/// Like spawning server owned fleets when inside FactionActivity.
-/// Usual attached to a fleet.
-pub struct RealityBubble {
-    // TODO: Should this be there? How do I avoid unowned RealityBubble?
-    pub client: ClientID,
-}
-impl RealityBubble {
-    pub const RADIUS: f32 = 256.0;
-    pub const COLLISION_MEMBERSHIP: u32 = 2 ^ 0;
+    pub const REALITY_BUBBLE_RADIUS: f32 = 256.0;
+    pub const REALITY_BUBBLE_COLLISION_MEMBERSHIP: u32 = 2 ^ 0;
 }
 
 /// A fleet of ships owned by a client or the server.
 /// Only used around Client. Otherwise use more crude simulation.
 pub struct Fleet {
     /// If a Client own this fleet or the server.
-    pub owner: Option<ClientID>,
+    owner: Option<ClientID>,
     /// If this fleet is participating in a Battlescape.
     pub battlescape: Option<BattlescapeID>,
     pub wish_position: Vector2<f32>,
     pub velocity: Vector2<f32>,
+
     /// The collider that make this fleet detected.
     detection_handle: ColliderHandle,
     /// The collider that detect other fleet.
     detector_handle: ColliderHandle,
+    // /// Client controlled fleet will cause a more polished simulation in this radius.
+    // /// Like spawning server owned fleets when inside FactionActivity.
+    // reality_bubble_handle: Option<ColliderHandle>,
+
     // TODO: Goal: What this fleet want to do? (so that it does not just chase a client forever.)
     // TODO: Add factions
     // pub faction: FactionID,
@@ -83,10 +79,16 @@ impl Fleet {
         if let Some(detection_collider) = collider_set.get_mut(self.detection_handle) {
             detection_collider.set_translation(position);
         }
-        // Also set detector to the same position.
+        // Set detector to the same position.
         if let Some(detector_collider) = collider_set.get_mut(self.detector_handle) {
             detector_collider.set_translation(position);
         }
+        // // Set reality bubble if it exist.
+        // if let Some(reality_bubble_handle) = self.reality_bubble_handle {
+        //     if let Some(reality_bubble_collider) = collider_set.get_mut(reality_bubble_handle) {
+        //         reality_bubble_collider.set_translation(position);
+        //     }
+        // }
     }
 
     pub fn get_position(&self, collider_set: &ColliderSet) -> Vector2<f32> {
@@ -96,6 +98,20 @@ impl Fleet {
             vector![0.0, 0.0]
         }
     }
+
+    // pub fn enable_reality_bubble(&mut self, collider_set: &mut ColliderSet) {
+    //     if self.reality_bubble_handle.is_none() {
+    //         let detection_collider = ColliderBuilder::ball(50.0)
+    //         .sensor(true)
+    //         .active_events(ActiveEvents::INTERSECTION_EVENTS)
+    //         .translation(translation)
+    //         .collision_groups(InteractionGroups {
+    //             memberships: Fleet::DETECTION_COLLISION_MEMBERSHIP,
+    //             filter: Fleet::DETECTOR_COLLISION_MEMBERSHIP,
+    //         })
+    //         .build();
+    //     }
+    // }
 }
 
 /// An ongoing battle on the Metascape.
@@ -130,7 +146,7 @@ pub struct Metascape {
     pub collision_pipeline_bundle: CollisionPipelineBundle,
     pub query_pipeline_bundle: QueryPipelineBundle,
     pub collider_set: ColliderSet,
-    pub collision_events_bundle: CollisionEventsBundle,
+    pub intersection_events_receiver: Receiver<IntersectionEvent>,
 
     pub connection_manager: ConnectionsManager,
     /// Connection that will be disconnected next update.
@@ -139,7 +155,6 @@ pub struct Metascape {
     pub clients: IndexMap<ClientID, Client>,
 
     pub fleets: IndexMap<FleetID, Fleet>,
-    pub reality_bubbles: IndexMap<ColliderHandle, RealityBubble>,
     // pub active_battlescapes: IndexMap<ColliderHandle, ActiveBattlescape>,
     pub systems: IndexMap<ColliderHandle, System>,
 }
@@ -149,23 +164,20 @@ impl Metascape {
 
     /// Create a new Metascape with default parameters.
     pub fn new(local: bool) -> tokio::io::Result<Self> {
-        // Create the rapier intersection channel.
-        let (collision_events_bundle, channel_event_collector) = CollisionEventsBundle::new();
-
+        let (collision_pipeline_bundle, intersection_events_receiver) = CollisionPipelineBundle::new();
         let connection_manager = ConnectionsManager::new(local)?;
 
         Ok(Self {
             tick: 0,
             bound: AABB::from_half_extents(point![0.0, 0.0], vector![2048.0, 2048.0]),
-            collision_pipeline_bundle: CollisionPipelineBundle::new(channel_event_collector),
+            collision_pipeline_bundle,
             query_pipeline_bundle: QueryPipelineBundle::new(),
             collider_set: ColliderSet::new(),
-            collision_events_bundle,
+            intersection_events_receiver,
             connection_manager,
             disconnect_queue: Vec::new(),
             clients: IndexMap::new(),
             fleets: IndexMap::new(),
-            reality_bubbles: IndexMap::new(),
             systems: IndexMap::new(),
         })
     }
@@ -179,7 +191,7 @@ impl Metascape {
 
             // Create client.
             let client = Client {
-                fleet_control: Some(fleet_id),
+                fleet_control: fleet_id,
                 connection,
                 input_battlescape: BattlescapeInput::default(),
                 unacknowledged_commands: IndexMap::new(),
@@ -211,11 +223,8 @@ impl Metascape {
                             }
                             UdpClient::Metascape { wish_position } => {
                                 // Get controlled fleet.
-                                if let Some(fleet_id) = client.fleet_control {
-                                    // Get fleet.
-                                    if let Some(fleet) = self.fleets.get_mut(&fleet_id) {
-                                        fleet.wish_position = wish_position;
-                                    }
+                                if let Some(fleet) = self.fleets.get_mut(&client.fleet_control) {
+                                    fleet.wish_position = wish_position;
                                 }
                             }
                         }
@@ -233,18 +242,14 @@ impl Metascape {
 
     /// Calculate fleet velocity based on wish position.
     /// TODO: Fleets engaged in the same Battlescape should aggregate.
-    fn calc_fleet_velocity(&mut self) {
+    fn fleet_velocity(&mut self) {
         for fleet in self.fleets.values_mut() {
-            fleet.velocity += fleet.wish_position;
-            fleet.velocity = fleet.velocity.cap_magnitude(10.0);
-        }
-    }
+            let old_pos = fleet.get_position(&self.collider_set);
 
-    /// Apply calculated velocity to fleets.
-    fn apply_fleet_velocity(&mut self) {
-        for fleet in self.fleets.values() {
-            let new_pos = fleet.get_position(&self.collider_set).add(fleet.velocity);
-            fleet.set_position(&mut self.collider_set, new_pos);
+            fleet.velocity += (fleet.wish_position - old_pos).cap_magnitude(1.0);
+            fleet.velocity = fleet.velocity;
+
+            fleet.set_position(&mut self.collider_set, old_pos + fleet.velocity);
         }
     }
 
@@ -279,8 +284,7 @@ impl Metascape {
         self.get_client_udp_input();
         self.flush_disconnect_queue();
 
-        self.calc_fleet_velocity();
-        self.apply_fleet_velocity();
+        self.fleet_velocity();
 
         // TODO: Get battlescape result.
         // TODO: Compare battlescape result to detect desync.
