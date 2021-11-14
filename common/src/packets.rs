@@ -1,4 +1,4 @@
-use nalgebra::Vector2;
+use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
@@ -117,7 +117,7 @@ pub enum UdpClient {
     },
     Metascape {
         /// Where this client's currently controlled fleet wish to go.
-        wish_position: Vector2<f32>,
+        wish_position: Vec2,
     },
 }
 impl UdpClient {
@@ -186,7 +186,7 @@ pub enum UdpServer {
         tick: u32,
     },
     Metascape {
-        fleets_position: Vec<Vector2<f32>>,
+        fleets_position: Vec<Vec2>,
     },
 }
 impl UdpServer {

@@ -4,7 +4,7 @@ use common::metascape::*;
 use common::packets::UdpClient;
 use gdnative::api::*;
 use gdnative::prelude::*;
-use nalgebra::vector;
+use glam::vec2;
 
 /// Layer between godot and rust.
 /// Godot is used for input/rendering. Rust is used for logic.
@@ -39,28 +39,11 @@ impl Game {
     }
 
     #[export]
-    unsafe fn _ready(&mut self, _owner: &Node2D) {
-        // let asd = autoload::<Node>("asd").unwrap();
-        // let cm = asd.cast_instance::<ConfigManager>().unwrap().claim().assume_safe();
-        // let n = cm.map(|a, b| {
-        //     a.config.audio_config.music_volume;
-        // });
-    }
+    unsafe fn _ready(&mut self, _owner: &Node2D) {}
 
     /// For some reason this gets called twice.
     #[export]
-    unsafe fn _exit_tree(&mut self, _owner: &Node2D) {
-        // self.save_world(owner);
-
-        // // Free the rids we created.
-        // if let Some(ecs) = &self.ecs {
-        //     if let Some(render_res) = ecs.world.get_resource::<RenderRes>() {
-        //         let visual_server = gdnative::api::VisualServer::godot_singleton();
-        //         visual_server.free_rid(render_res.multimesh_rid);
-        //         visual_server.free_rid(render_res.mesh_rid);
-        //     }
-        // }
-    }
+    unsafe fn _exit_tree(&mut self, _owner: &Node2D) {}
 
     // #[export]
     // unsafe fn _process(&mut self, _owner: &Node2D, mut delta: f64) {
@@ -73,7 +56,7 @@ impl Game {
         if let Some(client) = &mut self.client {
             let wish_pos = owner.get_global_mouse_position();
             let packet = UdpClient::Metascape {
-                wish_position: vector![wish_pos.x, wish_pos.y],
+                wish_position: vec2(wish_pos.x, wish_pos.y),
             };
             client.udp_sender.send(packet).unwrap();
         }
@@ -88,11 +71,14 @@ impl Game {
     #[export]
     unsafe fn _draw(&mut self, owner: &Node2D) {
         if let Some(metascape) = &self.metascape {
-            // Draw the balls.
-            for (pos, radius) in metascape.get_balls().into_iter() {
+            // Draw all Colliders.
+            for collider in metascape.get_colliders().into_iter() {
                 owner.draw_circle(
-                    Vector2 { x: pos.x, y: pos.y },
-                    radius.into(),
+                    Vector2 {
+                        x: collider.position.x,
+                        y: collider.position.y,
+                    },
+                    collider.radius.into(),
                     Color {
                         r: 0.0,
                         g: 0.0,
@@ -110,7 +96,6 @@ impl Game {
         // let world_path: String = format!("{}{}/", WORLDS_PATH, world_name);
 
         // // Load Def or create a new one.
-        // // TODO: Add parameter in load_world function.
         // let def = Def::load(&world_path, false, true);
 
         // // Create Ecs.
@@ -136,11 +121,9 @@ impl Game {
         owner.update();
     }
 
-    /// Generate a new world.
+    /// Generate a new Metascape.
     #[export]
-    unsafe fn generate_world(&mut self, owner: &Node2D, world_name: String, density_img: Ref<Image, Shared>) {
-        // let world_path: String = format!("{}{}/", WORLDS_PATH, world_name);
-
+    unsafe fn generate_metascape(&mut self, owner: &Node2D, metascape_name: String, density_img: Ref<Image, Shared>) {
         // Extract the density buffer from the image.
         let density_img = density_img.assume_safe();
         let (h, w) = (density_img.get_height(), density_img.get_width());
@@ -149,36 +132,29 @@ impl Game {
         for y in 0..h {
             for x in 0..w {
                 let col = density_img.get_pixel(x, y);
+                // Only read mask image (black and white).
                 system_density_buffer.push(col.r);
             }
         }
         density_img.unlock();
 
-        // if let Some(server) = &mut self.server {
-        //     // TODO: Generate a new Metascape should not be there.
-        //     if let Some(metascape) = &mut server.metascape {
-        //         let mut gen = GenerationParameters {
-        //             seed: 1477,
-        //             rng: GenerationParameters::get_rgn_from_seed(1477),
-        //             mods: (),
-        //             system_density_buffer_height: h as usize,
-        //             system_density_buffer_width: w as usize,
-        //             system_density_buffer,
-        //             system_density_multiplier: 1.0,
-        //         };
-        //         gen.generate_system(metascape);
+        // Create GenerationParameters.
+        let mut gen = GenerationParameters {
+            seed: 1477,
+            rng: GenerationParameters::get_rgn_from_seed(1477),
+            mods: (),
+            system_density_buffer_height: h as usize,
+            system_density_buffer_width: w as usize,
+            system_density_buffer,
+            system_density_multiplier: 1.0,
+        };
 
-        //         // TODO: Add ourself as a player should not be there.
-        //         // metascape.add_player(
-        //         //     Player {
-        //         //         id: 0,
-        //         //     },
-        //         //     rapier2d::na::vector![0.0f32, 0.0f32],
-        //         // );
-        //     }
-        // }
+        // Generate some System.
+        if let Some(metascape) = &mut self.metascape {
+            gen.generate_system(metascape);
+        }
 
-        self.name = world_name;
+        self.name = metascape_name;
 
         owner.update();
     }

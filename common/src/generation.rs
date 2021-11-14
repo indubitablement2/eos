@@ -1,17 +1,16 @@
+use crate::collision::{Collider, Membership};
 use crate::metascape::*;
+use glam::Vec2;
 use rand::Rng;
 use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoshiro256PlusPlus;
-use rapier2d::{
-    na::{vector, Isometry2, Vector2},
-    prelude::*,
-};
+use std::f32::consts::PI;
 
 pub struct GenerationParameters {
     pub seed: u64,
     pub rng: Xoshiro256PlusPlus,
 
-    // TODO:
+    // TODO: Mods
     pub mods: (),
 
     pub system_density_buffer_height: usize,
@@ -28,17 +27,20 @@ impl GenerationParameters {
 
     pub fn generate_system(&mut self, metascape: &mut Metascape) {
         // How many systems we will try to place randomly.
-        let num_attempt = (metascape.bound.volume() / (System::SIZE * 2.0).powi(2) * self.system_density_multiplier) as usize;
+        let num_attempt =
+            ((metascape.bound.powi(2) * PI) / (System::SIZE.powi(2) * PI) * self.system_density_multiplier) as usize;
+        debug!("Num system attempt: {}.", num_attempt);
 
         for attempt_number in 0..num_attempt {
             let completion = attempt_number as f32 / num_attempt as f32;
 
-            let translation: Vector2<f32> = vector![
-                self.rng.gen_range(metascape.bound.mins.x..metascape.bound.maxs.x),
-                self.rng.gen_range(metascape.bound.mins.y..metascape.bound.maxs.y)
-            ];
+            let uv: Vec2 = self.rng.gen::<Vec2>() * 2.0 - 1.0;
+            let position: Vec2 = uv * metascape.bound;
 
-            let uv: Vector2<f32> = (translation + metascape.bound.half_extents()).component_div(&metascape.bound.extents());
+            // Check if we are within metascape bound.
+            if position.length_squared() > metascape.bound.powi(2) {
+                continue;
+            }
 
             // Check density.
             if completion > self.sample_system_density(uv) {
@@ -48,40 +50,29 @@ impl GenerationParameters {
             // TODO: Temporary size constant. This should come from what is inside the system.
             let radius = System::SIZE;
 
-            let collider = ColliderBuilder::ball(radius)
-                .sensor(true)
-                .active_events(ActiveEvents::INTERSECTION_EVENTS)
-                .translation(translation)
-                .collision_groups(InteractionGroups::new(System::COLLISION_MEMBERSHIP, 0))
-                .build();
+            // Create system Collider.
+            let collider = Collider { radius, position };
 
             // Test if it overlap with any existing system.
             if metascape
-                .query_pipeline_bundle
-                .query_pipeline
-                .intersection_with_shape(
-                    &metascape.collider_set,
-                    &Isometry2::new(translation, 0.0),
-                    collider.shape(),
-                    InteractionGroups::all(),
-                    None,
-                )
-                .is_some()
+                .intersection_pipeline
+                .intersect_collider(collider, Membership::System)
             {
                 continue;
             }
 
-            // Add this circle as a new system.
-            let collider_handle = metascape.collider_set.insert(collider);
-            metascape.systems.insert(collider_handle, System {});
-            metascape.query_pipeline_bundle.update(&metascape.collider_set);
+            // Add this new system.
+            let collider_id = metascape.intersection_pipeline.insert_collider(collider, Membership::System);
+            metascape.systems.insert(collider_id, System {});
+            // TODO: Try to add system far apart so we don't have to update every time.
+            metascape.intersection_pipeline.update();
         }
 
         // TODO: Find neighboring systems.
     }
 
     /// Sample system density buffer.
-    pub fn sample_system_density(&self, uv: Vector2<f32>) -> f32 {
+    pub fn sample_system_density(&self, uv: Vec2) -> f32 {
         let x = (uv.x * self.system_density_buffer_width as f32) as usize;
         let y = (uv.y * self.system_density_buffer_height as f32) as usize;
         *self
