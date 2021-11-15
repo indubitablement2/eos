@@ -28,14 +28,10 @@ impl Game {
 
     /// The "constructor" of the class.
     fn new(_owner: &Node2D) -> Self {
-        // Connect localy.
-        let metascape = Metascape::new(true).unwrap();
-        let client = Client::new(metascape.connection_manager.get_addresses()).unwrap();
-
         Game {
             name: String::new(),
-            metascape: Some(metascape),
-            client: Some(client),
+            metascape: None,
+            client: None,
         }
     }
 
@@ -132,37 +128,50 @@ impl Game {
 
     /// Generate a new Metascape.
     #[export]
-    unsafe fn generate_metascape(&mut self, owner: &Node2D, metascape_name: String, density_img: Ref<Image, Shared>) {
-        // Extract the density buffer from the image.
-        let density_img = density_img.assume_safe();
-        let (h, w) = (density_img.get_height(), density_img.get_width());
-        let mut system_density_buffer = Vec::with_capacity((w * h) as usize);
-        density_img.lock();
-        for y in 0..h {
-            for x in 0..w {
-                let col = density_img.get_pixel(x, y);
-                // Only read mask image (black and white).
-                system_density_buffer.push(col.r);
-            }
-        }
-        density_img.unlock();
+    unsafe fn generate_metascape(
+        &mut self,
+        owner: &Node2D,
+        metascape_name: String,
+        bound: f32,
+        system_density_img: Ref<Image, Shared>,
+    ) {
+        // Connect localy.
+        let mut metascape = Metascape::new(true, bound).unwrap();
+        let client = Client::new(metascape.connection_manager.get_addresses()).unwrap();
 
-        // Create GenerationParameters.
-        let system_generation_mask = GenerationMask {
-            width: w as usize,
-            height: h as usize,
-            buffer: system_density_buffer,
-            multiplier: 1.0,
-        };
-        let mut gen = GenerationParameters::new(0, system_generation_mask);
+        let mut gen = GenerationParameters::new(0, img_to_generation_mask(system_density_img), GenerationMask::default());
 
-        // Generate some System.
-        if let Some(metascape) = &mut self.metascape {
-            metascape.generate_system(&mut gen);
-        }
+        // Generate random Metascape.
+        metascape.generate(&mut gen);
 
         self.name = metascape_name;
+        self.metascape = Some(metascape);
+        self.client = Some(client);
 
         owner.update();
+    }
+}
+
+fn img_to_generation_mask(img: Ref<Image, Shared>) -> GenerationMask {
+    // Extract the density buffer from the image.
+    let img = unsafe { img.assume_safe() };
+    let (h, w) = (img.get_height(), img.get_width());
+    let mut system_density_buffer = Vec::with_capacity((w * h) as usize);
+    img.lock();
+    for y in 0..h {
+        for x in 0..w {
+            let col = img.get_pixel(x, y);
+            // Only read mask image (black and white).
+            system_density_buffer.push(col.r);
+        }
+    }
+    img.unlock();
+
+    // Create GenerationParameters.
+    GenerationMask {
+        width: w as usize,
+        height: h as usize,
+        buffer: system_density_buffer,
+        multiplier: 1.0,
     }
 }

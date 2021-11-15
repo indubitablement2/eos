@@ -16,7 +16,7 @@ func _ready() -> void:
 #	var gen_img = preload("res://assets/debug/target.png").get_data()
 	var gen_img := Image.new()
 	gen_img.load("res://assets/generation/galaxy_gen.png")
-	$Game.generate_metascape("test world", gen_img)
+	$Game.generate_metascape("test world", 512.0, preload("res://assets/debug/pixel.png").get_data())
 	
 #	_init_mesh()
 #	_init_mat()

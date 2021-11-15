@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://native/Game.gdns" type="Script" id=1]
 [ext_resource path="res://shaders/terrain.material" type="Material" id=2]
@@ -6,6 +6,7 @@
 [ext_resource path="res://scene/game.gd" type="Script" id=4]
 [ext_resource path="res://assets/icon/godot-ferris-32x32.png" type="Texture" id=5]
 [ext_resource path="res://shaders/sprite_display.material" type="Material" id=6]
+[ext_resource path="res://assets/debug/pixel.png" type="Texture" id=7]
 
 [sub_resource type="ImageTexture" id=1]
 flags = 0
@@ -23,6 +24,11 @@ material = ExtResource( 2 )
 scale = Vector2( 32, 32 )
 texture = SubResource( 1 )
 script = ExtResource( 1 )
+
+[node name="pixel" type="Sprite" parent="."]
+position = Vector2( -42.0011, 19.9662 )
+scale = Vector2( 2, 2 )
+texture = ExtResource( 7 )
 
 [node name="Sprite" type="Sprite" parent="."]
 modulate = Color( 0, 0.866667, 0.137255, 1 )

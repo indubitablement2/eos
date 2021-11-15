@@ -1,5 +1,6 @@
 use crate::collision::*;
 use crate::connection_manager::*;
+use crate::metascape_system::System;
 use crate::packets::*;
 use glam::vec2;
 use glam::Vec2;
@@ -46,9 +47,16 @@ impl Client {
     pub const REALITY_BUBBLE_COLLISION_MEMBERSHIP: u32 = 2 ^ 0;
 }
 
+enum FleetAIState {
+    Idle,
+    GoToPosition(Vec2),
+    PatrolPositions { positions: Vec<Vec2>, num_loop: i32 },
+    Trade { from: (), to: () },
+}
+
 /// A fleet of ships owned by a client or the server.
 /// Only used around Client. Otherwise use more crude simulation.
-pub struct Fleet {
+struct Fleet {
     /// If a Client own this fleet or the server.
     owner: Option<ClientID>,
     /// If this fleet is participating in a Battlescape.
@@ -64,7 +72,10 @@ pub struct Fleet {
     // /// Like spawning server owned fleets when inside FactionActivity.
     // reality_bubble_handle: Option<ColliderHandle>,
 
-    // TODO: Goal: What this fleet want to do? (so that it does not just chase a client forever.)
+    // TODO: Goal: What this fleet wants to do? (so that it does not just chase a client forever.)
+    fleet_ai: FleetAIState,
+    /// Can we despawn this fleet if not inside a reality bubble and not owned by a connected client?
+    no_despawn: bool,
     // TODO: Add factions
     // pub faction: FactionID,
 }
@@ -76,13 +87,6 @@ pub struct ActiveBattlescape {
     pub tick: u32,
     /// Fleets implied in this Battlescape.
     pub fleets: Vec<FleetID>,
-}
-
-/// A system with stars and planets.
-pub struct System {}
-impl System {
-    /// TODO: Temporary size constant. This should come from what is inside the system.
-    pub const SIZE: f32 = 32.0;
 }
 
 // /// A faction is mayhem in this area.
@@ -106,7 +110,7 @@ pub struct Metascape {
     /// Connected clients.
     pub clients: IndexMap<ClientID, Client>,
 
-    pub fleets: IndexMap<FleetID, Fleet>,
+    fleets: IndexMap<FleetID, Fleet>,
     // pub active_battlescapes: IndexMap<ColliderHandle, ActiveBattlescape>,
     pub systems: IndexMap<ColliderId, System>,
 }
@@ -115,12 +119,12 @@ impl Metascape {
     pub const UPDATE_INTERVAL: Duration = Duration::from_millis(50);
 
     /// Create a new Metascape with default parameters.
-    pub fn new(local: bool) -> tokio::io::Result<Self> {
+    pub fn new(local: bool, bound: f32) -> tokio::io::Result<Self> {
         let connection_manager = ConnectionsManager::new(local)?;
 
         Ok(Self {
             tick: 0,
-            bound: 2048.0,
+            bound,
             intersection_pipeline: IntersectionPipeline::new(),
             // intersection_events_receiver,
             connection_manager,
@@ -293,6 +297,8 @@ impl Metascape {
             velocity: Vec2::ZERO,
             detection_collider_id,
             detector_collider_id,
+            fleet_ai: FleetAIState::Idle,
+            no_despawn: true,
         };
         self.fleets.insert(fleet_id, new_fleet);
 

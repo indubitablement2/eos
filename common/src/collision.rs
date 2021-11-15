@@ -1,4 +1,4 @@
-use glam::{Vec2, vec2};
+use glam::Vec2;
 use indexmap::IndexMap;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
@@ -75,7 +75,7 @@ impl Membership {
         match self {
             Membership::FleetDetection => 32.0,
             Membership::FleetDetector => 32.0,
-            Membership::System => 128.0,
+            Membership::System => crate::metascape_system::System::RADIUS_MAX * 3.0,
         }
     }
 }
@@ -177,7 +177,8 @@ impl AccelerationStructure {
 
         // Prepare first row.
         let mut current_row = old_row.pop().unwrap_or_default();
-        current_row.start = self.colliders.first().unwrap().1.position.y;
+        // First row's start should be very large negative number.
+        current_row.start = -1.0e+30_f32;
         let mut num_in_current_row = 0usize;
         // Create rows.
         for collider in self.colliders.values() {
@@ -200,6 +201,8 @@ impl AccelerationStructure {
         if num_in_current_row > 0 {
             self.rows.push(current_row);
         }
+        // Last row's end should be very large.
+        self.rows.last_mut().unwrap().end = 1.0e+30_f32;
 
         // Add colliders to overlapping rows.
         let mut i = 0u32;
@@ -208,14 +211,14 @@ impl AccelerationStructure {
             let top = collider.position.y + collider.radius;
             let first_overlapping_row = self.rows.partition_point(|row| row.end < bottom);
             for row in &mut self.rows[first_overlapping_row..] {
-            // while let Some(row) = self.rows.get_mut(first_overlapping_row) {
+                // while let Some(row) = self.rows.get_mut(first_overlapping_row) {
                 if row.start > top {
                     break;
                 }
                 row.data.push(i);
                 // first_overlapping_row += 1;
             }
-            
+
             i += 1;
         }
 
@@ -246,7 +249,6 @@ impl AccelerationStructure {
         let first_overlapping_row = self.rows.partition_point(|row| row.end < bottom);
         for row in &self.rows[first_overlapping_row..] {
             if row.start > top {
-
                 break;
             }
             // The collider overlap this row.
@@ -254,7 +256,7 @@ impl AccelerationStructure {
             let closest = row
                 .data
                 .partition_point(|i| self.colliders[*i as usize].position.x < collider.position.x);
-            
+
             // The furthest we should look in each dirrections.
             let threshold = collider.radius + row.biggest_radius;
 
@@ -290,7 +292,7 @@ impl AccelerationStructure {
         to_test.sort_unstable();
         to_test.dedup();
 
-        // Test each Collider we have colledted.
+        // Test each Collider we have collected.
         for i in to_test.into_iter() {
             if collider.intersection_test(self.colliders[i as usize]) {
                 return true;
@@ -414,49 +416,229 @@ impl IntersectionPipeline {
 
 #[test]
 fn test() {
+    use glam::vec2;
+    use rand::random;
+
     let mut intersection_pipeline = IntersectionPipeline::new();
 
-    assert!(!intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, 0.0) }, Membership::FleetDetection));
+    assert!(!intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(0.0, 0.0)
+        },
+        Membership::FleetDetection
+    ));
 
-    let first_collider_id = intersection_pipeline.insert_collider(Collider { radius: 10.0, position: vec2(0.0, 0.0) }, Membership::FleetDetection);
+    let first_collider_id = intersection_pipeline.insert_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(0.0, 0.0),
+        },
+        Membership::FleetDetection,
+    );
     intersection_pipeline.update();
     println!("{:?}", &intersection_pipeline.memberships[Membership::FleetDetection]);
 
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(-4.0, 0.0) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(4.0, 0.0) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, 4.0) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, -4.0) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(-4.99, -4.99) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(4.99, 4.99) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(-4.0, 0.0)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(4.0, 0.0)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(0.0, 4.0)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(0.0, -4.0)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(-4.99, -4.99)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(4.99, 4.99)
+        },
+        Membership::FleetDetection
+    ));
 
-    intersection_pipeline.insert_collider(Collider { radius: 10.0, position: vec2(100.0, 0.0) }, Membership::FleetDetection);
+    intersection_pipeline.insert_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(100.0, 0.0),
+        },
+        Membership::FleetDetection,
+    );
     intersection_pipeline.update();
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(-4.0, 0.0) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(4.0, 0.0) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, 4.0) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, -4.0) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(-4.99, -4.99) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(4.99, 4.99) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(-4.0, 0.0)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(4.0, 0.0)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(0.0, 4.0)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(0.0, -4.0)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(-4.99, -4.99)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(4.99, 4.99)
+        },
+        Membership::FleetDetection
+    ));
 
-    intersection_pipeline.insert_collider(Collider { radius: 10.0, position: vec2(-100.0, 0.0) }, Membership::FleetDetection);
+    intersection_pipeline.insert_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(-100.0, 0.0),
+        },
+        Membership::FleetDetection,
+    );
     intersection_pipeline.update();
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(-4.0, 0.0) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(4.0, 0.0) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, 4.0) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, -4.0) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(-4.99, -4.99) }, Membership::FleetDetection));
-    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(4.99, 4.99) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(-4.0, 0.0)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(4.0, 0.0)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(0.0, 4.0)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(0.0, -4.0)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(-4.99, -4.99)
+        },
+        Membership::FleetDetection
+    ));
+    assert!(intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(4.99, 4.99)
+        },
+        Membership::FleetDetection
+    ));
 
     // Removing collider.
     intersection_pipeline.remove_collider(first_collider_id);
     intersection_pipeline.update();
-    assert!(!intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, 0.0) }, Membership::FleetDetection));
+    assert!(!intersection_pipeline.test_collider(
+        Collider {
+            radius: 10.0,
+            position: vec2(0.0, 0.0)
+        },
+        Membership::FleetDetection
+    ));
 
     // Do we have 2 rows?
     for _ in 0..AccelerationStructure::MIN_COLLIDER_PER_ROW {
-        intersection_pipeline.insert_collider(Collider { radius: 10.0, position: vec2(0.0, 100000000.0) }, Membership::FleetDetection);
+        intersection_pipeline.insert_collider(
+            Collider {
+                radius: 10.0,
+                position: vec2(0.0, 100000000.0),
+            },
+            Membership::FleetDetection,
+        );
     }
     intersection_pipeline.update();
     println!("{:?}", &intersection_pipeline.memberships[Membership::FleetDetection].rows);
     assert_eq!(intersection_pipeline.memberships[Membership::FleetDetection].rows.len(), 2);
+
+    // Random test.
+    for _ in 0..10000 {
+        let mut intersection_pipeline = IntersectionPipeline::new();
+
+        intersection_pipeline.insert_collider(
+            Collider {
+                radius: random::<f32>() * 256.0,
+                position: vec2(random::<f32>() * 512.0 - 256.0, random::<f32>() * 512.0 - 256.0),
+            },
+            Membership::System,
+        );
+        intersection_pipeline.update();
+
+        let other = Collider {
+            radius: random::<f32>() * 256.0,
+            position: vec2(random::<f32>() * 512.0 - 256.0, random::<f32>() * 512.0 - 256.0),
+        };
+
+        if intersection_pipeline.test_collider(other, Membership::System)
+            != intersection_pipeline.test_collider_brute(other, Membership::System)
+        {
+            println!(
+                "\n{:?}\n\n{:?}\n",
+                &intersection_pipeline.memberships[Membership::System],
+                other
+            );
+        }
+        assert_eq!(
+            intersection_pipeline.test_collider(other, Membership::System),
+            intersection_pipeline.test_collider_brute(other, Membership::System)
+        );
+    }
 }
