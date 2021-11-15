@@ -206,7 +206,7 @@ impl AccelerationStructure {
         for collider in self.colliders.values() {
             let bottom = collider.position.y - collider.radius;
             let top = collider.position.y + collider.radius;
-            let mut first_overlapping_row = self.rows.partition_point(|row| row.end < bottom);
+            let first_overlapping_row = self.rows.partition_point(|row| row.end < bottom);
             for row in &mut self.rows[first_overlapping_row..] {
             // while let Some(row) = self.rows.get_mut(first_overlapping_row) {
                 if row.start > top {
