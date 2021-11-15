@@ -6,6 +6,7 @@
 - morrowing
 - Dawn of war 2
 - XPirateZ
+- SupCom
 
 core storm in p-space that needs to be avoided
 
