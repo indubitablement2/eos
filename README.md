@@ -5,12 +5,16 @@
 - borderlands
 - morrowing
 - Dawn of war 2
+- XPirateZ
+- SupCom
 
 core storm in p-space that needs to be avoided
 
 faction owned expensive/rare fast travel rings
 
 manualy aimed weapon cost less energy to fire.
+
+station needs to be hauled from the station they were built (slow, cost a lots of fuel)
 
 # chaos-cascade
 > Put the description here!
