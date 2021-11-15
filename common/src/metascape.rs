@@ -120,7 +120,7 @@ impl Metascape {
 
         Ok(Self {
             tick: 0,
-            bound: 1024.0,
+            bound: 2048.0,
             intersection_pipeline: IntersectionPipeline::new(),
             // intersection_events_receiver,
             connection_manager,

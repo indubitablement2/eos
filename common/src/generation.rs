@@ -57,8 +57,8 @@ impl Metascape {
         for attempt_number in 0..num_attempt {
             let completion = attempt_number as f32 / num_attempt as f32;
 
-            let uv: Vec2 = generation_parameters.rng.gen::<Vec2>() * 2.0 - 1.0;
-            let position: Vec2 = uv * self.bound;
+            let uv: Vec2 = generation_parameters.rng.gen::<Vec2>();
+            let position: Vec2 = uv * 2.0 * self.bound - self.bound;
 
             // Check if we are within metascape bound.
             if position.length_squared() > self.bound.powi(2) {
