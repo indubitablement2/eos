@@ -82,7 +82,7 @@ pub struct ActiveBattlescape {
 pub struct System {}
 impl System {
     /// TODO: Temporary size constant. This should come from what is inside the system.
-    pub const SIZE: f32 = 100.0;
+    pub const SIZE: f32 = 32.0;
 }
 
 // /// A faction is mayhem in this area.
@@ -211,11 +211,6 @@ impl Metascape {
         }
     }
 
-    /// Update intersection and pipeline with new collider position.
-    fn update_collision_pipelines(&mut self) {
-        self.intersection_pipeline.update();
-    }
-
     /// TODO: Send unacknowledged commands.
     /// TODO: Just sending every fleets position for now.
     fn send_udp(&mut self) {
@@ -254,7 +249,7 @@ impl Metascape {
         // TODO: Update ActiveBattlescape.
         // TODO: Make next Battlescape command and add it to Client's unacknowledged commands.
 
-        self.update_collision_pipelines();
+        self.intersection_pipeline.update();
 
         self.send_udp();
         self.flush_disconnect_queue();
@@ -263,6 +258,10 @@ impl Metascape {
     /// Get a copy of every colliders. Useful for debug display.
     pub fn get_colliders(&self) -> Vec<Collider> {
         self.intersection_pipeline.get_colliders_copy()
+    }
+
+    pub fn get_system_rows_separation(&self) -> Vec<f32> {
+        self.intersection_pipeline.get_rows_separation(Membership::System)
     }
 
     /// Add a new fleet to the metascape and return its id.

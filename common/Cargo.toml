@@ -9,7 +9,7 @@ log = { version = "0.4.14", features = ["release_max_level_off"] }
 rand = { version = "0.8.4", features = ["nightly", "simd_support"] }
 rand_xoshiro = "0.6.0"
 
-# ahash = "0.7.4"
+# ahash = "0.7.6"
 indexmap = {version = "1.7.0", features = ["serde"] }
 
 num_enum = "0.5.4"

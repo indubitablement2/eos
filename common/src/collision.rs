@@ -1,4 +1,4 @@
-use glam::Vec2;
+use glam::{Vec2, vec2};
 use indexmap::IndexMap;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
@@ -26,6 +26,7 @@ impl From<Membership> for ColliderId {
     }
 }
 
+#[derive(Debug)]
 struct ColliderIdDispenser {
     last: u32,
     available: Vec<u32>,
@@ -102,6 +103,7 @@ pub struct Collider {
     pub position: Vec2,
 }
 impl Collider {
+    /// Return true if these Colliders intersect.
     pub fn intersection_test(self, other: Collider) -> bool {
         self.position.distance_squared(other.position) <= (self.radius + other.radius).powi(2)
     }
@@ -115,6 +117,7 @@ impl Default for Collider {
     }
 }
 
+#[derive(Debug)]
 struct SAPRow {
     /// y position where this row ends and the next one (if there is one) ends.
     pub end: f32,
@@ -136,6 +139,7 @@ impl Default for SAPRow {
     }
 }
 
+#[derive(Debug)]
 struct AccelerationStructure {
     /// Sorted on the y axis.
     pub colliders: IndexMap<ColliderId, Collider>,
@@ -145,7 +149,7 @@ struct AccelerationStructure {
     pub rows: Vec<SAPRow>,
 }
 impl AccelerationStructure {
-    const MIN_COLLIDER_PER_ROW: usize = 16;
+    const MIN_COLLIDER_PER_ROW: usize = 5;
 
     pub fn new(min_row_size: f32) -> Self {
         Self {
@@ -162,7 +166,7 @@ impl AccelerationStructure {
 
         // Sort on y axis.
         self.colliders
-            .sort_by(|_k1, v1, _k2, v2| v1.radius.partial_cmp(&v2.radius).unwrap_or(Ordering::Equal));
+            .sort_by(|_, v1, _, v2| v1.position.y.partial_cmp(&v2.position.y).unwrap_or(Ordering::Equal));
 
         // Recycle old rows.
         let num_old_row = self.rows.len();
@@ -173,46 +177,49 @@ impl AccelerationStructure {
 
         // Prepare first row.
         let mut current_row = old_row.pop().unwrap_or_default();
-        current_row.start = match self.colliders.first() {
-            Some((_, collider)) => collider.position.y,
-            None => 0.0,
-        };
-        // Add colliders to rows.
-        for (i, collider) in self.colliders.values().enumerate() {
-            // Add this collider to current row.
-            current_row.data.push(i as u32);
+        current_row.start = self.colliders.first().unwrap().1.position.y;
+        let mut num_in_current_row = 0usize;
+        // Create rows.
+        for collider in self.colliders.values() {
+            num_in_current_row += 1;
             current_row.end = collider.position.y;
+            if num_in_current_row >= Self::MIN_COLLIDER_PER_ROW {
+                // We have the minimum number of collider to make a row.
+                if current_row.end - current_row.start >= self.min_row_size {
+                    // We also have the minimun size.
+                    self.rows.push(current_row);
 
-            if current_row.data.len() > Self::MIN_COLLIDER_PER_ROW && current_row.end - current_row.start > self.min_row_size {
-                // This row is full.
-                self.rows.push(current_row);
-                // Create a new row.
-                current_row = old_row.pop().unwrap_or_default();
-                current_row.start = collider.position.y;
-            }
-        }
-        if current_row.data.len() > 1 {
-            self.rows.push(current_row);
-        }
-
-        // Add colliders overlapping multiple rows.
-        unsafe {
-            for i in 1..self.rows.len() {
-                let (p, c) = self.rows.split_at_mut_unchecked(i);
-                let current = c.first_mut().unwrap_unchecked();
-                let previous = p.last_mut().unwrap_unchecked();
-
-                for i in &previous.data {
-                    let collider = &self.colliders[*i as usize];
-                    if collider.position.y + collider.radius >= current.start {
-                        // This collider from the previous row overlap the current row.
-                        current.data.push(*i);
-                    }
+                    // Prepare next row.
+                    current_row = old_row.pop().unwrap_or_default();
+                    current_row.start = collider.position.y;
+                    num_in_current_row = 0;
                 }
             }
         }
+        // Add non-full row.
+        if num_in_current_row > 0 {
+            self.rows.push(current_row);
+        }
 
-        // Sort each row.
+        // Add colliders to overlapping rows.
+        let mut i = 0u32;
+        for collider in self.colliders.values() {
+            let bottom = collider.position.y - collider.radius;
+            let top = collider.position.y + collider.radius;
+            let mut first_overlapping_row = self.rows.partition_point(|row| row.end < bottom);
+            for row in &mut self.rows[first_overlapping_row..] {
+            // while let Some(row) = self.rows.get_mut(first_overlapping_row) {
+                if row.start > top {
+                    break;
+                }
+                row.data.push(i);
+                // first_overlapping_row += 1;
+            }
+            
+            i += 1;
+        }
+
+        // Sort each row on the x axis.
         for row in &mut self.rows {
             row.data.sort_unstable_by(|a, b| {
                 self.colliders[*a as usize]
@@ -231,9 +238,86 @@ impl AccelerationStructure {
                 .fold(0.0, |acc, i| self.colliders[*i as usize].radius.max(acc));
         }
     }
+
+    pub fn intersect_collider(&self, collider: Collider) -> bool {
+        let mut to_test = Vec::with_capacity(16);
+        let bottom = collider.position.y - collider.radius;
+        let top = collider.position.y + collider.radius;
+        let first_overlapping_row = self.rows.partition_point(|row| row.end < bottom);
+        for row in &self.rows[first_overlapping_row..] {
+            if row.start > top {
+
+                break;
+            }
+            // The collider overlap this row.
+
+            let closest = row
+                .data
+                .partition_point(|i| self.colliders[*i as usize].position.x < collider.position.x);
+            
+            // The furthest we should look in each dirrections.
+            let threshold = collider.radius + row.biggest_radius;
+
+            // Look to the left.
+            let mut left = closest.saturating_sub(1);
+            while let Some(i) = row.data.get(left) {
+                let other = self.colliders[*i as usize];
+                if collider.position.x - other.position.x > threshold {
+                    break;
+                }
+                to_test.push(*i);
+
+                if left == 0 {
+                    break;
+                } else {
+                    left -= 1;
+                }
+            }
+            // Look to the right.
+            let mut right = closest;
+            while let Some(i) = row.data.get(right) {
+                let other = self.colliders[*i as usize];
+                if other.position.x - collider.position.x > threshold {
+                    break;
+                }
+                to_test.push(*i);
+
+                right += 1;
+            }
+        }
+
+        // Remove duplicate.
+        to_test.sort_unstable();
+        to_test.dedup();
+
+        // Test each Collider we have colledted.
+        for i in to_test.into_iter() {
+            if collider.intersection_test(self.colliders[i as usize]) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Get the line between each row.
+    pub fn get_rows_separation(&self) -> Vec<f32> {
+        let mut v = Vec::with_capacity(self.rows.len() + 1);
+
+        self.rows.iter().for_each(|row| {
+            v.push(row.start);
+        });
+
+        if let Some(last) = self.rows.last() {
+            v.push(last.end);
+        }
+
+        v
+    }
 }
 
 /// TODO: Add intersection events collector.
+#[derive(Debug)]
 pub struct IntersectionPipeline {
     collider_id_dispenser: ColliderIdDispenser,
     memberships: [AccelerationStructure; Membership::MAX],
@@ -302,25 +386,23 @@ impl IntersectionPipeline {
         v
     }
 
-    /// TODO: Implementation on the AccelerationStructure side.
-    pub fn intersect_collider(&self, collider: Collider, filter: Membership) -> bool {
-        let acceleration_struct = &self.memberships[filter];
+    /// Test for an intersection with the provided Collider.
+    pub fn test_collider(&self, collider: Collider, filter: Membership) -> bool {
+        self.memberships[filter].intersect_collider(collider)
+    }
 
-        for row in &acceleration_struct.rows {
-            // Check if Collider overlap this row.
-            if collider.position.y + collider.radius < row.start || collider.position.y - collider.radius > row.end {
-                continue;
-            }
-
-            // Test with Collider in this row.
-            for i in &row.data {
-                if collider.intersection_test(acceleration_struct.colliders[*i as usize]) {
-                    return true;
-                }
+    pub fn test_collider_brute(&self, collider: Collider, filter: Membership) -> bool {
+        for other in self.memberships[filter].colliders.values() {
+            if collider.intersection_test(*other) {
+                return true;
             }
         }
-
         false
+    }
+
+    /// Get the separation line between each row. Useful for debug.
+    pub fn get_rows_separation(&self, filter: Membership) -> Vec<f32> {
+        self.memberships[filter].get_rows_separation()
     }
 
     pub fn update(&mut self) {
@@ -328,4 +410,53 @@ impl IntersectionPipeline {
             acceleration_structure.update();
         });
     }
+}
+
+#[test]
+fn test() {
+    let mut intersection_pipeline = IntersectionPipeline::new();
+
+    assert!(!intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, 0.0) }, Membership::FleetDetection));
+
+    let first_collider_id = intersection_pipeline.insert_collider(Collider { radius: 10.0, position: vec2(0.0, 0.0) }, Membership::FleetDetection);
+    intersection_pipeline.update();
+    println!("{:?}", &intersection_pipeline.memberships[Membership::FleetDetection]);
+
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(-4.0, 0.0) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(4.0, 0.0) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, 4.0) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, -4.0) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(-4.99, -4.99) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(4.99, 4.99) }, Membership::FleetDetection));
+
+    intersection_pipeline.insert_collider(Collider { radius: 10.0, position: vec2(100.0, 0.0) }, Membership::FleetDetection);
+    intersection_pipeline.update();
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(-4.0, 0.0) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(4.0, 0.0) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, 4.0) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, -4.0) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(-4.99, -4.99) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(4.99, 4.99) }, Membership::FleetDetection));
+
+    intersection_pipeline.insert_collider(Collider { radius: 10.0, position: vec2(-100.0, 0.0) }, Membership::FleetDetection);
+    intersection_pipeline.update();
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(-4.0, 0.0) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(4.0, 0.0) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, 4.0) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, -4.0) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(-4.99, -4.99) }, Membership::FleetDetection));
+    assert!(intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(4.99, 4.99) }, Membership::FleetDetection));
+
+    // Removing collider.
+    intersection_pipeline.remove_collider(first_collider_id);
+    intersection_pipeline.update();
+    assert!(!intersection_pipeline.test_collider(Collider { radius: 10.0, position: vec2(0.0, 0.0) }, Membership::FleetDetection));
+
+    // Do we have 2 rows?
+    for _ in 0..AccelerationStructure::MIN_COLLIDER_PER_ROW {
+        intersection_pipeline.insert_collider(Collider { radius: 10.0, position: vec2(0.0, 100000000.0) }, Membership::FleetDetection);
+    }
+    intersection_pipeline.update();
+    println!("{:?}", &intersection_pipeline.memberships[Membership::FleetDetection].rows);
+    assert_eq!(intersection_pipeline.memberships[Membership::FleetDetection].rows.len(), 2);
 }

@@ -1,4 +1,5 @@
 use crate::client::Client;
+use common::generation::GenerationMask;
 use common::generation::GenerationParameters;
 use common::metascape::*;
 use common::packets::UdpClient;
@@ -51,22 +52,22 @@ impl Game {
     //     delta = delta.clamp(0.0, 1.0);
     // }
 
-    #[export]
-    unsafe fn _physics_process(&mut self, owner: &Node2D, _delta: f64) {
-        if let Some(client) = &mut self.client {
-            let wish_pos = owner.get_global_mouse_position();
-            let packet = UdpClient::Metascape {
-                wish_position: vec2(wish_pos.x, wish_pos.y),
-            };
-            client.udp_sender.send(packet).unwrap();
-        }
+    // #[export]
+    // unsafe fn _physics_process(&mut self, owner: &Node2D, _delta: f64) {
+    //     if let Some(client) = &mut self.client {
+    //         let wish_pos = owner.get_global_mouse_position();
+    //         let packet = UdpClient::Metascape {
+    //             wish_position: vec2(wish_pos.x, wish_pos.y),
+    //         };
+    //         client.udp_sender.send(packet).unwrap();
+    //     }
 
-        if let Some(metascape) = &mut self.metascape {
-            metascape.update();
-        }
+    //     if let Some(metascape) = &mut self.metascape {
+    //         metascape.update();
+    //     }
 
-        owner.update();
-    }
+    //     owner.update();
+    // }
 
     #[export]
     unsafe fn _draw(&mut self, owner: &Node2D) {
@@ -87,36 +88,44 @@ impl Game {
                     },
                 );
             }
+
+            // Draw System row separation.
+            for height in metascape.get_system_rows_separation() {
+                owner.draw_line(
+                    Vector2 {
+                        x: -metascape.bound,
+                        y: height,
+                    },
+                    Vector2 {
+                        x: metascape.bound,
+                        y: height,
+                    },
+                    Color {
+                        r: 1.0,
+                        g: 0.0,
+                        b: 0.3,
+                        a: 0.5,
+                    },
+                    4.0,
+                    false,
+                );
+            }
         }
     }
 
-    /// Load a world.
     #[export]
-    unsafe fn load_world(&mut self, owner: &Node2D, world_name: String) {
-        // let world_path: String = format!("{}{}/", WORLDS_PATH, world_name);
-
-        // // Load Def or create a new one.
-        // let def = Def::load(&world_path, false, true);
-
-        // // Create Ecs.
-        // self.ecs = Some(Ecs::new(owner, &def));
-        // self.def = Some(def);
-
-        if let Some(metascape) = &mut self.metascape {
-            let mut gen = GenerationParameters {
-                seed: 1477,
-                rng: GenerationParameters::get_rgn_from_seed(1477),
-                mods: (),
-                system_density_buffer_height: 64,
-                system_density_buffer_width: 64,
-                system_density_buffer: (0..64 * 64).into_iter().map(|_| 0.5f32).collect(),
-                system_density_multiplier: 1.0,
+    unsafe fn manual_update(&mut self, owner: &Node2D) {
+        if let Some(client) = &mut self.client {
+            let wish_pos = owner.get_global_mouse_position();
+            let packet = UdpClient::Metascape {
+                wish_position: vec2(wish_pos.x, wish_pos.y),
             };
-
-            gen.generate_system(metascape);
+            client.udp_sender.send(packet).unwrap();
         }
 
-        self.name = world_name;
+        if let Some(metascape) = &mut self.metascape {
+            metascape.update();
+        }
 
         owner.update();
     }
@@ -139,19 +148,17 @@ impl Game {
         density_img.unlock();
 
         // Create GenerationParameters.
-        let mut gen = GenerationParameters {
-            seed: 1477,
-            rng: GenerationParameters::get_rgn_from_seed(1477),
-            mods: (),
-            system_density_buffer_height: h as usize,
-            system_density_buffer_width: w as usize,
-            system_density_buffer,
-            system_density_multiplier: 1.0,
+        let system_generation_mask = GenerationMask {
+            width: w as usize,
+            height: h as usize,
+            buffer: system_density_buffer,
+            multiplier: 1.0,
         };
+        let mut gen = GenerationParameters::new(0, system_generation_mask);
 
         // Generate some System.
         if let Some(metascape) = &mut self.metascape {
-            gen.generate_system(metascape);
+            metascape.generate_system(&mut gen);
         }
 
         self.name = metascape_name;

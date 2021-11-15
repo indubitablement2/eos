@@ -89,8 +89,8 @@ game_camera_drag={
 
 [network]
 
-limits/debugger_stdout/max_chars_per_second=4096
-limits/debugger_stdout/max_messages_per_frame=20
+limits/debugger_stdout/max_chars_per_second=8192
+limits/debugger_stdout/max_messages_per_frame=40
 
 [physics]
 

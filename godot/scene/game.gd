@@ -13,10 +13,9 @@ onready var def_tex := ImageTexture.new()
 onready var tex_rid := SpritePacker.tex.get_rid()
 
 func _ready() -> void:
-	pass
-	var gen_img := Image.new()
-	gen_img.load("res://assets/generation/galaxy_gen.png")
+	var gen_img = preload("res://assets/debug/pixel.png").get_data()
 	$Game.generate_metascape("test world", gen_img)
+	
 #	_init_mesh()
 #	_init_mat()
 #	allocate_mesh(100)
@@ -29,10 +28,17 @@ func _exit_tree() -> void:
 	VisualServer.free_rid(multimesh_rid)
 	VisualServer.free_rid(mesh_rid)
 
+#func _input(event: InputEvent) -> void:
+#	if event.is_action_pressed("ui_up"):
+#		$Game.manual_update()
+
 #func _process(delta: float) -> void:
 #	if Input.is_mouse_button_pressed(1):
 #		print("placing system at: " + str(get_global_mouse_position()))
 #		$Game.new_system(get_global_mouse_position())
+
+func _physics_process(delta: float) -> void:
+	$Game.manual_update()
 
 func allocate_mesh(num: int) -> void:
 	VisualServer.multimesh_allocate(multimesh_rid, num, VisualServer.MULTIMESH_TRANSFORM_2D, VisualServer.MULTIMESH_COLOR_NONE, VisualServer.MULTIMESH_CUSTOM_DATA_FLOAT)
