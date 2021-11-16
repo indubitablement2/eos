@@ -14,6 +14,11 @@ faction owned expensive/rare fast travel rings
 
 manualy aimed weapon cost less energy to fire.
 
+Battlescape start with low population cap (enough to get a low tier destroyer) and increase over time.
+There are nodes on the field that when controlled, provide Battle Point.
+Battle Point are used to: spawn ship, ...?
+These node can be reinforced at the cost of BP.
+
 station needs to be hauled from the station they were built (slow, cost a lots of fuel)
 
 # chaos-cascade
