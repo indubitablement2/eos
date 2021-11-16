@@ -1,11 +1,9 @@
 use crate::collision::*;
 use crate::connection_manager::*;
-use crate::metascape_system::System;
 use crate::packets::*;
 use glam::vec2;
 use glam::Vec2;
 use indexmap::IndexMap;
-use std::time::Duration;
 
 // command: server send those to clients inside Battlescape, so that they can update.
 
@@ -30,6 +28,7 @@ pub struct BattlescapeID {
 pub struct Client {
     /// The fleet currently controlled by this client.
     pub fleet_control: FleetID,
+    reality_bubble: ColliderId,
 
     pub connection: Connection,
 
@@ -44,7 +43,6 @@ impl Client {
     pub const MAX_UNACKOWLEDGED_COMMAND: usize = 32;
 
     pub const REALITY_BUBBLE_RADIUS: f32 = 256.0;
-    pub const REALITY_BUBBLE_COLLISION_MEMBERSHIP: u32 = 2 ^ 0;
 }
 
 enum FleetAIState {
@@ -60,9 +58,9 @@ struct Fleet {
     /// If a Client own this fleet or the server.
     owner: Option<ClientID>,
     /// If this fleet is participating in a Battlescape.
-    pub battlescape: Option<BattlescapeID>,
-    pub wish_position: Vec2,
-    pub velocity: Vec2,
+    battlescape: Option<BattlescapeID>,
+    wish_position: Vec2,
+    velocity: Vec2,
 
     /// The collider that make this fleet detected.
     detection_collider_id: ColliderId,
@@ -72,7 +70,7 @@ struct Fleet {
     // /// Like spawning server owned fleets when inside FactionActivity.
     // reality_bubble_handle: Option<ColliderHandle>,
 
-    // TODO: Goal: What this fleet wants to do? (so that it does not just chase a client forever.)
+    // What this fleet wants to do.
     fleet_ai: FleetAIState,
     /// Can we despawn this fleet if not inside a reality bubble and not owned by a connected client?
     no_despawn: bool,
@@ -89,12 +87,33 @@ pub struct ActiveBattlescape {
     pub fleets: Vec<FleetID>,
 }
 
-// /// A faction is mayhem in this area.
-// /// Will emit fleets if a player is nearby.
-// pub struct FactionActivity {}
-// impl FactionActivity {
-//     pub const COLLISION_MEMBERSHIP: u32 = 2^3;
-// }
+pub enum CelestialBodyType {
+    Star,
+    Planet,
+}
+
+pub struct CelestialBody {
+    pub celestial_body_type: CelestialBodyType,
+    pub radius: f32,
+    pub orbit_radius: f32,
+    /// How many timestep for a full rotation.
+    pub orbit_time: u32,
+    pub moons: Vec<CelestialBody>,
+}
+
+/// A system with stars and planets.
+pub struct System {
+    /// The body that is the center of this system. Usualy a single star.
+    pub bodies: Vec<CelestialBody>,
+}
+impl System {
+    pub const RADIUS_MIN: f32 = 64.0;
+    pub const RADIUS_MAX: f32 = 256.0;
+    /// Final System radius is added a bound with nothing in it.
+    pub const BOUND_RADIUS_MULTIPLER: f32 = 1.25;
+    /// Miminum number of timestep for a full rotation for every 1.0 away from main body.
+    pub const ORBIT_TIME_MIN_PER_RADIUS: u32 = 300;
+}
 
 /// The simulation structure.
 pub struct Metascape {
@@ -115,9 +134,6 @@ pub struct Metascape {
     pub systems: IndexMap<ColliderId, System>,
 }
 impl Metascape {
-    /// How long between each Battlescape/Metascape tick.
-    pub const UPDATE_INTERVAL: Duration = Duration::from_millis(50);
-
     /// Create a new Metascape with default parameters.
     pub fn new(local: bool, bound: f32) -> tokio::io::Result<Self> {
         let connection_manager = ConnectionsManager::new(local)?;
@@ -142,9 +158,19 @@ impl Metascape {
 
             let client_id = connection.client_id;
 
+            // Create reality bubble.
+            let reality_bubble = self.intersection_pipeline.insert_collider(
+                Collider {
+                    radius: Client::REALITY_BUBBLE_RADIUS,
+                    position: vec2(0.0, 0.0),
+                },
+                Membership::RealityBubble,
+            );
+
             // Create client.
             let client = Client {
                 fleet_control: fleet_id,
+                reality_bubble,
                 connection,
                 input_battlescape: BattlescapeInput::default(),
                 unacknowledged_commands: IndexMap::new(),
@@ -259,26 +285,11 @@ impl Metascape {
         self.flush_disconnect_queue();
     }
 
-    /// Get a copy of every colliders. Useful for debug display.
-    pub fn get_colliders(&self) -> Vec<Collider> {
-        self.intersection_pipeline.get_colliders_copy()
-    }
-
-    pub fn get_system_rows_separation(&self) -> Vec<f32> {
-        self.intersection_pipeline.get_rows_separation(Membership::System)
-    }
-
     /// Add a new fleet to the metascape and return its id.
     fn create_fleet(&mut self, owner: Option<ClientID>, position: Vec2) -> FleetID {
         // Create colliders.
-        let detection_collider = Collider {
-            radius: 20.0,
-            position: vec2(0.0, 0.0),
-        };
-        let detector_collider = Collider {
-            radius: 30.0,
-            position: vec2(0.0, 0.0),
-        };
+        let detection_collider = Collider { radius: 20.0, position };
+        let detector_collider = Collider { radius: 30.0, position };
 
         // Add colliders.
         let detection_collider_id = self
@@ -305,20 +316,20 @@ impl Metascape {
         fleet_id
     }
 
-    pub fn flush_disconnect_queue(&mut self) {
+    /// Immediately disconnect a client.
+    /// TODO: Save his stuff and what not.
+    fn disconnect_client(&mut self, client_id: ClientID) {
+        // Remove client.
+        if let Some(client) = self.clients.remove(&client_id) {
+            info!("Disconnected {:?}.", client_id);
+        }
+    }
+
+    fn flush_disconnect_queue(&mut self) {
         self.disconnect_queue
             .drain(..)
             .collect::<Vec<ClientID>>()
             .into_iter()
             .for_each(|client_id| self.disconnect_client(client_id));
-    }
-
-    /// Immediately disconnect a client.
-    /// TODO: Save his stuff and what not.
-    pub fn disconnect_client(&mut self, client_id: ClientID) {
-        // Remove client.
-        if let Some(client) = self.clients.remove(&client_id) {
-            info!("Disconnected {:?}.", client_id);
-        }
     }
 }

@@ -1,8 +1,7 @@
 use crate::client::Client;
-use common::generation::GenerationMask;
-use common::generation::GenerationParameters;
-use common::metascape::*;
-use common::packets::UdpClient;
+use common::*;
+use common::generation::*;
+use common::packets::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
 use glam::vec2;
@@ -16,7 +15,7 @@ use glam::vec2;
 pub struct Game {
     name: String,
     // Receive input from clients. Send command to clients.
-    metascape: Option<Metascape>,
+    metascape: Option<MetascapeWrapper>,
     // Send input to server. Receive command from server.
     client: Option<Client>,
 }
@@ -84,28 +83,6 @@ impl Game {
                     },
                 );
             }
-
-            // Draw System row separation.
-            for height in metascape.get_system_rows_separation() {
-                owner.draw_line(
-                    Vector2 {
-                        x: -metascape.bound,
-                        y: height,
-                    },
-                    Vector2 {
-                        x: metascape.bound,
-                        y: height,
-                    },
-                    Color {
-                        r: 1.0,
-                        g: 0.0,
-                        b: 0.3,
-                        a: 0.5,
-                    },
-                    4.0,
-                    false,
-                );
-            }
         }
     }
 
@@ -136,8 +113,8 @@ impl Game {
         system_density_img: Ref<Image, Shared>,
     ) {
         // Connect localy.
-        let mut metascape = Metascape::new(true, bound).unwrap();
-        let client = Client::new(metascape.connection_manager.get_addresses()).unwrap();
+        let mut metascape = MetascapeWrapper::new(true, bound).unwrap();
+        let client = Client::new(metascape.get_addresses()).unwrap();
 
         let mut gen = GenerationParameters::new(0, img_to_generation_mask(system_density_img), GenerationMask::default());
 
