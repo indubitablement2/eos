@@ -17,6 +17,16 @@ impl ColliderId {
     pub const MEMBERSHIP_LEADING_ZEROS: u32 = (Membership::MAX as u32).leading_zeros();
     pub const MEMBERSHIP_MASK: u32 = u32::MAX << Self::MEMBERSHIP_LEADING_ZEROS;
     pub const ID_MASK: u32 = !Self::MEMBERSHIP_MASK;
+
+    /// A ColliderId that is always invalid.
+    pub fn new_invalid() -> Self {
+        Self { id: 0 }
+    }
+
+    /// Return if this ColliderId is valid.
+    pub fn is_valid(&self) -> bool {
+        self.id & Self::ID_MASK != 0
+    }
 }
 impl From<Membership> for ColliderId {
     fn from(membership: Membership) -> Self {
@@ -64,20 +74,20 @@ impl ColliderIdDispenser {
 #[repr(u32)]
 pub enum Membership {
     #[num_enum(default)]
-    FleetDetection,
-    FleetDetector,
+    Fleet,
     System,
     RealityBubble,
+    FactionActivity,
 }
 impl Membership {
     const MAX: usize = 4;
 
     pub fn get_min_row_size(&self) -> f32 {
         match self {
-            Membership::FleetDetection => 32.0,
-            Membership::FleetDetector => 32.0,
+            Membership::Fleet => crate::metascape::Fleet::RADIUS_MAX * 2.0,
             Membership::System => crate::metascape::System::RADIUS_MAX * 3.0,
-            Membership::RealityBubble => crate::metascape::Client::REALITY_BUBBLE_RADIUS * 3.0,
+            Membership::RealityBubble => crate::metascape::Client::REALITY_BUBBLE_RADIUS * 2.0,
+            Membership::FactionActivity => crate::metascape::FactionActivity::RADIUS_MAX * 3.0,
         }
     }
 }
@@ -103,19 +113,12 @@ impl IndexMut<Membership> for [AccelerationStructure; Membership::MAX] {
 pub struct Collider {
     pub radius: f32,
     pub position: Vec2,
+    pub custom_data: u32,
 }
 impl Collider {
     /// Return true if these Colliders intersect.
     pub fn intersection_test(self, other: Collider) -> bool {
         self.position.distance_squared(other.position) <= (self.radius + other.radius).powi(2)
-    }
-}
-impl Default for Collider {
-    fn default() -> Self {
-        Self {
-            radius: Default::default(),
-            position: Default::default(),
-        }
     }
 }
 
@@ -162,6 +165,13 @@ impl AccelerationStructure {
     }
 
     fn update(&mut self) {
+        // Recycle old rows.
+        let num_old_row = self.rows.len();
+        let mut old_row = std::mem::replace(&mut self.rows, Vec::with_capacity(num_old_row + 8));
+        for row in &mut old_row {
+            row.data.clear();
+        }
+
         if self.colliders.is_empty() {
             return;
         }
@@ -170,17 +180,10 @@ impl AccelerationStructure {
         self.colliders
             .sort_by(|_, v1, _, v2| v1.position.y.partial_cmp(&v2.position.y).unwrap_or(Ordering::Equal));
 
-        // Recycle old rows.
-        let num_old_row = self.rows.len();
-        let mut old_row = std::mem::replace(&mut self.rows, Vec::with_capacity(num_old_row + 8));
-        for row in &mut old_row {
-            row.data.clear();
-        }
-
         // Prepare first row.
         let mut current_row = old_row.pop().unwrap_or_default();
         // First row's start should be very large negative number.
-        current_row.start = -1.0e+30_f32;
+        current_row.start = -10000000000.0;
         let mut num_in_current_row = 0usize;
         // Create rows.
         for collider in self.colliders.values() {
@@ -204,7 +207,7 @@ impl AccelerationStructure {
             self.rows.push(current_row);
         }
         // Last row's end should be very large.
-        self.rows.last_mut().unwrap().end = 1.0e+30_f32;
+        self.rows.last_mut().unwrap().end = 10000000000.0;
 
         // Add colliders to overlapping rows.
         let mut i = 0u32;
@@ -213,12 +216,10 @@ impl AccelerationStructure {
             let top = collider.position.y + collider.radius;
             let first_overlapping_row = self.rows.partition_point(|row| row.end < bottom);
             for row in &mut self.rows[first_overlapping_row..] {
-                // while let Some(row) = self.rows.get_mut(first_overlapping_row) {
                 if row.start > top {
                     break;
                 }
                 row.data.push(i);
-                // first_overlapping_row += 1;
             }
 
             i += 1;
@@ -325,17 +326,19 @@ impl AccelerationStructure {
 pub struct IntersectionPipeline {
     collider_id_dispenser: ColliderIdDispenser,
     memberships: [AccelerationStructure; Membership::MAX],
+    remove_queue: Vec<ColliderId>,
 }
 impl IntersectionPipeline {
     pub fn new() -> Self {
         Self {
             collider_id_dispenser: ColliderIdDispenser::new(),
             memberships: [
-                AccelerationStructure::new(Membership::FleetDetection.get_min_row_size()),
-                AccelerationStructure::new(Membership::FleetDetector.get_min_row_size()),
+                AccelerationStructure::new(Membership::Fleet.get_min_row_size()),
                 AccelerationStructure::new(Membership::System.get_min_row_size()),
                 AccelerationStructure::new(Membership::RealityBubble.get_min_row_size()),
+                AccelerationStructure::new(Membership::FactionActivity.get_min_row_size()),
             ],
+            remove_queue: Vec::new(),
         }
     }
 
@@ -347,14 +350,8 @@ impl IntersectionPipeline {
         collider_id
     }
 
-    pub fn remove_collider(&mut self, collider_id: ColliderId) -> Option<Collider> {
-        let maybe_collider = self.memberships[Membership::from(collider_id)].colliders.remove(&collider_id);
-
-        if maybe_collider.is_some() {
-            self.collider_id_dispenser.recycle_collider_id(collider_id);
-        }
-
-        maybe_collider
+    pub fn remove_collider(&mut self, collider_id: ColliderId) {
+        self.remove_queue.push(collider_id);
     }
 
     /// Get a copy of a Collider.
@@ -411,6 +408,14 @@ impl IntersectionPipeline {
     }
 
     pub fn update(&mut self) {
+        // Remove queued collider.
+        for collider_id in self.remove_queue.drain(..) {
+            if self.memberships[Membership::from(collider_id)].colliders.remove(&collider_id).is_some() {
+                self.collider_id_dispenser.recycle_collider_id(collider_id);
+            }
+        }
+
+        // Update each membership in parrallele.
         self.memberships.par_iter_mut().for_each(|acceleration_structure| {
             acceleration_structure.update();
         });
@@ -418,9 +423,8 @@ impl IntersectionPipeline {
 }
 
 #[test]
-fn test() {
+fn test_basic() {
     use glam::vec2;
-    use rand::random;
 
     let mut intersection_pipeline = IntersectionPipeline::new();
 
@@ -428,9 +432,10 @@ fn test() {
     assert!(!intersection_pipeline.test_collider(
         Collider {
             radius: 10.0,
-            position: vec2(0.0, 0.0)
+            position: vec2(0.0, 0.0),
+            custom_data: 0
         },
-        Membership::FleetDetection
+        Membership::Fleet
     ));
 
     // Basic test.
@@ -438,59 +443,109 @@ fn test() {
         Collider {
             radius: 10.0,
             position: vec2(0.0, 0.0),
+            custom_data: 0,
         },
-        Membership::FleetDetection,
+        Membership::Fleet,
     );
     intersection_pipeline.update();
-    println!("{:?}", &intersection_pipeline.memberships[Membership::FleetDetection]);
+    println!("{:?}", &intersection_pipeline.memberships[Membership::Fleet]);
     assert!(intersection_pipeline.test_collider(
         Collider {
             radius: 10.0,
-            position: vec2(-4.0, 0.0)
+            position: vec2(-4.0, 0.0),
+            custom_data: 0
         },
-        Membership::FleetDetection
+        Membership::Fleet
     ));
     assert!(intersection_pipeline.test_collider(
         Collider {
             radius: 10.0,
-            position: vec2(4.0, 0.0)
+            position: vec2(4.0, 0.0),
+            custom_data: 0
         },
-        Membership::FleetDetection
+        Membership::Fleet
     ));
 
     // Removing collider.
     intersection_pipeline.remove_collider(first_collider_id);
     intersection_pipeline.update();
+
+    for row in &intersection_pipeline.memberships[Membership::Fleet].rows {
+        assert!(row.data.is_empty(), "should be empty");
+    }
+
+    println!("\n{:?}", &intersection_pipeline.memberships[Membership::Fleet]);
     assert!(!intersection_pipeline.test_collider(
         Collider {
             radius: 10.0,
-            position: vec2(0.0, 0.0)
+            position: vec2(0.0, 0.0),
+            custom_data: 0
         },
-        Membership::FleetDetection
+        Membership::Fleet
     ));
+}
+
+#[test]
+fn test_row() {
+    use glam::vec2;
+
+    let mut intersection_pipeline = IntersectionPipeline::new();
+
+    intersection_pipeline.insert_collider(Collider { radius: 10.0, position: vec2(0.0, 0.0), custom_data: 0 }, Membership::Fleet);
+    intersection_pipeline.update();
+    println!("{:?}", &intersection_pipeline.memberships[Membership::Fleet].rows);
+    assert_eq!(intersection_pipeline.memberships[Membership::Fleet].rows.len(), 1);
 
     // Do we have 2 rows?
     for _ in 0..AccelerationStructure::MIN_COLLIDER_PER_ROW {
         intersection_pipeline.insert_collider(
             Collider {
                 radius: 10.0,
-                position: vec2(0.0, 100000000.0),
+                position: vec2(0.0, 10000.0),
+                custom_data: 0,
             },
-            Membership::FleetDetection,
+            Membership::Fleet,
         );
     }
     intersection_pipeline.update();
-    println!("{:?}", &intersection_pipeline.memberships[Membership::FleetDetection].rows);
-    assert_eq!(intersection_pipeline.memberships[Membership::FleetDetection].rows.len(), 2);
+    println!("\n{:?}", &intersection_pipeline.memberships[Membership::Fleet].rows);
+    assert_eq!(intersection_pipeline.memberships[Membership::Fleet].rows.len(), 2);
+
+    for _ in 0..AccelerationStructure::MIN_COLLIDER_PER_ROW - 1 {
+        intersection_pipeline.insert_collider(
+            Collider {
+                radius: 10.0,
+                position: vec2(0.0, 5000.0),
+                custom_data: 0,
+            },
+            Membership::Fleet,
+        );
+    }
+    let mid = intersection_pipeline.insert_collider(Collider { radius: 10.0, position: vec2(0.0, 5000.0), custom_data: 0 }, Membership::Fleet);
+    intersection_pipeline.update();
+    println!("\n{:?}", &intersection_pipeline.memberships[Membership::Fleet].rows);
+    assert_eq!(intersection_pipeline.memberships[Membership::Fleet].rows.len(), 3);
+
+    intersection_pipeline.remove_collider(mid);
+    intersection_pipeline.update();
+    println!("\n{:?}", &intersection_pipeline.memberships[Membership::Fleet].rows);
+    assert_eq!(intersection_pipeline.memberships[Membership::Fleet].rows.len(), 2);
+}
+
+#[test]
+fn test_random() {
+    use glam::vec2;
+    use rand::random;
 
     // Random test.
-    for _ in 0..10000 {
+    for _ in 0..1000 {
         let mut intersection_pipeline = IntersectionPipeline::new();
 
         intersection_pipeline.insert_collider(
             Collider {
                 radius: random::<f32>() * 256.0,
                 position: vec2(random::<f32>() * 512.0 - 256.0, random::<f32>() * 512.0 - 256.0),
+                custom_data: 0,
             },
             Membership::System,
         );
@@ -499,20 +554,15 @@ fn test() {
         let other = Collider {
             radius: random::<f32>() * 256.0,
             position: vec2(random::<f32>() * 512.0 - 256.0, random::<f32>() * 512.0 - 256.0),
+            custom_data: 0,
         };
 
-        if intersection_pipeline.test_collider(other, Membership::System)
-            != intersection_pipeline.test_collider_brute(other, Membership::System)
-        {
-            println!(
-                "\n{:?}\n\n{:?}\n",
-                &intersection_pipeline.memberships[Membership::System],
-                other
-            );
-        }
         assert_eq!(
             intersection_pipeline.test_collider(other, Membership::System),
-            intersection_pipeline.test_collider_brute(other, Membership::System)
+            intersection_pipeline.test_collider_brute(other, Membership::System),
+            "\n{:?}\n\n{:?}\n",
+            &intersection_pipeline.memberships[Membership::System],
+            other
         );
     }
 }

@@ -1,4 +1,4 @@
-use crate::collision::{Collider, Membership};
+use crate::collision::{Collider, ColliderId, Membership};
 use crate::metascape::*;
 use glam::Vec2;
 use rand::{random, Rng};
@@ -58,7 +58,8 @@ impl GenerationParameters {
     }
 
     /// Return a randomly generated System with its radius.
-    fn generate_system(&mut self, uv: Vec2) -> (System, f32) {
+    /// The ColliderId provided is invalid and needs to be replaced.
+    fn generate_system(&mut self, uv: Vec2, successful_attempt: u16) -> (System, f32) {
         // Get system radius.
         let system_radius = (self.rng.gen_range((System::RADIUS_MIN / 0.8)..(System::RADIUS_MAX * 0.8))
             * self.system_size.sample(uv))
@@ -93,7 +94,10 @@ impl GenerationParameters {
         }
 
         (
-            System { bodies: vec![main_body] },
+            System {
+                bodies: vec![main_body],
+                collider_id: ColliderId::new_invalid(),
+            },
             system_radius * System::BOUND_RADIUS_MULTIPLER,
         )
     }
@@ -101,6 +105,7 @@ impl GenerationParameters {
     pub fn generate(&mut self, metascape: &mut Metascape) {
         // How many systems we will try to place randomly.
         let num_attempt = (metascape.bound.powi(2) / System::RADIUS_MAX.powi(2)) as usize;
+        let mut successful_attempt = 0u16;
         debug!("Num system attempt: {}.", num_attempt);
 
         for attempt_number in 0..num_attempt {
@@ -119,25 +124,30 @@ impl GenerationParameters {
             }
 
             // Generate a random system.
-            let (system, radius) = self.generate_system(uv);
+            let (mut system, radius) = self.generate_system(uv, successful_attempt);
 
             // Create system Collider.
-            let collider = Collider { radius, position };
+            let collider = Collider {
+                radius,
+                position,
+                custom_data: successful_attempt.into(),
+            };
 
             // Test if it overlap with any existing system.
             if metascape.intersection_pipeline.test_collider(collider, Membership::System) {
                 continue;
             }
 
-            // Add this new system.
+            // Add collider.
             let collider_id = metascape.intersection_pipeline.insert_collider(collider, Membership::System);
-            metascape.systems.insert(collider_id, system);
+            system.collider_id = collider_id;
+            // Add this new system.
+            metascape.systems.insert(SystemId { id: successful_attempt }, system);
             // TODO: Try to add system far apart so we don't have to update every time.
             metascape.intersection_pipeline.update();
+            successful_attempt += 1;
         }
 
-        debug!("Num system inserted: {}.", metascape.systems.len());
-
-        // TODO: Find neighboring systems.
+        debug!("Num system inserted: {}.", successful_attempt);
     }
 }

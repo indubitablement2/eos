@@ -35,5 +35,4 @@ modulate = Color( 0, 0.866667, 0.137255, 1 )
 texture = ExtResource( 5 )
 
 [node name="Game" type="Node2D" parent="."]
-visible = false
 script = ExtResource( 1 )

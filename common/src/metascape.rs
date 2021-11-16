@@ -1,6 +1,7 @@
 use crate::collision::*;
 use crate::connection_manager::*;
 use crate::packets::*;
+use ahash::AHashMap;
 use glam::vec2;
 use glam::Vec2;
 use indexmap::IndexMap;
@@ -10,19 +11,25 @@ use indexmap::IndexMap;
 /// Unique client identifier.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ClientId {
-    pub id: u64,
+    pub id: u32,
 }
 
 /// Can be owned by the server or a client.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FleetId {
-    pub id: u64,
+    id: u32,
+}
+
+/// A unique Faction identifier.
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FactionId {
+    id: u32,
 }
 
 /// A unique ActiveBattlescape identifier.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BattlescapeId {
-    pub id: u64,
+    id: u32,
 }
 
 /// A unique System identifier.
@@ -31,12 +38,22 @@ pub struct SystemId {
     pub id: u16,
 }
 
+/// A unique CelestialBody identifier.
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CelestialBodyId {
+    systemid: SystemId,
+    id: u16,
+}
+
 pub struct Client {
     /// The fleet currently controlled by this client.
     fleet_control: FleetId,
     reality_bubble: ColliderId,
 
     connection: Connection,
+
+    /// Each client has its own faction.
+    faction: Faction,
 
     /// What this client's next Battlescape input will be.
     input_battlescape: BattlescapeInput,
@@ -51,6 +68,12 @@ impl Client {
     pub const REALITY_BUBBLE_RADIUS: f32 = 256.0;
 }
 
+/// If a client does not own this fleet, this is the faction that own it.
+enum FleetOwner {
+    Client(ClientId),
+    Faction(FactionId),
+}
+
 enum FleetAIState {
     Idle,
     GoToPosition(Vec2),
@@ -60,18 +83,17 @@ enum FleetAIState {
 
 /// A fleet of ships owned by a client or the server.
 /// Only used around Client. Otherwise use more crude simulation.
-struct Fleet {
-    /// If a Client own this fleet or the server.
-    owner: Option<ClientId>,
+pub struct Fleet {
+    /// If a client does not own this fleet, this is the faction that own it.
+    owner: FleetOwner,
     /// If this fleet is participating in a Battlescape.
     battlescape: Option<BattlescapeId>,
-    wish_position: Vec2,
-    velocity: Vec2,
 
+    velocity: Vec2,
     /// The collider that make this fleet detected.
-    detection_collider_id: ColliderId,
+    collider_id: ColliderId,
     /// The collider that detect other fleet.
-    detector_collider_id: ColliderId,
+    detector_collider: Collider,
     // /// Client controlled fleet will cause a more polished simulation in this radius.
     // /// Like spawning server owned fleets when inside FactionActivity.
     // reality_bubble_handle: Option<ColliderHandle>,
@@ -80,8 +102,29 @@ struct Fleet {
     fleet_ai: FleetAIState,
     /// Can we despawn this fleet if not inside a reality bubble and not owned by a connected client?
     no_despawn: bool,
-    // TODO: Add factions
-    // pub faction: FactionId,
+}
+impl Fleet {
+    pub const RADIUS_MAX: f32 = 128.0;
+}
+
+pub struct Faction {
+    /// Relation with other faction. If a faction is not there, it default to 0 (neutral).
+    relation: AHashMap<FactionId, i16>,
+}
+impl Faction {
+    fn new() -> Self {
+        Self {
+            relation: AHashMap::new(),
+        }
+    }
+}
+
+pub struct FactionActivity {
+    faction_id: FactionId,
+    collider_id: ColliderId,
+}
+impl FactionActivity {
+    pub const RADIUS_MAX: f32 = 128.0;
 }
 
 /// An ongoing battle on the Metascape.
@@ -111,6 +154,7 @@ pub struct CelestialBody {
 pub struct System {
     /// The body that is the center of this system. Usualy a single star.
     pub bodies: Vec<CelestialBody>,
+    pub collider_id: ColliderId,
 }
 impl System {
     pub const RADIUS_MIN: f32 = 64.0;
@@ -128,7 +172,7 @@ pub struct Metascape {
     pub bound: f32,
 
     pub intersection_pipeline: IntersectionPipeline,
-    // pub intersection_events_receiver: Receiver<IntersectionEvent>,
+
     pub connection_manager: ConnectionsManager,
     /// Connection that will be disconnected next update.
     pub disconnect_queue: Vec<ClientId>,
@@ -137,7 +181,8 @@ pub struct Metascape {
 
     fleets: IndexMap<FleetId, Fleet>,
     // pub active_battlescapes: IndexMap<ColliderHandle, ActiveBattlescape>,
-    pub systems: IndexMap<ColliderId, System>,
+    pub systems: IndexMap<SystemId, System>,
+    faction: AHashMap<FactionId, Faction>,
 }
 impl Metascape {
     /// Create a new Metascape with default parameters.
@@ -154,13 +199,15 @@ impl Metascape {
             clients: IndexMap::new(),
             fleets: IndexMap::new(),
             systems: IndexMap::new(),
+            faction: AHashMap::new(),
         })
     }
 
     fn get_new_connection(&mut self) {
         while let Ok(connection) = self.connection_manager.new_connection_receiver.try_recv() {
             // TODO: Add a new fleet untill load/save is implemented.
-            let fleet_id = self.create_fleet(Some(connection.client_id), vec2(0.0, 0.0));
+            let fleet_id = self.create_fleet(FleetOwner::Client(connection.client_id), vec2(0.0, 0.0));
+            let faction = Faction::new();
 
             let client_id = connection.client_id;
 
@@ -169,6 +216,7 @@ impl Metascape {
                 Collider {
                     radius: Client::REALITY_BUBBLE_RADIUS,
                     position: vec2(0.0, 0.0),
+                    custom_data: fleet_id.id,
                 },
                 Membership::RealityBubble,
             );
@@ -178,6 +226,7 @@ impl Metascape {
                 fleet_control: fleet_id,
                 reality_bubble,
                 connection,
+                faction,
                 input_battlescape: BattlescapeInput::default(),
                 unacknowledged_commands: IndexMap::new(),
             };
@@ -209,7 +258,7 @@ impl Metascape {
                             UdpClient::Metascape { wish_position } => {
                                 // Get controlled fleet.
                                 if let Some(fleet) = self.fleets.get_mut(&client.fleet_control) {
-                                    fleet.wish_position = wish_position;
+                                    fleet.fleet_ai = FleetAIState::GoToPosition(wish_position);
                                 }
                             }
                         }
@@ -229,20 +278,19 @@ impl Metascape {
     /// TODO: Fleets engaged in the same Battlescape should aggregate.
     fn fleet_velocity(&mut self) {
         for fleet in self.fleets.values_mut() {
-            let mut new_pos = Vec2::ZERO;
+            if let Some(detection_collider) = self.intersection_pipeline.get_collider_mut(fleet.collider_id) {
+                match &fleet.fleet_ai {
+                    FleetAIState::Idle => {}
+                    FleetAIState::GoToPosition(wish_pos) => {
+                        // Update velocity fleet movement toward fleet's wish position.
+                        fleet.velocity += (*wish_pos - detection_collider.position).clamp_length_max(1.0);
+                    }
+                    FleetAIState::PatrolPositions { positions, num_loop } => todo!(),
+                    FleetAIState::Trade { from, to } => todo!(),
+                }
 
-            if let Some(detection_collider) = self.intersection_pipeline.get_collider_mut(fleet.detection_collider_id) {
-                // Update velocity with fleet movement toward fleet's wish position.
-                fleet.velocity += (fleet.wish_position - detection_collider.position).clamp_length_max(1.0);
-
-                // Apply new position.
+                // Apply velocity.
                 detection_collider.position += fleet.velocity;
-                new_pos = detection_collider.position;
-            }
-
-            // Apply new position to other collider of this fleet.
-            if let Some(detector_collider) = self.intersection_pipeline.get_collider_mut(fleet.detector_collider_id) {
-                detector_collider.position = new_pos;
             }
         }
     }
@@ -253,12 +301,7 @@ impl Metascape {
         let fleets_position: Vec<Vec2> = self
             .fleets
             .values()
-            .map(|fleet| {
-                self.intersection_pipeline
-                    .get_collider(fleet.detection_collider_id)
-                    .unwrap_or_default()
-                    .position
-            })
+            .filter_map(|fleet| Some(self.intersection_pipeline.get_collider(fleet.collider_id)?.position))
             .collect();
 
         let packet = UdpServer::Metascape { fleets_position };
@@ -292,28 +335,34 @@ impl Metascape {
     }
 
     /// Add a new fleet to the metascape and return its id.
-    fn create_fleet(&mut self, owner: Option<ClientId>, position: Vec2) -> FleetId {
-        // Create colliders.
-        let detection_collider = Collider { radius: 20.0, position };
-        let detector_collider = Collider { radius: 30.0, position };
-
-        // Add colliders.
-        let detection_collider_id = self
-            .intersection_pipeline
-            .insert_collider(detection_collider, Membership::FleetDetection);
-        let detector_collider_id = self
-            .intersection_pipeline
-            .insert_collider(detector_collider, Membership::FleetDetector);
-
-        // Add new fleet.
+    fn create_fleet(&mut self, owner: FleetOwner, position: Vec2) -> FleetId {
+        // TODO: Get a FleetId.
         let fleet_id = FleetId { id: 100 };
+
+        // Create Fleet detection Collider.
+        let detection_collider = Collider {
+            radius: 20.0,
+            position,
+            custom_data: fleet_id.id,
+        };
+        let collider_id = self
+            .intersection_pipeline
+            .insert_collider(detection_collider, Membership::Fleet);
+
+        // Create Fleet detector Collider.
+        let detector_collider = Collider {
+            radius: 30.0,
+            position,
+            custom_data: 0,
+        };
+
+        // Create new Fleet.
         let new_fleet = Fleet {
             owner,
             battlescape: None,
-            wish_position: Vec2::ZERO,
             velocity: Vec2::ZERO,
-            detection_collider_id,
-            detector_collider_id,
+            collider_id,
+            detector_collider,
             fleet_ai: FleetAIState::Idle,
             no_despawn: true,
         };
