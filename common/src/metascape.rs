@@ -9,38 +9,44 @@ use indexmap::IndexMap;
 
 /// Unique client identifier.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ClientID {
+pub struct ClientId {
     pub id: u64,
 }
 
 /// Can be owned by the server or a client.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct FleetID {
+pub struct FleetId {
     pub id: u64,
 }
 
 /// A unique ActiveBattlescape identifier.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct BattlescapeID {
+pub struct BattlescapeId {
     pub id: u64,
+}
+
+/// A unique System identifier.
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct SystemId {
+    pub id: u16,
 }
 
 pub struct Client {
     /// The fleet currently controlled by this client.
-    pub fleet_control: FleetID,
+    fleet_control: FleetId,
     reality_bubble: ColliderId,
 
-    pub connection: Connection,
+    connection: Connection,
 
     /// What this client's next Battlescape input will be.
-    pub input_battlescape: BattlescapeInput,
+    input_battlescape: BattlescapeInput,
     /// Resend previous battlescape commands if they have not been acknowledged.
-    pub unacknowledged_commands: IndexMap<u32, Vec<u8>>,
+    unacknowledged_commands: IndexMap<u32, Vec<u8>>,
 }
 impl Client {
     /// The maximum number of element in unacknowledged_commands.
     /// Above that, the client should be kicked from the Battlescape.
-    pub const MAX_UNACKOWLEDGED_COMMAND: usize = 32;
+    const MAX_UNACKOWLEDGED_COMMAND: usize = 32;
 
     pub const REALITY_BUBBLE_RADIUS: f32 = 256.0;
 }
@@ -56,9 +62,9 @@ enum FleetAIState {
 /// Only used around Client. Otherwise use more crude simulation.
 struct Fleet {
     /// If a Client own this fleet or the server.
-    owner: Option<ClientID>,
+    owner: Option<ClientId>,
     /// If this fleet is participating in a Battlescape.
-    battlescape: Option<BattlescapeID>,
+    battlescape: Option<BattlescapeId>,
     wish_position: Vec2,
     velocity: Vec2,
 
@@ -75,7 +81,7 @@ struct Fleet {
     /// Can we despawn this fleet if not inside a reality bubble and not owned by a connected client?
     no_despawn: bool,
     // TODO: Add factions
-    // pub faction: FactionID,
+    // pub faction: FactionId,
 }
 
 /// An ongoing battle on the Metascape.
@@ -84,7 +90,7 @@ struct Fleet {
 pub struct ActiveBattlescape {
     pub tick: u32,
     /// Fleets implied in this Battlescape.
-    pub fleets: Vec<FleetID>,
+    pub fleets: Vec<FleetId>,
 }
 
 pub enum CelestialBodyType {
@@ -125,11 +131,11 @@ pub struct Metascape {
     // pub intersection_events_receiver: Receiver<IntersectionEvent>,
     pub connection_manager: ConnectionsManager,
     /// Connection that will be disconnected next update.
-    pub disconnect_queue: Vec<ClientID>,
+    pub disconnect_queue: Vec<ClientId>,
     /// Connected clients.
-    pub clients: IndexMap<ClientID, Client>,
+    pub clients: IndexMap<ClientId, Client>,
 
-    fleets: IndexMap<FleetID, Fleet>,
+    fleets: IndexMap<FleetId, Fleet>,
     // pub active_battlescapes: IndexMap<ColliderHandle, ActiveBattlescape>,
     pub systems: IndexMap<ColliderId, System>,
 }
@@ -286,7 +292,7 @@ impl Metascape {
     }
 
     /// Add a new fleet to the metascape and return its id.
-    fn create_fleet(&mut self, owner: Option<ClientID>, position: Vec2) -> FleetID {
+    fn create_fleet(&mut self, owner: Option<ClientId>, position: Vec2) -> FleetId {
         // Create colliders.
         let detection_collider = Collider { radius: 20.0, position };
         let detector_collider = Collider { radius: 30.0, position };
@@ -300,7 +306,7 @@ impl Metascape {
             .insert_collider(detector_collider, Membership::FleetDetector);
 
         // Add new fleet.
-        let fleet_id = FleetID { id: 100 };
+        let fleet_id = FleetId { id: 100 };
         let new_fleet = Fleet {
             owner,
             battlescape: None,
@@ -318,7 +324,7 @@ impl Metascape {
 
     /// Immediately disconnect a client.
     /// TODO: Save his stuff and what not.
-    fn disconnect_client(&mut self, client_id: ClientID) {
+    fn disconnect_client(&mut self, client_id: ClientId) {
         // Remove client.
         if let Some(client) = self.clients.remove(&client_id) {
             info!("Disconnected {:?}.", client_id);
@@ -328,7 +334,7 @@ impl Metascape {
     fn flush_disconnect_queue(&mut self) {
         self.disconnect_queue
             .drain(..)
-            .collect::<Vec<ClientID>>()
+            .collect::<Vec<ClientId>>()
             .into_iter()
             .for_each(|client_id| self.disconnect_client(client_id));
     }

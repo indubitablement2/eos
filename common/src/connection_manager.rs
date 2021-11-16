@@ -1,4 +1,4 @@
-use crate::{metascape::ClientID, packets::*};
+use crate::{metascape::ClientId, packets::*};
 use std::{
     collections::HashMap,
     net::{Ipv6Addr, SocketAddr, SocketAddrV6},
@@ -15,7 +15,7 @@ use tokio::{
 };
 
 pub struct Connection {
-    pub client_id: ClientID,
+    pub client_id: ClientId,
     pub udp_sender: tokio::sync::mpsc::Sender<UdpServer>,
     pub udp_receiver: crossbeam_channel::Receiver<UdpClient>,
     pub tcp_sender: tokio::sync::mpsc::Sender<TcpServer>,
@@ -185,8 +185,8 @@ async fn try_login(
     // Check credential.
     let client_id = match local {
         true => {
-            info!("{} is connecting through loopback. Default ClientID 0...", tcp_addr);
-            ClientID { id: 0 }
+            info!("{} is connecting through loopback. Default ClientId 0...", tcp_addr);
+            ClientId { id: 0 }
         }
         false => {
             if login_packet.is_steam {
