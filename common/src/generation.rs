@@ -103,8 +103,10 @@ impl GenerationParameters {
     }
 
     pub fn generate(&mut self, metascape: &mut Metascape) {
+        let bound = metascape.parameters.bound;
+
         // How many systems we will try to place randomly.
-        let num_attempt = (metascape.bound.powi(2) / System::RADIUS_MAX.powi(2)) as usize;
+        let num_attempt = (bound.powi(2) / System::RADIUS_MAX.powi(2)) as usize;
         let mut successful_attempt = 0u16;
         debug!("Num system attempt: {}.", num_attempt);
 
@@ -113,8 +115,8 @@ impl GenerationParameters {
             let uv: Vec2 = self.rng.gen::<Vec2>();
 
             // Check if we are within metascape bound.
-            let position: Vec2 = uv * 2.0 * metascape.bound - metascape.bound;
-            if position.length_squared() > metascape.bound.powi(2) {
+            let position: Vec2 = uv * 2.0 * bound - bound;
+            if position.length_squared() > bound.powi(2) {
                 continue;
             }
 

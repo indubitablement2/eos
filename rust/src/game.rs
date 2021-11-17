@@ -112,8 +112,14 @@ impl Game {
         bound: f32,
         system_density_img: Ref<Image, Shared>,
     ) {
+        // Create metascape params
+        let parameters = MetascapeParameters {
+            bound,
+            movement_friction: 0.95,
+        };
+
         // Connect localy.
-        let mut metascape = MetascapeWrapper::new(true, bound).unwrap();
+        let mut metascape = MetascapeWrapper::new(true, parameters).unwrap();
         let client = Client::new(metascape.get_addresses()).unwrap();
 
         let mut gen = GenerationParameters::new(0, img_to_generation_mask(system_density_img), GenerationMask::default());

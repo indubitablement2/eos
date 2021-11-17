@@ -1,12 +1,11 @@
 use crate::collision::*;
 use crate::connection_manager::*;
 use crate::packets::*;
+use crate::MetascapeParameters;
 use ahash::AHashMap;
 use glam::vec2;
 use glam::Vec2;
 use indexmap::IndexMap;
-
-// command: server send those to clients inside Battlescape, so that they can update.
 
 /// Unique client identifier.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -47,13 +46,12 @@ pub struct CelestialBodyId {
 
 pub struct Client {
     /// The fleet currently controlled by this client.
-    fleet_control: FleetId,
-    reality_bubble: ColliderId,
+    fleet_control: Option<FleetId>,
 
     connection: Connection,
 
     /// Each client has its own faction.
-    faction: Faction,
+    faction_id: FactionId,
 
     /// What this client's next Battlescape input will be.
     input_battlescape: BattlescapeInput,
@@ -68,12 +66,6 @@ impl Client {
     pub const REALITY_BUBBLE_RADIUS: f32 = 256.0;
 }
 
-/// If a client does not own this fleet, this is the faction that own it.
-enum FleetOwner {
-    Client(ClientId),
-    Faction(FactionId),
-}
-
 enum FleetAIState {
     Idle,
     GoToPosition(Vec2),
@@ -84,38 +76,44 @@ enum FleetAIState {
 /// A fleet of ships owned by a client or the server.
 /// Only used around Client. Otherwise use more crude simulation.
 pub struct Fleet {
-    /// If a client does not own this fleet, this is the faction that own it.
-    owner: FleetOwner,
+    /// If a client does own this fleet.
+    owner: Option<ClientId>,
     /// If this fleet is participating in a Battlescape.
     battlescape: Option<BattlescapeId>,
 
     velocity: Vec2,
     /// The collider that make this fleet detected.
-    collider_id: ColliderId,
-    /// The collider that detect other fleet.
+    fleet_collider_id: ColliderId,
+    /// The collider that detect other fleet. Used as the defacto fleet position.
     detector_collider: Collider,
-    // /// Client controlled fleet will cause a more polished simulation in this radius.
-    // /// Like spawning server owned fleets when inside FactionActivity.
-    // reality_bubble_handle: Option<ColliderHandle>,
+    /// If this fleet is controlled by a client, it also has a reality bubble following it.
+    /// This gets created and deleted on the fly if this fleet is being controlled by a client.
+    reality_bullbe_collider_id: Option<ColliderId>,
 
     // What this fleet wants to do.
     fleet_ai: FleetAIState,
     /// Can we despawn this fleet if not inside a reality bubble and not owned by a connected client?
     no_despawn: bool,
+
+    faction_id: FactionId,
 }
 impl Fleet {
     pub const RADIUS_MAX: f32 = 128.0;
 }
 
 pub struct Faction {
+    pub display_name: String,
     /// Relation with other faction. If a faction is not there, it default to 0 (neutral).
-    relation: AHashMap<FactionId, i16>,
+    pub relation: AHashMap<FactionId, i16>,
 }
 impl Faction {
-    fn new() -> Self {
-        Self {
-            relation: AHashMap::new(),
-        }
+    const RELATION_CLAMP: i16 = 10000;
+
+    pub fn get_pretty_relation(&self) -> Vec<(FactionId, f32)> {
+        self.relation
+            .iter()
+            .map(|(faction_id, relation)| (*faction_id, f32::from(*relation) / f32::from(Self::RELATION_CLAMP)))
+            .collect()
     }
 }
 
@@ -168,8 +166,7 @@ impl System {
 /// The simulation structure.
 pub struct Metascape {
     pub tick: u64,
-    /// The maximum distance to the center.
-    pub bound: f32,
+    pub parameters: MetascapeParameters,
 
     pub intersection_pipeline: IntersectionPipeline,
 
@@ -180,53 +177,50 @@ pub struct Metascape {
     pub clients: IndexMap<ClientId, Client>,
 
     fleets: IndexMap<FleetId, Fleet>,
-    // pub active_battlescapes: IndexMap<ColliderHandle, ActiveBattlescape>,
+    last_fleet_id: u32,
+
     pub systems: IndexMap<SystemId, System>,
-    faction: AHashMap<FactionId, Faction>,
+
+    pub faction: AHashMap<FactionId, Faction>,
+    last_faction_id: u32,
+
+    pub faction_activity: Vec<FactionActivity>,
 }
 impl Metascape {
     /// Create a new Metascape with default parameters.
-    pub fn new(local: bool, bound: f32) -> tokio::io::Result<Self> {
+    pub fn new(local: bool, parameters: MetascapeParameters) -> tokio::io::Result<Self> {
         let connection_manager = ConnectionsManager::new(local)?;
 
         Ok(Self {
             tick: 0,
-            bound,
+            parameters,
             intersection_pipeline: IntersectionPipeline::new(),
             // intersection_events_receiver,
             connection_manager,
             disconnect_queue: Vec::new(),
             clients: IndexMap::new(),
             fleets: IndexMap::new(),
+            last_fleet_id: 0,
             systems: IndexMap::new(),
             faction: AHashMap::new(),
+            last_faction_id: 0,
+            faction_activity: Vec::new(),
         })
     }
 
     fn get_new_connection(&mut self) {
         while let Ok(connection) = self.connection_manager.new_connection_receiver.try_recv() {
             // TODO: Add a new fleet untill load/save is implemented.
-            let fleet_id = self.create_fleet(FleetOwner::Client(connection.client_id), vec2(0.0, 0.0));
-            let faction = Faction::new();
+            let faction_id = self.create_faction("display_name".to_string());
+            let fleet_id = self.create_fleet(Some(connection.client_id), faction_id, vec2(0.0, 0.0));
 
             let client_id = connection.client_id;
 
-            // Create reality bubble.
-            let reality_bubble = self.intersection_pipeline.insert_collider(
-                Collider {
-                    radius: Client::REALITY_BUBBLE_RADIUS,
-                    position: vec2(0.0, 0.0),
-                    custom_data: fleet_id.id,
-                },
-                Membership::RealityBubble,
-            );
-
             // Create client.
             let client = Client {
-                fleet_control: fleet_id,
-                reality_bubble,
+                fleet_control: Some(fleet_id),
                 connection,
-                faction,
+                faction_id,
                 input_battlescape: BattlescapeInput::default(),
                 unacknowledged_commands: IndexMap::new(),
             };
@@ -257,8 +251,10 @@ impl Metascape {
                             }
                             UdpClient::Metascape { wish_position } => {
                                 // Get controlled fleet.
-                                if let Some(fleet) = self.fleets.get_mut(&client.fleet_control) {
-                                    fleet.fleet_ai = FleetAIState::GoToPosition(wish_position);
+                                if let Some(fleet_id) = &client.fleet_control {
+                                    if let Some(fleet) = self.fleets.get_mut(fleet_id) {
+                                        fleet.fleet_ai = FleetAIState::GoToPosition(wish_position);
+                                    }
                                 }
                             }
                         }
@@ -274,23 +270,88 @@ impl Metascape {
         }
     }
 
-    /// Calculate fleet velocity based on wish position.
+    /// Update velocity based on ai.
     /// TODO: Fleets engaged in the same Battlescape should aggregate.
-    fn fleet_velocity(&mut self) {
+    fn fleet_movement(&mut self) {
         for fleet in self.fleets.values_mut() {
-            if let Some(detection_collider) = self.intersection_pipeline.get_collider_mut(fleet.collider_id) {
-                match &fleet.fleet_ai {
-                    FleetAIState::Idle => {}
-                    FleetAIState::GoToPosition(wish_pos) => {
-                        // Update velocity fleet movement toward fleet's wish position.
-                        fleet.velocity += (*wish_pos - detection_collider.position).clamp_length_max(1.0);
-                    }
-                    FleetAIState::PatrolPositions { positions, num_loop } => todo!(),
-                    FleetAIState::Trade { from, to } => todo!(),
-                }
+            // Get old position.
+            let old_pos = fleet.detector_collider.position;
 
-                // Apply velocity.
-                detection_collider.position += fleet.velocity;
+            match &fleet.fleet_ai {
+                FleetAIState::Idle => {
+                    // Try to cancel any velocity we have.
+                    fleet.velocity -= fleet.velocity.clamp_length_max(0.1);
+                }
+                FleetAIState::GoToPosition(wish_pos) => {
+                    // TODO: Stop threshold.
+                    if old_pos.distance_squared(*wish_pos) < 10.0 {
+                        fleet.fleet_ai = FleetAIState::Idle;
+                    } else {
+                        // Add velocity toward fleet's wish position at full speed.
+                        fleet.velocity += (*wish_pos - old_pos).clamp_length_max(1.0);
+                    }
+                }
+                FleetAIState::PatrolPositions { positions, num_loop } => todo!(),
+                FleetAIState::Trade { from, to } => todo!(),
+            }
+
+            // Apply some friction.
+            fleet.velocity *= self.parameters.movement_friction;
+
+            // Get updated position.
+            let new_pos = old_pos + fleet.velocity;
+
+            // Set detector collider position.
+            fleet.detector_collider.position = new_pos;
+
+            // Set Fleet collider position.
+            if let Some(fleet_collider) = self.intersection_pipeline.get_collider_mut(fleet.fleet_collider_id) {
+                fleet_collider.position = new_pos;
+            } else {
+                warn!("Can not find fleet collider for a fleet. Ignoring...");
+            }
+        }
+    }
+
+    /// Manage reality bubble and queue despawning of fleets.
+    fn fleet_handle(&mut self) {
+        for (fleet_id, fleet) in self.fleets.iter_mut() {
+            // Check if we should have a reality bubble.
+            // Do we have a owner?
+            if let Some(client_id) = &fleet.owner {
+                // Is our owner connected?
+                if let Some(client) = self.clients.get(client_id) {
+                    // Is our owner controlling us?
+                    if Some(*fleet_id) == client.fleet_control {
+                        // Do we have a reality bubble collider id?
+                        if let Some(reality_bubble_collider_id) = fleet.reality_bullbe_collider_id {
+                            // Do we have a reality bubble collider?
+                            if let Some(reality_bubble_collider) =
+                                self.intersection_pipeline.get_collider_mut(reality_bubble_collider_id)
+                            {
+                                reality_bubble_collider.position = fleet.detector_collider.position;
+                            }
+                        } else {
+                            // Create a reality bubble collider.
+                            let reality_bubble_id = self.intersection_pipeline.insert_collider(
+                                Collider {
+                                    radius: Client::REALITY_BUBBLE_RADIUS,
+                                    position: fleet.detector_collider.position,
+                                    custom_data: fleet_id.id,
+                                },
+                                Membership::RealityBubble,
+                            );
+                            fleet.reality_bullbe_collider_id = Some(reality_bubble_id);
+                        }
+                    } else {
+                        // TODO: We should not have a reality bubble as our owner is not actively controlling us.
+                    }
+                } else {
+                    // TODO: We should not have a reality bubble as our owner is no connected.
+                    // TODO: We should try to despawn as our owner is no connected.
+                }
+            } else {
+                // TODO: We should not have a reality bubble as we have no owner.
             }
         }
     }
@@ -298,11 +359,7 @@ impl Metascape {
     /// TODO: Send unacknowledged commands.
     /// TODO: Just sending every fleets position for now.
     fn send_udp(&mut self) {
-        let fleets_position: Vec<Vec2> = self
-            .fleets
-            .values()
-            .filter_map(|fleet| Some(self.intersection_pipeline.get_collider(fleet.collider_id)?.position))
-            .collect();
+        let fleets_position: Vec<Vec2> = self.fleets.values().map(|fleet| fleet.detector_collider.position).collect();
 
         let packet = UdpServer::Metascape { fleets_position };
 
@@ -319,7 +376,8 @@ impl Metascape {
         self.get_client_udp_input();
         self.flush_disconnect_queue();
 
-        self.fleet_velocity();
+        self.fleet_movement();
+        self.fleet_handle();
 
         // TODO: Get battlescape result.
         // TODO: Compare battlescape result to detect desync.
@@ -334,20 +392,25 @@ impl Metascape {
         self.flush_disconnect_queue();
     }
 
-    /// Add a new fleet to the metascape and return its id.
-    fn create_fleet(&mut self, owner: FleetOwner, position: Vec2) -> FleetId {
-        // TODO: Get a FleetId.
-        let fleet_id = FleetId { id: 100 };
-
-        // Create Fleet detection Collider.
+    /// A fleet needs this to get detected.
+    fn create_fleet_collider(&mut self, fleet_id: FleetId, position: Vec2, radius: f32) -> ColliderId {
         let detection_collider = Collider {
-            radius: 20.0,
+            radius,
             position,
             custom_data: fleet_id.id,
         };
-        let collider_id = self
-            .intersection_pipeline
-            .insert_collider(detection_collider, Membership::Fleet);
+
+        self.intersection_pipeline
+            .insert_collider(detection_collider, Membership::Fleet)
+    }
+
+    /// Add a new fleet to the metascape and return its id.
+    fn create_fleet(&mut self, owner: Option<ClientId>, faction_id: FactionId, position: Vec2) -> FleetId {
+        // Get a FleetId.
+        self.last_fleet_id += 1;
+        let fleet_id = FleetId { id: self.last_fleet_id };
+
+        let fleet_collider_id = self.create_fleet_collider(fleet_id, vec2(0.0, 0.0), 10.0);
 
         // Create Fleet detector Collider.
         let detector_collider = Collider {
@@ -361,14 +424,33 @@ impl Metascape {
             owner,
             battlescape: None,
             velocity: Vec2::ZERO,
-            collider_id,
+            fleet_collider_id,
             detector_collider,
+            reality_bullbe_collider_id: None,
             fleet_ai: FleetAIState::Idle,
             no_despawn: true,
+            faction_id,
         };
         self.fleets.insert(fleet_id, new_fleet);
 
         fleet_id
+    }
+
+    fn create_faction(&mut self, display_name: String) -> FactionId {
+        // Get FactionId.
+        self.last_faction_id += 1;
+        let faction_id = FactionId {
+            id: self.last_faction_id,
+        };
+
+        // Create faction.
+        let faction = Faction {
+            display_name,
+            relation: AHashMap::new(),
+        };
+        self.faction.insert(faction_id, faction);
+
+        faction_id
     }
 
     /// Immediately disconnect a client.
