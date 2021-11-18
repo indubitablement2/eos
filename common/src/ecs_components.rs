@@ -1,10 +1,12 @@
 use crate::collision::ColliderId;
 use glam::Vec2;
 
-pub struct Position(Vec2);
-pub struct Velocity(Vec2);
+pub struct Position(pub Vec2);
+pub struct WishPosition(pub Vec2);
+pub struct Velocity(pub Vec2);
 /// For some time, prevent despawning when outside a reality bubble.
-pub struct NoDespawnTimer(i32);
+pub struct NoDespawnTimer(pub i32);
+
 
 
 pub struct FleetCollider(ColliderId);

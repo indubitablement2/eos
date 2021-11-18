@@ -428,22 +428,12 @@ impl IntersectionPipeline {
             .get_mut(&collider_id)
     }
 
-    /// Get a copy of every colliders.
-    pub fn get_colliders_copy(&self) -> Vec<Collider> {
-        let num_collider = self
-            .memberships
-            .iter()
-            .fold(0usize, |acc, acceleration_struct| acc + acceleration_struct.colliders.len());
+    /// Get a copy of every colliders separated by Membership.
+    pub fn get_colliders_copy(&self) -> Vec<Vec<Collider>> {
 
-        let mut v = Vec::with_capacity(num_collider);
-
-        for acceleration_struct in &self.memberships {
-            for collider in acceleration_struct.colliders.values() {
-                v.push(*collider);
-            }
-        }
-
-        v
+        self.memberships.iter().map(|acc| {
+            acc.colliders.values().copied().collect::<Vec<Collider>>()
+        }).collect()
     }
 
     /// Get a mutable reference to every collider of thos membership.

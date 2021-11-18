@@ -1,24 +1,17 @@
-use crate::{
-    connection_manager::{Connection, ConnectionsManager},
-    packets::ServerAddresses,
-    res_factions::FactionId,
-};
-use ahash::AHashMap;
-use bevy_ecs::prelude::Entity;
+use crate::{connection_manager::{Connection, ConnectionsManager}, data_manager::ClientData, packets::ServerAddresses};
+use bevy_ecs::prelude::*;
 use indexmap::IndexMap;
 
 pub struct ClientId(u32);
 
 pub struct ClientsRes {
-    connection_manager: ConnectionsManager,
-    clients: AHashMap<ClientId, Client>,
-    connected_clients: IndexMap<ClientId, ConnectedClient>,
+    pub connection_manager: ConnectionsManager,
+    pub connected_clients: IndexMap<ClientId, Client>,
 }
 impl ClientsRes {
     pub fn new(local: bool) -> std::io::Result<Self> {
         Ok(Self {
             connection_manager: ConnectionsManager::new(local)?,
-            clients: AHashMap::new(),
             connected_clients: IndexMap::new(),
         })
     }
@@ -28,17 +21,13 @@ impl ClientsRes {
     }
 }
 
-struct Client {
-    /// Impact every owned fleet reputation.
-    reputation: i16,
-    /// Impact every owned fleet relation.
-    relation: AHashMap<FactionId, i16>,
-}
+pub struct Client {
+    pub connection: Connection,
 
-struct ConnectedClient {
-    fleet_control: Option<Entity>,
+    pub fleet_control: Option<Entity>,
 
-    connection: Connection,
+    pub client_data: ClientData,
+
     // /// What this client's next Battlescape input will be.
     // input_battlescape: BattlescapeInput,
     // /// Resend previous battlescape commands if they have not been acknowledged.

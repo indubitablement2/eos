@@ -18,14 +18,21 @@ mod connection_manager;
 mod ecs_components;
 pub mod generation;
 mod metascape;
-mod metascape_new;
+pub mod metascape_new;
 pub mod packets;
 mod res_clients;
 mod res_factions;
 mod res_fleets;
 pub mod res_parameters;
 mod res_times;
-mod stage_start;
+mod stage_first;
+mod data_manager;
+mod stage_pre_update;
+mod fleet_ai;
+mod stage_last;
+mod ecs_events;
+mod stage_update;
+mod stage_post_update;
 
 // pub const SIZE_SMALL_FLEET: f32 = 0.1;
 // pub const SIZE_GAUGING_NORMAL_PLANET: f32 = 1.0;
@@ -63,7 +70,8 @@ impl MetascapeWrapper {
 
     /// Get a copy of every colliders. Useful for debug display.
     pub fn get_colliders(&self) -> Vec<Collider> {
-        self.metascape.intersection_pipeline.get_colliders_copy()
+        todo!()
+        // self.metascape.intersection_pipeline.get_colliders_copy()
     }
 
     pub fn get_addresses(&self) -> ServerAddresses {

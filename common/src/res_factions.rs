@@ -2,6 +2,18 @@ use ahash::AHashMap;
 
 pub struct FactionId(u32);
 
+pub struct Reputation {
+    /// General reputation modifier with all factions.
+    reputation: i16,
+    /// Direct reputation with other faction.
+    relation: AHashMap<FactionId, i16>,
+}
+impl Default for Reputation {
+    fn default() -> Self {
+        Self { reputation: 0, relation: AHashMap::new() }
+    }
+}
+
 pub struct FactionsRes {
     factions: AHashMap<FactionId, Faction>,
 }
@@ -12,6 +24,8 @@ impl FactionsRes {
         }
     }
 }
+
+
 
 struct Faction {
     display_name: String,
