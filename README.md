@@ -11,33 +11,28 @@
 
 [World](https://github.com/indubitablement2/eos-common#World)
 
-## Income
+## Income Free to play
 
-### Pay to play
-Sell game for a low fixed price.
-* Help prevent bots.
-* Lower player compared to FTP. Cheaper server. Individual player are more important.
-
-### Sell custom ship
-People can buy (~$500) for the possibility to create a custom ship.
-
-This ship will be found in-game, but much rarer than the default variant only found as quest reward, abandonned ship or in ai fleet (which they can defeat and salvage).
-
-They chose a base ship and customize some of it's property.
-
-* Name: My Super Custom Ship, Custom Harrier class.
-* Description.
-* Built-in weapon and module.
-* Weapon mount.
-* Skin.
-
-(no guarantee this ship will even work)
-
-### Free to play pirate
-Can play the game for free as a pirate "faction". Need to buy the full game to get access to all ships.
-
-### Sell fleet slot
-Can only control one fleet by default. Additional slot can be bought.
+* Sell custom ship ~$1000:
+  * People can buy the possibility to create a custom ship.
+  * This ship will be found in-game, but much rarer than the default variant only found as quest reward, abandonned ship or in ai fleet (which they can defeat and salvage).
+  * They chose a base ship and customize some of it's property:
+  * Name: My Super Custom Ship, Custom Harrier class.
+  * Description.
+  * Built-in weapon and module.
+  * Weapon mount.
+  * Skin.
+  * (no guarantee this ship will even work)
+* Sell fleet slot ~$8
+  * Can only control one fleet by default. Additional slot can be bought.
+* Sell cargo space $2 - $8
+  * Limited number of items and ships can be stashed. Special cargo that have better visibility and qol.
+* Sell ship skin $4 - $20
+  * Special ship skin or skin transfer for a particular ship class.
+* Weapon effects ~$2
+  * Alter the effect of a weapon without making it outlandish.
+* Character portrait pack ~$4
+  * Free character portrait looks like normal civilian. Paid ones can be more noticeable.
 
 ### Server cost
 Estimate US$360/months, US$4320/years.
@@ -54,7 +49,7 @@ Estimate US$360/months, US$4320/years.
 Explore - Fight - Customize (gradual fleet upgrade)
 
 ### Decay and entropy
-Ship need to be rebuilt and maintained, resouce need to be stocked in a ship or hangar. Hangar also cost resource to build and maintain.
+Ship need to be rebuilt and maintained.
 
 This keep the world fresh. New player are not overwhelmingly behind when joining later.
 
@@ -66,9 +61,8 @@ This push player to utilise their wealt.
   * Ends up being the most expensive. 
   * Immediately available.
 * Hangar: 
-  * Longer term storage. 
-  * Only visible to the player who built it and anyone the player whish to share with. 
-  * Drain resource inside of it to stay maintained or it will be lootable by everyone.
+  * Limited. Cost real money to increase. 
+  * Items stay at the station they were stashed forever.
 * Cargo pod:
   * Free.
   * Lootable by anyone
@@ -78,7 +72,7 @@ This push player to utilise their wealt.
 ### Minimal industry flexibility
 When a planet is invested into (for example) ore refining, it is impractical to switch industry in response to market demand.
 
-This can lead to surplus or scarsity increasing player activity:
+This lead to surplus or scarsity increasing player activity:
 * Building new needed industry. 
 * Hauling resource from suplus area to scarsity area. 
 * Fight over scarse resource. 
@@ -87,10 +81,10 @@ This can lead to surplus or scarsity increasing player activity:
 ### No standard currency
 This make it harder to stockpile resource in conjonction with entropy.
 
-Player can get into a loop of needing x resource while having too much of y. 
+Players get into a loop of always needing more of x resource while having too much of y.
 This lead to player engagement through trading.
 
-When shopping at a colony, the cost of item is in generic value. 
+When shopping at a colony, the cost of item is in generic value.
 The player can buy by offering at least as much value as what he is buying.
 
 Resources value is determined by its local availability.
@@ -98,13 +92,37 @@ Resources value is determined by its local availability.
 ### Acquiring ship/weapon/module
 Low tier ship and civilian ship are available everywhere.
 
-Getting higher tier gear is hard. 
-* Ranking inside a faction (need resources, only give access to this faction's ethic gear).
+Getting higher tier gear is hard:
+* Ranking inside a faction (still need resources to buy, only give access to this faction's ethic gear).
 * Post battle salvage (needs to be repaired).
 * Random wreck and cargo in space.
 * Quests.
 
-## Fleet
+## Fleet & ships
+
+### Loot randomness
+
+Ship:
+* Static/based on ship class: 
+  * Base stats (hull, armor, energy capacity)
+  * Number, position and size of weapon slots.
+* Semi-random/weighted by ship class: 
+  * Weapon and module slot manufacturer requirement.
+  * Built in modules.
+* Random:
+  * Number of weapon module slot.
+  * Number of ship module slot.
+
+Weapon:
+* Rate of fire
+* Salvo size
+* Energy cost
+* Projectile speed
+* Projectile damage
+* Number of projectile
+
+Captain:
+* Skills (passive skill tree from poe)
 
 ### Hull size
 * Fighter: 
@@ -113,7 +131,7 @@ Getting higher tier gear is hard.
   * No ship collision.
   * Depend on carrier to refill ammo and repair.
   * Infinitely produced by carrier for free.
-  * Moves like a plane with slow turn rate and lightning speed.
+  * Moves like a plane with poor turn rate and lightning speed.
 
 * Frigate: 
   * ~4 light or 1 medium weapons.
@@ -122,22 +140,24 @@ Getting higher tier gear is hard.
 
 * Destroyer:
   * 4 medium weapons.
-  * The size of 4 frigates.
+  * The size of 3 frigates.
 
 * Cruiser: 
   * 4 medium and 2 heavy weapons.
-  * The size of 4 destroyers.
+  * The size of 3 destroyers.
   * Slow turn rate.
 
 * Capital: 
   * 4 heavy and many medium/light weapons.
   * Often has unique built-in weapon.
-  * The size of 4 cruisers or more.
+  * The size of 3 cruisers or more.
   * Extremely expensive to buy and maintain.
   * Very slow.
 
 ### Manufacturer
-Weapon and ship have manufacturer. Some ship and weapon mount may have an afinity toward a manufacturer.
+Weapon and ship have manufacturer. Some ship and weapon mount may have an afinity toward a manufacturer. 
+
+Module and weapon slots generaly only accept a pacticular manufacturer. This is semi-random and hard to modify.
 
 ### Weapons
 * Light:
@@ -147,10 +167,11 @@ Weapon and ship have manufacturer. Some ship and weapon mount may have an afinit
 ### Modules
 They can be built-in.
 
-Player installed mods gives bonus (better shield, more energy storage, faster movement, increased range, ...) at the cost of reduced energy productivity.
+Player installed mods gives bonus (better shield, more energy storage, faster movement, increased range, ...) at the cost of reduced energy production.
 
-Damaged ship have negative built-in mods. 
+Ships have a limited number of free module slot. Higher quality ship have more.
 
+Damaged ship have negative built-in mods that are expensive to remove.
 
 ## World
 
