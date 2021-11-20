@@ -1,5 +1,5 @@
 # EOS (working title)
-![Project Logo](./godot/assets/godot-ferris-128x128.png)
+![Project Logo](client/godot/assets/icon/godot-ferris-64x64.png)
 
 ###### Table of contents
 
