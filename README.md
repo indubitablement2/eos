@@ -11,6 +11,8 @@
 
 [World](https://github.com/indubitablement2/eos-common#World)
 
+[Inspiration](https://github.com/indubitablement2/eos-common#Inspiration)
+
 ## Income Free to play
 
 * Sell custom ship ~$1000:
@@ -195,3 +197,18 @@ Damaged ship have negative built-in mods that are expensive to remove.
   * Theme: round asymmetric
   * Music: 
   * Specialist: Shield, energy
+
+## Inspiration
+
+* Starsector:
+  * Battle
+* Stellaris:
+  * Terminology
+* Borderlands:
+  * Manufacturer
+* Dawn of war 2:
+  * Effects
+* XPirateZ
+  * World
+* SupCom:
+  * Faction
