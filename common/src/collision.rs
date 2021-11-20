@@ -84,10 +84,10 @@ impl Membership {
 
     pub fn get_min_row_size(&self) -> f32 {
         match self {
-            Membership::Fleet => crate::metascape::Fleet::RADIUS_MAX * 2.0,
-            Membership::System => crate::metascape::System::RADIUS_MAX * 3.0,
-            Membership::RealityBubble => crate::metascape::Client::REALITY_BUBBLE_RADIUS * 2.0,
-            Membership::FactionActivity => crate::metascape::FactionActivity::RADIUS_MAX * 3.0,
+            Membership::Fleet => crate::ecs_components::FleetCollider::RADIUS_MAX * 3.0,
+            Membership::System => crate::ecs_components::SystemCollider::RADIUS_MAX * 3.0,
+            Membership::RealityBubble => crate::ecs_components::RealityBubbleCollider::RADIUS * 3.0,
+            Membership::FactionActivity => crate::ecs_components::FactionActivityCollider::RADIUS_MAX * 3.0,
         }
     }
 }

@@ -11,7 +11,6 @@ pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_system_to_stage(current_stage, apply_velocity.system());
 }
 
-
 fn apply_velocity(query: Query<(&mut Position, &mut Velocity)>, params: Res<ParametersRes>) {
     query.for_each_mut(|(mut pos, mut vel)| {
         // Apply velocity.

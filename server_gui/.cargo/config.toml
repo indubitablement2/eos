@@ -1,0 +1,8 @@
+[unstable]
+unstable-options = true
+
+[build]
+# This will copy _.so directly to godot. 
+# Used for fast iteration.
+# You need to change this if you are not on linux.
+out-dir = "lib/x86_64-unknown-linux-gnu"

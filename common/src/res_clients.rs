@@ -2,7 +2,7 @@ use crate::{connection_manager::{Connection, ConnectionsManager}, data_manager::
 use bevy_ecs::prelude::*;
 use indexmap::IndexMap;
 
-pub struct ClientId(u32);
+pub struct ClientId(pub u32);
 
 pub struct ClientsRes {
     pub connection_manager: ConnectionsManager,

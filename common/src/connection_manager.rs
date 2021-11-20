@@ -1,4 +1,4 @@
-use crate::{metascape::ClientId, packets::*};
+use crate::{res_clients::ClientId, packets::*};
 use std::{
     collections::HashMap,
     net::{Ipv6Addr, SocketAddr, SocketAddrV6},
@@ -186,7 +186,7 @@ async fn try_login(
     let client_id = match local {
         true => {
             info!("{} is connecting through loopback. Default ClientId 0...", tcp_addr);
-            ClientId { id: 0 }
+            ClientId(0)
         }
         false => {
             if login_packet.is_steam {
