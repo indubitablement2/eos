@@ -214,3 +214,5 @@ Damaged ship have negative built-in mods that are expensive to remove.
   * World
 * SupCom:
   * Faction
+* Highfleet
+  * Art style
