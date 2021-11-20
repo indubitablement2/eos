@@ -3,15 +3,15 @@
 
 ###### Table of contents
 
-[Income](https://github.com/indubitablement2/eos-common#Income)
+[Income](https://github.com/indubitablement2/eos#Income)
 
-[User Experience](https://github.com/indubitablement2/eos-common#user-experience)
+[User Experience](https://github.com/indubitablement2/eos#user-experience)
 
-[Fleet](https://github.com/indubitablement2/eos-common#Fleet)
+[Fleet](https://github.com/indubitablement2/eos#Fleet)
 
-[World](https://github.com/indubitablement2/eos-common#World)
+[World](https://github.com/indubitablement2/eos#World)
 
-[Inspiration](https://github.com/indubitablement2/eos-common#Inspiration)
+[Inspiration](https://github.com/indubitablement2/eos#Inspiration)
 
 ## Income Free to play
 
@@ -202,6 +202,8 @@ Damaged ship have negative built-in mods that are expensive to remove.
 
 * Starsector:
   * Battle
+* Path of Exile:
+  * Customization
 * Stellaris:
   * Terminology
 * Borderlands:
