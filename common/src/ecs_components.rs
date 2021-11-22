@@ -1,13 +1,17 @@
 use crate::collision::ColliderId;
+use crate::res_clients::ClientId;
 use glam::Vec2;
 
+/// The current position of the entity.
 pub struct Position(pub Vec2);
+/// Where the entity wish to move.
 pub struct WishPosition(pub Vec2);
+/// The current velocity of the entity.
 pub struct Velocity(pub Vec2);
 /// For some time, prevent despawning when outside a reality bubble.
 pub struct NoDespawnTimer(pub i32);
-
-
+/// Entity is directly controlled by this client.
+pub struct Controlled(pub ClientId);
 
 pub struct FleetCollider(ColliderId);
 impl FleetCollider {

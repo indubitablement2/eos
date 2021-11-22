@@ -1,7 +1,8 @@
-use crate::{connection_manager::{Connection, ConnectionsManager}, data_manager::ClientData, packets::ServerAddresses};
+use crate::{connection_manager::{Connection, ConnectionsManager}, data_manager::ClientData, packets::ServerAddresses, res_fleets::FleetId};
 use bevy_ecs::prelude::*;
 use indexmap::IndexMap;
 
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ClientId(pub u32);
 
 pub struct ClientsRes {
@@ -24,10 +25,9 @@ impl ClientsRes {
 pub struct Client {
     pub connection: Connection,
 
-    pub fleet_control: Option<Entity>,
+    pub fleet_control: Option<FleetId>,
 
     pub client_data: ClientData,
-
     // /// What this client's next Battlescape input will be.
     // input_battlescape: BattlescapeInput,
     // /// Resend previous battlescape commands if they have not been acknowledged.

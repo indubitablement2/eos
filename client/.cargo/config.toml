@@ -1,6 +1,9 @@
 [unstable]
 unstable-options = true
 
+# [env]
+# STEAM_SDK_LOCATION = "/home/username/dev/steam-sdk/redistributable_bin"
+
 [build]
 # This will copy _.so directly to godot. 
 # Used for fast iteration.

@@ -1,4 +1,4 @@
-use crate::{res_clients::ClientId, packets::*};
+use crate::{packets::*, res_clients::ClientId};
 use std::{
     collections::HashMap,
     net::{Ipv6Addr, SocketAddr, SocketAddrV6},
@@ -227,7 +227,10 @@ async fn try_login(
     spawn(send_udp(udp_to_send, udp_socket, login_packet.udp_address));
 
     let (udp_received, udp_receiver) = crossbeam_channel::unbounded();
-    udp_senders.lock().unwrap().insert(login_packet.udp_address, udp_received);
+    udp_senders
+        .lock()
+        .unwrap()
+        .insert(login_packet.udp_address, udp_received);
 
     let (tcp_sender, tcp_to_send) = tokio::sync::mpsc::channel(32);
     spawn(send_tcp(
@@ -253,7 +256,11 @@ async fn try_login(
     let _ = new_connection_sender.send(connection);
 }
 
-async fn send_udp(mut udp_to_send: tokio::sync::mpsc::Receiver<UdpServer>, udp_socket: Arc<UdpSocket>, udp_address: SocketAddr) {
+async fn send_udp(
+    mut udp_to_send: tokio::sync::mpsc::Receiver<UdpServer>,
+    udp_socket: Arc<UdpSocket>,
+    udp_address: SocketAddr,
+) {
     loop {
         if let Some(packet) = udp_to_send.recv().await {
             // We don't care about being too correct when sending udp.
@@ -292,7 +299,10 @@ async fn recv_udp(
                         trace!("{} sent an udp packet, but is not connected. Ignoring...", addr);
                     }
                 } else {
-                    trace!("{} sent an udp packet that could not be deserialized. Ignoring...", addr);
+                    trace!(
+                        "{} sent an udp packet that could not be deserialized. Ignoring...",
+                        addr
+                    );
                 }
             }
             Err(err) => {
@@ -378,7 +388,10 @@ async fn recv_tcp(
                                 }
                             }
                             Err(err) => {
-                                info!("{} while deserializing {} 's tcp packet. Disconnecting...", err, tcp_addr);
+                                info!(
+                                    "{} while deserializing {} 's tcp packet. Disconnecting...",
+                                    err, tcp_addr
+                                );
                                 break;
                             }
                         }

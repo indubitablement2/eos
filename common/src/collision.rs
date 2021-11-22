@@ -1,3 +1,4 @@
+use ahash::AHashMap;
 use glam::Vec2;
 use indexmap::IndexMap;
 use num_enum::{FromPrimitive, IntoPrimitive};
@@ -113,7 +114,6 @@ impl IndexMut<Membership> for [AccelerationStructure; Membership::MAX] {
 pub struct Collider {
     pub radius: f32,
     pub position: Vec2,
-    pub custom_data: u32,
 }
 impl Collider {
     /// Return true if these Colliders intersect.
@@ -152,6 +152,7 @@ impl Default for SAPRow {
 struct AccelerationStructure {
     /// Sorted on the y axis.
     pub colliders: IndexMap<ColliderId, Collider>,
+    pub collider_custom_data: AHashMap<ColliderId, u64>,
     /// The difference between each row's start and end can not be smaller than this.
     pub min_row_size: f32,
     /// Sorted on the x axis.
@@ -163,6 +164,7 @@ impl AccelerationStructure {
     pub fn new(min_row_size: f32) -> Self {
         Self {
             colliders: IndexMap::new(),
+            collider_custom_data: AHashMap::new(),
             min_row_size,
             rows: Vec::new(),
         }
@@ -315,8 +317,8 @@ impl AccelerationStructure {
         if let Some(row) = self.rows.get(overlapping_row) {
             // The closest collider to this point.
             let closest = row
-            .data
-            .partition_point(|i| self.colliders[*i as usize].position.x < point.x);
+                .data
+                .partition_point(|i| self.colliders[*i as usize].position.x < point.x);
 
             // The furthest we should look in each dirrections.
             let threshold = row.biggest_radius;
@@ -400,6 +402,7 @@ impl IntersectionPipeline {
         }
     }
 
+    /// Insert a collider without custom data.
     pub fn insert_collider(&mut self, collider: Collider, membership: Membership) -> ColliderId {
         let collider_id = self.collider_id_dispenser.new_collider_id(membership);
 
@@ -408,13 +411,30 @@ impl IntersectionPipeline {
         collider_id
     }
 
+    /// Insert a collider with custom data.
+    pub fn insert_collider_with_custom_data(&mut self, collider: Collider, membership: Membership, custom_data: u64) -> ColliderId {
+        let collider_id = self.collider_id_dispenser.new_collider_id(membership);
+
+        self.memberships[membership].colliders.insert(collider_id, collider);
+        self.memberships[membership].collider_custom_data.insert(collider_id, custom_data);
+
+        collider_id
+    }
+
     pub fn remove_collider(&mut self, collider_id: ColliderId) {
         self.remove_queue.push(collider_id);
     }
 
+    pub fn get_collider_custom_data(&self, collider_id: ColliderId) -> Option<&u64> {
+        self.memberships[Membership::from(collider_id)].collider_custom_data.get(&collider_id)
+    }
+
     /// Get a copy of a Collider.
     pub fn get_collider(&self, collider_id: ColliderId) -> Option<Collider> {
-        if let Some(collider) = self.memberships[Membership::from(collider_id)].colliders.get(&collider_id) {
+        if let Some(collider) = self.memberships[Membership::from(collider_id)]
+            .colliders
+            .get(&collider_id)
+        {
             Some(*collider)
         } else {
             None
@@ -430,10 +450,10 @@ impl IntersectionPipeline {
 
     /// Get a copy of every colliders separated by Membership.
     pub fn get_colliders_copy(&self) -> Vec<Vec<Collider>> {
-
-        self.memberships.iter().map(|acc| {
-            acc.colliders.values().copied().collect::<Vec<Collider>>()
-        }).collect()
+        self.memberships
+            .iter()
+            .map(|acc| acc.colliders.values().copied().collect::<Vec<Collider>>())
+            .collect()
     }
 
     /// Get a mutable reference to every collider of thos membership.
@@ -472,12 +492,16 @@ impl IntersectionPipeline {
     pub fn update(&mut self) {
         // Remove queued collider.
         for collider_id in self.remove_queue.drain(..) {
-            if self.memberships[Membership::from(collider_id)]
+            let membership = Membership::from(collider_id);
+
+            if self.memberships[membership]
                 .colliders
                 .remove(&collider_id)
                 .is_some()
             {
                 self.collider_id_dispenser.recycle_collider_id(collider_id);
+                // Also remove custom data.
+                self.memberships[membership].collider_custom_data.remove(&collider_id);
             }
         }
 
@@ -499,7 +523,6 @@ fn test_basic() {
         Collider {
             radius: 10.0,
             position: vec2(0.0, 0.0),
-            custom_data: 0
         },
         Membership::Fleet
     ));
@@ -509,7 +532,6 @@ fn test_basic() {
         Collider {
             radius: 10.0,
             position: vec2(0.0, 0.0),
-            custom_data: 0,
         },
         Membership::Fleet,
     );
@@ -519,7 +541,6 @@ fn test_basic() {
         Collider {
             radius: 10.0,
             position: vec2(-4.0, 0.0),
-            custom_data: 0
         },
         Membership::Fleet
     ));
@@ -527,7 +548,6 @@ fn test_basic() {
         Collider {
             radius: 10.0,
             position: vec2(4.0, 0.0),
-            custom_data: 0
         },
         Membership::Fleet
     ));
@@ -545,7 +565,6 @@ fn test_basic() {
         Collider {
             radius: 10.0,
             position: vec2(0.0, 0.0),
-            custom_data: 0
         },
         Membership::Fleet
     ));
@@ -561,7 +580,6 @@ fn test_row() {
         Collider {
             radius: 10.0,
             position: vec2(0.0, 0.0),
-            custom_data: 0,
         },
         Membership::Fleet,
     );
@@ -575,7 +593,6 @@ fn test_row() {
             Collider {
                 radius: 10.0,
                 position: vec2(0.0, 10000.0),
-                custom_data: 0,
             },
             Membership::Fleet,
         );
@@ -589,7 +606,6 @@ fn test_row() {
             Collider {
                 radius: 10.0,
                 position: vec2(0.0, 5000.0),
-                custom_data: 0,
             },
             Membership::Fleet,
         );
@@ -598,7 +614,6 @@ fn test_row() {
         Collider {
             radius: 10.0,
             position: vec2(0.0, 5000.0),
-            custom_data: 0,
         },
         Membership::Fleet,
     );
@@ -625,7 +640,6 @@ fn test_random() {
             Collider {
                 radius: random::<f32>() * 256.0,
                 position: vec2(random::<f32>() * 512.0 - 256.0, random::<f32>() * 512.0 - 256.0),
-                custom_data: 0,
             },
             Membership::System,
         );
@@ -634,7 +648,6 @@ fn test_random() {
         let other = Collider {
             radius: random::<f32>() * 256.0,
             position: vec2(random::<f32>() * 512.0 - 256.0, random::<f32>() * 512.0 - 256.0),
-            custom_data: 0,
         };
 
         assert_eq!(
@@ -660,7 +673,6 @@ fn test_random_point() {
             Collider {
                 radius: random::<f32>() * 256.0,
                 position: vec2(random::<f32>() * 512.0 - 256.0, random::<f32>() * 512.0 - 256.0),
-                custom_data: 0,
             },
             Membership::System,
         );
@@ -670,7 +682,6 @@ fn test_random_point() {
         let other = Collider {
             radius: 0.0,
             position: point,
-            custom_data: 0,
         };
 
         assert_eq!(

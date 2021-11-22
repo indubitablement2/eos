@@ -1,5 +1,6 @@
 use ahash::AHashMap;
 
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FactionId(u32);
 
 pub struct Reputation {
@@ -10,7 +11,10 @@ pub struct Reputation {
 }
 impl Default for Reputation {
     fn default() -> Self {
-        Self { reputation: 0, relation: AHashMap::new() }
+        Self {
+            reputation: 0,
+            relation: AHashMap::new(),
+        }
     }
 }
 
@@ -24,8 +28,6 @@ impl FactionsRes {
         }
     }
 }
-
-
 
 struct Faction {
     display_name: String,

@@ -1,25 +1,20 @@
-use crate::ecs_components::*;
 use bevy_ecs::prelude::*;
-use bevy_tasks::TaskPool;
 use glam::Vec2;
-
 
 pub struct FleetAI {
     pub goal: FleetGoal,
 }
+impl Default for FleetAI {
+    fn default() -> Self {
+        Self { goal: FleetGoal::Idle {
+            duration: 360,
+        }}
+    }
+}
 
 pub enum FleetGoal {
-    Trade {
-        from: (),
-        to: (),
-    },
-    Guard {
-        who: Entity,
-        radius: f32,
-        duration: i32,
-    },
-    Wandering {
-        to: (),
-        pause: i32
-    },
+    Trade { from: (), to: () },
+    Guard { who: Entity, radius: f32, duration: i32 },
+    Idle { duration: i32 },
+    Wandering { to: (), pause: i32 },
 }

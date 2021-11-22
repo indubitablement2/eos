@@ -1,14 +1,10 @@
 use crate::{res_clients::*, res_factions::*, res_fleets::*};
 use indexmap::IndexMap;
 
-pub struct DataManager {
-
-}
+pub struct DataManager {}
 impl DataManager {
     pub fn new() -> Self {
-        Self {
-            
-        }
+        Self {}
     }
 
     /// TODO: Load client from file.
