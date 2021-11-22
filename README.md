@@ -13,8 +13,8 @@
 
 [Inspiration](https://github.com/indubitablement2/eos#Inspiration)
 
-## Income Free to play
-
+## Income 
+### Free to play
 * Sell custom ship ~$1000:
   * People can buy the possibility to create a custom ship.
   * This ship will be found in-game, but much rarer than the default variant only found as quest reward, abandonned ship or in ai fleet (which they can defeat and salvage).
@@ -36,13 +36,18 @@
 * Character portrait pack ~$4
   * Free character portrait looks like normal civilian. Paid ones can be more noticeable.
 
-### Server cost
+Server cost
+
 Estimate US$360/months, US$4320/years.
 
 * (US$170/months, US$2040/years) c6g.4xlarge, 16 arm cpus, 32gb ram, up to 10gbs network.
 * (US$50/months, US$600/years) 300gb ssd with backup.
 * (US$140/months, US$1680/years) 1.5tb internet per months.
 
+### Pay to play
+$30 / sale
+
+Player run their server.
 
 ## User Experience
 
