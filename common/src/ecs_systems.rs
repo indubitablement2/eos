@@ -10,6 +10,7 @@ use crate::res_parameters::ParametersRes;
 use crate::res_times::TimeRes;
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
+use glam::Vec2;
 
 pub fn add_systems(schedule: &mut Schedule) {
     let current_stage = "first";
@@ -34,10 +35,12 @@ pub fn add_systems(schedule: &mut Schedule) {
     let current_stage = "post_update";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
     schedule.add_system_to_stage(current_stage, apply_velocity.system());
+    schedule.add_system_to_stage(current_stage, disconnect_client.system());
 
     let previous_stage = current_stage;
     let current_stage = "last";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
+    schedule.add_system_to_stage(current_stage, send_udp.system());
     schedule.add_system_to_stage(current_stage, clear_events.system());
 }
 
@@ -211,6 +214,7 @@ fn movement(query: Query<(&Position, &WishPosition, &mut Velocity)>) {
 }
 
 //* post_update
+// Last stage to handle events.
 
 fn apply_velocity(query: Query<(&mut Position, &mut Velocity)>, params: Res<ParametersRes>) {
     query.for_each_mut(|(mut pos, mut vel)| {
@@ -222,18 +226,29 @@ fn apply_velocity(query: Query<(&mut Position, &mut Velocity)>, params: Res<Para
     });
 }
 
+/// TODO: Prepare client's fleets to be removed.
+fn disconnect_client(mut clients_res: ResMut<ClientsRes>, client_disconnected: Res<EventRes<ClientDisconnected>>,) {
+    for client_disconnected in client_disconnected.get_events() {
+        if let Some(client) = clients_res.connected_clients.remove(&client_disconnected.client_id) {
+            // TODO: Save his stuff.
+            info!("{:?} disconneced.", &client.connection.client_id);
+        }
+    }
+}
+
 //* last
+// Events are cleared here.
 
-// /// TODO: Send unacknowledged commands.
-// /// TODO: Just sending every fleets position for now.
-// fn send_udp(&mut self) {
-//     let fleets_position: Vec<Vec2> = self.fleets.values().map(|fleet| fleet.detector_collider.position).collect();
+/// TODO: Send unacknowledged commands.
+/// TODO: Just sending every fleets position for now.
+fn send_udp(query: Query<(&FleetId, &Position)>, clients_res: Res<ClientsRes>) {
+    let fleets_position: Vec<Vec2> = query.iter().map(|(_fleet_id, position)| {
+        position.0
+    }).collect();
 
-//     let packet = UdpServer::Metascape { fleets_position };
+    let packet = UdpServer::Metascape { fleets_position };
 
-//     for (client_id, client) in &self.clients {
-//         if client.connection.udp_sender.blocking_send(packet.clone()).is_err() {
-//             self.disconnect_queue.push(*client_id);
-//         }
-//     }
-// }
+    for client in clients_res.connected_clients.values() {
+        let _ = client.connection.udp_sender.blocking_send(packet.clone());
+    }
+}

@@ -273,6 +273,7 @@ async fn send_udp(
 }
 
 /// Receive all udp packets.
+/// Does not know if a connection is dropped until the tcp sender channel is dropped.
 async fn recv_udp(
     udp_senders: Arc<Mutex<HashMap<SocketAddr, crossbeam_channel::Sender<UdpClient>>>>,
     udp_socket: Arc<UdpSocket>,
