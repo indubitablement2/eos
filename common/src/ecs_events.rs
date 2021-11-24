@@ -1,5 +1,6 @@
 use crate::res_clients::ClientId;
 use bevy_ecs::prelude::*;
+use crossbeam_queue::SegQueue;
 
 /// Register the events.
 pub fn add_event_handlers(world: &mut World) {
@@ -7,17 +8,6 @@ pub fn add_event_handlers(world: &mut World) {
     world.insert_resource(EventRes::<ClientDisconnected>::new());
     world.insert_resource(EventRes::<JustControlled>::new());
     world.insert_resource(EventRes::<JustStopControlled>::new());
-}
-pub fn clear_events(
-    mut client_connected: ResMut<EventRes<ClientConnected>>,
-    mut client_disconnected: ResMut<EventRes<ClientDisconnected>>,
-    mut just_controlled: ResMut<EventRes<JustControlled>>,
-    mut just_stop_controlled: ResMut<EventRes<JustStopControlled>>,
-) {
-    client_connected.clear_events();
-    client_disconnected.clear_events();
-    just_controlled.clear_events();
-    just_stop_controlled.clear_events();
 }
 
 /// A client just connected.
@@ -49,26 +39,13 @@ pub struct JustStopControlled {
 }
 
 pub struct EventRes<T> {
-    event_buffer: Vec<T>,
+    /// Contain events triggered by preceding systems.
+    pub events: SegQueue<T>,
 }
 impl<T> EventRes<T> {
     fn new() -> Self {
         Self {
-            event_buffer: Vec::new(),
+            events: SegQueue::new(),
         }
-    }
-
-    /// Add an event subsequent systems will be hable to read.
-    pub fn trigger_event(&mut self, event: T) {
-        self.event_buffer.push(event);
-    }
-
-    /// Get events preceding systems have triggered.
-    pub fn get_events(&self) -> std::slice::Iter<'_, T> {
-        self.event_buffer.iter()
-    }
-
-    fn clear_events(&mut self) {
-        self.event_buffer.clear();
     }
 }

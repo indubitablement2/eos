@@ -41,7 +41,6 @@ pub fn add_systems(schedule: &mut Schedule) {
     let current_stage = "last";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
     schedule.add_system_to_stage(current_stage, send_udp.system());
-    schedule.add_system_to_stage(current_stage, clear_events.system());
 }
 
 //* first
@@ -77,7 +76,7 @@ fn get_new_clients(
         }
 
         // Trigger event.
-        client_connected.trigger_event(ClientConnected { client_id });
+        client_connected.events.push(ClientConnected { client_id });
     }
 }
 
@@ -98,12 +97,12 @@ fn change_fleet_control(
             if client.fleet_control != Some(*fleet_id) {
                 // The client is not controlling this entity.
                 command.entity(entity).remove::<Controlled>();
-                just_stop_controlled.trigger_event(JustStopControlled { entity, client_id: controlled.0 });
+                just_stop_controlled.events.push(JustStopControlled { entity, client_id: controlled.0 });
             }
         } else {
             // The client is not connected.
             command.entity(entity).remove::<Controlled>();
-            just_stop_controlled.trigger_event(JustStopControlled { entity, client_id: controlled.0 });
+            just_stop_controlled.events.push(JustStopControlled { entity, client_id: controlled.0 });
         }
     });
 
@@ -116,7 +115,7 @@ fn change_fleet_control(
                         bevy_ecs::query::QueryEntityError::QueryDoesNotMatch => {
                             // Add Controlled to the entity.
                             command.entity(*entity).insert(Controlled(*client_id));
-                            just_controlled.trigger_event(JustControlled {
+                            just_controlled.events.push(JustControlled {
                                 entity: *entity,
                                 client_id: *client_id,
                             });
@@ -184,7 +183,7 @@ fn process_client_udp(clients_res: Res<ClientsRes>, query: Query<(&Controlled, &
                     Err(err) => {
                         if err == crossbeam_channel::TryRecvError::Disconnected {
                             // Cliend disconnected.
-                            client_disconnected.trigger_event(ClientDisconnected { client_id: *client_id });
+                            client_disconnected.events.push(ClientDisconnected { client_id: *client_id });
                         }
                         break;
                     }
@@ -228,7 +227,7 @@ fn apply_velocity(query: Query<(&mut Position, &mut Velocity)>, params: Res<Para
 
 /// TODO: Prepare client's fleets to be removed.
 fn disconnect_client(mut clients_res: ResMut<ClientsRes>, client_disconnected: Res<EventRes<ClientDisconnected>>,) {
-    for client_disconnected in client_disconnected.get_events() {
+    while let Some(client_disconnected) = client_disconnected.events.pop() {
         if let Some(client) = clients_res.connected_clients.remove(&client_disconnected.client_id) {
             // TODO: Save his stuff.
             info!("{:?} disconneced.", &client.connection.client_id);
