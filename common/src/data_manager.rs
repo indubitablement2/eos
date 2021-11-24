@@ -1,5 +1,4 @@
-use crate::{res_clients::*, res_factions::*, res_fleets::*};
-use indexmap::IndexMap;
+use crate::{res_clients::*, res_factions::*};
 
 pub struct DataManager {}
 impl DataManager {
@@ -10,17 +9,22 @@ impl DataManager {
     /// TODO: Load client from file.
     pub fn load_client(&self, client_id: ClientId) -> ClientData {
         ClientData {
-            general_reputation: Reputation::default(),
-            fleets: IndexMap::new(),
+            fleet: FleetData::default(),
         }
     }
 }
 
 pub struct ClientData {
-    general_reputation: Reputation,
-    fleets: IndexMap<FleetId, FleetData>,
+    fleet: FleetData,
 }
 
 pub struct FleetData {
     reputation: Reputation,
+}
+impl Default for FleetData {
+    fn default() -> Self {
+        Self {
+            reputation: Default::default(),
+        }
+    }
 }

@@ -1,8 +1,25 @@
-use crate::{connection_manager::{Connection, ConnectionsManager}, data_manager::ClientData, packets::ServerAddresses, res_fleets::FleetId};
+use crate::{
+    connection_manager::{Connection, ConnectionsManager},
+    data_manager::ClientData,
+    packets::ServerAddresses,
+    res_fleets::FleetId,
+};
 use indexmap::IndexMap;
 
+/// 0 is reserved and mean unvalid/server.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ClientId(pub u32);
+impl ClientId {
+    /// Return if this is a valid ClientId, id != 0.
+    pub fn is_valid(self) -> bool {
+        self.0 != 0
+    }
+}
+impl From<FleetId> for ClientId {
+    fn from(fleet_id: FleetId) -> Self {
+        Self(fleet_id.0 as u32)
+    }
+}
 
 pub struct ClientsRes {
     pub connection_manager: ConnectionsManager,
@@ -21,10 +38,9 @@ impl ClientsRes {
     }
 }
 
+/// A Client is always controlling the fleet with the same id as the client id.
 pub struct Client {
     pub connection: Connection,
-
-    pub fleet_control: Option<FleetId>,
 
     pub client_data: ClientData,
     // /// What this client's next Battlescape input will be.

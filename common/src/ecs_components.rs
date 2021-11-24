@@ -18,10 +18,6 @@ pub struct Velocity(pub Vec2);
 #[derive(Debug, Clone, Copy)]
 pub struct NoDespawnTimer(pub i32);
 
-/// Entity is directly controlled by this client.
-#[derive(Debug, Clone, Copy)]
-pub struct Controlled(pub ClientId);
-
 pub struct FleetCollider(ColliderId);
 impl FleetCollider {
     pub const RADIUS_MAX: f32 = 128.0;

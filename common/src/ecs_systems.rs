@@ -4,8 +4,8 @@ use crate::ecs_events::*;
 use crate::fleet_ai::*;
 use crate::packets::*;
 use crate::res_clients::*;
-use crate::res_fleets::FleetId;
 use crate::res_fleets::FleetsRes;
+use crate::res_fleets::*;
 use crate::res_parameters::ParametersRes;
 use crate::res_times::TimeRes;
 use bevy_ecs::prelude::*;
@@ -17,14 +17,11 @@ pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_stage(current_stage, SystemStage::parallel());
     schedule.add_system_to_stage(current_stage, increment_time.system());
     schedule.add_system_to_stage(current_stage, get_new_clients.system());
-    schedule.add_system_to_stage(current_stage, change_fleet_control.system());
 
     let previous_stage = current_stage;
     let current_stage = "pre_update";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
-    schedule.add_system_to_stage(current_stage, add_remove_fleet_ai.system());
     schedule.add_system_to_stage(current_stage, fleet_ai.system());
-    schedule.add_system_to_stage(current_stage, process_client_udp.system());
 
     let previous_stage = current_stage;
     let current_stage = "update";
@@ -51,20 +48,22 @@ fn increment_time(mut time_res: ResMut<TimeRes>) {
 
 /// Get new connection and insert client.
 fn get_new_clients(
+    mut command: Commands,
     mut clients_res: ResMut<ClientsRes>,
+    mut fleets_res: ResMut<FleetsRes>,
     data_manager: Res<DataManager>,
-    mut client_connected: ResMut<EventRes<ClientConnected>>,
+    client_connected: ResMut<EventRes<ClientConnected>>,
 ) {
     while let Ok(connection) = clients_res.connection_manager.new_connection_receiver.try_recv() {
         // Load client data.
         let client_data = data_manager.load_client(connection.client_id);
 
         let client_id = connection.client_id;
+        let fleet_id = FleetId::from(client_id);
 
         // Create client.
         let client = Client {
             connection,
-            fleet_control: None,
             client_data,
             // input_battlescape: BattlescapeInput::default(),
             // unacknowledged_commands: IndexMap::new(),
@@ -75,120 +74,88 @@ fn get_new_clients(
             info!("{:?} was disconnected as a new connection took this client.", client_id);
         }
 
+        // Check if fleet is already spawned.
+        if let Some(old_fleet_entity) = fleets_res.spawned_fleets.get(&fleet_id) {
+            // TODO: Check components.
+        } else {
+            // TODO: Create client's fleet.
+            let fleet_entity = command
+                .spawn_bundle((
+                    fleet_id,
+                    client_id,
+                    Position(Vec2::ZERO),
+                    WishPosition(Vec2::ZERO),
+                    Velocity(Vec2::ZERO),
+                    FleetAI {
+                        goal: FleetGoal::Controlled,
+                    },
+                ))
+                .id();
+
+            // Insert fleet.
+            let _ = fleets_res.spawned_fleets.insert(fleet_id, fleet_entity);
+        }
+
         // Trigger event.
         client_connected.events.push(ClientConnected { client_id });
     }
 }
 
-/// Add or remove Controlled from entities.
-fn change_fleet_control(
-    mut command: Commands,
-    query: Query<(Entity, &FleetId, &Controlled)>,
-    clients_res: Res<ClientsRes>,
-    fleet_res: Res<FleetsRes>,
-    mut just_controlled: ResMut<EventRes<JustControlled>>,
-    mut just_stop_controlled: ResMut<EventRes<JustStopControlled>>,
-) {
-    // Remove Controlled from entity that are no longer being directly controlled.
-    query.for_each(|(entity, fleet_id, controlled)| {
-        // Check that the client controlling this entity is connected. 
-        if let Some(client) = clients_res.connected_clients.get(&controlled.0) {
-            // Check that the client is currently controlling this fleet.
-            if client.fleet_control != Some(*fleet_id) {
-                // The client is not controlling this entity.
-                command.entity(entity).remove::<Controlled>();
-                just_stop_controlled.events.push(JustStopControlled { entity, client_id: controlled.0 });
-            }
-        } else {
-            // The client is not connected.
-            command.entity(entity).remove::<Controlled>();
-            just_stop_controlled.events.push(JustStopControlled { entity, client_id: controlled.0 });
-        }
-    });
-
-    // Add Controlled to entity that are now directly controlled.
-    for (client_id, client) in &clients_res.connected_clients {
-        if let Some(fleet_id) = &client.fleet_control {
-            if let Some(entity) = fleet_res.spawned_fleets.get(fleet_id) {
-                if let Err(err) =  query.get(*entity) {
-                    match err {
-                        bevy_ecs::query::QueryEntityError::QueryDoesNotMatch => {
-                            // Add Controlled to the entity.
-                            command.entity(*entity).insert(Controlled(*client_id));
-                            just_controlled.events.push(JustControlled {
-                                entity: *entity,
-                                client_id: *client_id,
-                            });
-                        }
-                        bevy_ecs::query::QueryEntityError::NoSuchEntity => {
-                            debug!("{:?} tried to control {:?}, but it is not loaded. Maybe it is destroyed?", client_id, fleet_id);
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 //* pre_update
 
-/// Make sure entity with a FleetId have either FleetAI or Controlled.
-fn add_remove_fleet_ai(mut command: Commands, query: Query<(Entity, &FleetId, Option<&Controlled>, Option<&FleetAI>)>) {
-    query.for_each(|(entity, fleet_id, controlled, fleet_ai)| {
-        if controlled.is_some() && fleet_ai.is_some() {
-            // Controlled take precedence.
-            command.entity(entity).remove::<FleetAI>();
-        } else if controlled.is_none() && fleet_ai.is_none() {
-            // Add FleetAI.
-            command.entity(entity).insert(FleetAI::default());
-        }
-    });
-}
-
-fn fleet_ai(mut query: Query<(&mut FleetAI, &Position, &mut WishPosition)>, task_pool: Res<TaskPool>) {
-    query.par_for_each_mut(&task_pool, 16, |(mut fleet_ai, pos, mut wish_pos)| {
+fn fleet_ai(
+    mut query: Query<(&FleetId, &mut FleetAI, &Position, &mut WishPosition)>,
+    task_pool: Res<TaskPool>,
+    clients_res: Res<ClientsRes>,
+    client_disconnected: ResMut<EventRes<ClientDisconnected>>,
+) {
+    query.par_for_each_mut(&task_pool, 16, |(fleet_id, mut fleet_ai, pos, mut wish_pos)| {
         match fleet_ai.goal {
+            // Get and process clients udp packets.
+            FleetGoal::Controlled => {
+                let client_id = ClientId::from(*fleet_id);
+
+                if client_id.is_valid() {
+                    if let Some(client) = clients_res.connected_clients.get(&client_id) {
+                        // Apply the udp packets of this client on this fleet.
+                        loop {
+                            match client.connection.udp_receiver.try_recv() {
+                                Ok(packet) => {
+                                    match packet {
+                                        UdpClient::Battlescape {
+                                            wish_input,
+                                            acknowledge_command,
+                                        } => {
+                                            // TODO: Set next as battlescape input.
+
+                                            // TODO: Remove an acknowledged command.
+
+                                            todo!();
+                                        }
+                                        UdpClient::Metascape { wish_position } => {
+                                            wish_pos.0 = wish_position;
+                                        }
+                                    }
+                                }
+                                Err(err) => {
+                                    if err == crossbeam_channel::TryRecvError::Disconnected {
+                                        // Cliend disconnected.
+                                        client_disconnected.events.push(ClientDisconnected { client_id });
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    warn!("Fleet {:?} should not be controlled. Changing to idle...", fleet_id);
+                    fleet_ai.goal = FleetGoal::Idle { duration: 0 };
+                }
+            }
             FleetGoal::Trade { from, to } => todo!(),
             FleetGoal::Guard { who, radius, duration } => todo!(),
             FleetGoal::Wandering { to, pause } => todo!(),
             FleetGoal::Idle { duration } => todo!(),
-        }
-    });
-}
-
-/// Get and process clients udp packets.
-fn process_client_udp(clients_res: Res<ClientsRes>, query: Query<(&Controlled, &mut WishPosition)>, mut client_disconnected: ResMut<EventRes<ClientDisconnected>>,) {
-    query.for_each_mut(|(controlled, mut fleet_wish_pos)| {
-        if let Some((client_id, client)) = clients_res.connected_clients.get_key_value(&controlled.0) {
-            // Apply the udp packets of this client on this fleet.
-            loop {
-                match client.connection.udp_receiver.try_recv() {
-                    Ok(packet) => {
-                        match packet {
-                            UdpClient::Battlescape {
-                                wish_input,
-                                acknowledge_command,
-                            } => {
-                                // TODO: Set next as battlescape input.
-
-                                // TODO: Remove an acknowledged command.
-
-                                todo!();
-                            }
-                            UdpClient::Metascape { wish_position } => {
-                                fleet_wish_pos.0 = wish_position;
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        if err == crossbeam_channel::TryRecvError::Disconnected {
-                            // Cliend disconnected.
-                            client_disconnected.events.push(ClientDisconnected { client_id: *client_id });
-                        }
-                        break;
-                    }
-                }
-            }
         }
     });
 }
@@ -213,7 +180,6 @@ fn movement(query: Query<(&Position, &WishPosition, &mut Velocity)>) {
 }
 
 //* post_update
-// Last stage to handle events.
 
 fn apply_velocity(query: Query<(&mut Position, &mut Velocity)>, params: Res<ParametersRes>) {
     query.for_each_mut(|(mut pos, mut vel)| {
@@ -226,24 +192,21 @@ fn apply_velocity(query: Query<(&mut Position, &mut Velocity)>, params: Res<Para
 }
 
 /// TODO: Prepare client's fleets to be removed.
-fn disconnect_client(mut clients_res: ResMut<ClientsRes>, client_disconnected: Res<EventRes<ClientDisconnected>>,) {
+fn disconnect_client(mut clients_res: ResMut<ClientsRes>, client_disconnected: Res<EventRes<ClientDisconnected>>) {
     while let Some(client_disconnected) = client_disconnected.events.pop() {
         if let Some(client) = clients_res.connected_clients.remove(&client_disconnected.client_id) {
             // TODO: Save his stuff.
-            info!("{:?} disconneced.", &client.connection.client_id);
+            debug!("{:?} disconneced.", &client.connection.client_id);
         }
     }
 }
 
 //* last
-// Events are cleared here.
 
 /// TODO: Send unacknowledged commands.
 /// TODO: Just sending every fleets position for now.
 fn send_udp(query: Query<(&FleetId, &Position)>, clients_res: Res<ClientsRes>) {
-    let fleets_position: Vec<Vec2> = query.iter().map(|(_fleet_id, position)| {
-        position.0
-    }).collect();
+    let fleets_position: Vec<Vec2> = query.iter().map(|(_fleet_id, position)| position.0).collect();
 
     let packet = UdpServer::Metascape { fleets_position };
 

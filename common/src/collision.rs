@@ -412,11 +412,18 @@ impl IntersectionPipeline {
     }
 
     /// Insert a collider with custom data.
-    pub fn insert_collider_with_custom_data(&mut self, collider: Collider, membership: Membership, custom_data: u64) -> ColliderId {
+    pub fn insert_collider_with_custom_data(
+        &mut self,
+        collider: Collider,
+        membership: Membership,
+        custom_data: u64,
+    ) -> ColliderId {
         let collider_id = self.collider_id_dispenser.new_collider_id(membership);
 
         self.memberships[membership].colliders.insert(collider_id, collider);
-        self.memberships[membership].collider_custom_data.insert(collider_id, custom_data);
+        self.memberships[membership]
+            .collider_custom_data
+            .insert(collider_id, custom_data);
 
         collider_id
     }
@@ -426,7 +433,9 @@ impl IntersectionPipeline {
     }
 
     pub fn get_collider_custom_data(&self, collider_id: ColliderId) -> Option<&u64> {
-        self.memberships[Membership::from(collider_id)].collider_custom_data.get(&collider_id)
+        self.memberships[Membership::from(collider_id)]
+            .collider_custom_data
+            .get(&collider_id)
     }
 
     /// Get a copy of a Collider.
@@ -494,11 +503,7 @@ impl IntersectionPipeline {
         for collider_id in self.remove_queue.drain(..) {
             let membership = Membership::from(collider_id);
 
-            if self.memberships[membership]
-                .colliders
-                .remove(&collider_id)
-                .is_some()
-            {
+            if self.memberships[membership].colliders.remove(&collider_id).is_some() {
                 self.collider_id_dispenser.recycle_collider_id(collider_id);
                 // Also remove custom data.
                 self.memberships[membership].collider_custom_data.remove(&collider_id);

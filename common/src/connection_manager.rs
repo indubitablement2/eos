@@ -186,7 +186,7 @@ async fn try_login(
     let client_id = match local {
         true => {
             info!("{} is connecting through loopback. Default ClientId 0...", tcp_addr);
-            ClientId(0)
+            ClientId(1)
         }
         false => {
             if login_packet.is_steam {
