@@ -203,6 +203,25 @@ Damaged ship have negative built-in mods that are expensive to remove.
   * Music: 
   * Specialist: Shield, energy
 
+### Joining vs creating faction
+Joining faction:
+* Pros:
+  * Free insurance
+  * Fleet protection in controlled systems
+  * Access to faction market
+  * Vassal colony are supported by parent faction
+* Cons:
+  * Vassal colony pay taxes to parent faction
+* Neutrals:
+  * Inherit faction relation
+
+Creating faction:
+* Pros:
+  * Potentially high passive income from vassal taxe, market taxe and colony production
+* Cons:
+  * Needs to provide costly incentives to vassals (insurance, lower market price)
+  * Needs to sustain a military
+
 ## Inspiration
 
 * Starsector:
