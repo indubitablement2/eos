@@ -104,7 +104,8 @@ fn main() {
 
     // Main loop.
     let mut loop_start = Instant::now();
-    'main: loop {
+    let mut stop_main = false;
+    'main: while !stop_main {
         // Time since last update.
         let delta = loop_start.elapsed();
         // Time alocated for this update.
@@ -115,7 +116,7 @@ fn main() {
         trace!("Next main loop expected duration: {} ms.", update_duration.as_millis());
 
         metascape.update();
-        terminal.render();
+        terminal.update(&mut stop_main);
 
         // // Handle commands.
         // for cmd in console.cmd_receiver.try_iter() {
@@ -141,6 +142,9 @@ fn main() {
             sleep(remaining);
         }
     }
+
+    // Cleanup.
+    terminal.clear();
 }
 
 fn startup() -> std::io::Result<Metascape> {

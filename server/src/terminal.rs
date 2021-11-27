@@ -1,12 +1,13 @@
+use common::*;
 use crossbeam_channel::*;
 use num_enum::{FromPrimitive, IntoPrimitive};
+use tui_logger::{TuiLoggerTargetWidget, TuiLoggerWidget, TuiWidgetEvent, TuiWidgetState};
 use std::{
     io::{self, stdin, Stdout},
-    str::FromStr,
     thread::spawn,
 };
 use termion::{
-    event::{self, Key},
+    event::Key,
     input::TermRead,
     raw::{IntoRawMode, RawTerminal},
 };
@@ -18,61 +19,24 @@ use tui::{
     widgets::{Block, Borders, Paragraph, Tabs},
 };
 
-pub fn help() {
-    println!("
-    help: Show this text.
-    exit: Save and shutdown server.
-    addressses, addr, address: Show server udp/tcp address.
-    log: Change log level. Log less than info are disabled for release build. Example: 'log trace ./main' will set main to trace. Default: info
-    ");
-}
-
-#[derive(Debug, Clone)]
-pub enum Commands {
-    Test(bool),
-    Help,
-    Exit,
-    Addressses,
-    Log(String),
-}
-impl FromStr for Commands {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let lower_case = s.to_lowercase();
-        let mut iter = lower_case.split_whitespace();
-
-        match iter.next().unwrap_or_default() {
-            "test" => Ok(Commands::Test(
-                iter.next().unwrap_or_default().parse().unwrap_or_default(),
-            )),
-            "exit" => Ok(Commands::Exit),
-            "help" => Ok(Commands::Help),
-            "addressses" => Ok(Commands::Addressses),
-            "addr" => Ok(Commands::Addressses),
-            "address" => Ok(Commands::Addressses),
-            "log" => Ok(Commands::Log(iter.collect())),
-            _ => Err(()),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, IntoPrimitive, FromPrimitive)]
 #[repr(usize)]
 enum TerminalTab {
     #[default]
     Performance,
+    Log,
     Info,
 }
 impl TerminalTab {
     const LEN: usize = TerminalTab::Info as usize + 1;
-    const TITLES: [&'static str; TerminalTab::LEN] = ["Performance", "Info"];
+    const TITLES: [&'static str; TerminalTab::LEN] = ["Performance", "Log", "Info"];
 }
 
 pub struct Terminal {
     backend_terminal: tui::Terminal<TermionBackend<RawTerminal<Stdout>>>,
     input_receiver: Receiver<Key>,
     current_tab: TerminalTab,
+    log_state: TuiWidgetState,
 }
 impl Terminal {
     pub fn new() -> io::Result<Self> {
@@ -89,38 +53,53 @@ impl Terminal {
             backend_terminal,
             input_receiver,
             current_tab: TerminalTab::Performance,
+            log_state: TuiWidgetState::default(),
         })
     }
 
-    pub fn render(&mut self) {
+    pub fn update(&mut self, stop_main: &mut bool) {
         // Handle inputs.
-        self.input_receiver.try_iter().for_each(|key| {
-            match key {
-                Key::Left => todo!(),
-                Key::Right => todo!(),
-                Key::Up => todo!(),
-                Key::Down => todo!(),
-                Key::Char(c) => match c {
-                    '\t' => {
-                        self.current_tab = TerminalTab::from((usize::from(self.current_tab) + 1) % TerminalTab::LEN);
-                    }
-                    _ => {}
-                },
-                // Key::Backspace => todo!(),
-                // Key::Home => todo!(),
-                // Key::End => todo!(),
-                // Key::PageUp => todo!(),
-                // Key::PageDown => todo!(),
-                // Key::BackTab => todo!(),
-                // Key::Delete => todo!(),
-                // Key::Insert => todo!(),
-                // Key::F(_) => todo!(),
-                // Key::Alt(_) => todo!(),
-                // Key::Ctrl(_) => todo!(),
-                // Key::Esc => todo!(),
-                _ => {}
+        while let Ok(key) = self.input_receiver.try_recv() {
+            if let Key::Char(c) = key {
+                if c == '\t' {
+                    self.current_tab = TerminalTab::from((usize::from(self.current_tab) + 1) % TerminalTab::LEN);
+                    continue;
+                }
             }
-        });
+            if Key::Esc == key {
+                // TODO: Ask to confirm.
+                *stop_main = true;
+                break;
+            }
+
+            match self.current_tab {
+                TerminalTab::Performance => {}
+                TerminalTab::Log => {
+                    match key {
+                        Key::Backspace => todo!(),
+                        Key::Left => self.log_state.transition(&TuiWidgetEvent::LeftKey),
+                        Key::Right => self.log_state.transition(&TuiWidgetEvent::RightKey),
+                        Key::Up => self.log_state.transition(&TuiWidgetEvent::UpKey),
+                        Key::Down => self.log_state.transition(&TuiWidgetEvent::DownKey),
+                        Key::Home => todo!(),
+                        Key::End => todo!(),
+                        Key::PageUp => todo!(),
+                        Key::PageDown => todo!(),
+                        Key::BackTab => todo!(),
+                        Key::Delete => todo!(),
+                        Key::Insert => todo!(),
+                        Key::F(_) => todo!(),
+                        Key::Char(_) => todo!(),
+                        Key::Alt(_) => todo!(),
+                        Key::Ctrl(_) => todo!(),
+                        Key::Null => todo!(),
+                        Key::Esc => todo!(),
+                        Key::__IsNotComplete => todo!(),
+                    }
+                }
+                TerminalTab::Info => {}
+            }
+        }
 
         // Draw.
         let _ = self.backend_terminal.draw(|frame| {
@@ -128,14 +107,14 @@ impl Terminal {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 // .margin(5)
-                .constraints([Constraint::Length(3), Constraint::Min(0), Constraint::Length(10)].as_ref())
+                .constraints([Constraint::Length(3), Constraint::Percentage(60), Constraint::Min(8)].as_ref())
                 .split(size);
 
             // Tabs titles.
             let tab_titles = TerminalTab::TITLES.into_iter().map(|s| Spans::from(s)).collect();
             let tabs = Tabs::new(tab_titles)
                 .select(self.current_tab.into())
-                .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+                .highlight_style(Style::default().fg(Color::Yellow))
                 .block(Block::default().borders(Borders::ALL));
             frame.render_widget(tabs, chunks[0]);
 
@@ -143,11 +122,19 @@ impl Terminal {
             match self.current_tab {
                 TerminalTab::Performance => {
                     let block = Block::default().borders(Borders::ALL);
+
                     frame.render_widget(block, chunks[1]);
+                }
+                TerminalTab::Log => {
+                    let log = TuiLoggerTargetWidget::default()
+                    .state(&self.log_state)
+                    .block(Block::default().borders(Borders::ALL));
+
+                    frame.render_widget(log, chunks[1]);
                 }
                 TerminalTab::Info => {
                     let text = vec![
-                        Spans::from("This is a line "),
+                        Spans::from(format!("version: {}.{}.{}", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH)),
                         Spans::from(Span::styled("This is a line   ", Style::default().fg(Color::Red))),
                         Spans::from(Span::styled("This is a line", Style::default().bg(Color::Blue))),
                         Spans::from(Span::styled(
@@ -166,12 +153,25 @@ impl Terminal {
 
                     frame.render_widget(paragraph, chunks[1]);
                 }
+
             };
 
             // Logs.
-            let log = Block::default().borders(Borders::ALL);
+            let mut log = TuiLoggerWidget::default()
+                .style_error(Style::default().fg(Color::Red))
+                .style_warn(Style::default().fg(Color::Yellow))
+                // .style_info(Style::default().fg(Color::Cyan))
+                .style_debug(Style::default().fg(Color::Green))
+                .style_trace(Style::default().fg(Color::Magenta))
+                .block(Block::default().borders(Borders::ALL));
+            log.state(&self.log_state);
+
             frame.render_widget(log, chunks[2]);
         });
+    }
+
+    pub fn clear(&mut self) {
+        let _ = self.backend_terminal.clear();
     }
 }
 
