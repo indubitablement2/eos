@@ -67,7 +67,7 @@ impl ConnectionsManager {
         ));
         info!("Started login loop.");
 
-        info!("Server ready. \n {:?}", server_addresses);
+        info!("Server ready.");
 
         Ok(Self {
             new_connection_receiver,

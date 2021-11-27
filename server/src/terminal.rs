@@ -14,10 +14,12 @@ use termion::{
 use tui::{
     backend::TermionBackend,
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
-    text::{Span, Spans},
+    style::{Color, Style},
+    text::Spans,
     widgets::{Block, Borders, Paragraph, Tabs},
 };
+
+use crate::Metascape;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, IntoPrimitive, FromPrimitive)]
 #[repr(usize)]
@@ -57,7 +59,7 @@ impl Terminal {
         })
     }
 
-    pub fn update(&mut self, stop_main: &mut bool) {
+    pub fn update(&mut self, stop_main: &mut bool, metascape: &mut Metascape) {
         // Handle inputs.
         while let Ok(key) = self.input_receiver.try_recv() {
             if let Key::Char(c) = key {
@@ -128,6 +130,7 @@ impl Terminal {
                 TerminalTab::Log => {
                     let log = TuiLoggerTargetWidget::default()
                     .state(&self.log_state)
+                    .highlight_style(Style::default().fg(Color::Yellow))
                     .block(Block::default().borders(Borders::ALL));
 
                     frame.render_widget(log, chunks[1]);
@@ -135,16 +138,7 @@ impl Terminal {
                 TerminalTab::Info => {
                     let text = vec![
                         Spans::from(format!("version: {}.{}.{}", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH)),
-                        Spans::from(Span::styled("This is a line   ", Style::default().fg(Color::Red))),
-                        Spans::from(Span::styled("This is a line", Style::default().bg(Color::Blue))),
-                        Spans::from(Span::styled(
-                            "This is a longer line",
-                            Style::default().add_modifier(Modifier::CROSSED_OUT),
-                        )),
-                        Spans::from(Span::styled(
-                            "This is a line",
-                            Style::default().fg(Color::Green).add_modifier(Modifier::ITALIC),
-                        )),
+                        Spans::from(format!("{:?}", metascape.get_addresses())),
                     ];
 
                     let paragraph = Paragraph::new(text)

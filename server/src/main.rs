@@ -116,7 +116,7 @@ fn main() {
         trace!("Next main loop expected duration: {} ms.", update_duration.as_millis());
 
         metascape.update();
-        terminal.update(&mut stop_main);
+        terminal.update(&mut stop_main, &mut metascape);
 
         // // Handle commands.
         // for cmd in console.cmd_receiver.try_iter() {
