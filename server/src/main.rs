@@ -100,7 +100,7 @@ fn main() {
         }
     }
 
-    let mut terminal = Terminal::new().expect("Could not create Console.");
+    let mut terminal = Terminal::new().expect("Could not create Terminal.");
 
     // Main loop.
     let mut loop_start = Instant::now();
