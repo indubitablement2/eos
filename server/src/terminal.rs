@@ -37,7 +37,6 @@ impl TerminalTab {
 /// Metrics in µs.
 pub struct PerformanceMetrics {
     last_used: u64,
-    last_used_percent: f32,
 
     max_used_lifetime: u64,
     num_over_budged: u64,
@@ -45,7 +44,6 @@ pub struct PerformanceMetrics {
     used_recents: [u64; PerformanceMetrics::NUM_RECENT as usize],
     max_used_recent: u64,
     average_used_recent: u64,
-    average_percent_used_recent: f32,
 }
 impl PerformanceMetrics {
     const MAX_EXPECTED_USED: u64 = UPDATE_INTERVAL.as_micros() as u64;
@@ -54,43 +52,38 @@ impl PerformanceMetrics {
     fn update_basic(&mut self, last_used: u64) {
         // Update current.
         self.last_used = last_used;
-        self.last_used_percent = last_used as f32 / PerformanceMetrics::MAX_EXPECTED_USED as f32;
 
         // Update maxs.
         self.max_used_lifetime = self.max_used_lifetime.max(last_used);
-        if self.last_used_percent > 1.0 {
+        if last_used > PerformanceMetrics::MAX_EXPECTED_USED {
             self.num_over_budged += 1;
         }
     }
 
     fn update_recents(&mut self) {
-        self.used_recents.copy_within(0..PerformanceMetrics::NUM_RECENT as usize - 1, 1);
+        self.used_recents
+            .copy_within(0..PerformanceMetrics::NUM_RECENT as usize - 1, 1);
         *self.used_recents.first_mut().unwrap() = self.last_used;
 
         // Update recent statictics.
         let mut sum_used_recent = 0;
-        let mut sum_percent_used_recent = 0.0;
         self.max_used_recent = 0;
         self.used_recents.iter().for_each(|used| {
             sum_used_recent += *used;
             self.max_used_recent = self.max_used_recent.max(*used);
-            sum_percent_used_recent += *used as f32 / PerformanceMetrics::MAX_EXPECTED_USED as f32;
         });
         self.average_used_recent = sum_used_recent / PerformanceMetrics::NUM_RECENT;
-        self.average_percent_used_recent = sum_percent_used_recent / PerformanceMetrics::NUM_RECENT as f32;
     }
 }
 impl Default for PerformanceMetrics {
     fn default() -> Self {
         Self {
             last_used: Default::default(),
-            last_used_percent: Default::default(),
             max_used_lifetime: Default::default(),
             num_over_budged: Default::default(),
             used_recents: [0; PerformanceMetrics::NUM_RECENT as usize],
             max_used_recent: Default::default(),
             average_used_recent: Default::default(),
-            average_percent_used_recent: Default::default(),
         }
     }
 }
@@ -101,7 +94,9 @@ pub struct Terminal {
     current_tab: TerminalTab,
     help: bool,
     log_state: TuiWidgetState,
-    performance: PerformanceMetrics,
+    performance_metascape: PerformanceMetrics,
+    performance_terminal: PerformanceMetrics,
+    performance_total: PerformanceMetrics,
 }
 impl Terminal {
     pub fn new() -> io::Result<Self> {
@@ -120,7 +115,9 @@ impl Terminal {
             current_tab: TerminalTab::Performance,
             help: false,
             log_state: TuiWidgetState::default(),
-            performance: PerformanceMetrics::default(),
+            performance_metascape: PerformanceMetrics::default(),
+            performance_terminal: PerformanceMetrics::default(),
+            performance_total: PerformanceMetrics::default(),
         })
     }
 
@@ -147,7 +144,9 @@ impl Terminal {
                 TerminalTab::Performance => {
                     if let Key::Char(c) = key {
                         if c == 'r' {
-                            self.performance = PerformanceMetrics::default();
+                            self.performance_metascape = PerformanceMetrics::default();
+                            self.performance_terminal = PerformanceMetrics::default();
+                            self.performance_total = PerformanceMetrics::default();
                         }
                     }
                 }
@@ -213,24 +212,26 @@ impl Terminal {
             // Current tab.
             if self.help {
                 let text = match self.current_tab {
-                TerminalTab::Performance => vec![
+                    TerminalTab::Performance => vec![
+                        Spans::from("Time is mesured in ms (milliseconds)."),
+                        Spans::from(format!("Budget is {}ms.", PerformanceMetrics::MAX_EXPECTED_USED / 1000)),
                         Spans::from("| r        | Reset performance metrics."),
                     ],
                     TerminalTab::Log => vec![
-                            Spans::from("| h        | Toggles target selector widget hidden/visible."),
-                            Spans::from("| f        | Toggle focus on the selected target only."),
-                            Spans::from("| UP       | Select previous target in target selector widget."),
-                            Spans::from("| DOWN     | Select next target in target selector widget."),
-                            Spans::from("| LEFT     | Reduce SHOWN (!) log messages by one level."),
-                            Spans::from("| RIGHT    | Increase SHOWN (!) log messages by one level."),
-                            Spans::from("| -        | Reduce CAPTURED (!) log messages by one level."),
-                            Spans::from("| +        | Increase CAPTURED (!) log messages by one level."),
-                            Spans::from("| PAGEUP   | Enter Page Mode and scroll approx. half page up in log history."),
-                            Spans::from("| PAGEDOWN | Only in page mode: scroll 10 events down in log history."),
-                            Spans::from("| ESCAPE   | Exit page mode and go back to scrolling mode."),
-                            Spans::from("| SPACE    | Toggles hiding of targets, which have logfilter set to off."),
-                        ],
-                    TerminalTab::Info => vec![]
+                        Spans::from("| h        | Toggles target selector widget hidden/visible."),
+                        Spans::from("| f        | Toggle focus on the selected target only."),
+                        Spans::from("| UP       | Select previous target in target selector widget."),
+                        Spans::from("| DOWN     | Select next target in target selector widget."),
+                        Spans::from("| LEFT     | Reduce SHOWN (!) log messages by one level."),
+                        Spans::from("| RIGHT    | Increase SHOWN (!) log messages by one level."),
+                        Spans::from("| -        | Reduce CAPTURED (!) log messages by one level."),
+                        Spans::from("| +        | Increase CAPTURED (!) log messages by one level."),
+                        Spans::from("| PAGEUP   | Enter Page Mode and scroll approx. half page up in log history."),
+                        Spans::from("| PAGEDOWN | Only in page mode: scroll 10 events down in log history."),
+                        Spans::from("| ESCAPE   | Exit page mode and go back to scrolling mode."),
+                        Spans::from("| SPACE    | Toggles hiding of targets, which have logfilter set to off."),
+                    ],
+                    TerminalTab::Info => vec![],
                 };
                 let paragraph = Paragraph::new(text)
                     .alignment(Alignment::Left)
@@ -241,20 +242,66 @@ impl Terminal {
                     TerminalTab::Performance => {
                         let inner_chunks = Layout::default()
                             .direction(Direction::Vertical)
-                            .constraints([Constraint::Length(4), Constraint::Min(3)])
+                            .constraints([
+                                Constraint::Ratio(1, 3),
+                                Constraint::Ratio(1, 3),
+                                Constraint::Ratio(1, 3),
+                            ])
                             .split(chunks[1].inner(&Margin {
                                 vertical: 0,
                                 horizontal: 0,
                             }));
 
-                        let block = Block::default().borders(Borders::ALL);
-                        frame.render_widget(block, inner_chunks[0]);
-
-                        let sparkline = Sparkline::default()
-                            .block(Block::default().title(self.performance.max_used_recent.to_string()).borders(Borders::LEFT | Borders::RIGHT))
-                            .data(&self.performance.used_recents)
+                        let sparkline_total = Sparkline::default()
+                            .block(
+                                Block::default()
+                                    .title(format!(
+                                        "Total|lifetime max{:6.2}|over {}|now:{:6.2}|max:{:6.2}|avg:{:6.2}",
+                                        self.performance_total.max_used_lifetime as f32 / 1000.0,
+                                        self.performance_total.num_over_budged,
+                                        self.performance_total.last_used as f32 / 1000.0,
+                                        self.performance_total.max_used_recent as f32 / 1000.0,
+                                        self.performance_total.average_used_recent as f32 / 1000.0,
+                                    ))
+                                    .borders(Borders::LEFT | Borders::RIGHT),
+                            )
+                            .data(&self.performance_total.used_recents)
                             .style(Style::default().fg(Color::Yellow));
-                        frame.render_widget(sparkline, inner_chunks[1]);
+                        frame.render_widget(sparkline_total, inner_chunks[0]);
+
+                        let sparkline_metascape = Sparkline::default()
+                            .block(
+                                Block::default()
+                                    .title(format!(
+                                        "Metascape|lifetime max{:6.2}|over {}|now:{:6.2}|max:{:6.2}|avg:{:6.2}",
+                                        self.performance_metascape.max_used_lifetime as f32 / 1000.0,
+                                        self.performance_metascape.num_over_budged,
+                                        self.performance_metascape.last_used as f32 / 1000.0,
+                                        self.performance_metascape.max_used_recent as f32 / 1000.0,
+                                        self.performance_metascape.average_used_recent as f32 / 1000.0,
+                                    ))
+                                    .borders(Borders::LEFT | Borders::RIGHT),
+                            )
+                            .data(&self.performance_metascape.used_recents)
+                            .style(Style::default().fg(Color::Yellow));
+                        frame.render_widget(sparkline_metascape, inner_chunks[1]);
+
+                        let sparkline_terminal = Sparkline::default()
+                            .block(
+                                Block::default()
+                                    .title(format!(
+                                        "Terminal|lifetime max{:6.2}|over {}|now:{:6.2}|max:{:6.2}|avg:{:6.2}",
+                                        self.performance_terminal.max_used_lifetime as f32 / 1000.0,
+                                        self.performance_terminal.num_over_budged,
+                                        self.performance_terminal.last_used as f32 / 1000.0,
+                                        self.performance_terminal.max_used_recent as f32 / 1000.0,
+                                        self.performance_terminal.average_used_recent as f32 / 1000.0,
+                                    ))
+                                    .borders(Borders::LEFT | Borders::RIGHT),
+                            )
+                            .data(&self.performance_terminal.used_recents)
+                            .style(Style::default().fg(Color::Yellow));
+                        frame.render_widget(sparkline_terminal, inner_chunks[2]);
                     }
                     TerminalTab::Log => {
                         let log = TuiLoggerTargetWidget::default()
@@ -292,11 +339,15 @@ impl Terminal {
         });
     }
 
-    pub fn update_performance_metrics(&mut self, last_used: u64) {
-        self.performance.update_basic(last_used);
+    pub fn update_performance_metrics(&mut self, total: u64, metascape: u64, terminal: u64) {
+        self.performance_total.update_basic(total);
+        self.performance_metascape.update_basic(metascape);
+        self.performance_terminal.update_basic(terminal);
         // Do not waste cpu time updating recents if we are not looking at it.
         if self.current_tab == TerminalTab::Performance.into() {
-            self.performance.update_recents();
+            self.performance_total.update_recents();
+            self.performance_metascape.update_recents();
+            self.performance_terminal.update_recents();
         }
     }
 

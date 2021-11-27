@@ -14,7 +14,10 @@ use res_factions::FactionsRes;
 use res_fleets::FleetsRes;
 use res_parameters::ParametersRes;
 use res_times::TimeRes;
-use std::{thread::sleep, time::{Duration, Instant}};
+use std::{
+    thread::sleep,
+    time::{Duration, Instant},
+};
 
 use crate::terminal::Terminal;
 
@@ -119,13 +122,19 @@ fn main() {
         let metascape_update_used_duration = loop_start.elapsed();
 
         // Update terminal.
-        terminal.update_performance_metrics(metascape_update_used_duration.as_micros() as u64);
         terminal.update(&mut stop_main, &mut metascape);
 
         // Time used in total.
         let total_update_used = loop_start.elapsed();
         // Time used by the terminal update.
         let terminal_update_used_duration = total_update_used - metascape_update_used_duration;
+
+        // Update terminal performance metrics.
+        terminal.update_performance_metrics(
+            total_update_used.as_micros() as u64,
+            metascape_update_used_duration.as_micros() as u64,
+            terminal_update_used_duration.as_micros() as u64,
+        );
 
         // Sleep for the remaining time.
         if let Some(remaining) = update_duration.checked_sub(total_update_used) {
