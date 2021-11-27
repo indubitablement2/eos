@@ -1,7 +1,6 @@
 use common::*;
 use crossbeam_channel::*;
 use num_enum::{FromPrimitive, IntoPrimitive};
-use tui_logger::{TuiLoggerTargetWidget, TuiLoggerWidget, TuiWidgetEvent, TuiWidgetState};
 use std::{
     io::{self, stdin, Stdout},
     thread::spawn,
@@ -18,6 +17,7 @@ use tui::{
     text::Spans,
     widgets::{Block, Borders, Paragraph, Tabs},
 };
+use tui_logger::{TuiLoggerTargetWidget, TuiLoggerWidget, TuiWidgetEvent, TuiWidgetState};
 
 use crate::Metascape;
 
@@ -31,13 +31,14 @@ enum TerminalTab {
 }
 impl TerminalTab {
     const LEN: usize = TerminalTab::Info as usize + 1;
-    const TITLES: [&'static str; TerminalTab::LEN] = ["Performance", "Log", "Info"];
+    const TITLES: [&'static str; TerminalTab::LEN + 1] = ["Performance", "Log", "Info", "?"];
 }
 
 pub struct Terminal {
     backend_terminal: tui::Terminal<TermionBackend<RawTerminal<Stdout>>>,
     input_receiver: Receiver<Key>,
     current_tab: TerminalTab,
+    help: bool,
     log_state: TuiWidgetState,
 }
 impl Terminal {
@@ -55,6 +56,7 @@ impl Terminal {
             backend_terminal,
             input_receiver,
             current_tab: TerminalTab::Performance,
+            help: false,
             log_state: TuiWidgetState::default(),
         })
     }
@@ -62,44 +64,58 @@ impl Terminal {
     pub fn update(&mut self, stop_main: &mut bool, metascape: &mut Metascape) {
         // Handle inputs.
         while let Ok(key) = self.input_receiver.try_recv() {
+            // Check if we are in help mode.
+            if self.help == true {
+                if let Key::Char(c) = key {
+                    if c == '\t' {
+                        self.help = false;
+                        self.current_tab = TerminalTab::from((usize::from(self.current_tab) + 1) % TerminalTab::LEN);
+                    } else if c == '?' {
+                        self.help = false;
+                    }
+                } else if Key::Esc == key {
+                    self.help = false;
+                }
+                continue;
+            }
+
+            // Handle keys based on selected tab.
+            match self.current_tab {
+                TerminalTab::Performance => {}
+                TerminalTab::Log => match key {
+                    Key::Left => self.log_state.transition(&TuiWidgetEvent::LeftKey),
+                    Key::Right => self.log_state.transition(&TuiWidgetEvent::RightKey),
+                    Key::Up => self.log_state.transition(&TuiWidgetEvent::UpKey),
+                    Key::Down => self.log_state.transition(&TuiWidgetEvent::DownKey),
+                    Key::PageUp => self.log_state.transition(&TuiWidgetEvent::NextPageKey),
+                    Key::PageDown => self.log_state.transition(&TuiWidgetEvent::PrevPageKey),
+                    Key::Char(c) => match c {
+                        'h' => self.log_state.transition(&TuiWidgetEvent::HideKey),
+                        'f' => self.log_state.transition(&TuiWidgetEvent::FocusKey),
+                        '-' => self.log_state.transition(&TuiWidgetEvent::MinusKey),
+                        '+' => self.log_state.transition(&TuiWidgetEvent::PlusKey),
+                        ' ' => self.log_state.transition(&TuiWidgetEvent::SpaceKey),
+                        _ => (),
+                    },
+                    Key::Esc => {
+                        self.log_state.transition(&TuiWidgetEvent::EscapeKey);
+                    }
+                    _ => (),
+                },
+                TerminalTab::Info => {}
+            }
+
+            // Special keys need to be paired with continue or they will be handled here too.
             if let Key::Char(c) = key {
                 if c == '\t' {
                     self.current_tab = TerminalTab::from((usize::from(self.current_tab) + 1) % TerminalTab::LEN);
-                    continue;
+                } else if c == '?' {
+                    self.help = true;
                 }
-            }
-            if Key::Esc == key {
+            } else if Key::Esc == key {
                 // TODO: Ask to confirm.
                 *stop_main = true;
                 break;
-            }
-
-            match self.current_tab {
-                TerminalTab::Performance => {}
-                TerminalTab::Log => {
-                    match key {
-                        Key::Backspace => todo!(),
-                        Key::Left => self.log_state.transition(&TuiWidgetEvent::LeftKey),
-                        Key::Right => self.log_state.transition(&TuiWidgetEvent::RightKey),
-                        Key::Up => self.log_state.transition(&TuiWidgetEvent::UpKey),
-                        Key::Down => self.log_state.transition(&TuiWidgetEvent::DownKey),
-                        Key::Home => todo!(),
-                        Key::End => todo!(),
-                        Key::PageUp => todo!(),
-                        Key::PageDown => todo!(),
-                        Key::BackTab => todo!(),
-                        Key::Delete => todo!(),
-                        Key::Insert => todo!(),
-                        Key::F(_) => todo!(),
-                        Key::Char(_) => todo!(),
-                        Key::Alt(_) => todo!(),
-                        Key::Ctrl(_) => todo!(),
-                        Key::Null => todo!(),
-                        Key::Esc => todo!(),
-                        Key::__IsNotComplete => todo!(),
-                    }
-                }
-                TerminalTab::Info => {}
             }
         }
 
@@ -114,41 +130,71 @@ impl Terminal {
 
             // Tabs titles.
             let tab_titles = TerminalTab::TITLES.into_iter().map(|s| Spans::from(s)).collect();
-            let tabs = Tabs::new(tab_titles)
-                .select(self.current_tab.into())
+            let mut tabs = Tabs::new(tab_titles)
                 .highlight_style(Style::default().fg(Color::Yellow))
                 .block(Block::default().borders(Borders::ALL));
+            // Select ? if we are in help mode.
+            if self.help {
+                tabs = tabs.select(TerminalTab::LEN);
+            } else {
+                tabs = tabs.select(self.current_tab.into());
+            }
             frame.render_widget(tabs, chunks[0]);
 
             // Current tab.
-            match self.current_tab {
-                TerminalTab::Performance => {
-                    let block = Block::default().borders(Borders::ALL);
-
-                    frame.render_widget(block, chunks[1]);
+            if self.help {
+                match self.current_tab {
+                    TerminalTab::Performance => {}
+                    TerminalTab::Log => {
+                        let text = vec![
+                            Spans::from("| h        | Toggles target selector widget hidden/visible."),
+                            Spans::from("| f        | Toggle focus on the selected target only."),
+                            Spans::from("| UP       | Select previous target in target selector widget."),
+                            Spans::from("| DOWN     | Select next target in target selector widget."),
+                            Spans::from("| LEFT     | Reduce SHOWN (!) log messages by one level."),
+                            Spans::from("| RIGHT    | Increase SHOWN (!) log messages by one level."),
+                            Spans::from("| -        | Reduce CAPTURED (!) log messages by one level."),
+                            Spans::from("| +        | Increase CAPTURED (!) log messages by one level."),
+                            Spans::from("| PAGEUP   | Enter Page Mode and scroll approx. half page up in log history."),
+                            Spans::from("| PAGEDOWN | Only in page mode: scroll 10 events down in log history."),
+                            Spans::from("| ESCAPE   | Exit page mode and go back to scrolling mode."),
+                            Spans::from("| SPACE    | Toggles hiding of targets, which have logfilter set to off."),
+                        ];
+                        let paragraph = Paragraph::new(text)
+                            .alignment(Alignment::Left)
+                            .block(Block::default().borders(Borders::ALL));
+                        frame.render_widget(paragraph, chunks[1]);
+                    }
+                    TerminalTab::Info => todo!(),
                 }
-                TerminalTab::Log => {
-                    let log = TuiLoggerTargetWidget::default()
-                    .state(&self.log_state)
-                    .highlight_style(Style::default().fg(Color::Yellow))
-                    .block(Block::default().borders(Borders::ALL));
-
-                    frame.render_widget(log, chunks[1]);
-                }
-                TerminalTab::Info => {
-                    let text = vec![
-                        Spans::from(format!("version: {}.{}.{}", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH)),
-                        Spans::from(format!("{:?}", metascape.get_addresses())),
-                    ];
-
-                    let paragraph = Paragraph::new(text)
-                        .alignment(Alignment::Left)
-                        .block(Block::default().borders(Borders::ALL));
-
-                    frame.render_widget(paragraph, chunks[1]);
-                }
-
-            };
+            } else {
+                match self.current_tab {
+                    TerminalTab::Performance => {
+                        let block = Block::default().borders(Borders::ALL);
+                        frame.render_widget(block, chunks[1]);
+                    }
+                    TerminalTab::Log => {
+                        let log = TuiLoggerTargetWidget::default()
+                            .state(&self.log_state)
+                            .highlight_style(Style::default().fg(Color::Yellow))
+                            .block(Block::default().borders(Borders::ALL));
+                        frame.render_widget(log, chunks[1]);
+                    }
+                    TerminalTab::Info => {
+                        let text = vec![
+                            Spans::from(format!(
+                                "version: {}.{}.{}",
+                                VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH
+                            )),
+                            Spans::from(format!("{:?}", metascape.get_addresses())),
+                        ];
+                        let paragraph = Paragraph::new(text)
+                            .alignment(Alignment::Left)
+                            .block(Block::default().borders(Borders::ALL));
+                        frame.render_widget(paragraph, chunks[1]);
+                    }
+                };
+            }
 
             // Logs.
             let mut log = TuiLoggerWidget::default()
@@ -159,7 +205,6 @@ impl Terminal {
                 .style_trace(Style::default().fg(Color::Magenta))
                 .block(Block::default().borders(Borders::ALL));
             log.state(&self.log_state);
-
             frame.render_widget(log, chunks[2]);
         });
     }

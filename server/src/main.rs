@@ -105,7 +105,7 @@ fn main() {
     // Main loop.
     let mut loop_start = Instant::now();
     let mut stop_main = false;
-    'main: while !stop_main {
+    while !stop_main {
         // Time since last update.
         let delta = loop_start.elapsed();
         // Time alocated for this update.
@@ -117,25 +117,6 @@ fn main() {
 
         metascape.update();
         terminal.update(&mut stop_main, &mut metascape);
-
-        // // Handle commands.
-        // for cmd in console.cmd_receiver.try_iter() {
-        //     match cmd {
-        //         console::Commands::Test(_) => todo!(),
-        //         console::Commands::Exit => {
-        //             break 'main;
-        //         }
-        //         console::Commands::Help => {
-        //             console::help();
-        //         }
-        //         console::Commands::Addressses => {
-        //             println!("{:?}", metascape.get_addresses());
-        //         }
-        //         console::Commands::Log(value) => {
-        //             env::set_var("RUST_LOG", value);
-        //         }
-        //     }
-        // }
 
         // Sleep for the remaining time.
         if let Some(remaining) = update_duration.checked_sub(loop_start.elapsed()) {
