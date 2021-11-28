@@ -10,13 +10,7 @@ use termion::{
     input::TermRead,
     raw::{IntoRawMode, RawTerminal},
 };
-use tui::{
-    backend::TermionBackend,
-    layout::{Alignment, Constraint, Direction, Layout, Margin},
-    style::{Color, Style},
-    text::Spans,
-    widgets::{Block, Borders, Paragraph, Sparkline, Tabs},
-};
+use tui::{backend::TermionBackend, layout::{Alignment, Constraint, Direction, Layout, Margin}, style::{Color, Modifier, Style}, text::Spans, widgets::{Block, Borders, Paragraph, Sparkline, Tabs}};
 use tui_logger::{TuiLoggerTargetWidget, TuiLoggerWidget, TuiWidgetEvent, TuiWidgetState};
 
 use crate::Metascape;
@@ -24,14 +18,19 @@ use crate::Metascape;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, IntoPrimitive, FromPrimitive)]
 #[repr(usize)]
 enum TerminalTab {
-    #[default]
     Performance,
     Log,
+    #[default]
     Info,
 }
 impl TerminalTab {
     const LEN: usize = TerminalTab::Info as usize + 1;
     const TITLES: [&'static str; TerminalTab::LEN + 1] = ["Performance", "Log", "Info", "?"];
+}
+impl Default for TerminalTab {
+    fn default() -> Self {
+        Self::Info
+    }
 }
 
 /// Metrics in µs.
@@ -92,7 +91,9 @@ pub struct Terminal {
     backend_terminal: tui::Terminal<TermionBackend<RawTerminal<Stdout>>>,
     input_receiver: Receiver<Key>,
     current_tab: TerminalTab,
+    /// Display help for current tab and disable terminal to save cpu usage.
     help: bool,
+    need_redraw: bool,
     log_state: TuiWidgetState,
     performance_metascape: PerformanceMetrics,
     performance_terminal: PerformanceMetrics,
@@ -112,8 +113,9 @@ impl Terminal {
         Ok(Self {
             backend_terminal,
             input_receiver,
-            current_tab: TerminalTab::Performance,
-            help: false,
+            current_tab: TerminalTab::default(),
+            help: true,
+            need_redraw: true,
             log_state: TuiWidgetState::default(),
             performance_metascape: PerformanceMetrics::default(),
             performance_terminal: PerformanceMetrics::default(),
@@ -124,18 +126,10 @@ impl Terminal {
     pub fn update(&mut self, stop_main: &mut bool, metascape: &mut Metascape) {
         // Handle inputs.
         while let Ok(key) = self.input_receiver.try_recv() {
+            self.need_redraw = true;
             // Check if we are in help mode.
             if self.help == true {
-                if let Key::Char(c) = key {
-                    if c == '\t' {
-                        self.help = false;
-                        self.current_tab = TerminalTab::from((usize::from(self.current_tab) + 1) % TerminalTab::LEN);
-                    } else if c == '?' {
-                        self.help = false;
-                    }
-                } else if Key::Esc == key {
-                    self.help = false;
-                }
+                self.help = false;
                 continue;
             }
 
@@ -187,6 +181,11 @@ impl Terminal {
             }
         }
 
+        // Don't redraw if we don't need to (idle in help mode).
+        if !self.need_redraw {
+            return;
+        }
+
         // Draw.
         let _ = self.backend_terminal.draw(|frame| {
             let size = frame.size();
@@ -199,7 +198,7 @@ impl Terminal {
             // Tabs titles.
             let tab_titles = TerminalTab::TITLES.into_iter().map(|s| Spans::from(s)).collect();
             let mut tabs = Tabs::new(tab_titles)
-                .highlight_style(Style::default().fg(Color::Yellow))
+                .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
                 .block(Block::default().borders(Borders::ALL));
             // Select ? if we are in help mode.
             if self.help {
@@ -211,6 +210,8 @@ impl Terminal {
 
             // Current tab.
             if self.help {
+                self.need_redraw = false;
+
                 let text = match self.current_tab {
                     TerminalTab::Performance => vec![
                         Spans::from("Time is mesured in ms (milliseconds)."),
@@ -231,7 +232,15 @@ impl Terminal {
                         Spans::from("| ESCAPE   | Exit page mode and go back to scrolling mode."),
                         Spans::from("| SPACE    | Toggles hiding of targets, which have logfilter set to off."),
                     ],
-                    TerminalTab::Info => vec![],
+                    TerminalTab::Info => vec![
+                        Spans::from("This is the help mode for the Info tab. Each tab has its own help mode."),
+                        Spans::from("You can leave by pressing any key."),
+                        Spans::from("In help mode, the terminal will not redraw to save cpu time."),
+                        Spans::from("Some keys apply to all tabs unless specifically prevented."),
+                        Spans::from("| ?        | Go into help mode for the current tab."),
+                        Spans::from("| tab      | Go to the next tab."),
+                        Spans::from("| esc      | Shutdown server."),
+                    ],
                 };
                 let paragraph = Paragraph::new(text)
                     .alignment(Alignment::Left)
@@ -328,7 +337,7 @@ impl Terminal {
 
             // Logs.
             let mut log = TuiLoggerWidget::default()
-                .style_error(Style::default().fg(Color::Red))
+                .style_error(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
                 .style_warn(Style::default().fg(Color::Yellow))
                 // .style_info(Style::default().fg(Color::Cyan))
                 .style_debug(Style::default().fg(Color::Green))
