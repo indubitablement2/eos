@@ -10,7 +10,13 @@ use termion::{
     input::TermRead,
     raw::{IntoRawMode, RawTerminal},
 };
-use tui::{backend::TermionBackend, layout::{Alignment, Constraint, Direction, Layout, Margin}, style::{Color, Modifier, Style}, text::Spans, widgets::{Block, Borders, Paragraph, Sparkline, Tabs}};
+use tui::{
+    backend::TermionBackend,
+    layout::{Alignment, Constraint, Direction, Layout, Margin},
+    style::{Color, Modifier, Style},
+    text::Spans,
+    widgets::{Block, Borders, Paragraph, Sparkline, Tabs},
+};
 use tui_logger::{TuiLoggerTargetWidget, TuiLoggerWidget, TuiWidgetEvent, TuiWidgetState};
 
 use crate::Metascape;

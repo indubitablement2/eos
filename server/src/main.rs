@@ -14,10 +14,7 @@ use res_factions::FactionsRes;
 use res_fleets::FleetsRes;
 use res_parameters::ParametersRes;
 use res_times::TimeRes;
-use std::{
-    thread::sleep,
-    time::{Duration, Instant},
-};
+use std::{thread::sleep, time::Instant};
 
 use crate::terminal::Terminal;
 
@@ -27,7 +24,6 @@ mod data_manager;
 mod ecs_components;
 mod ecs_events;
 mod ecs_systems;
-mod fleet_ai;
 mod generation;
 mod res_clients;
 mod res_factions;
@@ -57,6 +53,7 @@ impl Metascape {
         world.insert_resource(ClientsRes::new()?);
         world.insert_resource(FactionsRes::new());
         world.insert_resource(FleetsRes::new());
+        world.insert_resource(IntersectionPipeline::new());
 
         let mut schedule = Schedule::default();
         ecs_systems::add_systems(&mut schedule);

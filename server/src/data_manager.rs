@@ -1,4 +1,7 @@
-use crate::{res_clients::*, res_factions::*};
+use crate::{
+    ecs_components::{ClientId, FleetId},
+    res_factions::*,
+};
 
 pub struct DataManager {}
 impl DataManager {
@@ -6,25 +9,17 @@ impl DataManager {
         Self {}
     }
 
-    /// TODO: Load client from file.
-    pub fn load_client(&self, client_id: ClientId) -> ClientData {
-        ClientData {
-            fleet: FleetData::default(),
-        }
+    /// TODO: Load client data from file.
+    pub fn load_client(&self, client_id: ClientId) -> Option<ClientData> {
+        None
+    }
+
+    /// TODO: Load fleet data from file.
+    pub fn load_fleet(&self, fleet_id: FleetId) -> Option<FleetData> {
+        None
     }
 }
 
-pub struct ClientData {
-    fleet: FleetData,
-}
+pub struct ClientData {}
 
-pub struct FleetData {
-    reputation: Reputation,
-}
-impl Default for FleetData {
-    fn default() -> Self {
-        Self {
-            reputation: Default::default(),
-        }
-    }
-}
+pub struct FleetData {}

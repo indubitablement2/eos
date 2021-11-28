@@ -1,9 +1,8 @@
+use crate::collision::*;
 use crate::data_manager::DataManager;
 use crate::ecs_components::*;
 use crate::ecs_events::*;
-use crate::fleet_ai::*;
 use crate::res_clients::*;
-use crate::res_fleets::FleetsRes;
 use crate::res_fleets::*;
 use crate::res_parameters::ParametersRes;
 use crate::res_times::TimeRes;
@@ -53,43 +52,55 @@ fn get_new_clients(
     mut fleets_res: ResMut<FleetsRes>,
     data_manager: Res<DataManager>,
     client_connected: ResMut<EventRes<ClientConnected>>,
+    mut intersection_pipeline: ResMut<IntersectionPipeline>,
 ) {
     while let Ok(connection) = clients_res.connection_manager.new_connection_receiver.try_recv() {
-        // Load client data.
-        let client_data = data_manager.load_client(connection.client_id);
-
         let client_id = connection.client_id;
         let fleet_id = FleetId::from(client_id);
 
         // Create client.
-        let client = Client {
-            connection,
-            client_data,
-            // input_battlescape: BattlescapeInput::default(),
-            // unacknowledged_commands: IndexMap::new(),
-        };
+        let client = Client { connection };
 
         // Insert client.
-        if clients_res.connected_clients.insert(client_id, client).is_some() {
-            info!("{:?} was disconnected as a new connection took this client.", client_id);
+        match clients_res.connected_clients.insert(client_id, client) {
+            Some(old_client) => {
+                debug!("{:?} was disconnected as a new connection took this client.", client_id);
+                // TODO: Send message to old client explaining why he got disconnected.
+            }
+            None => {
+                // TODO: Load and insert client data.
+                let client_data = data_manager.load_client(client_id);
+            }
         }
 
         // Check if fleet is already spawned.
         if let Some(old_fleet_entity) = fleets_res.spawned_fleets.get(&fleet_id) {
-            // TODO: Check components.
+            // TODO: Check old fleet components.
+            todo!();
         } else {
-            // TODO: Create client's fleet.
+            // TODO: Load or create client's fleet.
             let fleet_entity = command
-                .spawn_bundle((
-                    fleet_id,
+                .spawn_bundle(ClientFleetBundle {
                     client_id,
-                    Position(Vec2::ZERO),
-                    WishPosition(Vec2::ZERO),
-                    Velocity(Vec2::ZERO),
-                    FleetAI {
-                        goal: FleetGoal::Controlled,
+                    fleet_bundle: FleetBundle {
+                        fleet_id,
+                        position: Position(Vec2::ZERO),
+                        wish_position: WishPosition(Vec2::ZERO),
+                        velocity: Velocity(Vec2::ZERO),
+                        fleet_speed: Acceleration(0.1),
+                        fleet_ai: FleetAI {
+                            goal: FleetGoal::Controlled,
+                        },
+                        fleet_collider: FleetCollider(intersection_pipeline.insert_collider_with_custom_data(
+                            Collider {
+                                radius: 10.0,
+                                position: Vec2::ZERO,
+                            },
+                            crate::collision::Membership::Fleet,
+                            fleet_id.0,
+                        )),
                     },
-                ))
+                })
                 .id();
 
             // Insert fleet.
@@ -162,19 +173,18 @@ fn fleet_ai(
 
 //* update
 
-/// Add velocity based on wish position.
+/// Add velocity based on wish position and acceleration.
 /// TODO: Fleets engaged in the same Battlescape should aggregate.
-/// TODO: Use the speed of the fleet.
-fn movement(query: Query<(&Position, &WishPosition, &mut Velocity)>) {
-    query.for_each_mut(|(pos, wish_pos, mut vel)| {
+fn movement(query: Query<(&Position, &WishPosition, &mut Velocity, &Acceleration)>) {
+    query.for_each_mut(|(pos, wish_pos, mut vel, acceleration)| {
         // TODO: Stop threshold.
         if pos.0.distance_squared(wish_pos.0) < 10.0 {
             // Try to stop.
-            let new_vel = -vel.0.clamp_length_max(1.0);
+            let new_vel = -vel.0.clamp_length_max(acceleration.0);
             vel.0 += new_vel;
         } else {
             // Add velocity toward fleet's wish position at full speed.
-            vel.0 += (wish_pos.0 - pos.0).clamp_length_max(1.0);
+            vel.0 += (wish_pos.0 - pos.0).clamp_length_max(acceleration.0);
         }
     });
 }
@@ -206,11 +216,13 @@ fn disconnect_client(mut clients_res: ResMut<ClientsRes>, client_disconnected: R
 /// TODO: Send unacknowledged commands.
 /// TODO: Just sending every fleets position for now.
 fn send_udp(query: Query<(&FleetId, &Position)>, clients_res: Res<ClientsRes>) {
+    // Get the position of every fleets.
     let fleets_position: Vec<Vec2> = query.iter().map(|(_fleet_id, position)| position.0).collect();
 
     let packet = UdpServer::Metascape { fleets_position };
 
     for client in clients_res.connected_clients.values() {
+        // We don't care about the result. Disconnect are catched while receiving udp.
         let _ = client.connection.udp_sender.blocking_send(packet.clone());
     }
 }

@@ -1,4 +1,4 @@
-use crate::res_clients::ClientId;
+use crate::ecs_components::ClientId;
 use common::packets::*;
 use std::{
     collections::HashMap,
