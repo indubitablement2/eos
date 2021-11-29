@@ -189,7 +189,7 @@ impl AccelerationStructure {
         // Prepare first row.
         let mut current_row = old_row.pop().unwrap_or_default();
         // First row's start should be very large negative number.
-        current_row.start = -10000000000.0;
+        current_row.start = -1.0e30f32;
         let mut num_in_current_row = 0usize;
         // Create rows.
         for collider in self.colliders.values() {
@@ -213,7 +213,7 @@ impl AccelerationStructure {
             self.rows.push(current_row);
         }
         // Last row's end should be very large.
-        self.rows.last_mut().unwrap().end = 10000000000.0;
+        self.rows.last_mut().unwrap().end = 1.0e30f32;
 
         // Add colliders to overlapping rows.
         let mut i = 0u32;
@@ -251,6 +251,7 @@ impl AccelerationStructure {
         }
     }
 
+    /// Return if a collider intersect with any collider from this membership.
     pub fn intersect_collider(&self, collider: Collider) -> bool {
         let mut to_test = Vec::with_capacity(16);
         let bottom = collider.position.y - collider.radius;
@@ -311,6 +312,69 @@ impl AccelerationStructure {
         false
     }
 
+    /// Return all colliders from this membership that intersect with collider.
+    pub fn intersect_all_collider(&self, collider: Collider) -> Vec<ColliderId> {
+        let mut to_test = Vec::with_capacity(16);
+        let bottom = collider.position.y - collider.radius;
+        let top = collider.position.y + collider.radius;
+        let first_overlapping_row = self.rows.partition_point(|row| row.end < bottom);
+        for row in &self.rows[first_overlapping_row..] {
+            if row.start > top {
+                break;
+            }
+            // The collider overlap this row.
+
+            let closest = row
+                .data
+                .partition_point(|i| self.colliders[*i as usize].position.x < collider.position.x);
+
+            // The furthest we should look in each dirrections.
+            let threshold = collider.radius + row.biggest_radius;
+
+            // Look to the left.
+            let mut left = closest.saturating_sub(1);
+            while let Some(i) = row.data.get(left) {
+                let other = self.colliders[*i as usize];
+                if collider.position.x - other.position.x > threshold {
+                    break;
+                }
+                to_test.push(*i);
+
+                if left == 0 {
+                    break;
+                } else {
+                    left -= 1;
+                }
+            }
+            // Look to the right.
+            let mut right = closest;
+            while let Some(i) = row.data.get(right) {
+                let other = self.colliders[*i as usize];
+                if other.position.x - collider.position.x > threshold {
+                    break;
+                }
+                to_test.push(*i);
+
+                right += 1;
+            }
+        }
+
+        // Remove duplicate.
+        to_test.sort_unstable();
+        to_test.dedup();
+
+        // Test each Collider we have collected.
+        for i in to_test.into_iter() {
+            if collider.intersection_test(self.colliders[i as usize]) {
+                // return true;
+            }
+        }
+
+        // false
+        todo!()
+    }
+
+    /// Return if a point intersect with any collider from this membership.
     pub fn intersect_point(&self, point: Vec2) -> bool {
         let mut to_test = Vec::with_capacity(16);
         let overlapping_row = self.rows.partition_point(|row| row.end < point.y);
