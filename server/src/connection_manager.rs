@@ -244,7 +244,14 @@ async fn send_udp(
     loop {
         if let Some(packet) = udp_to_send.recv().await {
             // We don't care about being too correct when sending udp.
-            let _ = udp_socket.send_to(&packet.serialize(), udp_address).await;
+            match packet.serialize() {
+                Ok(buf) => {
+                    let _ = udp_socket.send_to(&buf, udp_address).await;
+                }
+                Err(err) => {
+                    debug!("Could not serialize packet {:?}. Not sending...", err);
+                }
+            }
         } else {
             debug!("Udp sender for {} shutdown.", udp_address);
             break;

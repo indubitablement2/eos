@@ -64,7 +64,7 @@ impl Game {
                     Ok(udp_packet) => {
                         match udp_packet {
                             UdpServer::Battlescape { client_inputs, tick } => todo!(),
-                            UdpServer::Metascape { fleets_position } => {
+                            UdpServer::Metascape { fleets_position, tick } => {
                                 self.client_metascape.fleets = fleets_position;
                                 owner.update();
                             }

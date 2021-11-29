@@ -107,7 +107,7 @@ impl Client {
 }
 
 fn udp_loop(udp_socket: UdpSocket, udp_to_send_receiver: Receiver<UdpClient>, udp_received_sender: Sender<UdpServer>) {
-    let mut recv_buf = [0u8; UdpServer::FIXED_SIZE];
+    let mut recv_buf = [0u8; UdpServer::MAX_SIZE + 1];
 
     info!("Udp loop started.");
 
@@ -134,20 +134,17 @@ fn udp_loop(udp_socket: UdpSocket, udp_to_send_receiver: Receiver<UdpClient>, ud
 
         // Receive from server.
         while let Ok(num) = udp_socket.recv(&mut recv_buf) {
-            // Check number of bytes.
-            if num != UdpServer::FIXED_SIZE {
-                warn!("Received an udp packet from server with missing bytes. Ignoring...");
-                continue;
-            }
-
             // Deserialize packet.
-            if let Some(packet) = UdpServer::deserialize(&recv_buf) {
-                if udp_received_sender.send(packet).is_err() {
-                    info!("Udp receiver channel dropped. Terminating udp loop...");
-                    break 'main;
+            match UdpServer::deserialize(&recv_buf[..num]) {
+                Ok(packet) => {
+                    if udp_received_sender.send(packet).is_err() {
+                        info!("Udp receiver channel dropped. Terminating udp loop...");
+                        break 'main;
+                    }
                 }
-            } else {
-                warn!("Received an udp packet from server that could not be deserialized. Ignoring...");
+                Err(err) => {
+                    warn!("Received an udp packet from server that could not be deserialized {:?}. Ignoring...", err);
+                }
             }
         }
     }

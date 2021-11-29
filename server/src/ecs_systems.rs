@@ -173,7 +173,8 @@ fn fleet_ai(
             FleetGoal::Wandering { new_pos_timer } => {
                 *new_pos_timer -= 1;
                 if *new_pos_timer <= 0 {
-                    wish_pos.0 = rng.gen::<Vec2>() * 10.0;
+                    wish_pos.0 = rng.gen::<Vec2>() * 100.0 - 50.0 + pos.0;
+                    *new_pos_timer = rng.gen_range((5..30));
                 }
             }
             FleetGoal::Idle { duration } => todo!(),
@@ -258,11 +259,11 @@ fn update_intersection_pipeline(mut intersection_pipeline: ResMut<IntersectionPi
 
 /// TODO: Send unacknowledged commands.
 /// TODO: Just sending every fleets position for now.
-fn send_udp(query: Query<(&FleetId, &Position)>, clients_res: Res<ClientsRes>) {
-    // Get the position of every fleets.
-    let fleets_position: Vec<Vec2> = query.iter().map(|(_fleet_id, position)| position.0).collect();
+fn send_udp(query: Query<(&FleetId, &Position)>, time_res: Res<TimeRes>, clients_res: Res<ClientsRes>) {
+    // Get the position of the first 25 fleets.
+    let fleets_position: Vec<Vec2> = query.iter().take(25).map(|(_fleet_id, position)| position.0).collect();
 
-    let packet = UdpServer::Metascape { fleets_position };
+    let packet = UdpServer::Metascape { fleets_position, tick: time_res.tick };
 
     for client in clients_res.connected_clients.values() {
         // We don't care about the result. Disconnect are catched while receiving udp.

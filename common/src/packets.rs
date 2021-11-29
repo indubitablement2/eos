@@ -8,6 +8,15 @@ pub struct ServerAddresses {
     pub udp_address: SocketAddr,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum PacketError {
+    TooLarge,
+    WrongSize,
+    NoHeader,
+    NoPayload,
+    BincodeError
+}
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct LoginPacket {
     pub is_steam: bool,
@@ -183,44 +192,51 @@ fn test_udp_client() {
 pub enum UdpServer {
     Battlescape {
         client_inputs: Vec<BattlescapeInput>,
-        tick: u32,
+        tick: u64,
     },
     Metascape {
         fleets_position: Vec<Vec2>,
+        tick: u64,
     },
 }
 impl UdpServer {
-    /// These packet are always the same size.
-    pub const FIXED_SIZE: usize = 100;
+    /// These packet have a maximum size.
+    pub const MAX_SIZE: usize = u8::MAX as usize;
 
-    pub fn serialize(&self) -> Vec<u8> {
+    pub fn serialize(&self) -> Result<Vec<u8>, PacketError> {
         let payload = bincode::serialize(self).unwrap();
-        let mut v = Vec::with_capacity(Self::FIXED_SIZE);
+
+        // Check that we do not try to send a packet above max size.
+        if payload.len() >= Self::MAX_SIZE {
+            return Err(PacketError::TooLarge);
+        }
+
+        let mut v = Vec::with_capacity(Self::MAX_SIZE);
         v.push(payload.len() as u8);
         v.extend_from_slice(&payload);
-        v.resize(Self::FIXED_SIZE, 0);
-        v
+        Ok(v)
     }
 
-    pub fn deserialize(buffer: &[u8]) -> Option<Self> {
-        let size = match buffer.first() {
+    pub fn deserialize(buffer: &[u8]) -> Result<Self, PacketError> {
+        // Get the size of the payload.
+        let payload_size = match buffer.first() {
             Some(b) => *b as usize,
             None => {
-                return None;
+                return Err(PacketError::NoHeader);
             }
         };
 
-        if size <= 1 {
-            return None;
+        if payload_size == 0 {
+            return Err(PacketError::NoPayload);
         }
 
-        if buffer.len() < size + 1 {
-            return None;
+        if buffer.len() != payload_size + 1 {
+            return Err(PacketError::WrongSize);
         }
 
-        match bincode::deserialize::<Self>(&buffer[1..size + 1]) {
-            Ok(result) => Some(result),
-            Err(_) => None,
+        match bincode::deserialize::<Self>(&buffer[1..]) {
+            Ok(result) => Ok(result),
+            Err(_) => Err(PacketError::BincodeError),
         }
     }
 
