@@ -253,7 +253,7 @@ async fn send_udp(
 }
 
 /// Receive all udp packets.
-/// Does not know if a connection is dropped until the tcp sender channel is dropped.
+/// Does not know if a connection is dropped until the tcp receiver channel is dropped.
 async fn recv_udp(
     udp_senders: Arc<Mutex<HashMap<SocketAddr, crossbeam_channel::Sender<UdpClient>>>>,
     udp_socket: Arc<UdpSocket>,
@@ -389,4 +389,5 @@ async fn recv_tcp(
 
     // Also remove udp address.
     udp_senders.lock().unwrap().remove(&udp_address);
+    debug!("Tcp receiver for {} shutdown. Also removed address from udp list.");
 }
