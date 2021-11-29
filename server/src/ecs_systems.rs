@@ -90,7 +90,7 @@ fn get_new_clients(
                         position: Position(Vec2::ZERO),
                         wish_position: WishPosition(Vec2::ZERO),
                         velocity: Velocity(Vec2::ZERO),
-                        fleet_speed: Acceleration(0.1),
+                        acceleration: Acceleration(0.1),
                         fleet_ai: FleetAI {
                             goal: FleetGoal::Controlled,
                         },
@@ -102,6 +102,9 @@ fn get_new_clients(
                             Membership::Fleet,
                             fleet_id.0,
                         )),
+                        reputation: Reputation(0),
+                        fleet_detection_radius: FleetDetectionRadius(10.0),
+                        fleet_detected: FleetDetected(Vec::new()),
                     },
                 })
                 .id();
@@ -113,6 +116,10 @@ fn get_new_clients(
         // Trigger event.
         client_connected.events.push(ClientConnected { client_id });
     }
+}
+
+fn detect_fleet() {
+    
 }
 
 //* pre_update
@@ -235,7 +242,7 @@ fn spawn_ai_fleet(time_res: Res<TimeRes>, mut commands: Commands, mut fleets_res
         position: Position(Vec2::ZERO),
         wish_position: WishPosition(Vec2::ZERO),
         velocity: Velocity(Vec2::ZERO),
-        fleet_speed: Acceleration(0.1),
+        acceleration: Acceleration(0.1),
         fleet_ai: FleetAI { goal: FleetGoal::Wandering { new_pos_timer: 0 } },
         fleet_collider: FleetCollider(intersection_pipeline.insert_collider_with_custom_data(
             Collider {
@@ -245,6 +252,9 @@ fn spawn_ai_fleet(time_res: Res<TimeRes>, mut commands: Commands, mut fleets_res
             Membership::Fleet,
             fleet_id.0,
         )),
+        reputation: Reputation(0),
+        fleet_detection_radius: FleetDetectionRadius(10.0),
+        fleet_detected: FleetDetected(Vec::new()),
     }).id();
 
     // Insert fleet.
