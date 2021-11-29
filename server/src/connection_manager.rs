@@ -389,5 +389,5 @@ async fn recv_tcp(
 
     // Also remove udp address.
     udp_senders.lock().unwrap().remove(&udp_address);
-    debug!("Tcp receiver for {} shutdown. Also removed address from udp list.");
+    debug!("Tcp receiver for {} shutdown. Also removed {} from udp list.", tcp_addr, udp_address);
 }
