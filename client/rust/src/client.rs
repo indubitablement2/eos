@@ -155,6 +155,7 @@ fn udp_loop(udp_socket: UdpSocket, udp_to_send_receiver: Receiver<UdpClient>, ud
     info!("Udp loop finished.");
 }
 
+/// TODO: Implement tcp loop.
 fn tcp_loop(tcp_stream: TcpStream, tcp_to_send_receiver: Receiver<TcpClient>, tcp_received_sender: Sender<TcpServer>) {
     info!("Tcp loop started.");
     let _ = tcp_to_send_receiver.recv();

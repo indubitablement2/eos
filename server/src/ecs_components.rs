@@ -89,8 +89,7 @@ pub enum FleetGoal {
         duration: i32,
     },
     Wandering {
-        to: (),
-        pause: i32,
+        new_pos_timer: i32,
     },
 }
 pub struct FleetAI {

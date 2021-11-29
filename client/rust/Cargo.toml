@@ -26,8 +26,6 @@ serde = { version = "1.0.130", features = ["derive"] }
 bincode = "1.3.3"
 serde_yaml = "0.8.21"
 
-# bytes = "1.1.0"
-
 # For packing sprites into a sprite sheet.
 crunch = "0.3.3"
 

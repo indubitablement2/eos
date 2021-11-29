@@ -10,6 +10,7 @@ use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
 use common::packets::*;
 use glam::Vec2;
+use rand::Rng;
 
 pub fn add_systems(schedule: &mut Schedule) {
     let current_stage = "first";
@@ -32,11 +33,13 @@ pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
     schedule.add_system_to_stage(current_stage, apply_velocity.system());
     schedule.add_system_to_stage(current_stage, disconnect_client.system());
+    schedule.add_system_to_stage(current_stage, spawn_ai_fleet.system());
 
     let previous_stage = current_stage;
     let current_stage = "last";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
     schedule.add_system_to_stage(current_stage, send_udp.system());
+    schedule.add_system_to_stage(current_stage, update_intersection_pipeline.system());
 }
 
 //* first
@@ -47,7 +50,7 @@ fn increment_time(mut time_res: ResMut<TimeRes>) {
 
 /// Get new connection and insert client.
 fn get_new_clients(
-    mut command: Commands,
+    mut commands: Commands,
     mut clients_res: ResMut<ClientsRes>,
     mut fleets_res: ResMut<FleetsRes>,
     data_manager: Res<DataManager>,
@@ -79,7 +82,7 @@ fn get_new_clients(
             todo!();
         } else {
             // TODO: Load or create client's fleet.
-            let fleet_entity = command
+            let fleet_entity = commands
                 .spawn_bundle(ClientFleetBundle {
                     client_id,
                     fleet_bundle: FleetBundle {
@@ -96,7 +99,7 @@ fn get_new_clients(
                                 radius: 10.0,
                                 position: Vec2::ZERO,
                             },
-                            crate::collision::Membership::Fleet,
+                            Membership::Fleet,
                             fleet_id.0,
                         )),
                     },
@@ -120,8 +123,10 @@ fn fleet_ai(
     clients_res: Res<ClientsRes>,
     client_disconnected: ResMut<EventRes<ClientDisconnected>>,
 ) {
-    query.par_for_each_mut(&task_pool, 16, |(fleet_id, mut fleet_ai, pos, mut wish_pos)| {
-        match fleet_ai.goal {
+    query.par_for_each_mut(&task_pool, 256, |(fleet_id, mut fleet_ai, pos, mut wish_pos)| {
+        let mut rng = rand::thread_rng();
+
+        match &mut fleet_ai.goal {
             // Get and process clients udp packets.
             FleetGoal::Controlled => {
                 let client_id = ClientId::from(*fleet_id);
@@ -165,7 +170,12 @@ fn fleet_ai(
             }
             FleetGoal::Trade { from, to } => todo!(),
             FleetGoal::Guard { who, radius, duration } => todo!(),
-            FleetGoal::Wandering { to, pause } => todo!(),
+            FleetGoal::Wandering { new_pos_timer } => {
+                *new_pos_timer -= 1;
+                if *new_pos_timer <= 0 {
+                    wish_pos.0 = rng.gen::<Vec2>() * 10.0;
+                }
+            }
             FleetGoal::Idle { duration } => todo!(),
         }
     });
@@ -211,7 +221,40 @@ fn disconnect_client(mut clients_res: ResMut<ClientsRes>, client_disconnected: R
     }
 }
 
+/// TODO: This just spawn ai fleet every seconds for testing.
+fn spawn_ai_fleet(time_res: Res<TimeRes>, mut commands: Commands, mut fleets_res: ResMut<FleetsRes>, mut intersection_pipeline: ResMut<IntersectionPipeline>,) {
+    if time_res.tick % 10 != 0 {
+        return;
+    }
+
+    let fleet_id = fleets_res.get_new_fleet_id();
+
+    let fleet_entity = commands.spawn_bundle(FleetBundle {
+        fleet_id,
+        position: Position(Vec2::ZERO),
+        wish_position: WishPosition(Vec2::ZERO),
+        velocity: Velocity(Vec2::ZERO),
+        fleet_speed: Acceleration(0.1),
+        fleet_ai: FleetAI { goal: FleetGoal::Wandering { new_pos_timer: 0 } },
+        fleet_collider: FleetCollider(intersection_pipeline.insert_collider_with_custom_data(
+            Collider {
+                radius: 10.0,
+                position: Vec2::ZERO,
+            },
+            Membership::Fleet,
+            fleet_id.0,
+        )),
+    }).id();
+
+    // Insert fleet.
+    let _ = fleets_res.spawned_fleets.insert(fleet_id, fleet_entity);
+}
+
 //* last
+
+fn update_intersection_pipeline(mut intersection_pipeline: ResMut<IntersectionPipeline>) {
+    intersection_pipeline.update();
+}
 
 /// TODO: Send unacknowledged commands.
 /// TODO: Just sending every fleets position for now.
