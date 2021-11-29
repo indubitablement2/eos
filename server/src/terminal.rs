@@ -167,6 +167,7 @@ impl Terminal {
                     },
                     Key::Esc => {
                         self.log_state.transition(&TuiWidgetEvent::EscapeKey);
+                        continue;
                     }
                     _ => (),
                 },
