@@ -1,4 +1,4 @@
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 use glam::Vec2;
 use indexmap::IndexMap;
 use num_enum::{FromPrimitive, IntoPrimitive};
@@ -253,7 +253,7 @@ impl AccelerationStructure {
 
     /// Return if a collider intersect with any collider from this membership.
     pub fn intersect_collider(&self, collider: Collider) -> bool {
-        let mut to_test = Vec::with_capacity(16);
+        let mut to_test = AHashSet::with_capacity(16);
         let bottom = collider.position.y - collider.radius;
         let top = collider.position.y + collider.radius;
         let first_overlapping_row = self.rows.partition_point(|row| row.end < bottom);
@@ -277,7 +277,7 @@ impl AccelerationStructure {
                 if collider.position.x - other.position.x > threshold {
                     break;
                 }
-                to_test.push(*i);
+                to_test.insert(*i);
 
                 if left == 0 {
                     break;
@@ -292,15 +292,11 @@ impl AccelerationStructure {
                 if other.position.x - collider.position.x > threshold {
                     break;
                 }
-                to_test.push(*i);
+                to_test.insert(*i);
 
                 right += 1;
             }
         }
-
-        // Remove duplicate.
-        to_test.sort_unstable();
-        to_test.dedup();
 
         // Test each Collider we have collected.
         for i in to_test.into_iter() {
@@ -313,8 +309,8 @@ impl AccelerationStructure {
     }
 
     /// Return all colliders from this membership that intersect with collider.
-    pub fn intersect_all_collider(&self, collider: Collider) -> Vec<ColliderId> {
-        let mut to_test = Vec::with_capacity(16);
+    pub fn intersect_colliders(&self, collider: Collider) -> Vec<ColliderId> {
+        let mut to_test = AHashSet::with_capacity(16);
         let bottom = collider.position.y - collider.radius;
         let top = collider.position.y + collider.radius;
         let first_overlapping_row = self.rows.partition_point(|row| row.end < bottom);
@@ -338,7 +334,7 @@ impl AccelerationStructure {
                 if collider.position.x - other.position.x > threshold {
                     break;
                 }
-                to_test.push(*i);
+                to_test.insert(*i);
 
                 if left == 0 {
                     break;
@@ -353,30 +349,28 @@ impl AccelerationStructure {
                 if other.position.x - collider.position.x > threshold {
                     break;
                 }
-                to_test.push(*i);
+                to_test.insert(*i);
 
                 right += 1;
             }
         }
 
-        // Remove duplicate.
-        to_test.sort_unstable();
-        to_test.dedup();
-
         // Test each Collider we have collected.
+        let mut result = Vec::with_capacity(to_test.len());
         for i in to_test.into_iter() {
-            if collider.intersection_test(self.colliders[i as usize]) {
-                // return true;
+            if let Some((collider_id, other)) = self.colliders.get_index(i as usize) {
+                if collider.intersection_test(*other) {
+                    result.push(*collider_id);
+                }
             }
         }
 
-        // false
-        todo!()
+        result
     }
 
     /// Return if a point intersect with any collider from this membership.
     pub fn intersect_point(&self, point: Vec2) -> bool {
-        let mut to_test = Vec::with_capacity(16);
+        let mut to_test = AHashSet::with_capacity(16);
         let overlapping_row = self.rows.partition_point(|row| row.end < point.y);
         if let Some(row) = self.rows.get(overlapping_row) {
             // The closest collider to this point.
@@ -394,7 +388,7 @@ impl AccelerationStructure {
                 if point.x - other.position.x > threshold {
                     break;
                 }
-                to_test.push(*i);
+                to_test.insert(*i);
 
                 if left == 0 {
                     break;
@@ -409,15 +403,11 @@ impl AccelerationStructure {
                 if other.position.x - point.x > threshold {
                     break;
                 }
-                to_test.push(*i);
+                to_test.insert(*i);
 
                 right += 1;
             }
         }
-
-        // Remove duplicate.
-        to_test.sort_unstable();
-        to_test.dedup();
 
         // Test each Collider we have collected.
         for i in to_test.into_iter() {
@@ -537,6 +527,11 @@ impl IntersectionPipeline {
     /// Get every ColliderId in this membership.
     pub fn get_collider_id(&self, membership: Membership) -> indexmap::map::Keys<'_, ColliderId, Collider> {
         self.memberships[membership].colliders.keys()
+    }
+
+    /// Return all colliders that intersect with a provided collider.
+    pub fn intersect_collider(&self, collider: Collider, filter: Membership) -> Vec<ColliderId> {
+        self.memberships[filter].intersect_colliders(collider)
     }
 
     /// Test for an intersection with the provided Collider.
@@ -698,7 +693,6 @@ fn test_row() {
 
 #[test]
 fn test_random() {
-    use glam::vec2;
     use rand::random;
 
     // Random test.
@@ -708,7 +702,7 @@ fn test_random() {
         intersection_pipeline.insert_collider(
             Collider {
                 radius: random::<f32>() * 256.0,
-                position: vec2(random::<f32>() * 512.0 - 256.0, random::<f32>() * 512.0 - 256.0),
+                position: random::<Vec2>() * 512.0 - 256.0,
             },
             Membership::System,
         );
@@ -716,7 +710,7 @@ fn test_random() {
 
         let other = Collider {
             radius: random::<f32>() * 256.0,
-            position: vec2(random::<f32>() * 512.0 - 256.0, random::<f32>() * 512.0 - 256.0),
+            position: random::<Vec2>() * 512.0 - 256.0,
         };
 
         assert_eq!(
@@ -731,7 +725,6 @@ fn test_random() {
 
 #[test]
 fn test_random_point() {
-    use glam::vec2;
     use rand::random;
 
     // Random test.
@@ -741,13 +734,13 @@ fn test_random_point() {
         intersection_pipeline.insert_collider(
             Collider {
                 radius: random::<f32>() * 256.0,
-                position: vec2(random::<f32>() * 512.0 - 256.0, random::<f32>() * 512.0 - 256.0),
+                position: random::<Vec2>() * 512.0 - 256.0,
             },
             Membership::System,
         );
         intersection_pipeline.update();
 
-        let point = vec2(random::<f32>() * 512.0 - 256.0, random::<f32>() * 512.0 - 256.0);
+        let point = random::<Vec2>() * 512.0 - 256.0;
         let other = Collider {
             radius: 0.0,
             position: point,
@@ -762,3 +755,76 @@ fn test_random_point() {
         );
     }
 }
+
+#[test]
+fn test_overlap_colliders() {
+    let mut intersection_pipeline = IntersectionPipeline::new();
+
+    let og_collider = Collider {
+        radius: 10.0,
+        position: Vec2::ZERO,
+    };
+
+    for _ in 0..10 {
+        let new_collider = Collider {
+            radius: 10.0,
+            position: Vec2::ZERO,
+        };
+
+        intersection_pipeline.insert_collider(new_collider, Membership::System);
+    }
+
+    intersection_pipeline.update();
+
+    assert_eq!(
+        10,
+        intersection_pipeline.intersect_collider(og_collider, Membership::System).len(),
+    );
+}
+
+#[test]
+fn test_random_colliders() {
+    use rand::random;
+
+    // Random test.
+    for _ in 0..1000 {
+        let mut intersection_pipeline = IntersectionPipeline::new();
+
+        let og_collider = Collider {
+            radius: random::<f32>() * 256.0,
+            position: (random::<Vec2>() * 512.0 - 256.0),
+        };
+        
+        let mut expected_result = Vec::new();
+
+        // Add colliders.
+        for _ in 0..5 {
+            let new_collider = Collider {
+                radius: random::<f32>() * 256.0,
+                position: (random::<Vec2>() * 512.0 - 256.0),
+            };
+
+            let new_id = intersection_pipeline.insert_collider(new_collider, Membership::System);
+
+            if og_collider.intersection_test(new_collider) {
+                expected_result.push(new_id);
+            }
+        }
+
+        expected_result.sort();
+
+        intersection_pipeline.update();
+
+        let mut result = intersection_pipeline.intersect_collider(og_collider, Membership::System);
+        result.sort(); 
+
+        assert_eq!(
+            result,
+            expected_result,
+            "\n{:?}\n\n{:?}\n",
+            result,
+            expected_result
+        );
+    }
+}
+
