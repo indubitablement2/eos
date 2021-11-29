@@ -1,6 +1,6 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
+use std::net::{SocketAddr};
 
 #[derive(Debug, Clone, Copy)]
 pub struct ServerAddresses {

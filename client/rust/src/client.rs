@@ -1,15 +1,10 @@
+// use common::SERVER_ADDRESSES;
 use common::packets::*;
+use common::*;
 use crossbeam_channel::*;
-use std::{
-    io::{Read, Write},
-    net::{Ipv6Addr, SocketAddr, SocketAddrV6, TcpStream, UdpSocket},
-    thread::spawn,
-    time::Duration,
-};
+use std::{io::{Read, Write}, net::{IpAddr, Ipv6Addr, SocketAddr, SocketAddrV6, TcpStream, UdpSocket}, thread::spawn, time::Duration};
 
 pub struct Client {
-    local: bool,
-
     pub udp_sender: Sender<UdpClient>,
     pub udp_receiver: Receiver<UdpServer>,
     pub tcp_sender: Sender<TcpClient>,
@@ -21,13 +16,10 @@ pub struct Client {
 }
 impl Client {
     /// Try to connect to a server. This could also be set to loopback if server is also the client.
-    pub fn new(server_addresses: ServerAddresses) -> std::io::Result<Self> {
-        let local = server_addresses.tcp_address.ip().is_loopback();
-
-        // TODO: Use v6, but fall back to v4.
-        let addr = match local {
-            true => SocketAddrV6::new(Ipv6Addr::LOCALHOST, 0, 0, 0),
-            false => SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0),
+    pub fn new() -> std::io::Result<Self> {
+        let server_addresses: ServerAddresses = ServerAddresses {
+            tcp_address: SocketAddr::new(IpAddr::V6(SERVER_ADDRESS), SERVER_PORT),
+            udp_address: SocketAddr::new(IpAddr::V6(SERVER_ADDRESS), SERVER_PORT),
         };
 
         // Connect tcp stream.
@@ -35,23 +27,16 @@ impl Client {
         info!("Connected with server over tcp.");
 
         // Create UdpSocket.
-        let udp_socket = UdpSocket::bind(addr)?;
+        let udp_socket = UdpSocket::bind(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0))?;
         udp_socket.connect(server_addresses.udp_address)?;
         info!("Connected with server over udp.");
 
         // Create LoginPacket.
-        let login_packet = match local {
-            true => LoginPacket {
-                is_steam: false,
-                token: 0,
-                udp_address: udp_socket.local_addr()?,
-            },
-            false => {
-                // TODO: Get a token from steam.
-                todo!()
-            }
-        }
-        .serialize();
+        let login_packet = LoginPacket {
+            is_steam: true,
+            token: 0,
+            udp_address: udp_socket.local_addr()?,
+        }.serialize();
         info!("Created LoginPacket.");
 
         // Set temporary timeouts.
@@ -89,7 +74,6 @@ impl Client {
 
         // Create client.
         let client = Client {
-            local: tcp_stream.local_addr()?.ip().is_loopback(),
             udp_sender,
             udp_receiver,
             tcp_sender,
@@ -119,11 +103,6 @@ impl Client {
     /// Get the server addresses this client is connected to.
     pub fn server_addresses(&self) -> ServerAddresses {
         self.server_addresses
-    }
-
-    /// Return if this client is connected on localhost.
-    pub fn is_local(&self) -> bool {
-        self.local
     }
 }
 
@@ -178,5 +157,7 @@ fn udp_loop(udp_socket: UdpSocket, udp_to_send_receiver: Receiver<UdpClient>, ud
 
 fn tcp_loop(tcp_stream: TcpStream, tcp_to_send_receiver: Receiver<TcpClient>, tcp_received_sender: Sender<TcpServer>) {
     info!("Tcp loop started.");
+    let _ = tcp_to_send_receiver.recv();
+    error!("TODO tcp loop no implemented. Trying to send a packet cause dtermination.");
     info!("Tcp loop finished.");
 }

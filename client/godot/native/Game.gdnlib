@@ -7,20 +7,20 @@ reloadable=false
 
 [entry]
 
-Android.arm64-v8a="res://../lib/aarch64-linux-android/libchaos_cascade.so"
-Android.armeabi-v7a="res://../lib/armv7-linux-androideabi/libchaos_cascade.so"
-Android.x86="res://../lib/i686-linux-android/libchaos_cascade.so"
-Android.x86_64="res://../lib/x86_64-linux-android/libchaos_cascade.so"
-iOS.arm64="res://../lib/aarch64-apple-ios/libchaos_cascade.a"
-OSX.64="res://../lib/x86_64-apple-darwin/libchaos_cascade.dylib"
-Server.32="res://../lib/i686-unknown-linux-gnu/libchaos_cascade.so"
-Server.64="res://../lib/x86_64-unknown-linux-gnu/libchaos_cascade.so"
-#Windows.32="res://../lib/i686-pc-windows-gnu/chaos_cascade.dll"
-Windows.32="res://../lib/i686-pc-windows-msvc/chaos_cascade.dll"
-#Windows.64="res://../lib/x86_64-pc-windows-gnu/chaos_cascade.dll"
-Windows.64="res://../lib/x86_64-pc-windows-msvc/chaos_cascade.dll"
-X11.32="res://../lib/i686-unknown-linux-gnu/libchaos_cascade.so"
-X11.64="res://../lib/x86_64-unknown-linux-gnu/libchaos_cascade.so"
+Android.arm64-v8a="res://../lib/aarch64-linux-android/libeos.so"
+Android.armeabi-v7a="res://../lib/armv7-linux-androideabi/libeos.so"
+Android.x86="res://../lib/i686-linux-android/libeos.so"
+Android.x86_64="res://../lib/x86_64-linux-android/libeos.so"
+iOS.arm64="res://../lib/aarch64-apple-ios/libeos.a"
+OSX.64="res://../lib/x86_64-apple-darwin/libeos.dylib"
+Server.32="res://../lib/i686-unknown-linux-gnu/libeos.so"
+Server.64="res://../lib/x86_64-unknown-linux-gnu/libeos.so"
+#Windows.32="res://../lib/i686-pc-windows-gnu/eos.dll"
+Windows.32="res://../lib/i686-pc-windows-msvc/eos.dll"
+#Windows.64="res://../lib/x86_64-pc-windows-gnu/eos.dll"
+Windows.64="res://../lib/x86_64-pc-windows-msvc/eos.dll"
+X11.32="res://../lib/i686-unknown-linux-gnu/libeos.so"
+X11.64="res://../lib/x86_64-unknown-linux-gnu/libeos.so"
 
 [dependencies]
 

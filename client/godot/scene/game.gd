@@ -14,9 +14,13 @@ onready var tex_rid := SpritePacker.tex.get_rid()
 
 func _ready() -> void:
 #	var gen_img = preload("res://assets/debug/target.png").get_data()
-	var gen_img := Image.new()
-	gen_img.load("res://assets/generation/galaxy_gen.png")
-	$Game.generate_metascape("test world", 2000.0, preload("res://assets/debug/pixel.png").get_data())
+#	var gen_img := Image.new()
+#	gen_img.load("res://assets/generation/galaxy_gen.png")
+#	$Game.generate_metascape("test world", 2000.0, preload("res://assets/debug/pixel.png").get_data())
+	
+	while !$Game.connect_client():
+		yield(get_tree().create_timer(2), "timeout")
+	
 	
 #	_init_mesh()
 #	_init_mat()
@@ -39,8 +43,8 @@ func _exit_tree() -> void:
 #		print("placing system at: " + str(get_global_mouse_position()))
 #		$Game.new_system(get_global_mouse_position())
 
-func _physics_process(delta: float) -> void:
-	$Game.manual_update()
+#func _physics_process(delta: float) -> void:
+#	$Game.manual_update()
 
 func allocate_mesh(num: int) -> void:
 	VisualServer.multimesh_allocate(multimesh_rid, num, VisualServer.MULTIMESH_TRANSFORM_2D, VisualServer.MULTIMESH_COLOR_NONE, VisualServer.MULTIMESH_CUSTOM_DATA_FLOAT)
