@@ -487,6 +487,7 @@ pub trait IntersectionPipeline {
 }
 
 /// Allow fast circle-circle intersection and test for fleet colliders.
+/// This intersection pipeline is fully async, but there is a delay before commands take effect.
 #[derive(Debug)]
 pub struct FleetIntersectionPipeline {
     collider_id_dispenser: Arc<ColliderIdDispenser>,

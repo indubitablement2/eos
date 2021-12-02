@@ -233,7 +233,7 @@ fn spawn_ai_fleet(
     time_res: Res<TimeRes>,
     mut commands: Commands,
     mut fleets_res: ResMut<FleetsRes>,
-    mut fleet_intersection_pipeline: ResMut<FleetIntersectionPipeline>,
+    fleet_intersection_pipeline: Res<FleetIntersectionPipeline>,
 ) {
     if time_res.tick % 10 != 0 {
         return;
