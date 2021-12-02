@@ -2,7 +2,7 @@
 
 use ahash::AHashSet;
 use rand::Rng;
-use test::{Bencher, black_box};
+use test::{black_box, Bencher};
 
 extern crate test;
 

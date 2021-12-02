@@ -1,7 +1,7 @@
-use crate::collision::*;
 use crate::data_manager::DataManager;
 use crate::ecs_components::*;
 use crate::ecs_events::*;
+use crate::intersection::*;
 use crate::res_clients::*;
 use crate::res_fleets::*;
 use crate::res_parameters::ParametersRes;
@@ -17,6 +17,7 @@ pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_stage(current_stage, SystemStage::parallel());
     schedule.add_system_to_stage(current_stage, increment_time.system());
     schedule.add_system_to_stage(current_stage, get_new_clients.system());
+    schedule.add_system_to_stage(current_stage, update_intersection_pipeline.system());
 
     let previous_stage = current_stage;
     let current_stage = "pre_update";
@@ -39,7 +40,6 @@ pub fn add_systems(schedule: &mut Schedule) {
     let current_stage = "last";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
     schedule.add_system_to_stage(current_stage, send_udp.system());
-    schedule.add_system_to_stage(current_stage, update_intersection_pipeline.system());
 }
 
 //* first
@@ -55,7 +55,7 @@ fn get_new_clients(
     mut fleets_res: ResMut<FleetsRes>,
     data_manager: Res<DataManager>,
     client_connected: ResMut<EventRes<ClientConnected>>,
-    mut intersection_pipeline: ResMut<IntersectionPipeline>,
+    mut fleet_intersection_pipeline: ResMut<FleetIntersectionPipeline>,
 ) {
     while let Ok(connection) = clients_res.connection_manager.new_connection_receiver.try_recv() {
         let client_id = connection.client_id;
@@ -94,12 +94,11 @@ fn get_new_clients(
                         fleet_ai: FleetAI {
                             goal: FleetGoal::Controlled,
                         },
-                        fleet_collider: FleetCollider(intersection_pipeline.insert_collider_with_custom_data(
+                        fleet_collider: FleetCollider(fleet_intersection_pipeline.insert_collider(
                             Collider {
                                 radius: 10.0,
                                 position: Vec2::ZERO,
                             },
-                            Membership::Fleet,
                             fleet_id.0,
                         )),
                         reputation: Reputation(0),
@@ -118,8 +117,8 @@ fn get_new_clients(
     }
 }
 
-fn detect_fleet() {
-    
+fn update_intersection_pipeline(mut fleet_intersection_pipeline: ResMut<FleetIntersectionPipeline>) {
+    fleet_intersection_pipeline.update();
 }
 
 //* pre_update
@@ -230,32 +229,40 @@ fn disconnect_client(mut clients_res: ResMut<ClientsRes>, client_disconnected: R
 }
 
 /// TODO: This just spawn ai fleet every seconds for testing.
-fn spawn_ai_fleet(time_res: Res<TimeRes>, mut commands: Commands, mut fleets_res: ResMut<FleetsRes>, mut intersection_pipeline: ResMut<IntersectionPipeline>,) {
+fn spawn_ai_fleet(
+    time_res: Res<TimeRes>,
+    mut commands: Commands,
+    mut fleets_res: ResMut<FleetsRes>,
+    mut fleet_intersection_pipeline: ResMut<FleetIntersectionPipeline>,
+) {
     if time_res.tick % 10 != 0 {
         return;
     }
 
     let fleet_id = fleets_res.get_new_fleet_id();
 
-    let fleet_entity = commands.spawn_bundle(FleetBundle {
-        fleet_id,
-        position: Position(Vec2::ZERO),
-        wish_position: WishPosition(Vec2::ZERO),
-        velocity: Velocity(Vec2::ZERO),
-        acceleration: Acceleration(0.1),
-        fleet_ai: FleetAI { goal: FleetGoal::Wandering { new_pos_timer: 0 } },
-        fleet_collider: FleetCollider(intersection_pipeline.insert_collider_with_custom_data(
-            Collider {
-                radius: 10.0,
-                position: Vec2::ZERO,
+    let fleet_entity = commands
+        .spawn_bundle(FleetBundle {
+            fleet_id,
+            position: Position(Vec2::ZERO),
+            wish_position: WishPosition(Vec2::ZERO),
+            velocity: Velocity(Vec2::ZERO),
+            acceleration: Acceleration(0.1),
+            fleet_ai: FleetAI {
+                goal: FleetGoal::Wandering { new_pos_timer: 0 },
             },
-            Membership::Fleet,
-            fleet_id.0,
-        )),
-        reputation: Reputation(0),
-        fleet_detection_radius: FleetDetectionRadius(10.0),
-        fleet_detected: FleetDetected(Vec::new()),
-    }).id();
+            fleet_collider: FleetCollider(fleet_intersection_pipeline.insert_collider(
+                Collider {
+                    radius: 10.0,
+                    position: Vec2::ZERO,
+                },
+                fleet_id.0,
+            )),
+            reputation: Reputation(0),
+            fleet_detection_radius: FleetDetectionRadius(10.0),
+            fleet_detected: FleetDetected(Vec::new()),
+        })
+        .id();
 
     // Insert fleet.
     let _ = fleets_res.spawned_fleets.insert(fleet_id, fleet_entity);
@@ -263,17 +270,16 @@ fn spawn_ai_fleet(time_res: Res<TimeRes>, mut commands: Commands, mut fleets_res
 
 //* last
 
-fn update_intersection_pipeline(mut intersection_pipeline: ResMut<IntersectionPipeline>) {
-    intersection_pipeline.update();
-}
-
 /// TODO: Send unacknowledged commands.
 /// TODO: Just sending every fleets position for now.
 fn send_udp(query: Query<(&FleetId, &Position)>, time_res: Res<TimeRes>, clients_res: Res<ClientsRes>) {
     // Get the position of the first 25 fleets.
     let fleets_position: Vec<Vec2> = query.iter().take(25).map(|(_fleet_id, position)| position.0).collect();
 
-    let packet = UdpServer::Metascape { fleets_position, tick: time_res.tick };
+    let packet = UdpServer::Metascape {
+        fleets_position,
+        tick: time_res.tick,
+    };
 
     for client in clients_res.connected_clients.values() {
         // We don't care about the result. Disconnect are catched while receiving udp.

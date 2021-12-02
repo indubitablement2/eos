@@ -6,9 +6,9 @@
 
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
-use collision::{Collider, IntersectionPipeline};
 use common::packets::ServerAddresses;
 use data_manager::DataManager;
+use intersection::FleetIntersectionPipeline;
 use res_clients::ClientsRes;
 use res_factions::FactionsRes;
 use res_fleets::FleetsRes;
@@ -18,13 +18,13 @@ use std::{thread::sleep, time::Instant};
 
 use crate::terminal::Terminal;
 
-mod collision;
 mod connection_manager;
 mod data_manager;
 mod ecs_components;
 mod ecs_events;
 mod ecs_systems;
 mod generation;
+mod intersection;
 mod res_clients;
 mod res_factions;
 mod res_fleets;
@@ -49,11 +49,10 @@ impl Metascape {
         world.insert_resource(TimeRes::new());
         world.insert_resource(DataManager::new());
         world.insert_resource(parameters);
-        world.insert_resource(IntersectionPipeline::new());
+        world.insert_resource(FleetIntersectionPipeline::new());
         world.insert_resource(ClientsRes::new()?);
         world.insert_resource(FactionsRes::new());
         world.insert_resource(FleetsRes::new());
-        world.insert_resource(IntersectionPipeline::new());
 
         let mut schedule = Schedule::default();
         ecs_systems::add_systems(&mut schedule);
@@ -72,14 +71,6 @@ impl Metascape {
     /// Get this server addressses.
     fn get_addresses(&self) -> ServerAddresses {
         self.world.get_resource::<ClientsRes>().unwrap().get_addresses()
-    }
-
-    /// Get a copy of every colliders separated by Membership. Useful for debug display.
-    fn get_colliders(&self) -> Vec<Vec<Collider>> {
-        self.world
-            .get_resource::<IntersectionPipeline>()
-            .unwrap()
-            .get_colliders_copy()
     }
 }
 

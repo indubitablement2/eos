@@ -214,15 +214,16 @@ async fn try_login(
         .insert(login_packet.udp_address, udp_received);
 
     let (tcp_sender, tcp_to_send) = tokio::sync::mpsc::channel(32);
-    spawn(send_tcp(
-        tcp_to_send,
-        buf_write,
-        tcp_addr,
-    ));
+    spawn(send_tcp(tcp_to_send, buf_write, tcp_addr));
 
     let (tcp_received, tcp_receiver) = crossbeam_channel::unbounded();
-    spawn(recv_tcp(tcp_received, buf_read, tcp_addr, udp_senders,
-        login_packet.udp_address));
+    spawn(recv_tcp(
+        tcp_received,
+        buf_read,
+        tcp_addr,
+        udp_senders,
+        login_packet.udp_address,
+    ));
 
     // Create Connection.
     let connection = Connection {
@@ -396,5 +397,8 @@ async fn recv_tcp(
 
     // Also remove udp address.
     udp_senders.lock().unwrap().remove(&udp_address);
-    debug!("Tcp receiver for {} shutdown. Also removed {} from udp list.", tcp_addr, udp_address);
+    debug!(
+        "Tcp receiver for {} shutdown. Also removed {} from udp list.",
+        tcp_addr, udp_address
+    );
 }

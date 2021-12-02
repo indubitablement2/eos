@@ -14,7 +14,7 @@ impl FleetsRes {
         }
     }
 
-    /// Get a new unique/never recycled fleet id. 
+    /// Get a new unique/never recycled fleet id.
     pub fn get_new_fleet_id(&mut self) -> FleetId {
         self.last_used_id += 1;
         FleetId(self.last_used_id)
