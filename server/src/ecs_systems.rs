@@ -17,7 +17,7 @@ pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_stage(current_stage, SystemStage::parallel());
     schedule.add_system_to_stage(current_stage, increment_time.system());
     schedule.add_system_to_stage(current_stage, get_new_clients.system());
-    schedule.add_system_to_stage(current_stage, update_intersection_pipeline.system());
+    schedule.add_system_to_stage(current_stage, fleet_sensor.system());
 
     let previous_stage = current_stage;
     let current_stage = "pre_update";
@@ -39,7 +39,8 @@ pub fn add_systems(schedule: &mut Schedule) {
     let previous_stage = current_stage;
     let current_stage = "last";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
-    schedule.add_system_to_stage(current_stage, send_udp.system());
+    schedule.add_system_to_stage(current_stage, send_detected_fleet.system());
+    schedule.add_system_to_stage(current_stage, update_intersection_pipeline.system());
 }
 
 //* first
@@ -55,7 +56,7 @@ fn get_new_clients(
     mut fleets_res: ResMut<FleetsRes>,
     data_manager: Res<DataManager>,
     client_connected: ResMut<EventRes<ClientConnected>>,
-    mut fleet_intersection_pipeline: ResMut<FleetIntersectionPipeline>,
+    fleet_intersection_pipeline: Res<FleetIntersectionPipeline>,
 ) {
     while let Ok(connection) = clients_res.connection_manager.new_connection_receiver.try_recv() {
         let client_id = connection.client_id;
@@ -102,7 +103,7 @@ fn get_new_clients(
                             fleet_id.0,
                         )),
                         reputation: Reputation(0),
-                        fleet_detection_radius: FleetDetectionRadius(10.0),
+                        detector_radius: DetectorRadius(30.0),
                         fleet_detected: FleetDetected(Vec::new()),
                     },
                 })
@@ -117,8 +118,44 @@ fn get_new_clients(
     }
 }
 
-fn update_intersection_pipeline(mut fleet_intersection_pipeline: ResMut<FleetIntersectionPipeline>) {
-    fleet_intersection_pipeline.update();
+/// Determine what each fleet can see.
+fn fleet_sensor(
+    mut query: Query<(&Position, &FleetId, &DetectorRadius, &mut FleetDetected)>,
+    fleet_intersection_pipeline: Res<FleetIntersectionPipeline>,
+    fleets_res: Res<FleetsRes>,
+    task_pool: Res<TaskPool>,
+    time_res: Res<TimeRes>,
+) {
+    // We will only update 1/5 at a time.
+    let turn = time_res.tick % 5;
+
+    query.par_for_each_mut(&task_pool, 512, |(pos, fleet_id, detector_radius, mut detected)| {
+        if fleet_id.0 % 5 == turn {
+            detected.0.clear();
+
+            let detector_collider = Collider {
+                radius: detector_radius.0,
+                position: pos.0,
+            };
+
+            for collider_id in fleet_intersection_pipeline.intersect_collider(detector_collider) {
+                if let Some(custom_data) = fleet_intersection_pipeline.get_collider_custom_data(collider_id) {
+                    let detected_fleet_id = FleetId(custom_data);
+                    if let Some(entity) = fleets_res.spawned_fleets.get(&detected_fleet_id) {
+                        detected.0.push(*entity);
+                    } else {
+                        // It can happen that a fleet is removed from spawned fleet, but not from the intersection pipeline yet.
+                        debug!(
+                            "{:?} is detected, but is not spawned This should not happens often. Ignoring...",
+                            detected_fleet_id
+                        );
+                    }
+                } else {
+                    warn!("Collider inside FleetIntersectionPipeline does not have custom data. Ignoring...");
+                }
+            }
+        }
+    });
 }
 
 //* pre_update
@@ -259,30 +296,63 @@ fn spawn_ai_fleet(
                 fleet_id.0,
             )),
             reputation: Reputation(0),
-            fleet_detection_radius: FleetDetectionRadius(10.0),
+            detector_radius: DetectorRadius(10.0),
             fleet_detected: FleetDetected(Vec::new()),
         })
         .id();
 
     // Insert fleet.
     let _ = fleets_res.spawned_fleets.insert(fleet_id, fleet_entity);
+
+    info!("{} fleets spawned.", fleets_res.spawned_fleets.len());
 }
 
 //* last
 
-/// TODO: Send unacknowledged commands.
-/// TODO: Just sending every fleets position for now.
-fn send_udp(query: Query<(&FleetId, &Position)>, time_res: Res<TimeRes>, clients_res: Res<ClientsRes>) {
-    // Get the position of the first 25 fleets.
-    let fleets_position: Vec<Vec2> = query.iter().take(25).map(|(_fleet_id, position)| position.0).collect();
-
-    let packet = UdpServer::Metascape {
-        fleets_position,
-        tick: time_res.tick,
-    };
-
-    for client in clients_res.connected_clients.values() {
-        // We don't care about the result. Disconnect are catched while receiving udp.
-        let _ = client.connection.udp_sender.blocking_send(packet.clone());
+fn update_intersection_pipeline(
+    mut fleet_intersection_pipeline: ResMut<FleetIntersectionPipeline>,
+    time_res: Res<TimeRes>,
+) {
+    if time_res.tick % 5 == 0 {
+        fleet_intersection_pipeline.update();
     }
 }
+
+// Send detected fleet to clients over udp.
+fn send_detected_fleet(
+    query_client: Query<(&ClientId, &Position, &FleetDetected)>,
+    query_fleet: Query<&Position>,
+    time_res: Res<TimeRes>,
+    clients_res: Res<ClientsRes>,
+) {
+    query_client.for_each(|(client_id, pos, fleet_detected)| {
+        if let Some(client) = clients_res.connected_clients.get(client_id) {
+            let mut fleets_position = Vec::with_capacity(25);
+
+            // Always send client's own fleet position.
+            fleets_position.push(pos.0);
+
+            // TODO: If too many fleet are detected, throttle which ones are sent.
+            for detected_entity in fleet_detected.0.iter() {
+                if let Ok(detected_fleet_pos) = query_fleet.get(*detected_entity) {
+                    fleets_position.push(detected_fleet_pos.0);
+                    if fleets_position.len() >= 24 {
+                        debug!("Could not send all detected fleet position. Ignoring rest...");
+                        break;
+                    }
+                }
+            }
+
+            let packet = UdpServer::Metascape {
+                fleets_position,
+                tick: time_res.tick,
+            };
+
+            let _ = client.connection.udp_sender.blocking_send(packet);
+        }
+    });
+}
+
+// /// TODO: Send unacknowledged commands.
+// fn send_udp(query: Query<(&FleetId, &Position)>, time_res: Res<TimeRes>, clients_res: Res<ClientsRes>) {
+// }

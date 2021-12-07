@@ -32,7 +32,13 @@ fn main() {
     println!("{:?}", &deser);
 
     let deser_generic: serde_yaml::Value = serde_yaml::from_str(&yaml).unwrap();
-    let sp: usize = deser_generic.get("sprite").unwrap().as_u64().unwrap().try_into().unwrap();
+    let sp: usize = deser_generic
+        .get("sprite")
+        .unwrap()
+        .as_u64()
+        .unwrap()
+        .try_into()
+        .unwrap();
 
     assert_eq!(sp, m.sprite);
     assert_eq!(m, deser);

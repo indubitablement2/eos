@@ -1,19 +1,20 @@
+use std::net::IpAddr;
+use std::net::SocketAddr;
+
 use crate::client::Client;
 use common::packets::*;
 use common::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
-use glam::Vec2;
 use glam::vec2;
+use glam::Vec2;
 
 struct ClientMetascape {
     fleets: Vec<Vec2>,
 }
 impl ClientMetascape {
     fn new() -> Self {
-        Self {
-            fleets: Vec::new(),
-        }
+        Self { fleets: Vec::new() }
     }
 }
 
@@ -61,15 +62,13 @@ impl Game {
         if let Some(client) = &self.client {
             loop {
                 match client.udp_receiver.try_recv() {
-                    Ok(udp_packet) => {
-                        match udp_packet {
-                            UdpServer::Battlescape { client_inputs, tick } => todo!(),
-                            UdpServer::Metascape { fleets_position, tick } => {
-                                self.client_metascape.fleets = fleets_position;
-                                owner.update();
-                            }
+                    Ok(udp_packet) => match udp_packet {
+                        UdpServer::Battlescape { client_inputs, tick } => todo!(),
+                        UdpServer::Metascape { fleets_position, tick } => {
+                            self.client_metascape.fleets = fleets_position;
+                            owner.update();
                         }
-                    }
+                    },
                     Err(err) => {
                         if err == crossbeam_channel::TryRecvError::Disconnected {
                             error!("Client disconnected.");
@@ -114,25 +113,28 @@ impl Game {
     }
 
     #[export]
-    unsafe fn connect_client(&mut self, owner: &Node2D) -> bool {
+    unsafe fn connect_client(&mut self, _owner: &Node2D, godot_addr: StringArray) -> bool {
         if self.client.is_some() {
-            true
+            return true;
         } else {
-            match Client::new() {
-                Ok(new_client) => {
-                    self.client.replace(new_client);
-                    true
-                }
-                Err(err) => {
-                    error!("{:?}", err);
-                    false
+            let godot_addr_read = godot_addr.read();
+            for s in godot_addr_read.iter() {
+                if let Ok(addr) = s.to_string().parse::<IpAddr>() {
+                    let server_addresses = ServerAddresses {
+                        tcp_address: SocketAddr::new(addr, SERVER_PORT),
+                        udp_address: SocketAddr::new(addr, SERVER_PORT),
+                    };
+
+                    if let Ok(new_client) = Client::new(server_addresses) {
+                        self.client.replace(new_client);
+                        return true;
+                    }
                 }
             }
         }
+        false
     }
 }
-
-
 
 //     /// Generate a new Metascape.
 //     #[export]

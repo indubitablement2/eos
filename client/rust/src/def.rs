@@ -125,7 +125,11 @@ impl Def {
                 // Cache atlases and def images.
                 unsafe {
                     if let Some(img) = &def.vertex_def_image {
-                        if img.assume_safe().save_png(format!("{}vertex_def.png", &cache_path)).is_err() {
+                        if img
+                            .assume_safe()
+                            .save_png(format!("{}vertex_def.png", &cache_path))
+                            .is_err()
+                        {
                             godot_error!("Could not cache vertex_def image.");
                         }
                     }
@@ -211,7 +215,9 @@ impl Def {
         for (yaml_relative_path, mod_id) in yaml_paths.into_iter() {
             let abs_path = format!("{}{}", mod_order[mod_id].get_path(), &yaml_relative_path);
             if file.open(&abs_path, gdnative::api::File::READ).is_ok() {
-                if let Ok(yaml_components) = serde_yaml::from_str::<Vec<Vec<YamlComponents>>>(&file.get_as_text().to_string()) {
+                if let Ok(yaml_components) =
+                    serde_yaml::from_str::<Vec<Vec<YamlComponents>>>(&file.get_as_text().to_string())
+                {
                     list_yaml_components.push((yaml_components, mod_id));
                 } else {
                     // Ignore this file as it can not be deserialized.
@@ -307,7 +313,10 @@ impl Def {
             // Check that we don't have any "error" sprite.
             for id in sp_ref {
                 if id == 0 {
-                    godot_error!("No sprite found for {}. This sprite will display error instead.", sprite_path);
+                    godot_error!(
+                        "No sprite found for {}. This sprite will display error instead.",
+                        sprite_path
+                    );
                     corrupted = true;
                     break;
                 }
@@ -360,7 +369,9 @@ impl Def {
                 // Remove from items.
                 items.swap_remove(*items_map.get(&id).expect("item should be in items_map."));
                 if let Some(just_swapped) = items.last() {
-                    *items_map.get_mut(&just_swapped.data).expect("item should be in items_map.") = items.len() - 1;
+                    *items_map
+                        .get_mut(&just_swapped.data)
+                        .expect("item should be in items_map.") = items.len() - 1;
                 }
 
                 // Blitz the sprites into the atlas.
@@ -612,8 +623,13 @@ fn load_image(path: &str) -> Option<Ref<Image, Shared>> {
             }
             // Size.
             let img_safe = unsafe { img.assume_safe() };
-            let too_large = img_safe.get_width() > MIN_SPRITE_ATLAS_SIZE || img_safe.get_height() > MIN_SPRITE_ATLAS_SIZE;
-            if crop_needed || used_rect_int.2 != img_safe.get_width() || used_rect_int.3 != img_safe.get_height() || too_large {
+            let too_large =
+                img_safe.get_width() > MIN_SPRITE_ATLAS_SIZE || img_safe.get_height() > MIN_SPRITE_ATLAS_SIZE;
+            if crop_needed
+                || used_rect_int.2 != img_safe.get_width()
+                || used_rect_int.3 != img_safe.get_height()
+                || too_large
+            {
                 if too_large {
                     godot_warn!("Image {} is too large {:?}. Cropping.", path, img_safe.get_size());
                 } else {

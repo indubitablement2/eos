@@ -2,7 +2,12 @@
 use common::packets::*;
 use common::*;
 use crossbeam_channel::*;
-use std::{io::{Read, Write}, net::{IpAddr, Ipv6Addr, SocketAddr, SocketAddrV6, TcpStream, UdpSocket}, thread::spawn, time::Duration};
+use std::{
+    io::{Read, Write},
+    net::{IpAddr, Ipv6Addr, SocketAddr, SocketAddrV6, TcpStream, UdpSocket},
+    thread::spawn,
+    time::Duration,
+};
 
 pub struct Client {
     pub udp_sender: Sender<UdpClient>,
@@ -16,12 +21,7 @@ pub struct Client {
 }
 impl Client {
     /// Try to connect to a server. This could also be set to loopback if server is also the client.
-    pub fn new() -> std::io::Result<Self> {
-        let server_addresses: ServerAddresses = ServerAddresses {
-            tcp_address: SocketAddr::new(IpAddr::V6(SERVER_ADDRESS), SERVER_PORT),
-            udp_address: SocketAddr::new(IpAddr::V6(SERVER_ADDRESS), SERVER_PORT),
-        };
-
+    pub fn new(server_addresses: ServerAddresses) -> std::io::Result<Self> {
         // Connect tcp stream.
         let mut tcp_stream = TcpStream::connect(server_addresses.tcp_address)?;
         info!("Connected with server over tcp.");
@@ -36,7 +36,8 @@ impl Client {
             is_steam: true,
             token: 0,
             udp_address: udp_socket.local_addr()?,
-        }.serialize();
+        }
+        .serialize();
         info!("Created LoginPacket.");
 
         // Set temporary timeouts.
@@ -143,7 +144,10 @@ fn udp_loop(udp_socket: UdpSocket, udp_to_send_receiver: Receiver<UdpClient>, ud
                     }
                 }
                 Err(err) => {
-                    warn!("Received an udp packet from server that could not be deserialized {:?}. Ignoring...", err);
+                    warn!(
+                        "Received an udp packet from server that could not be deserialized {:?}. Ignoring...",
+                        err
+                    );
                 }
             }
         }

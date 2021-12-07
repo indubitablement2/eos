@@ -17,8 +17,10 @@ func _ready() -> void:
 #	var gen_img := Image.new()
 #	gen_img.load("res://assets/generation/galaxy_gen.png")
 #	$Game.generate_metascape("test world", 2000.0, preload("res://assets/debug/pixel.png").get_data())
+	var addr = PoolStringArray(IP.get_local_addresses())
+	print(addr)
 	
-	while !$Game.connect_client():
+	while !$Game.connect_client(addr):
 		yield(get_tree().create_timer(2), "timeout")
 	
 	

@@ -10,6 +10,7 @@ use std::{
     thread::spawn,
 };
 
+/// Recycled when after a collider is removed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ColliderId {
     id: u32,
@@ -837,16 +838,16 @@ fn test_random_colliders() {
         let mut intersection_pipeline = FleetIntersectionPipeline::new();
 
         let og_collider = Collider {
-            radius: random::<f32>() * 256.0,
+            radius: random::<f32>() * 128.0,
             position: (random::<Vec2>() * 512.0 - 256.0),
         };
 
         let mut expected_result = Vec::new();
 
         // Add colliders.
-        for _ in 0..5 {
+        for _ in 0..32 {
             let new_collider = Collider {
-                radius: random::<f32>() * 256.0,
+                radius: random::<f32>() * 128.0,
                 position: (random::<Vec2>() * 512.0 - 256.0),
             };
 

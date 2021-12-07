@@ -21,12 +21,12 @@ pub struct FleetBundle {
     pub fleet_ai: FleetAI,
     pub fleet_collider: FleetCollider,
     pub reputation: Reputation,
-    pub fleet_detection_radius: FleetDetectionRadius,
+    pub detector_radius: DetectorRadius,
     pub fleet_detected: FleetDetected,
 }
 
 //* id */
-/// 0 is reserved and mean unvalid/server.
+/// 0 is reserved and mean invalid.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ClientId(pub u32);
 impl ClientId {
@@ -37,7 +37,11 @@ impl ClientId {
 }
 impl From<FleetId> for ClientId {
     fn from(fleet_id: FleetId) -> Self {
-        Self(fleet_id.0 as u32)
+        if fleet_id.0 > u32::MAX as u64 {
+            Self(0)
+        } else {
+            Self(fleet_id.0 as u32)
+        }
     }
 }
 
@@ -49,6 +53,18 @@ impl From<ClientId> for FleetId {
     fn from(client_id: ClientId) -> Self {
         Self(client_id.0 as u64)
     }
+}
+#[test]
+fn fleet_client_id() {
+    let client_id = ClientId(123);
+    let to_fleet_id = FleetId::from(client_id);
+    println!("client: {:?}", to_fleet_id);
+
+    let ai_fleet_id = FleetId(u32::MAX as u64 + 1);
+    println!("ai: {:?}", ai_fleet_id);
+    let ai_client_id = ClientId::from(ai_fleet_id);
+    println!("ai: {:?}", ai_client_id);
+    assert!(!ai_client_id.is_valid());
 }
 
 /// Never recycled.
@@ -106,11 +122,11 @@ impl Sub for Reputation {
     }
 }
 
-/// Radius that is tested agains fleet collider to determine if this fleet can see another fleet.
-pub struct FleetDetectionRadius(pub f32);
+/// Radius that is tested agains fleet collider (or other things in space) to determine if this fleet can see it.
+pub struct DetectorRadius(pub f32);
 
 /// Fleets that are detected by this fleet.
-pub struct FleetDetected(pub Vec<FleetId>);
+pub struct FleetDetected(pub Vec<Entity>);
 
 //* ai */
 /// Not a components.

@@ -18,6 +18,4 @@ impl SystemsRes {
     }
 }
 
-struct System {
-    
-}
+struct System {}

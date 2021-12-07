@@ -34,10 +34,20 @@ pub enum PossibleTarget {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Effects {
-    DropItem { item: String, quantity: (u32, u32), force: f32 },
-    CastSpell { spell: Vec<Effects> },
-    MoveTo { to: PossibleTarget },
-    ChangeFaction { new_faction: String },
+    DropItem {
+        item: String,
+        quantity: (u32, u32),
+        force: f32,
+    },
+    CastSpell {
+        spell: Vec<Effects>,
+    },
+    MoveTo {
+        to: PossibleTarget,
+    },
+    ChangeFaction {
+        new_faction: String,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -98,7 +108,10 @@ pub struct YamlParseResult {
 impl YamlParseResult {
     /// Conert YamlComponents to EcsComponents and the path to their sprite assets.
     /// Order need to be preserved in the resulting sprites vector as components will only keep a usize to reference their sprites.
-    pub fn parse_yaml_components(yaml_components: Vec<(Vec<Vec<YamlComponents>>, usize)>, mod_order: &[ModInfo]) -> Self {
+    pub fn parse_yaml_components(
+        yaml_components: Vec<(Vec<Vec<YamlComponents>>, usize)>,
+        mod_order: &[ModInfo],
+    ) -> Self {
         // TODO: Don't try to find sprite location. This is the job of the sprite packer.
         // TODO: If can't find sprite file, sprite_id = 0.
         // TODO: Auto check for rotated sprite t, tr, r, br, b, bl, l, tl
@@ -196,7 +209,10 @@ impl YamlParseResult {
                         current_bundle.insert(0, EcsComponents::BundleReferenceId(BundleReferenceId(old_bundle.0)));
                         godot_print!("Overwritten {}", &ref_id);
                     } else {
-                        current_bundle.insert(0, EcsComponents::BundleReferenceId(BundleReferenceId(entity_bundles.len())));
+                        current_bundle.insert(
+                            0,
+                            EcsComponents::BundleReferenceId(BundleReferenceId(entity_bundles.len())),
+                        );
                     }
                     current_bundle.shrink_to_fit();
                     // Insert maybe replacing a bundle with the same name.
