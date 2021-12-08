@@ -1,8 +1,7 @@
-use std::cmp::Ordering;
-
 use crate::generation::GenerationParameters;
 use crate::intersection::{Collider, ColliderId, SAPRow, SystemIntersectionPipeline};
 use crate::res_parameters::ParametersRes;
+use std::cmp::Ordering;
 use glam::Vec2;
 use indexmap::IndexMap;
 use rand::Rng;
