@@ -2,14 +2,6 @@ use crate::ecs_components::{ClientId, FactionId, Reputation};
 use ahash::AHashMap;
 use indexmap::IndexMap;
 
-pub struct Faction {
-    pub owner: Option<ClientId>,
-    pub display_name: String,
-    /// Reputation with individual clients.
-    pub clients_relation: AHashMap<ClientId, Reputation>,
-    pub base_reputation: Reputation,
-}
-
 pub struct FactionsRes {
     pub factions: IndexMap<FactionId, Faction>,
     /// Reputation between faction.
@@ -24,3 +16,13 @@ impl FactionsRes {
         }
     }
 }
+
+pub struct Faction {
+    pub owner: Option<ClientId>,
+    pub display_name: String,
+    /// Reputation with individual clients.
+    pub clients_relation: AHashMap<ClientId, Reputation>,
+    /// Fallback reputation if faction or client is not present.
+    pub base_reputation: Reputation,
+}
+

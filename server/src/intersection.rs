@@ -10,11 +10,9 @@ use std::{
     thread::spawn,
 };
 
-/// Recycled when after a collider is removed.
+/// Recycled after a collider is removed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ColliderId {
-    id: u32,
-}
+pub struct ColliderId(pub u32);
 
 #[derive(Debug)]
 struct ColliderIdDispenser {
@@ -30,9 +28,7 @@ impl ColliderIdDispenser {
     }
 
     pub fn new_collider_id(&self) -> ColliderId {
-        self.available.pop().unwrap_or_else(|| ColliderId {
-            id: self.last.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-        })
+        self.available.pop().unwrap_or_else(|| ColliderId (self.last.fetch_add(1, std::sync::atomic::Ordering::Relaxed)))
     }
 
     pub fn recycle_collider_id(&self, collider_id: ColliderId) {
@@ -57,7 +53,7 @@ impl Collider {
 }
 
 #[derive(Debug, Clone)]
-struct SAPRow {
+pub struct SAPRow {
     /// y position where this row ends and the next one (if there is one) ends.
     pub end: f32,
     /// y position where this row start and the previous one (if there is one) ends.
@@ -237,7 +233,7 @@ impl AccelerationStructureRunner {
 }
 
 #[derive(Debug)]
-struct AccelerationStructureSnapshot {
+pub struct AccelerationStructureSnapshot {
     pub colliders: IndexMap<ColliderId, Collider>,
     pub collider_custom_data: AHashMap<ColliderId, u64>,
     pub rows: Vec<SAPRow>,
@@ -252,7 +248,7 @@ impl AccelerationStructureSnapshot {
     }
 
     // Update snapshot with the data of a runner.
-    pub fn clone_from_runner(&mut self, runner: &AccelerationStructureRunner) {
+    fn clone_from_runner(&mut self, runner: &AccelerationStructureRunner) {
         self.colliders.clone_from(&runner.colliders);
         self.collider_custom_data.clone_from(&runner.collider_custom_data);
         self.rows.clone_from(&runner.rows);
@@ -500,7 +496,7 @@ pub struct FleetIntersectionPipeline {
     modify_collider_sender: Sender<(ColliderId, Collider)>,
     insert_collider_sender: Sender<(ColliderId, Collider, u64)>,
 
-    snapshots: AccelerationStructureSnapshot,
+    snapshot: AccelerationStructureSnapshot,
 }
 impl FleetIntersectionPipeline {
     pub fn new() -> Self {
@@ -540,7 +536,7 @@ impl FleetIntersectionPipeline {
             remove_collider_sender,
             modify_collider_sender,
             insert_collider_sender,
-            snapshots: AccelerationStructureSnapshot::new(),
+            snapshot: AccelerationStructureSnapshot::new(),
         }
     }
 }
@@ -549,7 +545,7 @@ impl IntersectionPipeline for FleetIntersectionPipeline {
         // Take back runner.
         if let Ok(runner) = self.update_result_receiver.recv() {
             // Take snapshot.
-            self.snapshots.clone_from_runner(&runner);
+            self.snapshot.clone_from_runner(&runner);
 
             // Return runner.
             if self.update_request_sender.send(runner).is_err() {
@@ -575,37 +571,37 @@ impl IntersectionPipeline for FleetIntersectionPipeline {
     }
 
     fn get_collider(&self, collider_id: ColliderId) -> Option<Collider> {
-        self.snapshots
+        self.snapshot
             .colliders
             .get(&collider_id)
             .map(|collider| collider.to_owned())
     }
 
     fn get_collider_custom_data(&self, collider_id: ColliderId) -> Option<u64> {
-        self.snapshots
+        self.snapshot
             .collider_custom_data
             .get(&collider_id)
             .map(|custom_data| custom_data.to_owned())
     }
 
     fn intersect_collider(&self, collider: Collider) -> Vec<ColliderId> {
-        self.snapshots.intersect_collider(collider)
+        self.snapshot.intersect_collider(collider)
     }
 
     fn test_collider(&self, collider: Collider) -> bool {
-        self.snapshots.test_collider(collider)
+        self.snapshot.test_collider(collider)
     }
 
     fn test_point(&self, point: Vec2) -> bool {
-        self.snapshots.test_point(point)
+        self.snapshot.test_point(point)
     }
 
     fn test_collider_brute(&self, collider: Collider) -> bool {
-        self.snapshots.test_collider_brute(collider)
+        self.snapshot.test_collider_brute(collider)
     }
 
     fn get_rows_separation(&self) -> Vec<f32> {
-        self.snapshots.get_rows_separation()
+        self.snapshot.get_rows_separation()
     }
 }
 
@@ -626,7 +622,69 @@ fn fleet_runner_loop(
 /// Allow fast circle-circle intersection and test for system colliders.
 #[derive(Debug)]
 pub struct SystemIntersectionPipeline {
-    // Membership::System => crate::ecs_components::SystemCollider::RADIUS_MAX * 3.0,
+    pub snapshot: AccelerationStructureSnapshot,
+}
+impl SystemIntersectionPipeline {
+    pub fn new() -> Self {
+        Self {
+            snapshot: AccelerationStructureSnapshot::new(),
+        }
+    }
+}
+impl IntersectionPipeline for SystemIntersectionPipeline {
+    fn update(&mut self) {
+        error!("update is not implemented for SystemIntersectionPipeline. Ignoring...");
+        unimplemented!()
+    }
+
+    fn insert_collider(&self, _collider: Collider, _custom_data: u64) -> ColliderId {
+        error!("insert_collider is not implemented for SystemIntersectionPipeline. Returning gibberish...");
+        unimplemented!()
+    }
+
+    fn modify_collider(&self, _collider_id: ColliderId, _collider: Collider) {
+        error!("modify_collider is not implemented for SystemIntersectionPipeline. Ignoring...");
+        unimplemented!()
+    }
+
+    fn remove_collider(&self, _collider_id: ColliderId) {
+        error!("remove_collider is not implemented for SystemIntersectionPipeline. Ignoring...");
+        unimplemented!()
+    }
+
+    fn get_collider(&self, collider_id: ColliderId) -> Option<Collider> {
+        self.snapshot
+            .colliders
+            .get(&collider_id)
+            .map(|collider| collider.to_owned())
+    }
+
+    fn get_collider_custom_data(&self, collider_id: ColliderId) -> Option<u64> {
+        self.snapshot
+            .collider_custom_data
+            .get(&collider_id)
+            .map(|custom_data| custom_data.to_owned())
+    }
+
+    fn intersect_collider(&self, collider: Collider) -> Vec<ColliderId> {
+        self.snapshot.intersect_collider(collider)
+    }
+
+    fn test_collider(&self, collider: Collider) -> bool {
+        self.snapshot.test_collider(collider)
+    }
+
+    fn test_point(&self, point: Vec2) -> bool {
+        self.snapshot.test_point(point)
+    }
+
+    fn test_collider_brute(&self, collider: Collider) -> bool {
+        self.snapshot.test_collider_brute(collider)
+    }
+
+    fn get_rows_separation(&self) -> Vec<f32> {
+        self.snapshot.get_rows_separation()
+    }
 }
 
 #[test]
@@ -651,7 +709,7 @@ fn test_basic() {
     );
     intersection_pipeline.update();
     intersection_pipeline.update();
-    println!("{:?}", &intersection_pipeline.snapshots);
+    println!("{:?}", &intersection_pipeline.snapshot);
     assert!(intersection_pipeline.test_collider(Collider {
         radius: 10.0,
         position: vec2(-4.0, 0.0),
@@ -666,7 +724,7 @@ fn test_basic() {
     intersection_pipeline.update();
     intersection_pipeline.update();
     intersection_pipeline.update();
-    for row in &intersection_pipeline.snapshots.rows {
+    for row in &intersection_pipeline.snapshot.rows {
         assert!(row.data.is_empty(), "should be empty");
     }
     assert!(!intersection_pipeline.test_collider(Collider {
@@ -677,7 +735,7 @@ fn test_basic() {
     // Collider id are recycled.
     assert_eq!(
         intersection_pipeline.collider_id_dispenser.new_collider_id(),
-        ColliderId { id: 0 }
+        ColliderId(0)
     );
 }
 
@@ -696,7 +754,7 @@ fn test_row() {
     );
     intersection_pipeline.update();
     intersection_pipeline.update();
-    assert_eq!(intersection_pipeline.snapshots.rows.len(), 1);
+    assert_eq!(intersection_pipeline.snapshot.rows.len(), 1);
 
     // Do we have 2 rows?
     for _ in 0..AccelerationStructureRunner::MIN_COLLIDER_PER_ROW {
@@ -710,7 +768,7 @@ fn test_row() {
     }
     intersection_pipeline.update();
     intersection_pipeline.update();
-    assert_eq!(intersection_pipeline.snapshots.rows.len(), 2);
+    assert_eq!(intersection_pipeline.snapshot.rows.len(), 2);
 
     for _ in 0..AccelerationStructureRunner::MIN_COLLIDER_PER_ROW - 1 {
         intersection_pipeline.insert_collider(
@@ -730,14 +788,14 @@ fn test_row() {
     );
     intersection_pipeline.update();
     intersection_pipeline.update();
-    println!("\n{:?}", &intersection_pipeline.snapshots.rows);
-    assert_eq!(intersection_pipeline.snapshots.rows.len(), 3);
+    println!("\n{:?}", &intersection_pipeline.snapshot.rows);
+    assert_eq!(intersection_pipeline.snapshot.rows.len(), 3);
 
     intersection_pipeline.remove_collider(mid);
     intersection_pipeline.update();
     intersection_pipeline.update();
-    println!("\n{:?}", &intersection_pipeline.snapshots.rows);
-    assert_eq!(intersection_pipeline.snapshots.rows.len(), 2);
+    println!("\n{:?}", &intersection_pipeline.snapshot.rows);
+    assert_eq!(intersection_pipeline.snapshot.rows.len(), 2);
 }
 
 #[test]
@@ -766,7 +824,7 @@ fn test_random() {
             intersection_pipeline.test_collider(other),
             intersection_pipeline.test_collider_brute(other),
             "\n{:?}\n\n{:?}\n",
-            &intersection_pipeline.snapshots,
+            &intersection_pipeline.snapshot,
             other
         );
     }
@@ -799,7 +857,7 @@ fn test_random_point() {
             intersection_pipeline.test_point(point),
             intersection_pipeline.test_collider_brute(other),
             "\n{:?}\n\n{:?}\n",
-            &intersection_pipeline.snapshots,
+            &intersection_pipeline.snapshot,
             other
         );
     }
@@ -887,7 +945,7 @@ fn test_reclycling_collider() {
         assert!(used.insert({
             let id = intersection_pipeline.insert_collider(collider, 0);
 
-            assert!(intersection_pipeline.snapshots.collider_custom_data.get(&id).is_none());
+            assert!(intersection_pipeline.snapshot.collider_custom_data.get(&id).is_none());
 
             id
         }));
@@ -908,5 +966,5 @@ fn test_reclycling_collider() {
     intersection_pipeline.update();
     intersection_pipeline.update();
 
-    assert_eq!(used.len(), intersection_pipeline.snapshots.colliders.len());
+    assert_eq!(used.len(), intersection_pipeline.snapshot.colliders.len());
 }

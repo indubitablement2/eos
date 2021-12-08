@@ -218,7 +218,7 @@ fn fleet_ai(
                 *new_pos_timer -= 1;
                 if *new_pos_timer <= 0 {
                     wish_pos.0 = rng.gen::<Vec2>() * 100.0 - 50.0 + pos.0;
-                    *new_pos_timer = rng.gen_range((5..30));
+                    *new_pos_timer = rng.gen_range(5..30);
                 }
             }
             FleetGoal::Idle { duration } => todo!(),

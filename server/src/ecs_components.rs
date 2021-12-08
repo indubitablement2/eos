@@ -122,8 +122,11 @@ impl Sub for Reputation {
     }
 }
 
-/// Radius that is tested agains fleet collider (or other things in space) to determine if this fleet can see it.
+/// Radius that is tested agains fleet colliders (or other things in space) to determine if this fleet can see it.
 pub struct DetectorRadius(pub f32);
+impl DetectorRadius {
+    pub const MAX_RADIUS: f32 = 64.0;
+}
 
 /// Fleets that are detected by this fleet.
 pub struct FleetDetected(pub Vec<Entity>);
@@ -154,7 +157,7 @@ pub struct FleetAI {
 }
 
 //* collider */
-/// Used to detect a fleet.
+/// Used to make a fleet detectable.
 pub struct FleetCollider(pub ColliderId);
 impl FleetCollider {
     pub const RADIUS_MAX: f32 = 128.0;
