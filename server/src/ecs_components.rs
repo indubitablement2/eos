@@ -167,12 +167,3 @@ impl SystemCollider {
     pub const RADIUS_MAX: f32 = 256.0;
 }
 
-pub struct RealityBubbleCollider(ColliderId);
-impl RealityBubbleCollider {
-    pub const RADIUS: f32 = 256.0;
-}
-
-pub struct FactionActivityCollider(ColliderId);
-impl FactionActivityCollider {
-    pub const RADIUS_MAX: f32 = 128.0;
-}

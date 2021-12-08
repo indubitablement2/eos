@@ -456,10 +456,10 @@ pub trait IntersectionPipeline {
     /// Take a snapshot of the intersection pipeline then request an update.
     fn update(&mut self);
 
-    /// Insert a collider without custom data.
+    /// Insert a collider with custom data.
     fn insert_collider(&self, collider: Collider, custom_data: u64) -> ColliderId;
 
-    /// Insert a collider without custom data.
+    /// Modify a collider.
     fn modify_collider(&self, collider_id: ColliderId, collider: Collider);
 
     /// Remove a collider by its id.

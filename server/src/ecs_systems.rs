@@ -27,6 +27,7 @@ pub fn add_systems(schedule: &mut Schedule) {
     let previous_stage = current_stage;
     let current_stage = "update";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
+    schedule.add_system_to_stage(current_stage, update_collider_position.system());
     schedule.add_system_to_stage(current_stage, movement.system());
 
     let previous_stage = current_stage;
@@ -226,6 +227,22 @@ fn fleet_ai(
 }
 
 //* update
+
+fn update_collider_position(
+    query: Query<(&Position, &FleetCollider)>,
+    fleet_intersection_pipeline: Res<FleetIntersectionPipeline>
+) {
+    query.for_each(|(pos, fleet_collider)| {
+        if let Some(old_collider) = fleet_intersection_pipeline.get_collider(fleet_collider.0) {
+            let new_collider = Collider {
+                radius: old_collider.radius,
+                position: pos.0,
+            };
+            fleet_intersection_pipeline.modify_collider(fleet_collider.0, new_collider);
+        }
+    })
+    
+}
 
 /// Add velocity based on wish position and acceleration.
 /// TODO: Fleets engaged in the same Battlescape should aggregate.
