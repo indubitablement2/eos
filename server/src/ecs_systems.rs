@@ -230,7 +230,7 @@ fn fleet_ai(
 
 fn update_collider_position(
     query: Query<(&Position, &FleetCollider)>,
-    fleet_intersection_pipeline: Res<FleetIntersectionPipeline>
+    fleet_intersection_pipeline: Res<FleetIntersectionPipeline>,
 ) {
     query.for_each(|(pos, fleet_collider)| {
         if let Some(old_collider) = fleet_intersection_pipeline.get_collider(fleet_collider.0) {
@@ -241,7 +241,6 @@ fn update_collider_position(
             fleet_intersection_pipeline.modify_collider(fleet_collider.0, new_collider);
         }
     })
-    
 }
 
 /// Add velocity based on wish position and acceleration.

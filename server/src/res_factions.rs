@@ -25,4 +25,3 @@ pub struct Faction {
     /// Fallback reputation if faction or client is not present.
     pub base_reputation: Reputation,
 }
-

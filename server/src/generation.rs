@@ -37,6 +37,10 @@ pub struct GenerationParameters {
 }
 impl Default for GenerationParameters {
     fn default() -> Self {
-        Self { seed: 0, system_density: Default::default(), system_size: Default::default() }
+        Self {
+            seed: 0,
+            system_density: Default::default(),
+            system_size: Default::default(),
+        }
     }
 }

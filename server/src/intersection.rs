@@ -28,7 +28,9 @@ impl ColliderIdDispenser {
     }
 
     pub fn new_collider_id(&self) -> ColliderId {
-        self.available.pop().unwrap_or_else(|| ColliderId (self.last.fetch_add(1, std::sync::atomic::Ordering::Relaxed)))
+        self.available
+            .pop()
+            .unwrap_or_else(|| ColliderId(self.last.fetch_add(1, std::sync::atomic::Ordering::Relaxed)))
     }
 
     pub fn recycle_collider_id(&self, collider_id: ColliderId) {

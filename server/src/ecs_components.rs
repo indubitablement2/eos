@@ -169,4 +169,3 @@ impl SystemCollider {
     pub const RADIUS_MIN: f32 = 64.0;
     pub const RADIUS_MAX: f32 = 256.0;
 }
-

@@ -1,13 +1,13 @@
 use std::cmp::Ordering;
 
+use crate::generation::GenerationParameters;
+use crate::intersection::{Collider, ColliderId, SAPRow, SystemIntersectionPipeline};
+use crate::res_parameters::ParametersRes;
 use glam::Vec2;
+use indexmap::IndexMap;
 use rand::Rng;
 use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoshiro256PlusPlus;
-use indexmap::IndexMap;
-use crate::generation::GenerationParameters;
-use crate::intersection::{Collider, SystemIntersectionPipeline, ColliderId, SAPRow};
-use crate::res_parameters::ParametersRes;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SystemId(u32);
@@ -87,12 +87,7 @@ impl SystemsRes {
         // Create SystemIntersectionPipeline.
         let system_intersection_pipeline = create_system_intersection_pipeline(&systems, system_colliders);
 
-        (
-            Self {
-                systems,
-            },
-            system_intersection_pipeline
-        )
+        (Self { systems }, system_intersection_pipeline)
     }
 }
 
@@ -125,9 +120,8 @@ impl System {
     /// The ColliderId provided is invalid and needs to be replaced.
     fn generate_system(size_multiplier: f32, rng: &mut Xoshiro256PlusPlus) -> Self {
         // Get system radius.
-        let system_radius = (rng.gen_range((Self::RADIUS_MIN / 0.8)..(Self::RADIUS_MAX * 0.8))
-            * size_multiplier)
-        .clamp(System::RADIUS_MIN, System::RADIUS_MAX);
+        let system_radius = (rng.gen_range((Self::RADIUS_MIN / 0.8)..(Self::RADIUS_MAX * 0.8)) * size_multiplier)
+            .clamp(System::RADIUS_MIN, System::RADIUS_MAX);
 
         // Create System center body.
         let mut center_body = CelestialBody {
@@ -166,7 +160,7 @@ impl System {
 
 fn create_system_intersection_pipeline(
     systems: &IndexMap<SystemId, System>,
-    system_colliders: Vec<Collider>
+    system_colliders: Vec<Collider>,
 ) -> SystemIntersectionPipeline {
     let min_collider_per_row = 8;
     let min_row_size = System::RADIUS_MAX * 3.0;
@@ -175,7 +169,9 @@ fn create_system_intersection_pipeline(
     // Insert colliders.
     for (collider, system_id) in system_colliders.into_iter().zip(systems.keys()) {
         sip.snapshot.colliders.insert(ColliderId(system_id.0), collider);
-        sip.snapshot.collider_custom_data.insert(ColliderId(system_id.0), system_id.0 as u64);
+        sip.snapshot
+            .collider_custom_data
+            .insert(ColliderId(system_id.0), system_id.0 as u64);
     }
 
     if sip.snapshot.colliders.is_empty() {
@@ -183,7 +179,8 @@ fn create_system_intersection_pipeline(
     }
 
     // Sort on y axis.
-    sip.snapshot.colliders
+    sip.snapshot
+        .colliders
         .sort_by(|_, v1, _, v2| v1.position.y.partial_cmp(&v2.position.y).unwrap_or(Ordering::Equal));
 
     // Prepare first row.
