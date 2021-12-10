@@ -107,7 +107,7 @@ impl Client {
 }
 
 fn udp_loop(udp_socket: UdpSocket, udp_to_send_receiver: Receiver<UdpClient>, udp_received_sender: Sender<UdpServer>) {
-    let mut recv_buf = [0u8; UdpServer::MAX_SIZE + 1];
+    let mut recv_buf = [0u8; UdpServer::PAYLOAD_MAX_SIZE + 1];
 
     info!("Udp loop started.");
 

@@ -359,14 +359,10 @@ fn send_detected_fleet(
 
             let packet = UdpServer::Metascape {
                 fleets_position,
-                tick: time_res.tick,
+                metascape_tick: time_res.tick,
             };
 
             let _ = client.connection.udp_sender.blocking_send(packet);
         }
     });
 }
-
-// /// TODO: Send unacknowledged commands.
-// fn send_udp(query: Query<(&FleetId, &Position)>, time_res: Res<TimeRes>, clients_res: Res<ClientsRes>) {
-// }

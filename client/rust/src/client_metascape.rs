@@ -39,10 +39,8 @@ impl ClientMetascape {
         loop {
             match self.client.udp_receiver.try_recv() {
                 Ok(udp_packet) => match udp_packet {
-                    UdpServer::Battlescape { client_inputs, tick } => {
-
-                    }
-                    UdpServer::Metascape { fleets_position, tick } => {
+                    UdpServer::Battlescape { client_inputs, battlescape_tick } => {}
+                    UdpServer::Metascape { fleets_position, metascape_tick } => {
                         self.detected_fleets = fleets_position;
                     }
                 },

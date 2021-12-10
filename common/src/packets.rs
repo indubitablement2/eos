@@ -192,26 +192,26 @@ fn test_udp_client() {
 pub enum UdpServer {
     Battlescape {
         client_inputs: Vec<BattlescapeInput>,
-        tick: u64,
+        battlescape_tick: u64,
     },
     Metascape {
         fleets_position: Vec<Vec2>,
-        tick: u64,
+        metascape_tick: u64,
     },
 }
 impl UdpServer {
-    /// These packet have a maximum size.
-    pub const MAX_SIZE: usize = u8::MAX as usize;
+    /// Payload maximum size.
+    pub const PAYLOAD_MAX_SIZE: usize = u8::MAX as usize;
 
     pub fn serialize(&self) -> Result<Vec<u8>, PacketError> {
         let payload = bincode::serialize(self).unwrap();
 
         // Check that we do not try to send a packet above max size.
-        if payload.len() >= Self::MAX_SIZE {
+        if payload.len() >= Self::PAYLOAD_MAX_SIZE {
             return Err(PacketError::TooLarge);
         }
 
-        let mut v = Vec::with_capacity(Self::MAX_SIZE);
+        let mut v = Vec::with_capacity(Self::PAYLOAD_MAX_SIZE);
         v.push(payload.len() as u8);
         v.extend_from_slice(&payload);
         Ok(v)
