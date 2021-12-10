@@ -8,13 +8,12 @@ use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
 use common::packets::ServerAddresses;
 use data_manager::DataManager;
-use generation::GenerationParameters;
+use common::generation::GenerationParameters;
 use intersection::FleetIntersectionPipeline;
 use res_clients::ClientsRes;
 use res_factions::FactionsRes;
 use res_fleets::FleetsRes;
-use res_parameters::ParametersRes;
-use res_system::SystemsRes;
+use common::parameters::MetascapeParameters;
 use res_times::TimeRes;
 use std::{thread::sleep, time::Instant};
 
@@ -25,13 +24,10 @@ mod data_manager;
 mod ecs_components;
 mod ecs_events;
 mod ecs_systems;
-mod generation;
 mod intersection;
 mod res_clients;
 mod res_factions;
 mod res_fleets;
-mod res_parameters;
-mod res_system;
 mod res_times;
 mod terminal;
 
@@ -45,15 +41,15 @@ pub struct Metascape {
     schedule: Schedule,
 }
 impl Metascape {
-    fn new(parameters: ParametersRes, generation_parameters: GenerationParameters) -> std::io::Result<Self> {
+    fn new(parameters: MetascapeParameters, generation_parameters: GenerationParameters) -> std::io::Result<Self> {
         let mut world = World::new();
         ecs_events::add_event_res(&mut world);
         world.insert_resource(TaskPool::new());
         world.insert_resource(TimeRes::new());
         world.insert_resource(DataManager::new());
-        let (system_res, system_intersection_pipeline) = SystemsRes::generate(&generation_parameters, &parameters);
-        world.insert_resource(system_res);
-        world.insert_resource(system_intersection_pipeline);
+        // let (system_res, system_intersection_pipeline) = SystemsRes::generate(&generation_parameters, &parameters);
+        // world.insert_resource(system_res);
+        // world.insert_resource(system_intersection_pipeline);
         world.insert_resource(parameters);
         world.insert_resource(FleetIntersectionPipeline::new());
         world.insert_resource(ClientsRes::new()?);
@@ -151,6 +147,6 @@ fn startup() -> std::io::Result<Metascape> {
         return Err(std::io::Error::new(std::io::ErrorKind::Other, "TODO"));
     } else {
         let generation_parameters = GenerationParameters::default();
-        return Ok(Metascape::new(ParametersRes::default(), generation_parameters)?);
+        return Ok(Metascape::new(MetascapeParameters::default(), generation_parameters)?);
     }
 }

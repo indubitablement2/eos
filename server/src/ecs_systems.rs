@@ -4,7 +4,8 @@ use crate::ecs_events::*;
 use crate::intersection::*;
 use crate::res_clients::*;
 use crate::res_fleets::*;
-use crate::res_parameters::ParametersRes;
+use common::collider::Collider;
+use common::parameters::MetascapeParameters;
 use crate::res_times::TimeRes;
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
@@ -261,7 +262,7 @@ fn movement(query: Query<(&Position, &WishPosition, &mut Velocity, &Acceleration
 
 //* post_update
 
-fn apply_velocity(query: Query<(&mut Position, &mut Velocity)>, params: Res<ParametersRes>) {
+fn apply_velocity(query: Query<(&mut Position, &mut Velocity)>, params: Res<MetascapeParameters>) {
     query.for_each_mut(|(mut pos, mut vel)| {
         // Apply velocity.
         pos.0 += vel.0;
