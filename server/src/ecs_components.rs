@@ -162,10 +162,3 @@ pub struct FleetCollider(pub ColliderId);
 impl FleetCollider {
     pub const RADIUS_MAX: f32 = 128.0;
 }
-
-/// Used to enter a system.
-pub struct SystemCollider(ColliderId);
-impl SystemCollider {
-    pub const RADIUS_MIN: f32 = 64.0;
-    pub const RADIUS_MAX: f32 = 256.0;
-}
