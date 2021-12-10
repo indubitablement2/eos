@@ -4,12 +4,12 @@ use crate::ecs_events::*;
 use crate::intersection::*;
 use crate::res_clients::*;
 use crate::res_fleets::*;
-use common::collider::Collider;
-use common::parameters::MetascapeParameters;
 use crate::res_times::TimeRes;
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
+use common::collider::Collider;
 use common::packets::*;
+use common::parameters::MetascapeParameters;
 use glam::Vec2;
 use rand::Rng;
 
@@ -58,7 +58,7 @@ fn get_new_clients(
     mut fleets_res: ResMut<FleetsRes>,
     data_manager: Res<DataManager>,
     client_connected: ResMut<EventRes<ClientConnected>>,
-    fleet_intersection_pipeline: Res<FleetIntersectionPipeline>,
+    intersection_pipeline: Res<IntersectionPipeline>,
 ) {
     while let Ok(connection) = clients_res.connection_manager.new_connection_receiver.try_recv() {
         let client_id = connection.client_id;
@@ -97,7 +97,7 @@ fn get_new_clients(
                         fleet_ai: FleetAI {
                             goal: FleetGoal::Controlled,
                         },
-                        fleet_collider: FleetCollider(fleet_intersection_pipeline.insert_collider(
+                        fleet_collider: FleetCollider(intersection_pipeline.insert_collider(
                             Collider {
                                 radius: 10.0,
                                 position: Vec2::ZERO,
@@ -123,7 +123,7 @@ fn get_new_clients(
 /// Determine what each fleet can see.
 fn fleet_sensor(
     mut query: Query<(&Position, &FleetId, &DetectorRadius, &mut FleetDetected)>,
-    fleet_intersection_pipeline: Res<FleetIntersectionPipeline>,
+    intersection_pipeline: Res<IntersectionPipeline>,
     fleets_res: Res<FleetsRes>,
     task_pool: Res<TaskPool>,
     time_res: Res<TimeRes>,
@@ -140,8 +140,8 @@ fn fleet_sensor(
                 position: pos.0,
             };
 
-            for collider_id in fleet_intersection_pipeline.intersect_collider(detector_collider) {
-                if let Some(custom_data) = fleet_intersection_pipeline.get_collider_custom_data(collider_id) {
+            for collider_id in intersection_pipeline.intersect_collider(detector_collider) {
+                if let Some(custom_data) = intersection_pipeline.get_collider_custom_data(collider_id) {
                     let detected_fleet_id = FleetId(custom_data);
                     if let Some(entity) = fleets_res.spawned_fleets.get(&detected_fleet_id) {
                         detected.0.push(*entity);
@@ -231,15 +231,15 @@ fn fleet_ai(
 
 fn update_collider_position(
     query: Query<(&Position, &FleetCollider)>,
-    fleet_intersection_pipeline: Res<FleetIntersectionPipeline>,
+    intersection_pipeline: Res<IntersectionPipeline>,
 ) {
     query.for_each(|(pos, fleet_collider)| {
-        if let Some(old_collider) = fleet_intersection_pipeline.get_collider(fleet_collider.0) {
+        if let Some(old_collider) = intersection_pipeline.get_collider(fleet_collider.0) {
             let new_collider = Collider {
                 radius: old_collider.radius,
                 position: pos.0,
             };
-            fleet_intersection_pipeline.modify_collider(fleet_collider.0, new_collider);
+            intersection_pipeline.modify_collider(fleet_collider.0, new_collider);
         }
     })
 }
@@ -287,7 +287,7 @@ fn spawn_ai_fleet(
     time_res: Res<TimeRes>,
     mut commands: Commands,
     mut fleets_res: ResMut<FleetsRes>,
-    fleet_intersection_pipeline: Res<FleetIntersectionPipeline>,
+    intersection_pipeline: Res<IntersectionPipeline>,
 ) {
     if time_res.tick % 10 != 0 {
         return;
@@ -305,7 +305,7 @@ fn spawn_ai_fleet(
             fleet_ai: FleetAI {
                 goal: FleetGoal::Wandering { new_pos_timer: 0 },
             },
-            fleet_collider: FleetCollider(fleet_intersection_pipeline.insert_collider(
+            fleet_collider: FleetCollider(intersection_pipeline.insert_collider(
                 Collider {
                     radius: 10.0,
                     position: Vec2::ZERO,
@@ -326,12 +326,9 @@ fn spawn_ai_fleet(
 
 //* last
 
-fn update_intersection_pipeline(
-    mut fleet_intersection_pipeline: ResMut<FleetIntersectionPipeline>,
-    time_res: Res<TimeRes>,
-) {
+fn update_intersection_pipeline(mut intersection_pipeline: ResMut<IntersectionPipeline>, time_res: Res<TimeRes>) {
     if time_res.tick % 5 == 0 {
-        fleet_intersection_pipeline.update();
+        intersection_pipeline.update();
     }
 }
 

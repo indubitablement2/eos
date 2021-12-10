@@ -21,34 +21,34 @@ struct ColliderIdDispenser {
     available: SegQueue<ColliderId>,
 }
 impl ColliderIdDispenser {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             last: AtomicU32::new(0),
             available: SegQueue::new(),
         }
     }
 
-    pub fn new_collider_id(&self) -> ColliderId {
+    fn new_collider_id(&self) -> ColliderId {
         self.available
             .pop()
             .unwrap_or_else(|| ColliderId(self.last.fetch_add(1, std::sync::atomic::Ordering::Relaxed)))
     }
 
-    pub fn recycle_collider_id(&self, collider_id: ColliderId) {
+    fn recycle_collider_id(&self, collider_id: ColliderId) {
         self.available.push(collider_id);
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct SAPRow {
+struct SAPRow {
     /// y position where this row ends and the next one (if there is one) ends.
-    pub end: f32,
+    end: f32,
     /// y position where this row start and the previous one (if there is one) ends.
-    pub start: f32,
+    start: f32,
     /// The biggest radius found in this row.
-    pub biggest_radius: f32,
+    biggest_radius: f32,
     /// An indice on the colliders IndexMap.
-    pub data: Vec<u32>,
+    data: Vec<u32>,
 }
 impl Default for SAPRow {
     fn default() -> Self {
@@ -64,10 +64,9 @@ impl Default for SAPRow {
 #[derive(Debug)]
 struct AccelerationStructureRunner {
     /// Sorted on the y axis.
-    pub colliders: IndexMap<ColliderId, Collider>,
-    pub collider_custom_data: AHashMap<ColliderId, u64>,
+    colliders: IndexMap<ColliderId, Collider>,
+    collider_custom_data: AHashMap<ColliderId, u64>,
     /// The difference between each row's start and end can not be smaller than this.
-    min_row_size: f32,
     /// Sorted on the x axis.
     rows: Vec<SAPRow>,
 
@@ -83,9 +82,9 @@ struct AccelerationStructureRunner {
 }
 impl AccelerationStructureRunner {
     const MIN_COLLIDER_PER_ROW: usize = 8;
+    const MIN_ROW_SIZE: f32 = 512.0;
 
-    pub fn new(
-        min_row_size: f32,
+    fn new(
         remove_collider_receiver: Receiver<ColliderId>,
         insert_collider_receiver: Receiver<(ColliderId, Collider, u64)>,
         modify_collider_receiver: Receiver<(ColliderId, Collider)>,
@@ -93,7 +92,6 @@ impl AccelerationStructureRunner {
         Self {
             colliders: IndexMap::new(),
             collider_custom_data: AHashMap::new(),
-            min_row_size,
             rows: Vec::new(),
             insert_collider_receiver,
             modify_collider_receiver,
@@ -164,7 +162,7 @@ impl AccelerationStructureRunner {
             current_row.end = collider.position.y;
             if num_in_current_row >= Self::MIN_COLLIDER_PER_ROW {
                 // We have the minimum number of collider to make a row.
-                if current_row.end - current_row.start >= self.min_row_size {
+                if current_row.end - current_row.start >= Self::MIN_ROW_SIZE {
                     // We also have the minimun size.
                     self.rows.push(current_row);
 
@@ -220,13 +218,13 @@ impl AccelerationStructureRunner {
 }
 
 #[derive(Debug)]
-pub struct AccelerationStructureSnapshot {
-    pub colliders: IndexMap<ColliderId, Collider>,
-    pub collider_custom_data: AHashMap<ColliderId, u64>,
-    pub rows: Vec<SAPRow>,
+struct AccelerationStructureSnapshot {
+    colliders: IndexMap<ColliderId, Collider>,
+    collider_custom_data: AHashMap<ColliderId, u64>,
+    rows: Vec<SAPRow>,
 }
 impl AccelerationStructureSnapshot {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             colliders: IndexMap::new(),
             collider_custom_data: AHashMap::new(),
@@ -242,7 +240,7 @@ impl AccelerationStructureSnapshot {
     }
 
     /// Brute test a collider against every collider until one return true. Useful for debug.
-    pub fn test_collider_brute(&self, collider: Collider) -> bool {
+    fn test_collider_brute(&self, collider: Collider) -> bool {
         for other in self.colliders.values() {
             if collider.intersection_test(*other) {
                 return true;
@@ -252,7 +250,7 @@ impl AccelerationStructureSnapshot {
     }
 
     /// Test if a any collider intersect the provided collider.
-    pub fn test_collider(&self, collider: Collider) -> bool {
+    fn test_collider(&self, collider: Collider) -> bool {
         let mut to_test = AHashSet::with_capacity(16);
         let bottom = collider.position.y - collider.radius;
         let top = collider.position.y + collider.radius;
@@ -309,7 +307,7 @@ impl AccelerationStructureSnapshot {
     }
 
     /// Return all colliders that intersect the provided collider.
-    pub fn intersect_collider(&self, collider: Collider) -> Vec<ColliderId> {
+    fn intersect_collider(&self, collider: Collider) -> Vec<ColliderId> {
         let mut to_test = AHashSet::with_capacity(16);
         let bottom = collider.position.y - collider.radius;
         let top = collider.position.y + collider.radius;
@@ -369,7 +367,7 @@ impl AccelerationStructureSnapshot {
     }
 
     /// Test if any collider intersect with the provided point.
-    pub fn test_point(&self, point: Vec2) -> bool {
+    fn test_point(&self, point: Vec2) -> bool {
         let mut to_test = AHashSet::with_capacity(16);
         let overlapping_row = self.rows.partition_point(|row| row.end < point.y);
         if let Some(row) = self.rows.get(overlapping_row) {
@@ -420,7 +418,7 @@ impl AccelerationStructureSnapshot {
     }
 
     /// Get the separation line between each row. Useful for debug.
-    pub fn get_rows_separation(&self) -> Vec<f32> {
+    fn get_rows_separation(&self) -> Vec<f32> {
         let mut v = Vec::with_capacity(self.rows.len() + 1);
 
         self.rows.iter().for_each(|row| {
@@ -435,45 +433,10 @@ impl AccelerationStructureSnapshot {
     }
 }
 
-pub trait IntersectionPipeline {
-    /// Take a snapshot of the intersection pipeline then request an update.
-    fn update(&mut self);
-
-    /// Insert a collider with custom data.
-    fn insert_collider(&self, collider: Collider, custom_data: u64) -> ColliderId;
-
-    /// Modify a collider.
-    fn modify_collider(&self, collider_id: ColliderId, collider: Collider);
-
-    /// Remove a collider by its id.
-    fn remove_collider(&self, collider_id: ColliderId);
-
-    /// Get a copy of a collider by its id.
-    fn get_collider(&self, collider_id: ColliderId) -> Option<Collider>;
-
-    /// Get a copy of a collider's custom data by its id.
-    fn get_collider_custom_data(&self, collider_id: ColliderId) -> Option<u64>;
-
-    /// Return all colliders that intersect the provided collider.
-    fn intersect_collider(&self, collider: Collider) -> Vec<ColliderId>;
-
-    /// Test if a any collider intersect the provided collider.
-    fn test_collider(&self, collider: Collider) -> bool;
-
-    /// Test if any collider intersect with the provided point.
-    fn test_point(&self, point: Vec2) -> bool;
-
-    /// Brute test a collider against every collider until one return true. Useful for debug.
-    fn test_collider_brute(&self, collider: Collider) -> bool;
-
-    /// Get the separation line between each row. Useful for debug.
-    fn get_rows_separation(&self) -> Vec<f32>;
-}
-
-/// Allow fast circle-circle intersection and test for fleet colliders.
+/// Allow fast circle-circle intersection and test between colliders.
 /// This intersection pipeline is fully async, but there is a delay before commands take effect.
 #[derive(Debug)]
-pub struct FleetIntersectionPipeline {
+pub struct IntersectionPipeline {
     collider_id_dispenser: Arc<ColliderIdDispenser>,
 
     update_request_sender: Sender<AccelerationStructureRunner>,
@@ -485,7 +448,7 @@ pub struct FleetIntersectionPipeline {
 
     snapshot: AccelerationStructureSnapshot,
 }
-impl FleetIntersectionPipeline {
+impl IntersectionPipeline {
     pub fn new() -> Self {
         let (update_request_sender, update_request_receiver) = bounded(0);
         let (update_result_sender, update_result_receiver) = bounded(0);
@@ -498,7 +461,7 @@ impl FleetIntersectionPipeline {
         let collider_id_dispenser_clone = collider_id_dispenser.clone();
 
         spawn(move || {
-            fleet_runner_loop(
+            runner_loop(
                 update_request_receiver,
                 update_result_sender,
                 collider_id_dispenser_clone,
@@ -506,7 +469,6 @@ impl FleetIntersectionPipeline {
         });
 
         let runner = AccelerationStructureRunner::new(
-            crate::ecs_components::FleetCollider::RADIUS_MAX * 3.0,
             remove_collider_receiver,
             insert_collider_receiver,
             modify_collider_receiver,
@@ -526,9 +488,9 @@ impl FleetIntersectionPipeline {
             snapshot: AccelerationStructureSnapshot::new(),
         }
     }
-}
-impl IntersectionPipeline for FleetIntersectionPipeline {
-    fn update(&mut self) {
+
+    /// Take a snapshot of the intersection pipeline then request an update.
+    pub fn update(&mut self) {
         // Take back runner.
         if let Ok(runner) = self.update_result_receiver.recv() {
             // Take snapshot.
@@ -536,63 +498,73 @@ impl IntersectionPipeline for FleetIntersectionPipeline {
 
             // Return runner.
             if self.update_request_sender.send(runner).is_err() {
-                error!("Fleet intersection pipeline update runner thread dropped.");
+                error!("Intersection pipeline update runner thread dropped.");
             }
         } else {
-            error!("Fleet intersection pipeline update runner thread dropped.");
+            error!("Intersection pipeline update runner thread dropped.");
         }
     }
 
-    fn insert_collider(&self, collider: Collider, custom_data: u64) -> ColliderId {
+    /// Insert a collider with custom data.
+    pub fn insert_collider(&self, collider: Collider, custom_data: u64) -> ColliderId {
         let collider_id = self.collider_id_dispenser.new_collider_id();
         let _ = self.insert_collider_sender.send((collider_id, collider, custom_data));
         collider_id
     }
 
-    fn modify_collider(&self, collider_id: ColliderId, collider: Collider) {
+    /// Modify a collider.
+    pub fn modify_collider(&self, collider_id: ColliderId, collider: Collider) {
         let _ = self.modify_collider_sender.send((collider_id, collider));
     }
 
-    fn remove_collider(&self, collider_id: ColliderId) {
+    /// Remove a collider by its id.
+    pub fn remove_collider(&self, collider_id: ColliderId) {
         let _ = self.remove_collider_sender.send(collider_id);
     }
 
-    fn get_collider(&self, collider_id: ColliderId) -> Option<Collider> {
+    /// Get a copy of a collider by its id.
+    pub fn get_collider(&self, collider_id: ColliderId) -> Option<Collider> {
         self.snapshot
             .colliders
             .get(&collider_id)
             .map(|collider| collider.to_owned())
     }
 
-    fn get_collider_custom_data(&self, collider_id: ColliderId) -> Option<u64> {
+    /// Get a copy of a collider's custom data by its id.
+    pub fn get_collider_custom_data(&self, collider_id: ColliderId) -> Option<u64> {
         self.snapshot
             .collider_custom_data
             .get(&collider_id)
             .map(|custom_data| custom_data.to_owned())
     }
 
-    fn intersect_collider(&self, collider: Collider) -> Vec<ColliderId> {
+    /// Return all colliders that intersect the provided collider.
+    pub fn intersect_collider(&self, collider: Collider) -> Vec<ColliderId> {
         self.snapshot.intersect_collider(collider)
     }
 
-    fn test_collider(&self, collider: Collider) -> bool {
+    /// Test if a any collider intersect the provided collider.
+    pub fn test_collider(&self, collider: Collider) -> bool {
         self.snapshot.test_collider(collider)
     }
 
-    fn test_point(&self, point: Vec2) -> bool {
+    /// Test if any collider intersect with the provided point.
+    pub fn test_point(&self, point: Vec2) -> bool {
         self.snapshot.test_point(point)
     }
 
-    fn test_collider_brute(&self, collider: Collider) -> bool {
+    /// Brute test a collider against every collider until one return true. Useful for debug.
+    pub fn test_collider_brute(&self, collider: Collider) -> bool {
         self.snapshot.test_collider_brute(collider)
     }
 
-    fn get_rows_separation(&self) -> Vec<f32> {
+    /// Get the separation line between each row. Useful for debug.
+    pub fn get_rows_separation(&self) -> Vec<f32> {
         self.snapshot.get_rows_separation()
     }
 }
 
-fn fleet_runner_loop(
+fn runner_loop(
     update_request_receiver: Receiver<AccelerationStructureRunner>,
     update_result_sender: Sender<AccelerationStructureRunner>,
     collider_id_dispenser: Arc<ColliderIdDispenser>,
@@ -600,7 +572,7 @@ fn fleet_runner_loop(
     while let Ok(mut runner) = update_request_receiver.recv() {
         runner.update(&collider_id_dispenser);
         if update_result_sender.send(runner).is_err() {
-            info!("Fleet intersection pipeline update runner thread dropped.");
+            info!("Intersection pipeline update runner thread dropped.");
             break;
         }
     }
@@ -610,7 +582,7 @@ fn fleet_runner_loop(
 fn test_basic() {
     use glam::vec2;
 
-    let mut intersection_pipeline = FleetIntersectionPipeline::new();
+    let mut intersection_pipeline = IntersectionPipeline::new();
 
     // Empty.
     assert!(!intersection_pipeline.test_collider(Collider {
@@ -662,7 +634,7 @@ fn test_basic() {
 fn test_row() {
     use glam::vec2;
 
-    let mut intersection_pipeline = FleetIntersectionPipeline::new();
+    let mut intersection_pipeline = IntersectionPipeline::new();
 
     intersection_pipeline.insert_collider(
         Collider {
@@ -723,7 +695,7 @@ fn test_random() {
 
     // Random test.
     for _ in 0..1000 {
-        let mut intersection_pipeline = FleetIntersectionPipeline::new();
+        let mut intersection_pipeline = IntersectionPipeline::new();
 
         intersection_pipeline.insert_collider(
             Collider {
@@ -755,7 +727,7 @@ fn test_random_point() {
 
     // Random test.
     for _ in 0..1000 {
-        let mut intersection_pipeline = FleetIntersectionPipeline::new();
+        let mut intersection_pipeline = IntersectionPipeline::new();
 
         intersection_pipeline.insert_collider(
             Collider {
@@ -784,7 +756,7 @@ fn test_random_point() {
 
 #[test]
 fn test_overlap_colliders() {
-    let mut intersection_pipeline = FleetIntersectionPipeline::new();
+    let mut intersection_pipeline = IntersectionPipeline::new();
 
     let og_collider = Collider {
         radius: 10.0,
@@ -812,7 +784,7 @@ fn test_random_colliders() {
 
     // Random test.
     for _ in 0..1000 {
-        let mut intersection_pipeline = FleetIntersectionPipeline::new();
+        let mut intersection_pipeline = IntersectionPipeline::new();
 
         let og_collider = Collider {
             radius: random::<f32>() * 128.0,
@@ -852,7 +824,7 @@ fn test_reclycling_collider() {
     use indexmap::IndexSet;
     use rand::random;
 
-    let mut intersection_pipeline = FleetIntersectionPipeline::new();
+    let mut intersection_pipeline = IntersectionPipeline::new();
 
     let collider = Collider {
         radius: 1.0,

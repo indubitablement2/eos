@@ -6,14 +6,14 @@
 
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
+use common::generation::GenerationParameters;
+use common::parameters::MetascapeParameters;
 use common::{packets::ServerAddresses, system::Systems};
 use data_manager::DataManager;
-use common::generation::GenerationParameters;
-use intersection::FleetIntersectionPipeline;
+use intersection::IntersectionPipeline;
 use res_clients::ClientsRes;
 use res_factions::FactionsRes;
 use res_fleets::FleetsRes;
-use common::parameters::MetascapeParameters;
 use res_times::TimeRes;
 use std::{thread::sleep, time::Instant};
 
@@ -41,7 +41,10 @@ pub struct Metascape {
     schedule: Schedule,
 }
 impl Metascape {
-    fn new(metascape_parameters: MetascapeParameters, generation_parameters: GenerationParameters) -> std::io::Result<Self> {
+    fn new(
+        metascape_parameters: MetascapeParameters,
+        generation_parameters: GenerationParameters,
+    ) -> std::io::Result<Self> {
         let mut world = World::new();
         ecs_events::add_event_res(&mut world);
         world.insert_resource(TaskPool::new());
@@ -49,7 +52,7 @@ impl Metascape {
         world.insert_resource(DataManager::new());
         world.insert_resource(Systems::generate(&generation_parameters, &metascape_parameters));
         world.insert_resource(metascape_parameters);
-        world.insert_resource(FleetIntersectionPipeline::new());
+        world.insert_resource(IntersectionPipeline::new());
         world.insert_resource(ClientsRes::new()?);
         world.insert_resource(FactionsRes::new());
         world.insert_resource(FleetsRes::new());
