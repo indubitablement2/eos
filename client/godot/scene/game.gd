@@ -12,6 +12,12 @@ onready var def_tex := ImageTexture.new()
 
 onready var tex_rid := SpritePacker.tex.get_rid()
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("primary"):
+		print("start")
+	elif event.is_action_released("primary"):
+		print("stop")
+
 func _ready() -> void:
 #	var gen_img = preload("res://assets/debug/target.png").get_data()
 #	var gen_img := Image.new()

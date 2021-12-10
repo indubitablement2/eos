@@ -8,8 +8,6 @@ use common::*;
 use common::parameters::MetascapeParameters;
 use gdnative::api::*;
 use gdnative::prelude::*;
-use glam::vec2;
-use glam::Vec2;
 
 /// Layer between godot and rust.
 /// Godot is used for input/rendering. Rust is used for logic.
@@ -35,7 +33,9 @@ impl Game {
         }
     }
 
-    fn _unhandled_input(&mut self, _owner: &Node2D, event: &InputEvent) {
+    #[export]
+    unsafe fn _unhandled_input(&mut self, _owner: &Node2D, event: Ref<InputEvent>) {
+        let event = event.assume_safe();
         self.input_handler.handle_input(event);
     }
 
@@ -47,13 +47,18 @@ impl Game {
     unsafe fn _exit_tree(&mut self, _owner: &Node2D) {}
 
     #[export]
-    unsafe fn _process(&mut self, _owner: &Node2D, mut delta: f64) {
+    unsafe fn _process(&mut self, owner: &Node2D, mut delta: f64) {
         // Somehow delta can be negative...
         delta = delta.clamp(0.0, 1.0);
+
+        self.input_handler.update(owner);
 
         if let Some(client_metascape) = &mut self.client_metascape {
             client_metascape.update(&self.input_handler);
         }
+
+        // TODO: Remove rendering from draw,
+        owner.update();
     }
 
     #[export]
