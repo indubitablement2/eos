@@ -6,7 +6,7 @@
 
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
-use common::packets::ServerAddresses;
+use common::{packets::ServerAddresses, system::Systems};
 use data_manager::DataManager;
 use common::generation::GenerationParameters;
 use intersection::FleetIntersectionPipeline;
@@ -41,16 +41,14 @@ pub struct Metascape {
     schedule: Schedule,
 }
 impl Metascape {
-    fn new(parameters: MetascapeParameters, generation_parameters: GenerationParameters) -> std::io::Result<Self> {
+    fn new(metascape_parameters: MetascapeParameters, generation_parameters: GenerationParameters) -> std::io::Result<Self> {
         let mut world = World::new();
         ecs_events::add_event_res(&mut world);
         world.insert_resource(TaskPool::new());
         world.insert_resource(TimeRes::new());
         world.insert_resource(DataManager::new());
-        // let (system_res, system_intersection_pipeline) = SystemsRes::generate(&generation_parameters, &parameters);
-        // world.insert_resource(system_res);
-        // world.insert_resource(system_intersection_pipeline);
-        world.insert_resource(parameters);
+        world.insert_resource(Systems::generate(&generation_parameters, &metascape_parameters));
+        world.insert_resource(metascape_parameters);
         world.insert_resource(FleetIntersectionPipeline::new());
         world.insert_resource(ClientsRes::new()?);
         world.insert_resource(FactionsRes::new());
@@ -62,9 +60,9 @@ impl Metascape {
         Ok(Self { world, schedule })
     }
 
-    // pub fn generate(local: bool, parameters: ParametersRes, generation_parameters: GenerationParameters) -> Self {
-    //     todo!()
-    // }
+    fn load(&mut self) {
+        todo!()
+    }
 
     fn update(&mut self) {
         self.schedule.run_once(&mut self.world);
