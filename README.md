@@ -13,6 +13,10 @@
 
 [Inspiration](https://github.com/indubitablement2/eos#Inspiration)
 
+## TODO
+* IntersectionPipeline
+  * IntersectionPipeline can do an intersection test with filters based on custom data or collider id.
+
 ## Income 
 ### Free to play
 * Sell custom ship ~$1000:
