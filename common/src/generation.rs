@@ -1,7 +1,4 @@
 use glam::Vec2;
-use rand::{random, Rng};
-use rand_xoshiro::rand_core::SeedableRng;
-use rand_xoshiro::Xoshiro256PlusPlus;
 
 pub struct GenerationMask {
     pub width: usize,

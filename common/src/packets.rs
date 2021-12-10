@@ -1,6 +1,6 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
-use std::net::{SocketAddr};
+use std::net::SocketAddr;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ServerAddresses {
@@ -14,7 +14,7 @@ pub enum PacketError {
     WrongSize,
     NoHeader,
     NoPayload,
-    BincodeError
+    BincodeError,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
