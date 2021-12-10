@@ -433,6 +433,7 @@ impl AccelerationStructureSnapshot {
     }
 }
 
+// TODO: Intersection that can filter based on collider id or custom data.
 /// Allow fast circle-circle intersection and test between colliders.
 /// This intersection pipeline is fully async, but there is a delay before commands take effect.
 #[derive(Debug)]

@@ -4,7 +4,7 @@ use crate::ecs_events::*;
 use crate::intersection::*;
 use crate::res_clients::*;
 use crate::res_fleets::*;
-use crate::res_times::TimeRes;
+use common::res_time::TimeRes;
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
 use common::collider::Collider;

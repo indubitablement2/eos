@@ -17,6 +17,9 @@ pub mod yaml_components;
 mod client;
 mod game;
 mod godot_logger;
+mod client_metascape;
+mod util;
+mod input_handler;
 
 use gdnative::prelude::{godot_init, InitHandle};
 use godot_logger::GodotLogger;

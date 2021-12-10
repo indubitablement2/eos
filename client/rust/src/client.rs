@@ -1,10 +1,9 @@
 // use common::SERVER_ADDRESSES;
 use common::packets::*;
-use common::*;
 use crossbeam_channel::*;
 use std::{
     io::{Read, Write},
-    net::{IpAddr, Ipv6Addr, SocketAddr, SocketAddrV6, TcpStream, UdpSocket},
+    net::{Ipv6Addr, SocketAddr, SocketAddrV6, TcpStream, UdpSocket},
     thread::spawn,
     time::Duration,
 };

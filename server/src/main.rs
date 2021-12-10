@@ -14,7 +14,7 @@ use intersection::IntersectionPipeline;
 use res_clients::ClientsRes;
 use res_factions::FactionsRes;
 use res_fleets::FleetsRes;
-use res_times::TimeRes;
+use common::res_time::TimeRes;
 use std::{thread::sleep, time::Instant};
 
 use crate::terminal::Terminal;
@@ -28,7 +28,6 @@ mod intersection;
 mod res_clients;
 mod res_factions;
 mod res_fleets;
-mod res_times;
 mod terminal;
 
 // use common::metascape::Metascape;
@@ -48,7 +47,7 @@ impl Metascape {
         let mut world = World::new();
         ecs_events::add_event_res(&mut world);
         world.insert_resource(TaskPool::new());
-        world.insert_resource(TimeRes::new());
+        world.insert_resource(TimeRes::default());
         world.insert_resource(DataManager::new());
         world.insert_resource(Systems::generate(&generation_parameters, &metascape_parameters));
         world.insert_resource(metascape_parameters);
