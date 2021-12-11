@@ -89,28 +89,28 @@ fn get_new_clients(
             let mut e = commands.spawn();
             let fleet_entity = e.id();
             e.insert_bundle(ClientFleetBundle {
-                    client_id,
-                    fleet_bundle: FleetBundle {
-                        fleet_id,
-                        position: Position(Vec2::ZERO),
-                        wish_position: WishPosition(Vec2::ZERO),
-                        velocity: Velocity(Vec2::ZERO),
-                        acceleration: Acceleration(0.1),
-                        fleet_ai: FleetAI {
-                            goal: FleetGoal::Controlled,
-                        },
-                        fleet_collider: FleetCollider(intersection_pipeline.insert_collider(
-                            Collider {
-                                radius: 10.0,
-                                position: Vec2::ZERO,
-                            },
-                            fleet_entity,
-                        )),
-                        reputation: Reputation(0),
-                        detector_radius: DetectorRadius(30.0),
-                        fleet_detected: FleetDetected(Vec::new()),
+                client_id,
+                fleet_bundle: FleetBundle {
+                    fleet_id,
+                    position: Position(Vec2::ZERO),
+                    wish_position: WishPosition(Vec2::ZERO),
+                    velocity: Velocity(Vec2::ZERO),
+                    acceleration: Acceleration(0.1),
+                    fleet_ai: FleetAI {
+                        goal: FleetGoal::Controlled,
                     },
-                });
+                    fleet_collider: FleetCollider(intersection_pipeline.insert_collider(
+                        Collider {
+                            radius: 10.0,
+                            position: Vec2::ZERO,
+                        },
+                        fleet_entity,
+                    )),
+                    reputation: Reputation(0),
+                    detector_radius: DetectorRadius(30.0),
+                    fleet_detected: FleetDetected(Vec::new()),
+                },
+            });
 
             // Insert fleet.
             let _ = fleets_res.spawned_fleets.insert(fleet_id, fleet_entity);
@@ -123,9 +123,37 @@ fn get_new_clients(
 
 /// Determine what each ai fleet can see.
 fn ai_fleet_sensor(
-
+    mut query: Query<(&Position, &FleetId, &DetectorRadius, &mut FleetDetected), Without<ClientId>>,
+    intersection_pipeline: Res<IntersectionPipeline>,
+    task_pool: Res<TaskPool>,
+    time_res: Res<TimeRes>,
 ) {
+    // We will only update 1/10 at a time.
+    let num_turn = 10u64;
+    let turn = time_res.tick % num_turn;
 
+    query.par_for_each_mut(
+        &task_pool,
+        32 * num_turn as usize,
+        |(pos, fleet_id, detector_radius, mut detected)| {
+            if fleet_id.0 % num_turn == turn {
+                detected.0.clear();
+
+                let detector_collider = Collider {
+                    radius: detector_radius.0,
+                    position: pos.0,
+                };
+
+                for collider_id in intersection_pipeline.intersect_collider(detector_collider) {
+                    if let Some(entity) = intersection_pipeline.get_collider_entity(collider_id) {
+                        detected.0.push(entity);
+                    } else {
+                        warn!("Collider inside FleetIntersectionPipeline does not have an entity. Ignoring...");
+                    }
+                }
+            }
+        },
+    );
 }
 
 /// Determine what each client fleet can see.
@@ -133,7 +161,6 @@ fn client_fleet_sensor(
     mut query: Query<(&Position, &ClientId, &FleetId, &DetectorRadius, &mut FleetDetected)>,
     intersection_pipeline: Res<IntersectionPipeline>,
     clients_res: Res<ClientsRes>,
-    fleets_res: Res<FleetsRes>,
     task_pool: Res<TaskPool>,
     time_res: Res<TimeRes>,
 ) {
@@ -158,7 +185,7 @@ fn client_fleet_sensor(
                     if let Some(entity) = intersection_pipeline.get_collider_entity(collider_id) {
                         detected.0.push(entity);
                     } else {
-                        warn!("Collider inside FleetIntersectionPipeline does not have custom data. Ignoring...");
+                        warn!("Collider inside FleetIntersectionPipeline does not have an entity. Ignoring...");
                     }
                 }
 
@@ -418,25 +445,25 @@ fn spawn_ai_fleet(
     let mut e = commands.spawn();
     let fleet_entity = e.id();
     e.insert_bundle(FleetBundle {
-            fleet_id,
-            position: Position(Vec2::ZERO),
-            wish_position: WishPosition(Vec2::ZERO),
-            velocity: Velocity(Vec2::ZERO),
-            acceleration: Acceleration(0.1),
-            fleet_ai: FleetAI {
-                goal: FleetGoal::Wandering { new_pos_timer: 0 },
+        fleet_id,
+        position: Position(Vec2::ZERO),
+        wish_position: WishPosition(Vec2::ZERO),
+        velocity: Velocity(Vec2::ZERO),
+        acceleration: Acceleration(0.1),
+        fleet_ai: FleetAI {
+            goal: FleetGoal::Wandering { new_pos_timer: 0 },
+        },
+        fleet_collider: FleetCollider(intersection_pipeline.insert_collider(
+            Collider {
+                radius: 10.0,
+                position: Vec2::ZERO,
             },
-            fleet_collider: FleetCollider(intersection_pipeline.insert_collider(
-                Collider {
-                    radius: 10.0,
-                    position: Vec2::ZERO,
-                },
-                fleet_entity,
-            )),
-            reputation: Reputation(0),
-            detector_radius: DetectorRadius(10.0),
-            fleet_detected: FleetDetected(Vec::new()),
-        });
+            fleet_entity,
+        )),
+        reputation: Reputation(0),
+        detector_radius: DetectorRadius(10.0),
+        fleet_detected: FleetDetected(Vec::new()),
+    });
 
     // Insert fleet.
     let _ = fleets_res.spawned_fleets.insert(fleet_id, fleet_entity);
