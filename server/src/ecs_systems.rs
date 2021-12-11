@@ -86,8 +86,9 @@ fn get_new_clients(
             todo!();
         } else {
             // TODO: Load or create client's fleet.
-            let fleet_entity = commands
-                .spawn_bundle(ClientFleetBundle {
+            let mut e = commands.spawn();
+            let fleet_entity = e.id();
+            e.insert_bundle(ClientFleetBundle {
                     client_id,
                     fleet_bundle: FleetBundle {
                         fleet_id,
@@ -103,14 +104,13 @@ fn get_new_clients(
                                 radius: 10.0,
                                 position: Vec2::ZERO,
                             },
-                            fleet_id.0,
+                            fleet_entity,
                         )),
                         reputation: Reputation(0),
                         detector_radius: DetectorRadius(30.0),
                         fleet_detected: FleetDetected(Vec::new()),
                     },
-                })
-                .id();
+                });
 
             // Insert fleet.
             let _ = fleets_res.spawned_fleets.insert(fleet_id, fleet_entity);
@@ -155,17 +155,8 @@ fn client_fleet_sensor(
                 };
 
                 for collider_id in intersection_pipeline.intersect_collider(detector_collider) {
-                    if let Some(custom_data) = intersection_pipeline.get_collider_custom_data(collider_id) {
-                        let detected_fleet_id = FleetId(custom_data);
-                        if let Some(entity) = fleets_res.spawned_fleets.get(&detected_fleet_id) {
-                            detected.0.push(*entity);
-                        } else {
-                            // It can happen that a fleet is removed from spawned fleet, but not from the intersection pipeline yet.
-                            debug!(
-                                "{:?} is detected, but is not spawned. This should not happens often. Ignoring...",
-                                detected_fleet_id
-                            );
-                        }
+                    if let Some(entity) = intersection_pipeline.get_collider_entity(collider_id) {
+                        detected.0.push(entity);
                     } else {
                         warn!("Collider inside FleetIntersectionPipeline does not have custom data. Ignoring...");
                     }
@@ -424,8 +415,9 @@ fn spawn_ai_fleet(
 
     let fleet_id = fleets_res.get_new_fleet_id();
 
-    let fleet_entity = commands
-        .spawn_bundle(FleetBundle {
+    let mut e = commands.spawn();
+    let fleet_entity = e.id();
+    e.insert_bundle(FleetBundle {
             fleet_id,
             position: Position(Vec2::ZERO),
             wish_position: WishPosition(Vec2::ZERO),
@@ -439,13 +431,12 @@ fn spawn_ai_fleet(
                     radius: 10.0,
                     position: Vec2::ZERO,
                 },
-                fleet_id.0,
+                fleet_entity,
             )),
             reputation: Reputation(0),
             detector_radius: DetectorRadius(10.0),
             fleet_detected: FleetDetected(Vec::new()),
-        })
-        .id();
+        });
 
     // Insert fleet.
     let _ = fleets_res.spawned_fleets.insert(fleet_id, fleet_entity);

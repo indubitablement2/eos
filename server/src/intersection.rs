@@ -1,4 +1,5 @@
 use ahash::{AHashMap, AHashSet};
+use bevy_ecs::prelude::Entity;
 use common::collider::Collider;
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use crossbeam_queue::SegQueue;
@@ -65,12 +66,12 @@ impl Default for SAPRow {
 struct AccelerationStructureRunner {
     /// Sorted on the y axis.
     colliders: IndexMap<ColliderId, Collider>,
-    collider_custom_data: AHashMap<ColliderId, u64>,
+    collider_entity: AHashMap<ColliderId, Entity>,
     /// The difference between each row's start and end can not be smaller than this.
     /// Sorted on the x axis.
     rows: Vec<SAPRow>,
 
-    insert_collider_receiver: Receiver<(ColliderId, Collider, u64)>,
+    insert_collider_receiver: Receiver<(ColliderId, Collider, Entity)>,
     modify_collider_receiver: Receiver<(ColliderId, Collider)>,
     remove_collider_receiver: Receiver<ColliderId>,
     /// Sometime remove may be called before insert when both are called at the same time.
@@ -86,12 +87,12 @@ impl AccelerationStructureRunner {
 
     fn new(
         remove_collider_receiver: Receiver<ColliderId>,
-        insert_collider_receiver: Receiver<(ColliderId, Collider, u64)>,
+        insert_collider_receiver: Receiver<(ColliderId, Collider, Entity)>,
         modify_collider_receiver: Receiver<(ColliderId, Collider)>,
     ) -> Self {
         Self {
             colliders: IndexMap::new(),
-            collider_custom_data: AHashMap::new(),
+            collider_entity: AHashMap::new(),
             rows: Vec::new(),
             insert_collider_receiver,
             modify_collider_receiver,
@@ -107,9 +108,9 @@ impl AccelerationStructureRunner {
             collider_id_dispenser.recycle_collider_id(collider_id);
         }
         // Insert new colliders.
-        while let Ok((collider_id, collider, custom_data)) = self.insert_collider_receiver.try_recv() {
+        while let Ok((collider_id, collider, entity)) = self.insert_collider_receiver.try_recv() {
             self.colliders.insert(collider_id, collider);
-            self.collider_custom_data.insert(collider_id, custom_data);
+            self.collider_entity.insert(collider_id, entity);
         }
         // Modify colliders.
         while let Ok((collider_id, new_collider)) = self.modify_collider_receiver.try_recv() {
@@ -120,7 +121,7 @@ impl AccelerationStructureRunner {
         // Try to remove collider id that could not be found last update again.
         for collider_id in self.remove_queue.drain(..) {
             if self.colliders.remove(&collider_id).is_some() {
-                self.collider_custom_data.remove(&collider_id);
+                self.collider_entity.remove(&collider_id);
                 self.free_collider_id.push(collider_id);
             } else {
                 warn!("A collider id could not be removed. That could mean a memory leak. Ignoring...");
@@ -129,7 +130,7 @@ impl AccelerationStructureRunner {
         // Remove colliders and recycle collider id.
         while let Ok(collider_id) = self.remove_collider_receiver.try_recv() {
             if self.colliders.remove(&collider_id).is_some() {
-                self.collider_custom_data.remove(&collider_id);
+                self.collider_entity.remove(&collider_id);
                 self.free_collider_id.push(collider_id);
             } else {
                 self.remove_queue.push(collider_id);
@@ -220,14 +221,14 @@ impl AccelerationStructureRunner {
 #[derive(Debug)]
 struct AccelerationStructureSnapshot {
     colliders: IndexMap<ColliderId, Collider>,
-    collider_custom_data: AHashMap<ColliderId, u64>,
+    collider_entity: AHashMap<ColliderId, Entity>,
     rows: Vec<SAPRow>,
 }
 impl AccelerationStructureSnapshot {
     fn new() -> Self {
         Self {
             colliders: IndexMap::new(),
-            collider_custom_data: AHashMap::new(),
+            collider_entity: AHashMap::new(),
             rows: Vec::new(),
         }
     }
@@ -235,7 +236,7 @@ impl AccelerationStructureSnapshot {
     // Update snapshot with the data of a runner.
     fn clone_from_runner(&mut self, runner: &AccelerationStructureRunner) {
         self.colliders.clone_from(&runner.colliders);
-        self.collider_custom_data.clone_from(&runner.collider_custom_data);
+        self.collider_entity.clone_from(&runner.collider_entity);
         self.rows.clone_from(&runner.rows);
     }
 
@@ -433,7 +434,7 @@ impl AccelerationStructureSnapshot {
     }
 }
 
-// TODO: Intersection that can filter based on collider id or custom data.
+// TODO: Intersection that can filter based on collider id or entity.
 /// Allow fast circle-circle intersection and test between colliders.
 /// This intersection pipeline is fully async, but there is a delay before commands take effect.
 #[derive(Debug)]
@@ -445,7 +446,7 @@ pub struct IntersectionPipeline {
 
     remove_collider_sender: Sender<ColliderId>,
     modify_collider_sender: Sender<(ColliderId, Collider)>,
-    insert_collider_sender: Sender<(ColliderId, Collider, u64)>,
+    insert_collider_sender: Sender<(ColliderId, Collider, Entity)>,
 
     snapshot: AccelerationStructureSnapshot,
 }
@@ -506,10 +507,10 @@ impl IntersectionPipeline {
         }
     }
 
-    /// Insert a collider with custom data.
-    pub fn insert_collider(&self, collider: Collider, custom_data: u64) -> ColliderId {
+    /// Insert a collider with its entity.
+    pub fn insert_collider(&self, collider: Collider, entity: Entity) -> ColliderId {
         let collider_id = self.collider_id_dispenser.new_collider_id();
-        let _ = self.insert_collider_sender.send((collider_id, collider, custom_data));
+        let _ = self.insert_collider_sender.send((collider_id, collider, entity));
         collider_id
     }
 
@@ -531,12 +532,12 @@ impl IntersectionPipeline {
             .map(|collider| collider.to_owned())
     }
 
-    /// Get a copy of a collider's custom data by its id.
-    pub fn get_collider_custom_data(&self, collider_id: ColliderId) -> Option<u64> {
+    /// Get a copy of a collider's entity.
+    pub fn get_collider_entity(&self, collider_id: ColliderId) -> Option<Entity> {
         self.snapshot
-            .collider_custom_data
+            .collider_entity
             .get(&collider_id)
-            .map(|custom_data| custom_data.to_owned())
+            .map(|entity| entity.to_owned())
     }
 
     /// Return all colliders that intersect the provided collider.
@@ -597,7 +598,7 @@ fn test_basic() {
             radius: 10.0,
             position: vec2(0.0, 0.0),
         },
-        0,
+        Entity::new(0),
     );
     intersection_pipeline.update();
     intersection_pipeline.update();
@@ -642,7 +643,7 @@ fn test_row() {
             radius: 10.0,
             position: vec2(0.0, 0.0),
         },
-        0,
+        Entity::new(0),
     );
     intersection_pipeline.update();
     intersection_pipeline.update();
@@ -655,7 +656,7 @@ fn test_row() {
                 radius: 10.0,
                 position: vec2(0.0, 10000.0),
             },
-            0,
+            Entity::new(0),
         );
     }
     intersection_pipeline.update();
@@ -668,7 +669,7 @@ fn test_row() {
                 radius: 10.0,
                 position: vec2(0.0, 5000.0),
             },
-            0,
+            Entity::new(0),
         );
     }
     let mid = intersection_pipeline.insert_collider(
@@ -676,7 +677,7 @@ fn test_row() {
             radius: 10.0,
             position: vec2(0.0, 5000.0),
         },
-        0,
+        Entity::new(0),
     );
     intersection_pipeline.update();
     intersection_pipeline.update();
@@ -703,7 +704,7 @@ fn test_random() {
                 radius: random::<f32>() * 256.0,
                 position: random::<Vec2>() * 512.0 - 256.0,
             },
-            0,
+            Entity::new(0),
         );
         intersection_pipeline.update();
 
@@ -735,7 +736,7 @@ fn test_random_point() {
                 radius: random::<f32>() * 256.0,
                 position: random::<Vec2>() * 512.0 - 256.0,
             },
-            0,
+            Entity::new(0),
         );
         intersection_pipeline.update();
 
@@ -770,7 +771,7 @@ fn test_overlap_colliders() {
             position: Vec2::ZERO,
         };
 
-        intersection_pipeline.insert_collider(new_collider, 0);
+        intersection_pipeline.insert_collider(new_collider, Entity::new(0));
     }
 
     intersection_pipeline.update();
@@ -801,7 +802,7 @@ fn test_random_colliders() {
                 position: (random::<Vec2>() * 512.0 - 256.0),
             };
 
-            let new_id = intersection_pipeline.insert_collider(new_collider, 0);
+            let new_id = intersection_pipeline.insert_collider(new_collider, Entity::new(0));
 
             if og_collider.intersection_test(new_collider) {
                 expected_result.push(new_id);
@@ -835,9 +836,9 @@ fn test_reclycling_collider() {
     let mut used = IndexSet::new();
     for _ in 0..1000 {
         assert!(used.insert({
-            let id = intersection_pipeline.insert_collider(collider, 0);
+            let id = intersection_pipeline.insert_collider(collider, Entity::new(0));
 
-            assert!(intersection_pipeline.snapshot.collider_custom_data.get(&id).is_none());
+            assert!(intersection_pipeline.snapshot.collider_entity.get(&id).is_none());
 
             id
         }));
