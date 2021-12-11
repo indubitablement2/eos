@@ -155,9 +155,12 @@ fn udp_loop(udp_socket: UdpSocket, udp_to_send_receiver: Receiver<UdpClient>, ud
     info!("Udp loop finished.");
 }
 
+/// Receive tcp from the server.
+fn tcp_receiver_loop() {
+
+}
 
 fn tcp_loop(tcp_stream: TcpStream, tcp_to_send_receiver: Receiver<TcpClient>, tcp_received_sender: Sender<TcpServer>) {
-    info!("Tcp loop started.");
     let _ = tcp_to_send_receiver.recv();
     error!("TODO tcp loop no implemented. Trying to send a packet cause dtermination.");
     info!("Tcp loop finished.");

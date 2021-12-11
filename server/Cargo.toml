@@ -29,6 +29,9 @@ bincode = "1.3.3"
 # serde_yaml = "0.8.21"
 # serde_json = "1.0.69"
 
+tokio = { version = "1.13.0", features = ["full"] }
+# reqwest = { version = "0.11.6", features = ["json"] }
+
 glam = { version = "0.20.0", features = ["serde", "rand"] }
 # bytes = "1.1.0"
 
@@ -36,5 +39,3 @@ crossbeam-channel = "0.5.1"
 crossbeam-queue = "0.3.2"
 # rayon = "1.5.1"
 
-tokio = { version = "1.13.0", features = ["full"] }
-# reqwest = { version = "0.11.6", features = ["json"] }
