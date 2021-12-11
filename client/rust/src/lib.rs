@@ -15,11 +15,11 @@ pub mod ecs_render_pipeline;
 pub mod yaml_components;
 
 mod client;
+mod client_metascape;
 mod game;
 mod godot_logger;
-mod client_metascape;
-mod util;
 mod input_handler;
+mod util;
 
 use gdnative::prelude::{godot_init, InitHandle};
 use godot_logger::GodotLogger;

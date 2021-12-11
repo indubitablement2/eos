@@ -1,13 +1,13 @@
 use crate::client_metascape::ClientMetascape;
 use crate::input_handler::InputHandler;
-use std::net::IpAddr;
-use std::net::SocketAddr;
 use common::generation::GenerationParameters;
 use common::packets::*;
-use common::*;
 use common::parameters::MetascapeParameters;
+use common::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
+use std::net::IpAddr;
+use std::net::SocketAddr;
 
 /// Layer between godot and rust.
 /// Godot is used for input/rendering. Rust is used for logic.

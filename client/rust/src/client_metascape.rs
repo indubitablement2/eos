@@ -1,12 +1,12 @@
 use crate::client::Client;
 use crate::input_handler::InputHandler;
 use crate::util::*;
+use common::generation::GenerationParameters;
 use common::packets::*;
+use common::parameters::MetascapeParameters;
+use common::system::Systems;
 use gdnative::api::*;
 use gdnative::prelude::*;
-use common::system::Systems;
-use common::parameters::MetascapeParameters;
-use common::generation::GenerationParameters;
 use glam::Vec2;
 
 pub struct MetascapeState {
@@ -15,7 +15,10 @@ pub struct MetascapeState {
 }
 impl Default for MetascapeState {
     fn default() -> Self {
-        Self { tick: 0, fleets_position: Vec::new() }
+        Self {
+            tick: 0,
+            fleets_position: Vec::new(),
+        }
     }
 }
 
@@ -55,15 +58,19 @@ impl ClientMetascape {
         loop {
             match self.client.udp_receiver.try_recv() {
                 Ok(udp_packet) => match udp_packet {
-                    UdpServer::Battlescape { client_inputs, battlescape_tick } => {}
-                    UdpServer::Metascape { fleets_position, metascape_tick } => {
+                    UdpServer::Battlescape {
+                        client_inputs,
+                        battlescape_tick,
+                    } => {}
+                    UdpServer::Metascape {
+                        fleets_position,
+                        metascape_tick,
+                    } => {
                         // Pack into a MetascapeState.
-                        self.state_buffer.push(
-                            MetascapeState {
-                                tick: metascape_tick,
-                                fleets_position,
-                            }
-                        );
+                        self.state_buffer.push(MetascapeState {
+                            tick: metascape_tick,
+                            fleets_position,
+                        });
                     }
                 },
                 Err(err) => {
@@ -78,9 +85,7 @@ impl ClientMetascape {
         // Send client packets.
         // TODO: Only send packet every 100ms.
         let wish_position = input_handler.relative_mouse_position;
-        let packet = UdpClient::Metascape {
-            wish_position,
-        };
+        let packet = UdpClient::Metascape { wish_position };
         self.client.udp_sender.send(packet).unwrap();
     }
 
