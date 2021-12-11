@@ -3,7 +3,8 @@ use bevy_ecs::prelude::*;
 use glam::Vec2;
 use std::ops::{Add, Sub};
 
-//* bundle */
+//* bundle
+
 #[derive(Bundle)]
 pub struct ClientFleetBundle {
     pub client_id: ClientId,
@@ -25,7 +26,8 @@ pub struct FleetBundle {
     pub fleet_detected: FleetDetected,
 }
 
-//* id */
+//* id
+
 /// 0 is reserved and mean invalid.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ClientId(pub u32);
@@ -71,7 +73,8 @@ fn fleet_client_id() {
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FactionId(u32);
 
-//* generic */
+//* generic
+
 /// The current position of the entity.
 #[derive(Debug, Clone, Copy)]
 pub struct Position(pub Vec2);
@@ -126,9 +129,11 @@ impl Sub for Reputation {
 pub struct DetectorRadius(pub f32);
 
 /// Fleets that are detected by this fleet.
+/// If this is a client, this is sorted.
 pub struct FleetDetected(pub Vec<Entity>);
 
-//* ai */
+//* ai
+
 /// Not a components.
 pub enum FleetGoal {
     /// Directly controlled by a client.
@@ -153,6 +158,7 @@ pub struct FleetAI {
     pub goal: FleetGoal,
 }
 
-//* collider */
+//* collider
+
 /// Used to make a fleet detectable.
 pub struct FleetCollider(pub ColliderId);

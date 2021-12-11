@@ -4,12 +4,12 @@ use crate::ecs_events::*;
 use crate::intersection::*;
 use crate::res_clients::*;
 use crate::res_fleets::*;
-use common::res_time::TimeRes;
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
 use common::collider::Collider;
 use common::packets::*;
 use common::parameters::MetascapeParameters;
+use common::res_time::TimeRes;
 use glam::Vec2;
 use rand::Rng;
 
@@ -18,7 +18,8 @@ pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_stage(current_stage, SystemStage::parallel());
     schedule.add_system_to_stage(current_stage, increment_time.system());
     schedule.add_system_to_stage(current_stage, get_new_clients.system());
-    schedule.add_system_to_stage(current_stage, fleet_sensor.system());
+    schedule.add_system_to_stage(current_stage, ai_fleet_sensor.system());
+    schedule.add_system_to_stage(current_stage, client_fleet_sensor.system());
 
     let previous_stage = current_stage;
     let current_stage = "pre_update";
@@ -120,44 +121,172 @@ fn get_new_clients(
     }
 }
 
-/// Determine what each fleet can see.
-fn fleet_sensor(
-    mut query: Query<(&Position, &FleetId, &DetectorRadius, &mut FleetDetected)>,
+/// Determine what each ai fleet can see.
+fn ai_fleet_sensor(
+
+) {
+
+}
+
+/// Determine what each client fleet can see.
+fn client_fleet_sensor(
+    mut query: Query<(&Position, &ClientId, &FleetId, &DetectorRadius, &mut FleetDetected)>,
     intersection_pipeline: Res<IntersectionPipeline>,
+    clients_res: Res<ClientsRes>,
     fleets_res: Res<FleetsRes>,
     task_pool: Res<TaskPool>,
     time_res: Res<TimeRes>,
 ) {
-    // We will only update 1/5 at a time.
-    let turn = time_res.tick % 5;
+    // We will only update 1/10 at a time.
+    let num_turn = 10u64;
+    let turn = time_res.tick % num_turn;
 
-    query.par_for_each_mut(&task_pool, 512, |(pos, fleet_id, detector_radius, mut detected)| {
-        if fleet_id.0 % 5 == turn {
-            detected.0.clear();
+    query.par_for_each_mut(
+        &task_pool,
+        32 * num_turn as usize,
+        |(pos, client_id, fleet_id, detector_radius, mut detected)| {
+            if fleet_id.0 % num_turn == turn {
+                let old_len = detected.0.len();
+                let old_detected = std::mem::replace(&mut detected.0, Vec::with_capacity(old_len));
 
-            let detector_collider = Collider {
-                radius: detector_radius.0,
-                position: pos.0,
-            };
+                let detector_collider = Collider {
+                    radius: detector_radius.0,
+                    position: pos.0,
+                };
 
-            for collider_id in intersection_pipeline.intersect_collider(detector_collider) {
-                if let Some(custom_data) = intersection_pipeline.get_collider_custom_data(collider_id) {
-                    let detected_fleet_id = FleetId(custom_data);
-                    if let Some(entity) = fleets_res.spawned_fleets.get(&detected_fleet_id) {
-                        detected.0.push(*entity);
+                for collider_id in intersection_pipeline.intersect_collider(detector_collider) {
+                    if let Some(custom_data) = intersection_pipeline.get_collider_custom_data(collider_id) {
+                        let detected_fleet_id = FleetId(custom_data);
+                        if let Some(entity) = fleets_res.spawned_fleets.get(&detected_fleet_id) {
+                            detected.0.push(*entity);
+                        } else {
+                            // It can happen that a fleet is removed from spawned fleet, but not from the intersection pipeline yet.
+                            debug!(
+                                "{:?} is detected, but is not spawned. This should not happens often. Ignoring...",
+                                detected_fleet_id
+                            );
+                        }
                     } else {
-                        // It can happen that a fleet is removed from spawned fleet, but not from the intersection pipeline yet.
-                        debug!(
-                            "{:?} is detected, but is not spawned This should not happens often. Ignoring...",
-                            detected_fleet_id
-                        );
+                        warn!("Collider inside FleetIntersectionPipeline does not have custom data. Ignoring...");
                     }
-                } else {
-                    warn!("Collider inside FleetIntersectionPipeline does not have custom data. Ignoring...");
+                }
+
+                if let Some(client) = clients_res.connected_clients.get(client_id) {
+                    // Sort result.
+                    detected.0.sort_unstable();
+
+                    // Find difference.
+                    let mut new_iter = detected.0.iter();
+                    let mut old_iter = old_detected.iter();
+                    if let Some(nv) = new_iter.next() {
+                        let mut n = nv;
+                        if let Some(ov) = old_iter.next() {
+                            let mut o = ov;
+                            loop {
+                                if n > o {
+                                    let _ = client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedSub {
+                                        tick: time_res.tick,
+                                        id: o.to_bits(),
+                                    });
+                                    o = if let Some(v) = old_iter.next() {
+                                        v
+                                    } else {
+                                        let _ =
+                                            client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedAdd {
+                                                tick: time_res.tick,
+                                                id: n.to_bits(),
+                                            });
+                                        for rest in new_iter {
+                                            let _ = client.connection.tcp_sender.blocking_send(
+                                                TcpServer::FleetDetectedAdd {
+                                                    tick: time_res.tick,
+                                                    id: rest.to_bits(),
+                                                },
+                                            );
+                                        }
+                                        break;
+                                    };
+                                } else if n < o {
+                                    let _ = client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedAdd {
+                                        tick: time_res.tick,
+                                        id: n.to_bits(),
+                                    });
+                                    n = if let Some(v) = new_iter.next() {
+                                        v
+                                    } else {
+                                        let _ =
+                                            client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedSub {
+                                                tick: time_res.tick,
+                                                id: o.to_bits(),
+                                            });
+                                        for rest in old_iter {
+                                            let _ = client.connection.tcp_sender.blocking_send(
+                                                TcpServer::FleetDetectedSub {
+                                                    tick: time_res.tick,
+                                                    id: rest.to_bits(),
+                                                },
+                                            );
+                                        }
+                                        break;
+                                    };
+                                } else {
+                                    n = if let Some(v) = new_iter.next() {
+                                        v
+                                    } else {
+                                        for rest in old_iter {
+                                            let _ = client.connection.tcp_sender.blocking_send(
+                                                TcpServer::FleetDetectedSub {
+                                                    tick: time_res.tick,
+                                                    id: rest.to_bits(),
+                                                },
+                                            );
+                                        }
+                                        break;
+                                    };
+                                    o = if let Some(v) = old_iter.next() {
+                                        v
+                                    } else {
+                                        let _ =
+                                            client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedAdd {
+                                                tick: time_res.tick,
+                                                id: n.to_bits(),
+                                            });
+                                        for rest in new_iter {
+                                            let _ = client.connection.tcp_sender.blocking_send(
+                                                TcpServer::FleetDetectedAdd {
+                                                    tick: time_res.tick,
+                                                    id: rest.to_bits(),
+                                                },
+                                            );
+                                        }
+                                        break;
+                                    };
+                                }
+                            }
+                        } else {
+                            let _ = client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedAdd {
+                                tick: time_res.tick,
+                                id: n.to_bits(),
+                            });
+                            for rest in new_iter {
+                                let _ = client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedAdd {
+                                    tick: time_res.tick,
+                                    id: rest.to_bits(),
+                                });
+                            }
+                        };
+                    } else {
+                        for rest in old_iter {
+                            let _ = client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedSub {
+                                tick: time_res.tick,
+                                id: rest.to_bits(),
+                            });
+                        }
+                    }
                 }
             }
-        }
-    });
+        },
+    );
 }
 
 //* pre_update

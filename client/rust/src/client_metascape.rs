@@ -4,19 +4,34 @@ use crate::util::*;
 use common::packets::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
-use common::res_time::TimeRes;
 use common::system::Systems;
 use common::parameters::MetascapeParameters;
 use common::generation::GenerationParameters;
 use glam::Vec2;
 
+pub struct MetascapeState {
+    tick: u64,
+    fleets_position: Vec<Vec2>,
+}
+impl Default for MetascapeState {
+    fn default() -> Self {
+        Self { tick: 0, fleets_position: Vec::new() }
+    }
+}
+
 pub struct ClientMetascape {
     /// Send input to server. Receive command from server.
     client: Client,
-    time: TimeRes,
     metascape_parameters: MetascapeParameters,
     systems: Systems,
-    detected_fleets: Vec<Vec2>,
+    /// Detected fleet.
+    previous_state: MetascapeState,
+    /// Used with previous_fleets_position for interpolation.
+    current_state: MetascapeState,
+    /// Previously received packet that are not yet used.
+    state_buffer: Vec<MetascapeState>,
+    /// How far are we from previous state to current state.
+    state_delta: f64,
 }
 impl ClientMetascape {
     pub fn new(
@@ -26,22 +41,29 @@ impl ClientMetascape {
     ) -> std::io::Result<Self> {
         Ok(Self {
             client: Client::new(server_addresses)?,
-            time: TimeRes::default(),
             systems: Systems::generate(&generation_parameters, &metascape_parameters),
             metascape_parameters,
-            detected_fleets: Vec::new(),
-            
+            previous_state: MetascapeState::default(),
+            current_state: MetascapeState::default(),
+            state_buffer: Vec::new(),
+            state_delta: 0.0,
         })
     }
 
-    pub fn update(&mut self, input_handler: &InputHandler) {
+    pub fn update(&mut self, delta: f64, input_handler: &InputHandler) {
         // Handle server packets.
         loop {
             match self.client.udp_receiver.try_recv() {
                 Ok(udp_packet) => match udp_packet {
                     UdpServer::Battlescape { client_inputs, battlescape_tick } => {}
                     UdpServer::Metascape { fleets_position, metascape_tick } => {
-                        self.detected_fleets = fleets_position;
+                        // Pack into a MetascapeState.
+                        self.state_buffer.push(
+                            MetascapeState {
+                                tick: metascape_tick,
+                                fleets_position,
+                            }
+                        );
                     }
                 },
                 Err(err) => {
@@ -63,18 +85,18 @@ impl ClientMetascape {
     }
 
     pub fn render(&mut self, owner: &Node2D) {
-        for position in &self.detected_fleets {
-            // Draw all fleet.
-            owner.draw_circle(
-                glam_to_godot(*position),
-                10.0,
-                Color {
-                    r: 0.0,
-                    g: 0.0,
-                    b: 1.0,
-                    a: 0.5,
-                },
-            );
-        }
+        // for position in &self.fleets_position {
+        //     // Draw all fleet.
+        //     owner.draw_circle(
+        //         glam_to_godot(*position),
+        //         10.0,
+        //         Color {
+        //             r: 0.0,
+        //             g: 0.0,
+        //             b: 1.0,
+        //             a: 0.5,
+        //         },
+        //     );
+        // }
     }
 }

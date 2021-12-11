@@ -54,7 +54,7 @@ impl Game {
         self.input_handler.update(owner);
 
         if let Some(client_metascape) = &mut self.client_metascape {
-            client_metascape.update(&self.input_handler);
+            client_metascape.update(delta, &self.input_handler);
         }
 
         // TODO: Remove rendering from draw,

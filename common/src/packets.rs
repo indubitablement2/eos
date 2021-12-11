@@ -195,6 +195,8 @@ pub enum UdpServer {
         battlescape_tick: u64,
     },
     Metascape {
+        /// Sorted by entity. Excepted for the first which is this client's fleet.
+        /// What is the entity is sent over tcp.
         fleets_position: Vec<Vec2>,
         metascape_tick: u64,
     },
@@ -266,7 +268,20 @@ impl TcpClient {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum TcpServer {}
+pub enum TcpServer {
+    /// A new fleet was detected.
+    FleetDetectedAdd {
+        tick: u64,
+        /// Bevy entity.
+        id: u64,
+    },
+    /// A previously detected fleet was lost.
+    FleetDetectedSub {
+        tick: u64,
+        /// Bevy entity.
+        id: u64,
+    }
+}
 impl TcpServer {
     /// Adds a 32bits header representing payload size.
     pub fn serialize(&self) -> Vec<u8> {
