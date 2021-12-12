@@ -2,7 +2,6 @@ use crate::{
     connection_manager::{Connection, ConnectionsManager},
     ecs_components::ClientId,
 };
-use common::packets::ServerAddresses;
 use indexmap::IndexMap;
 
 pub struct ClientsRes {
@@ -10,15 +9,11 @@ pub struct ClientsRes {
     pub connected_clients: IndexMap<ClientId, Client>,
 }
 impl ClientsRes {
-    pub fn new() -> std::io::Result<Self> {
+    pub fn new(local: bool) -> std::io::Result<Self> {
         Ok(Self {
-            connection_manager: ConnectionsManager::new()?,
+            connection_manager: ConnectionsManager::new(local)?,
             connected_clients: IndexMap::new(),
         })
-    }
-
-    pub fn get_addresses(&self) -> ServerAddresses {
-        self.connection_manager.get_addresses()
     }
 }
 

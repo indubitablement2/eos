@@ -21,40 +21,22 @@ pub enum PacketError {
 pub struct LoginPacket {
     pub is_steam: bool,
     pub token: u64,
-    // TODO: This should just be the port as the address is always the same as tcp.
-    pub udp_address: SocketAddr,
+    pub client_udp_port: u16,
 }
 impl LoginPacket {
-    pub const FIXED_SIZE: usize = 50;
+    pub const FIXED_SIZE: usize = 11;
 
     pub fn serialize(&self) -> Vec<u8> {
-        let payload = bincode::serialize(self).unwrap();
-        let mut v = Vec::with_capacity(Self::FIXED_SIZE);
-        v.push(payload.len() as u8);
-        v.extend_from_slice(&payload);
-        v.resize(Self::FIXED_SIZE, 0);
-        v
+        bincode::serialize(self).expect("could not serialize LoginPacket")
     }
 
     pub fn deserialize(buffer: &[u8]) -> Option<Self> {
-        let size = match buffer.first() {
-            Some(b) => *b as usize,
-            None => {
-                return None;
-            }
-        };
-
-        if size <= 1 {
-            return None;
-        }
-
-        if buffer.len() < size + 1 {
-            return None;
-        }
-
-        match bincode::deserialize::<Self>(&buffer[1..size + 1]) {
+        match bincode::deserialize::<Self>(&buffer) {
             Ok(result) => Some(result),
-            Err(_) => None,
+            Err(err) => {
+                debug!("{} while trying to deserialize LoginPacket.", err);
+                None
+            }
         }
     }
 }
@@ -64,36 +46,42 @@ fn test_login_packet() {
     let og = LoginPacket {
         is_steam: false,
         token: 255,
-        udp_address: SocketAddr::new(
-            std::net::IpAddr::V6(std::net::Ipv6Addr::new(123, 444, 555, 7211, 1123, 34509, 111, 953)),
-            747,
-        ),
+        client_udp_port: 747,
     };
     assert_eq!(og, LoginPacket::deserialize(&og.serialize()).unwrap());
     assert_eq!(og.serialize().len(), LoginPacket::FIXED_SIZE);
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum LoginResponsePacket {
-    Accepted,
+    Accepted{
+        client_id: u32
+    },
     Error,
+    DeserializeError,
 }
 impl LoginResponsePacket {
-    pub const FIXED_SIZE: usize = 1;
+    pub const FIXED_SIZE: usize = 12;
 
     pub fn serialize(&self) -> Vec<u8> {
-        match self {
-            LoginResponsePacket::Accepted => vec![0],
-            LoginResponsePacket::Error => vec![255],
+        match bincode::serialize(self) {
+            Ok(v) => v,
+            Err(err) => {
+                warn!("{:?} while trying to serialize LoginResponsePacket. Sending empty packet...", err);
+                Vec::new()
+            }
         }
     }
 
     pub fn deserialize(buffer: &[u8]) -> Self {
-        match buffer[0] {
-            0 => Self::Accepted,
-            _ => Self::Error,
-        }
+        bincode::deserialize(buffer).unwrap_or(LoginResponsePacket::DeserializeError)
     }
+}
+#[test]
+fn test_login_response_packet() {
+    let og = LoginResponsePacket::Accepted { client_id: 1234};
+    assert_eq!(og, LoginResponsePacket::deserialize(&og.serialize()).unwrap());
+    assert_eq!(og.serialize().len(), LoginResponsePacket::FIXED_SIZE);
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -332,7 +332,7 @@ impl Terminal {
                                 "version: {}.{}.{}",
                                 VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH
                             )),
-                            Spans::from(format!("{:?}", metascape.get_addresses())),
+                            Spans::from(format!("port {:?}", common::SERVER_PORT)),
                         ];
                         let paragraph = Paragraph::new(text)
                             .alignment(Alignment::Left)

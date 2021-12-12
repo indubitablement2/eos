@@ -26,7 +26,7 @@ pub struct Client {
     /// Receive packet over tcp from the server.
     pub tcp_receiver: crossbeam_channel::Receiver<TcpServer>,
 
-    server_addresses: ServerAddresses,
+    pub server_addresses: ServerAddresses,
 }
 impl Client {
     /// Try to connect to a server. This could also be set to loopback if server is also the client.
@@ -52,7 +52,7 @@ impl Client {
         let login_packet = LoginPacket {
             is_steam: true,
             token: 0,
-            udp_address: udp_socket.local_addr()?,
+            client_udp_port: udp_socket.local_addr()?.port(),
         }
         .serialize();
         debug!("Created LoginPacket.");
@@ -98,11 +98,6 @@ impl Client {
             tcp_receiver,
             server_addresses,
         })
-    }
-
-    /// Get the server addresses this client is connected to.
-    pub fn server_addresses(&self) -> ServerAddresses {
-        self.server_addresses
     }
 }
 
@@ -244,7 +239,7 @@ async fn tcp_send_loop(
     }
 }
 
-/// If the io error is considered fatal, return true and print the err to debug log.
+/// If the io error is fatal, return true and print the err to debug log.
 fn is_err_fatal(err: &Error) -> bool {
     if err.kind() == std::io::ErrorKind::WouldBlock || err.kind() == std::io::ErrorKind::Interrupted {
         false

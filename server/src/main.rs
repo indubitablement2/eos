@@ -9,7 +9,7 @@ use bevy_tasks::TaskPool;
 use common::generation::GenerationParameters;
 use common::parameters::MetascapeParameters;
 use common::res_time::TimeRes;
-use common::{packets::ServerAddresses, system::Systems};
+use common::system::Systems;
 use data_manager::DataManager;
 use intersection::IntersectionPipeline;
 use res_clients::ClientsRes;
@@ -41,6 +41,7 @@ pub struct Metascape {
 }
 impl Metascape {
     fn new(
+        local: bool,
         metascape_parameters: MetascapeParameters,
         generation_parameters: GenerationParameters,
     ) -> std::io::Result<Self> {
@@ -52,7 +53,7 @@ impl Metascape {
         world.insert_resource(Systems::generate(&generation_parameters, &metascape_parameters));
         world.insert_resource(metascape_parameters);
         world.insert_resource(IntersectionPipeline::new());
-        world.insert_resource(ClientsRes::new()?);
+        world.insert_resource(ClientsRes::new(local)?);
         world.insert_resource(FactionsRes::new());
         world.insert_resource(FleetsRes::new());
 
@@ -68,11 +69,6 @@ impl Metascape {
 
     fn update(&mut self) {
         self.schedule.run_once(&mut self.world);
-    }
-
-    /// Get this server addressses.
-    fn get_addresses(&self) -> ServerAddresses {
-        self.world.get_resource::<ClientsRes>().unwrap().get_addresses()
     }
 }
 
@@ -137,16 +133,25 @@ fn main() {
 }
 
 fn startup() -> std::io::Result<Metascape> {
+    let mut buffer = String::new();
+    // Ask if we should create local server.
+    println!("Do you want to create a server over localhost? [_/n]");
+    std::io::stdin().read_line(&mut buffer)?;
+    let local = buffer.split_whitespace().next().unwrap_or_default() != "n";
+    println!("Local server: {}", local);
+
     // Ask if we should use default values.
     println!("Do you want to use default Metascape values? [_/n]");
-    let mut buffer = String::new();
+    buffer.clear();
     std::io::stdin().read_line(&mut buffer)?;
+    let default_values = buffer.split_whitespace().next().unwrap_or_default() != "n";
+    println!("Default values: {}", default_values);
 
     // Init Metascape.
-    if buffer.split_whitespace().next().unwrap_or_default() == "n" {
+    if default_values {
         return Err(std::io::Error::new(std::io::ErrorKind::Other, "TODO"));
     } else {
         let generation_parameters = GenerationParameters::default();
-        return Ok(Metascape::new(MetascapeParameters::default(), generation_parameters)?);
+        return Ok(Metascape::new(local, MetascapeParameters::default(), generation_parameters)?);
     }
 }
