@@ -49,6 +49,7 @@ pub struct ClientMetascape {
     metascape_parameters: MetascapeParameters,
     systems: Systems,
     current_metascape_data: CurrentMetascapeData,
+    metascape_data_commands: Vec<(u64, MetascapeDataCommand)>,
     /// Detected fleet.
     previous_state: MetascapeState,
     /// Used with previous_fleets_position for interpolation.
@@ -73,6 +74,7 @@ impl ClientMetascape {
             state_buffer: Vec::new(),
             state_delta: 0.0,
             current_metascape_data: CurrentMetascapeData::default(),
+            metascape_data_commands: Vec::new(),
         })
     }
 
@@ -110,7 +112,11 @@ impl ClientMetascape {
             match self.client.tcp_receiver.try_recv() {
                 Ok(tcp_packet) => {
                     match tcp_packet {
-                        TcpServer::FleetDetectedAdd { tick, id } => todo!(),
+                        TcpServer::FleetDetectedAdd { tick, id } => {
+                            self.metascape_data_commands.push((tick, MetascapeDataCommand::AddFleet {
+                                fleet_id: todo!(),
+                            }))
+                        }
                         TcpServer::FleetDetectedSub { tick, id } => todo!(),
                     }
                 }
@@ -123,6 +129,9 @@ impl ClientMetascape {
             }
         }
 
+        // Sort metascape_data_commands by tick.
+
+
         // Send client packets.
         // TODO: Only send packet every 100ms.
         let wish_position = input_handler.relative_mouse_position;
@@ -131,14 +140,27 @@ impl ClientMetascape {
     }
 
     pub fn render(&mut self, owner: &Node2D) {
-        for position in &self.current_state.fleets_position {
+        for (i, position) in self.current_state.fleets_position.iter().enumerate() {
+            let fleet_id = match self.current_metascape_data.fleet_idx.get(i) {
+                Some(f) => *f,
+                None => {
+                    warn!("Received more position than fleet id. Ignoring...");
+                    continue;
+                }
+            };
+
+            let g = match ClientId::from(fleet_id) == self.client.client_id {
+                true => 1.0,
+                false => 0.0,
+            };
+
             // Draw all fleet.
             owner.draw_circle(
                 glam_to_godot(*position),
                 10.0,
                 Color {
                     r: 0.0,
-                    g: 0.0,
+                    g,
                     b: 1.0,
                     a: 0.5,
                 },

@@ -24,7 +24,7 @@ pub struct FleetBundle {
     pub fleet_collider: FleetCollider,
     pub reputation: Reputation,
     pub detector_radius: DetectorRadius,
-    pub fleet_detected: FleetDetected,
+    pub fleet_detected: EntityDetected,
 }
 
 //* generic
@@ -83,8 +83,8 @@ impl Sub for Reputation {
 pub struct DetectorRadius(pub f32);
 
 /// Fleets that are detected by this fleet.
-/// If this is a client, this is sorted.
-pub struct FleetDetected(pub Vec<Entity>);
+/// If this is a client, this is sorted by fleet id.
+pub struct EntityDetected(pub Vec<Entity>);
 
 //* ai
 

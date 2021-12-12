@@ -260,16 +260,14 @@ impl TcpClient {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum TcpServer {
-    /// A new fleet was detected.
-    FleetDetectedAdd {
+    /// A new entity was detected.
+    EntityDetectedAdd {
         tick: u64,
-        /// Bevy entity.
         id: u64,
     },
-    /// A previously detected fleet was lost.
-    FleetDetectedSub {
+    /// A previously detected entity was lost.
+    EntityDetectedSub {
         tick: u64,
-        /// Bevy entity.
         id: u64,
     }
 }

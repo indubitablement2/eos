@@ -1,3 +1,5 @@
+#![feature(test)]
+
 #[macro_use]
 extern crate log;
 
@@ -8,6 +10,7 @@ pub mod parameters;
 pub mod system;
 pub mod res_time;
 pub mod idx;
+pub mod array_difference;
 
 pub const VERSION_MAJOR: u16 = 0;
 pub const VERSION_MINOR: u16 = 1;

@@ -11,6 +11,7 @@ use common::packets::*;
 use common::parameters::MetascapeParameters;
 use common::res_time::TimeRes;
 use common::idx::*;
+use common::array_difference::*;
 use glam::Vec2;
 use rand::Rng;
 
@@ -109,7 +110,7 @@ fn get_new_clients(
                     )),
                     reputation: Reputation(0),
                     detector_radius: DetectorRadius(30.0),
-                    fleet_detected: FleetDetected(Vec::new()),
+                    fleet_detected: EntityDetected(Vec::new()),
                 },
             });
 
@@ -124,7 +125,7 @@ fn get_new_clients(
 
 /// Determine what each ai fleet can see.
 fn ai_fleet_sensor(
-    mut query: Query<(&Position, &FleetId, &DetectorRadius, &mut FleetDetected), Without<ClientId>>,
+    mut query: Query<(&Position, &FleetId, &DetectorRadius, &mut EntityDetected), Without<ClientId>>,
     intersection_pipeline: Res<IntersectionPipeline>,
     task_pool: Res<TaskPool>,
     time_res: Res<TimeRes>,
@@ -157,9 +158,9 @@ fn ai_fleet_sensor(
     );
 }
 
-/// Determine what each client fleet can see.
+/// Determine what each client's fleet can see.
 fn client_fleet_sensor(
-    mut query: Query<(&Position, &ClientId, &FleetId, &DetectorRadius, &mut FleetDetected)>,
+    mut query: Query<(&Position, &ClientId, &FleetId, &DetectorRadius, &mut EntityDetected)>,
     intersection_pipeline: Res<IntersectionPipeline>,
     clients_res: Res<ClientsRes>,
     task_pool: Res<TaskPool>,
@@ -195,112 +196,21 @@ fn client_fleet_sensor(
                     detected.0.sort_unstable();
 
                     // Find difference.
-                    let mut new_iter = detected.0.iter();
-                    let mut old_iter = old_detected.iter();
-                    if let Some(nv) = new_iter.next() {
-                        let mut n = nv;
-                        if let Some(ov) = old_iter.next() {
-                            let mut o = ov;
-                            loop {
-                                if n > o {
-                                    let _ = client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedSub {
-                                        tick: time_res.tick,
-                                        id: o.to_bits(),
-                                    });
-                                    o = if let Some(v) = old_iter.next() {
-                                        v
-                                    } else {
-                                        let _ =
-                                            client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedAdd {
-                                                tick: time_res.tick,
-                                                id: n.to_bits(),
-                                            });
-                                        for rest in new_iter {
-                                            let _ = client.connection.tcp_sender.blocking_send(
-                                                TcpServer::FleetDetectedAdd {
-                                                    tick: time_res.tick,
-                                                    id: rest.to_bits(),
-                                                },
-                                            );
-                                        }
-                                        break;
-                                    };
-                                } else if n < o {
-                                    let _ = client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedAdd {
-                                        tick: time_res.tick,
-                                        id: n.to_bits(),
-                                    });
-                                    n = if let Some(v) = new_iter.next() {
-                                        v
-                                    } else {
-                                        let _ =
-                                            client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedSub {
-                                                tick: time_res.tick,
-                                                id: o.to_bits(),
-                                            });
-                                        for rest in old_iter {
-                                            let _ = client.connection.tcp_sender.blocking_send(
-                                                TcpServer::FleetDetectedSub {
-                                                    tick: time_res.tick,
-                                                    id: rest.to_bits(),
-                                                },
-                                            );
-                                        }
-                                        break;
-                                    };
-                                } else {
-                                    n = if let Some(v) = new_iter.next() {
-                                        v
-                                    } else {
-                                        for rest in old_iter {
-                                            let _ = client.connection.tcp_sender.blocking_send(
-                                                TcpServer::FleetDetectedSub {
-                                                    tick: time_res.tick,
-                                                    id: rest.to_bits(),
-                                                },
-                                            );
-                                        }
-                                        break;
-                                    };
-                                    o = if let Some(v) = old_iter.next() {
-                                        v
-                                    } else {
-                                        let _ =
-                                            client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedAdd {
-                                                tick: time_res.tick,
-                                                id: n.to_bits(),
-                                            });
-                                        for rest in new_iter {
-                                            let _ = client.connection.tcp_sender.blocking_send(
-                                                TcpServer::FleetDetectedAdd {
-                                                    tick: time_res.tick,
-                                                    id: rest.to_bits(),
-                                                },
-                                            );
-                                        }
-                                        break;
-                                    };
-                                }
-                            }
-                        } else {
-                            let _ = client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedAdd {
-                                tick: time_res.tick,
-                                id: n.to_bits(),
-                            });
-                            for rest in new_iter {
-                                let _ = client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedAdd {
-                                    tick: time_res.tick,
-                                    id: rest.to_bits(),
-                                });
-                            }
-                        };
-                    } else {
-                        for rest in old_iter {
-                            let _ = client.connection.tcp_sender.blocking_send(TcpServer::FleetDetectedSub {
-                                tick: time_res.tick,
-                                id: rest.to_bits(),
-                            });
-                        }
+                    let dif_result = sorted_arrays_sub_add(&old_detected, &detected.0);
+
+                    // Send new entity to client.
+                    for new_entity in dif_result.add.into_iter() {
+                        let _ = client.connection.tcp_sender.blocking_send(TcpServer::EntityDetectedAdd {
+                            tick: time_res.tick,
+                            id: new_entity.to_bits(),
+                        });
+                    }
+                    // Send removed entity to client.
+                    for old_entity in dif_result.sub.into_iter() {
+                        let _ = client.connection.tcp_sender.blocking_send(TcpServer::EntityDetectedSub {
+                            tick: time_res.tick,
+                            id: old_entity.to_bits(),
+                        });
                     }
                 }
             }
@@ -463,7 +373,7 @@ fn spawn_ai_fleet(
         )),
         reputation: Reputation(0),
         detector_radius: DetectorRadius(10.0),
-        fleet_detected: FleetDetected(Vec::new()),
+        fleet_detected: EntityDetected(Vec::new()),
     });
 
     // Insert fleet.
@@ -482,8 +392,8 @@ fn update_intersection_pipeline(mut intersection_pipeline: ResMut<IntersectionPi
 
 // Send detected fleet to clients over udp.
 fn send_detected_fleet(
-    query_client: Query<(&ClientId, &Position, &FleetDetected)>,
-    query_fleet: Query<&Position>,
+    query_client: Query<(&ClientId, &Position, &EntityDetected)>,
+    query_fleet: Query<(&FleetId, &Position)>,
     time_res: Res<TimeRes>,
     clients_res: Res<ClientsRes>,
 ) {
@@ -491,12 +401,9 @@ fn send_detected_fleet(
         if let Some(client) = clients_res.connected_clients.get(client_id) {
             let mut fleets_position = Vec::with_capacity(25);
 
-            // Always send client's own fleet position.
-            fleets_position.push(pos.0);
-
             // TODO: If too many fleet are detected, throttle which ones are sent.
             for detected_entity in fleet_detected.0.iter() {
-                if let Ok(detected_fleet_pos) = query_fleet.get(*detected_entity) {
+                if let Ok((detected_fleet_id, detected_fleet_pos)) = query_fleet.get(*detected_entity) {
                     fleets_position.push(detected_fleet_pos.0);
                     if fleets_position.len() >= 24 {
                         debug!("Could not send all detected fleet position. Ignoring rest...");
