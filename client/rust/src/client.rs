@@ -1,7 +1,16 @@
 use common::packets::*;
-use tokio::{runtime::Runtime, net::{TcpStream, UdpSocket, tcp::{OwnedReadHalf, OwnedWriteHalf}}, io::{AsyncWriteExt, AsyncReadExt, BufReader, BufWriter}};
 use std::{
-    net::{Ipv6Addr, SocketAddrV6}, sync::Arc, io::Error,
+    io::Error,
+    net::{Ipv6Addr, SocketAddrV6},
+    sync::Arc,
+};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
+    net::{
+        tcp::{OwnedReadHalf, OwnedWriteHalf},
+        TcpStream, UdpSocket,
+    },
+    runtime::Runtime,
 };
 
 pub struct Client {
@@ -23,15 +32,19 @@ impl Client {
     /// Try to connect to a server. This could also be set to loopback if server is also the client.
     pub fn new(server_addresses: ServerAddresses) -> std::io::Result<Self> {
         // Create tokio runtime.
-        let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(1).enable_all().build()?;
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .enable_all()
+            .build()?;
         debug!("Created tokio runtime.");
 
         // Connect tcp stream.
-        let mut tcp_stream = rt.block_on(async {TcpStream::connect(server_addresses.tcp_address).await})?;
+        let mut tcp_stream = rt.block_on(async { TcpStream::connect(server_addresses.tcp_address).await })?;
         debug!("Connected with server over tcp.");
 
         // Create UdpSocket.
-        let udp_socket = Arc::new(rt.block_on(async { UdpSocket::bind(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0)).await })?);
+        let udp_socket =
+            Arc::new(rt.block_on(async { UdpSocket::bind(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0)).await })?);
         rt.block_on(async { udp_socket.connect(server_addresses.udp_address).await })?;
         debug!("Connected with server over udp.");
 
@@ -45,12 +58,12 @@ impl Client {
         debug!("Created LoginPacket.");
 
         // Send LoginPacket.
-        rt.block_on(async {tcp_stream.write_all(&login_packet).await})?;
+        rt.block_on(async { tcp_stream.write_all(&login_packet).await })?;
         debug!("Sent LoginPacket.");
 
         // Get server response.
         let mut buf = [0u8; LoginResponsePacket::FIXED_SIZE];
-        rt.block_on(async {tcp_stream.read_exact(&mut buf).await})?;
+        rt.block_on(async { tcp_stream.read_exact(&mut buf).await })?;
         let login_response = LoginResponsePacket::deserialize(&buf);
         info!("Received login response from server: {:?}.", login_response);
 
@@ -98,19 +111,20 @@ async fn udp_recv_loop(udp_socket: Arc<UdpSocket>, udp_received_sender: crossbea
     let mut recv_buf = [0u8; UdpServer::PAYLOAD_MAX_SIZE + 1];
     loop {
         match udp_socket.recv(&mut recv_buf).await {
-            Ok(num) => {
-                match UdpServer::deserialize(&recv_buf[..num]) {
-                    Ok(packet) => {
-                        if let Err(err) = udp_received_sender.send(packet) {
-                            trace!("{:?} while sending udp packet on channel. Terminating udp recv loop...", err);
-                            break;
-                        }
-                    }
-                    Err(err) => {
-                        warn!("{:?} while deserialize udp packet. Ignoring...", err);
+            Ok(num) => match UdpServer::deserialize(&recv_buf[..num]) {
+                Ok(packet) => {
+                    if let Err(err) = udp_received_sender.send(packet) {
+                        trace!(
+                            "{:?} while sending udp packet on channel. Terminating udp recv loop...",
+                            err
+                        );
+                        break;
                     }
                 }
-            }
+                Err(err) => {
+                    warn!("{:?} while deserialize udp packet. Ignoring...", err);
+                }
+            },
             Err(err) => {
                 if is_err_fatal(&err) {
                     error!("Fatal error while reading udp socket. Terminating udp recv loop...");
@@ -122,7 +136,10 @@ async fn udp_recv_loop(udp_socket: Arc<UdpSocket>, udp_received_sender: crossbea
 }
 
 /// Send udp to the server.
-async fn udp_send_loop(udp_socket: Arc<UdpSocket>, mut udp_to_send_receiver: tokio::sync::mpsc::UnboundedReceiver<UdpClient>) {
+async fn udp_send_loop(
+    udp_socket: Arc<UdpSocket>,
+    mut udp_to_send_receiver: tokio::sync::mpsc::UnboundedReceiver<UdpClient>,
+) {
     while let Some(packet) = udp_to_send_receiver.recv().await {
         if let Err(err) = udp_socket.send(&packet.serialize()).await {
             if is_err_fatal(&err) {
@@ -135,7 +152,10 @@ async fn udp_send_loop(udp_socket: Arc<UdpSocket>, mut udp_to_send_receiver: tok
 }
 
 /// Receive tcp from the server.
-async fn tcp_recv_loop(mut buf_read: BufReader<OwnedReadHalf>, tcp_received_sender: crossbeam_channel::Sender<TcpServer>) {
+async fn tcp_recv_loop(
+    mut buf_read: BufReader<OwnedReadHalf>,
+    tcp_received_sender: crossbeam_channel::Sender<TcpServer>,
+) {
     let mut next_payload_size;
     let mut header_buffer = [0u8; 4];
     let mut buf: Vec<u8> = Vec::new();
@@ -160,7 +180,10 @@ async fn tcp_recv_loop(mut buf_read: BufReader<OwnedReadHalf>, tcp_received_send
                 match buf_read.read_exact(&mut buf[..next_payload_size]).await {
                     Ok(num) => {
                         if num != next_payload_size {
-                            debug!("Could not read exactly {} bytes. Got {} instead. Disconnecting...", next_payload_size, num);
+                            debug!(
+                                "Could not read exactly {} bytes. Got {} instead. Disconnecting...",
+                                next_payload_size, num
+                            );
                             break;
                         }
 
@@ -174,10 +197,7 @@ async fn tcp_recv_loop(mut buf_read: BufReader<OwnedReadHalf>, tcp_received_send
                                 }
                             }
                             Err(err) => {
-                                debug!(
-                                    "{} while deserializing tcp packet. Disconnecting...",
-                                    err
-                                );
+                                debug!("{} while deserializing tcp packet. Disconnecting...", err);
                                 break;
                             }
                         }
@@ -201,7 +221,10 @@ async fn tcp_recv_loop(mut buf_read: BufReader<OwnedReadHalf>, tcp_received_send
 }
 
 /// Send tcp to the server.
-async fn tcp_send_loop(mut buf_write: BufWriter<OwnedWriteHalf>, mut tcp_to_send_receiver: tokio::sync::mpsc::UnboundedReceiver<TcpClient>) {
+async fn tcp_send_loop(
+    mut buf_write: BufWriter<OwnedWriteHalf>,
+    mut tcp_to_send_receiver: tokio::sync::mpsc::UnboundedReceiver<TcpClient>,
+) {
     loop {
         if let Some(packet) = tcp_to_send_receiver.recv().await {
             // Serialize and send data.
@@ -221,7 +244,7 @@ async fn tcp_send_loop(mut buf_write: BufWriter<OwnedWriteHalf>, mut tcp_to_send
     }
 }
 
-/// If the io error is considered fatal, return true and print the err to debug log. 
+/// If the io error is considered fatal, return true and print the err to debug log.
 fn is_err_fatal(err: &Error) -> bool {
     if err.kind() == std::io::ErrorKind::WouldBlock || err.kind() == std::io::ErrorKind::Interrupted {
         false
