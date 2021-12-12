@@ -10,6 +10,7 @@ use common::collider::Collider;
 use common::packets::*;
 use common::parameters::MetascapeParameters;
 use common::res_time::TimeRes;
+use common::idx::*;
 use glam::Vec2;
 use rand::Rng;
 

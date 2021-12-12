@@ -1,7 +1,4 @@
-use crate::{
-    ecs_components::{ClientId, FleetId},
-    res_factions::*,
-};
+use common::idx::*;
 
 pub struct DataManager {}
 impl DataManager {

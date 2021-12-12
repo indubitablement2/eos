@@ -1,7 +1,7 @@
 use crate::{
     connection_manager::{Connection, ConnectionsManager},
-    ecs_components::ClientId,
 };
+use common::idx::*;
 use indexmap::IndexMap;
 
 pub struct ClientsRes {

@@ -1,4 +1,4 @@
-use common::packets::*;
+use common::{packets::*, idx::ClientId};
 use std::{
     io::Error,
     net::{Ipv6Addr, SocketAddrV6},
@@ -14,7 +14,7 @@ use tokio::{
 };
 
 pub struct Client {
-    pub client_id: u32,
+    pub client_id: ClientId,
 
     /// Tokio runtime.
     pub rt: Runtime,

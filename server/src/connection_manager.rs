@@ -1,4 +1,4 @@
-use crate::ecs_components::ClientId;
+use common::idx::*;
 use common::packets::*;
 use std::{
     collections::HashMap,
@@ -205,7 +205,7 @@ async fn try_login(
 
     // Send LoginResponse.
     if let Err(err) = buf_write.write(&LoginResponsePacket::Accepted {
-        client_id: client_id.0,
+        client_id,
     }.serialize()).await {
         warn!(
             "{:?} while trying to write LoginResponsePacket to {}. Aborting login...",

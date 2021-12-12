@@ -1,4 +1,5 @@
-use crate::ecs_components::{ClientId, FactionId, Reputation};
+use crate::ecs_components::Reputation;
+use common::idx::*;
 use ahash::AHashMap;
 use indexmap::IndexMap;
 

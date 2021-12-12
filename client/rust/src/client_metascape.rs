@@ -2,12 +2,33 @@ use crate::client::Client;
 use crate::input_handler::InputHandler;
 use crate::util::*;
 use common::generation::GenerationParameters;
+use common::idx::*;
 use common::packets::*;
 use common::parameters::MetascapeParameters;
 use common::system::Systems;
 use gdnative::api::*;
 use gdnative::prelude::*;
 use glam::Vec2;
+
+enum MetascapeDataCommand {
+    AddFleet {
+        fleet_id: FleetId,
+    },
+    RemoveFleet {
+        fleet_id: FleetId,
+    }
+}
+
+struct CurrentMetascapeData {
+    tick: u64,
+    /// Ordered the same as the server would send fleet position.
+    fleet_idx: Vec<FleetId>,
+}
+impl Default for CurrentMetascapeData {
+    fn default() -> Self {
+        Self { tick: 0, fleet_idx: Vec::new() }
+    }
+}
 
 pub struct MetascapeState {
     tick: u64,
@@ -27,6 +48,7 @@ pub struct ClientMetascape {
     client: Client,
     metascape_parameters: MetascapeParameters,
     systems: Systems,
+    current_metascape_data: CurrentMetascapeData,
     /// Detected fleet.
     previous_state: MetascapeState,
     /// Used with previous_fleets_position for interpolation.
@@ -50,11 +72,12 @@ impl ClientMetascape {
             current_state: MetascapeState::default(),
             state_buffer: Vec::new(),
             state_delta: 0.0,
+            current_metascape_data: CurrentMetascapeData::default(),
         })
     }
 
     pub fn update(&mut self, delta: f64, input_handler: &InputHandler) {
-        // Handle server packets.
+        // Handle server udp packets.
         loop {
             match self.client.udp_receiver.try_recv() {
                 Ok(udp_packet) => match udp_packet {
@@ -75,7 +98,25 @@ impl ClientMetascape {
                 },
                 Err(err) => {
                     if err == crossbeam_channel::TryRecvError::Disconnected {
-                        error!("Client disconnected.");
+                        info!("Client disconnected.");
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Handle server tcp packets.
+        loop {
+            match self.client.tcp_receiver.try_recv() {
+                Ok(tcp_packet) => {
+                    match tcp_packet {
+                        TcpServer::FleetDetectedAdd { tick, id } => todo!(),
+                        TcpServer::FleetDetectedSub { tick, id } => todo!(),
+                    }
+                }
+                Err(err) => {
+                    if err == crossbeam_channel::TryRecvError::Disconnected {
+                        info!("Client disconnected.");
                     }
                     break;
                 }
@@ -90,18 +131,18 @@ impl ClientMetascape {
     }
 
     pub fn render(&mut self, owner: &Node2D) {
-        // for position in &self.fleets_position {
-        //     // Draw all fleet.
-        //     owner.draw_circle(
-        //         glam_to_godot(*position),
-        //         10.0,
-        //         Color {
-        //             r: 0.0,
-        //             g: 0.0,
-        //             b: 1.0,
-        //             a: 0.5,
-        //         },
-        //     );
-        // }
+        for position in &self.current_state.fleets_position {
+            // Draw all fleet.
+            owner.draw_circle(
+                glam_to_godot(*position),
+                10.0,
+                Color {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 1.0,
+                    a: 0.5,
+                },
+            );
+        }
     }
 }

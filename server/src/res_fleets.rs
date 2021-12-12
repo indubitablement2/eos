@@ -1,4 +1,4 @@
-use crate::ecs_components::FleetId;
+use common::idx::*;
 use bevy_ecs::prelude::Entity;
 use indexmap::IndexMap;
 

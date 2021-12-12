@@ -1,6 +1,7 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
+use crate::idx::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ServerAddresses {
@@ -55,7 +56,7 @@ fn test_login_packet() {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum LoginResponsePacket {
     Accepted{
-        client_id: u32
+        client_id: ClientId
     },
     Error,
     DeserializeError,
@@ -79,7 +80,7 @@ impl LoginResponsePacket {
 }
 #[test]
 fn test_login_response_packet() {
-    let og = LoginResponsePacket::Accepted { client_id: 1234};
+    let og = LoginResponsePacket::Accepted { client_id: ClientId(1234)};
     assert_eq!(og, LoginResponsePacket::deserialize(&og.serialize()));
     assert_eq!(og.serialize().len(), LoginResponsePacket::FIXED_SIZE);
 }

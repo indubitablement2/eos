@@ -1,4 +1,4 @@
-use crate::ecs_components::ClientId;
+use common::idx::*;
 use bevy_ecs::prelude::*;
 use crossbeam_queue::SegQueue;
 
