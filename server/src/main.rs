@@ -149,9 +149,9 @@ fn startup() -> std::io::Result<Metascape> {
 
     // Init Metascape.
     if default_values {
-        return Err(std::io::Error::new(std::io::ErrorKind::Other, "TODO"));
-    } else {
         let generation_parameters = GenerationParameters::default();
         return Ok(Metascape::new(local, MetascapeParameters::default(), generation_parameters)?);
+    } else {
+        return Err(std::io::Error::new(std::io::ErrorKind::Other, "TODO: Non default values"));
     }
 }
