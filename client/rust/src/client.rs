@@ -14,6 +14,8 @@ use tokio::{
 };
 
 pub struct Client {
+    pub client_id: u32,
+
     /// Tokio runtime.
     pub rt: Runtime,
 
@@ -68,9 +70,13 @@ impl Client {
         info!("Received login response from server: {:?}.", login_response);
 
         // Processs LoginResponsePacket.
-        if login_response != LoginResponsePacket::Accepted {
-            error!("Server denied login. Reason {:?}. Aborting login...", login_response);
-        }
+        let client_id = match login_response {
+            LoginResponsePacket::Accepted { client_id } => client_id,
+            _ => {
+                error!("Server denied login. Reason {:?}. Aborting login...", login_response);
+                return Err(Error::new(std::io::ErrorKind::Other, "Server denied login."));
+            }
+        };
 
         // Split tcp stream.
         let (r, w) = tcp_stream.into_split();
@@ -91,6 +97,7 @@ impl Client {
         rt.spawn(tcp_send_loop(buf_write, tcp_to_send_receiver));
 
         Ok(Client {
+            client_id,
             rt,
             udp_sender,
             udp_receiver,

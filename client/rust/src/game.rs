@@ -7,6 +7,7 @@ use common::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
 use std::net::IpAddr;
+use std::net::Ipv6Addr;
 use std::net::SocketAddr;
 
 /// Layer between godot and rust.
@@ -71,7 +72,6 @@ impl Game {
         }
     }
 
-    // TODO: Connect to login server first.
     /// Return true when successfully connected.
     #[export]
     unsafe fn connect_client(&mut self, _owner: &Node2D, godot_addr: StringArray) -> bool {
@@ -95,6 +95,29 @@ impl Game {
                         return true;
                     }
                 }
+            }
+        }
+        false
+    }
+
+    /// Try to connect to the server localy.
+    #[export]
+    unsafe fn connect_local(&mut self, _owner: &Node2D) -> bool {
+        if self.client_metascape.is_some() {
+            return true;
+        } else {
+            let server_addresses = ServerAddresses {
+                tcp_address: SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), SERVER_PORT),
+                udp_address: SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), SERVER_PORT),
+            };
+
+            if let Ok(new_client_metascape) = ClientMetascape::new(
+                server_addresses,
+                MetascapeParameters::default(),
+                GenerationParameters::default(),
+            ) {
+                self.client_metascape.replace(new_client_metascape);
+                return true;
             }
         }
         false

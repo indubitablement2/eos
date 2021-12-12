@@ -61,7 +61,7 @@ pub enum LoginResponsePacket {
     DeserializeError,
 }
 impl LoginResponsePacket {
-    pub const FIXED_SIZE: usize = 12;
+    pub const FIXED_SIZE: usize = 8;
 
     pub fn serialize(&self) -> Vec<u8> {
         match bincode::serialize(self) {
@@ -80,7 +80,7 @@ impl LoginResponsePacket {
 #[test]
 fn test_login_response_packet() {
     let og = LoginResponsePacket::Accepted { client_id: 1234};
-    assert_eq!(og, LoginResponsePacket::deserialize(&og.serialize()).unwrap());
+    assert_eq!(og, LoginResponsePacket::deserialize(&og.serialize()));
     assert_eq!(og.serialize().len(), LoginResponsePacket::FIXED_SIZE);
 }
 
