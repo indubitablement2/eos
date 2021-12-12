@@ -21,6 +21,7 @@ pub enum PacketError {
 pub struct LoginPacket {
     pub is_steam: bool,
     pub token: u64,
+    // TODO: This should just be the port as the address is always the same as tcp.
     pub udp_address: SocketAddr,
 }
 impl LoginPacket {
@@ -202,6 +203,7 @@ pub enum UdpServer {
     },
 }
 impl UdpServer {
+    // TODO: This should be 1200.
     /// Payload maximum size.
     pub const PAYLOAD_MAX_SIZE: usize = u8::MAX as usize;
 
