@@ -85,7 +85,11 @@ fn get_new_clients(
         // Check if fleet is already spawned.
         if let Some(old_fleet_entity) = fleets_res.spawned_fleets.get(&fleet_id) {
             // TODO: Check old fleet components.
-            todo!();
+            error!("{:?} is already spawned.", fleet_id);
+            for k in fleets_res.spawned_fleets.keys() {
+                warn!("{:?}", k);
+            }
+            // todo!();
         } else {
             // TODO: Load or create client's fleet.
             let mut e = commands.spawn();

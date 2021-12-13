@@ -1,4 +1,4 @@
-use common::{packets::*, idx::ClientId};
+use common::{idx::ClientId, packets::*};
 use std::{
     io::Error,
     net::{Ipv6Addr, SocketAddrV6},
