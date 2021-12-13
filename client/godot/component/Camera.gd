@@ -42,8 +42,8 @@ func _process(_delta: float) -> void:
 
 func zoom_tween(zoom_change: float) -> void:
 	wish_zoom *= zoom_change
-	wish_zoom = stepify(wish_zoom, 0.25)
-	wish_zoom = clamp(wish_zoom, 0.25, 8.0)
+	wish_zoom = stepify(wish_zoom, 0.15)
+	wish_zoom = clamp(wish_zoom, 0.15, 8.0)
 	
 	zoom_toward = get_global_mouse_position()
 	zoom_before = get_zoom()

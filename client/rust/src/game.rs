@@ -48,7 +48,7 @@ impl Game {
     unsafe fn _exit_tree(&mut self, _owner: &Node2D) {}
 
     #[export]
-    unsafe fn _process(&mut self, owner: &Node2D, mut delta: f64) {
+    unsafe fn _process(&mut self, owner: &Node2D, mut delta: f32) {
         // Somehow delta can be negative...
         delta = delta.clamp(0.0, 1.0);
 

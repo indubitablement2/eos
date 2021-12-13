@@ -195,21 +195,11 @@ fn client_fleet_sensor(
                     // Sort result.
                     detected.0.sort_unstable();
 
-                    // Find difference.
-                    let dif_result = sorted_arrays_sub_add(&old_detected, &detected.0);
-
-                    // Send new entity to client.
-                    for new_entity in dif_result.add.into_iter() {
-                        let _ = client.connection.tcp_sender.blocking_send(TcpServer::EntityDetectedAdd {
+                    // If the entity list changed, sent it to the client.
+                    if old_detected != detected.0 {
+                        let _ = client.connection.tcp_sender.blocking_send(TcpServer::EntityList {
                             tick: time_res.tick,
-                            id: new_entity.to_bits(),
-                        });
-                    }
-                    // Send removed entity to client.
-                    for old_entity in dif_result.sub.into_iter() {
-                        let _ = client.connection.tcp_sender.blocking_send(TcpServer::EntityDetectedSub {
-                            tick: time_res.tick,
-                            id: old_entity.to_bits(),
+                            list: detected.0.iter().map(|entity| entity.to_bits()).collect(),
                         });
                     }
                 }
@@ -399,21 +389,23 @@ fn send_detected_fleet(
 ) {
     query_client.for_each(|(client_id, pos, fleet_detected)| {
         if let Some(client) = clients_res.connected_clients.get(client_id) {
-            let mut fleets_position = Vec::with_capacity(25);
+            let mut entities_position = Vec::with_capacity(25);
 
             // TODO: If too many fleet are detected, throttle which ones are sent.
             for detected_entity in fleet_detected.0.iter() {
                 if let Ok((detected_fleet_id, detected_fleet_pos)) = query_fleet.get(*detected_entity) {
-                    fleets_position.push(detected_fleet_pos.0);
-                    if fleets_position.len() >= 24 {
+                    entities_position.push(detected_fleet_pos.0);
+                    if entities_position.len() >= 25 {
                         debug!("Could not send all detected fleet position. Ignoring rest...");
                         break;
                     }
+                } else {
+                    debug!("Could not find a detected entity. Client will be out of sync...");
                 }
             }
 
             let packet = UdpServer::Metascape {
-                fleets_position,
+                entities_position,
                 metascape_tick: time_res.tick,
             };
 
