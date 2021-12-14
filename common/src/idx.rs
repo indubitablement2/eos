@@ -44,3 +44,5 @@ fn fleet_client_id() {
 /// Never recycled.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FactionId(u32);
+
+pub struct ServerEntity(u32, u32);
