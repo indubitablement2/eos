@@ -417,6 +417,15 @@ fn send_detected_fleet(
                     debug!("Could not find a detected entity. Sending made up position...");
                 }
             }
+
+            if !entities_position.is_empty() {
+                let packet = UdpServer::MetascapeEntityPosition {
+                    metascape_tick: time_res.tick,
+                    part,
+                    entities_position,
+                };
+                let _ = client.connection.udp_sender.blocking_send(packet);
+            }
         }
     });
 }

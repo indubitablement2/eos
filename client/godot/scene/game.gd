@@ -20,9 +20,6 @@ func _ready() -> void:
 	var addr = PoolStringArray(IP.get_local_addresses())
 	print(addr)
 	
-	while !$Game.connect_local():
-		yield(get_tree().create_timer(2), "timeout")
-	
 	
 #	_init_mesh()
 #	_init_mat()
@@ -91,3 +88,10 @@ func _init_mesh() -> void:
 
 func _init_mat() -> void:
 	get_material().set_shader_param("def_texture", def_tex)
+
+
+func _on_Button_pressed() -> void:
+	var result = $Game.connect_local()
+	print("Connection result: " + str(result))
+	if result:
+		$Button.hide()

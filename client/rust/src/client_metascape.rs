@@ -11,26 +11,9 @@ use gdnative::api::*;
 use gdnative::prelude::*;
 use glam::Vec2;
 use indexmap::IndexMap;
-use indexmap::IndexSet;
 
 #[derive(Debug, Clone)]
 enum MetascapeDataCommand {}
-impl MetascapeDataCommand {
-    fn apply(&self, mut metascape_data: &mut MetascapeData) {}
-}
-
-#[derive(Debug, Clone)]
-struct MetascapeData {
-    /// Ordered the same as the server would send entity position.
-    entity_order: IndexSet<ServerEntity>,
-}
-impl Default for MetascapeData {
-    fn default() -> Self {
-        Self {
-            entity_order: IndexSet::new(),
-        }
-    }
-}
 
 struct MetascapeEntity {
     /// Used for fade in/out.
@@ -157,7 +140,7 @@ impl ClientMetascape {
         }
 
         // Get most sensible tick.
-        if self.last_received_state_tick - self.metascape_state.tick > 4 {
+        if self.last_received_state_tick.saturating_sub(self.metascape_state.tick) > 4 {
             self.metascape_state.tick = self.last_received_state_tick.saturating_sub(2);
             self.metascape_state.state_delta = 0.0;
             debug!(
@@ -176,7 +159,7 @@ impl ClientMetascape {
         for state in self.state_buffer.drain_filter(|state| state.tick <= current_tick) {
             for (order_tick, order) in self.entity_orders.iter().rev() {
                 if *order_tick <= state.tick {
-                    for (pos, i) in state.entities_position.into_iter().zip(state.part as usize * 25..) {
+                    for (pos, i) in state.entities_position.into_iter().zip(state.part as usize * UdpServer::NUM_ENTITIES_POSITION_MAX..) {
                         if let Some(entity_id) = order.get(i) {
                             if let Some(entity) = self.metascape_state.entity.get_mut(entity_id) {
                                 if state.tick >= entity.current_tick {
@@ -188,6 +171,16 @@ impl ClientMetascape {
                                     entity.previous_tick = state.tick;
                                     entity.previous_position = pos;
                                 }
+                            } else {
+                                // Create entity.
+                                let new_entity =  MetascapeEntity {
+                                    fade: 0.8,
+                                    previous_tick: current_tick,
+                                    current_tick,
+                                    previous_position: pos,
+                                    current_position: pos,
+                                };
+                                self.metascape_state.entity.insert(*entity_id, new_entity);
                             }
                         }
                     }
@@ -239,7 +232,7 @@ impl ClientMetascape {
             let a = entity.fade * 0.8;
 
             let interpolation =
-                (self.metascape_state.tick - 1 - entity.previous_tick) as f32 + self.metascape_state.state_delta;
+                (self.metascape_state.tick.saturating_sub(1 + entity.previous_tick)) as f32 + self.metascape_state.state_delta;
 
             // Interpolate position.
             let pos = entity.previous_position.lerp(entity.current_position, interpolation);

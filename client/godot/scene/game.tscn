@@ -42,7 +42,9 @@ margin_left = -358.0
 margin_top = -261.0
 margin_right = -59.0
 margin_bottom = -41.0
-text = "test"
+text = "try connect"
 __meta__ = {
 "_edit_use_anchors_": false
 }
+
+[connection signal="pressed" from="Button" to="." method="_on_Button_pressed"]
