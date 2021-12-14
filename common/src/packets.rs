@@ -13,6 +13,7 @@ pub struct ServerAddresses {
 pub struct LoginPacket {
     pub is_steam: bool,
     pub token: u64,
+    /// The port the client will be using to send/recv packet over udp.
     pub client_udp_port: u16,
 }
 impl LoginPacket {

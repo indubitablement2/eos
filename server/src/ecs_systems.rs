@@ -11,7 +11,6 @@ use common::packets::*;
 use common::parameters::MetascapeParameters;
 use common::res_time::TimeRes;
 use common::idx::*;
-use common::array_difference::*;
 use glam::Vec2;
 use rand::Rng;
 
@@ -134,13 +133,13 @@ fn ai_fleet_sensor(
     task_pool: Res<TaskPool>,
     time_res: Res<TimeRes>,
 ) {
-    // We will only update 1/10 at a time.
-    let num_turn = 10u64;
+    // We will only update 1/20 at a time.
+    let num_turn = 20u64;
     let turn = time_res.tick % num_turn;
 
     query.par_for_each_mut(
         &task_pool,
-        32 * num_turn as usize,
+        64 * num_turn as usize,
         |(pos, fleet_id, detector_radius, mut detected)| {
             if fleet_id.0 % num_turn == turn {
                 detected.0.clear();
@@ -170,8 +169,8 @@ fn client_fleet_sensor(
     task_pool: Res<TaskPool>,
     time_res: Res<TimeRes>,
 ) {
-    // We will only update 1/10 at a time.
-    let num_turn = 10u64;
+    // We will only update 1/20 at a time.
+    let num_turn = 20u64;
     let turn = time_res.tick % num_turn;
 
     query.par_for_each_mut(
@@ -203,7 +202,7 @@ fn client_fleet_sensor(
                     if old_detected != detected.0 {
                         let _ = client.connection.tcp_sender.blocking_send(TcpServer::EntityList {
                             tick: time_res.tick,
-                            list: detected.0.iter().map(|entity| entity.to_bits()).collect(),
+                            list: detected.0.iter().map(|entity| ServerEntity(entity.id())).collect(),
                         });
                     }
                 }

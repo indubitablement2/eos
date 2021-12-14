@@ -33,7 +33,6 @@ impl ConnectionsManager {
         let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
         debug!("Create server tokio runtime.");
 
-        // Use v6 only.
         let addr = match local {
             true => SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, common::SERVER_PORT, 0, 0),
             false => SocketAddrV6::new(Ipv6Addr::LOCALHOST, common::SERVER_PORT, 0, 0),
@@ -90,7 +89,7 @@ async fn login_loop(
                 let client_tcp_addr = match generic_client_tcp_addr {
                     std::net::SocketAddr::V4(v4) => {
                         warn!("Client tcp address is v4. Aborting login...");
-                        return;
+                        continue;
                     }
                     std::net::SocketAddr::V6(v6) => v6,
                 };
@@ -105,7 +104,7 @@ async fn login_loop(
                 ));
             }
             Err(err) => {
-                warn!("{:?} while listening for new tcp connection. Ignoring...", err);
+                debug!("{:?} while listening for new tcp connection. Ignoring...", err);
             }
         }
     }
@@ -121,30 +120,34 @@ async fn first_packet(
     udp_senders: Arc<Mutex<HashMap<SocketAddrV6, crossbeam_channel::Sender<UdpClient>>>>,
 ) {
     // Wrap stream into buffers.
-    let (r, w) = new_tcp_stream.into_split();
+    let (r, write_half) = new_tcp_stream.into_split();
     let mut buf_read = BufReader::new(r);
-    let buf_write = BufWriter::new(w);
 
-    // Wait for the first packet.
+    // Get the first packet.
     // TODO: Add timeout duration.
     let mut first_packet_buffer = [0u8; LoginPacket::FIXED_SIZE];
-    let mut cursor = 0usize;
-    while cursor < LoginPacket::FIXED_SIZE - 1 {
-        match buf_read.read(&mut first_packet_buffer[cursor..]).await {
-            Ok(num) => {
-                if num == 0 {
-                    debug!("{} disconnected while attempting to login. Aborting login...", client_tcp_addr);
-                    return;
-                }
-                cursor += num;
-                trace!("LoginPacket {}/{}", cursor, LoginPacket::FIXED_SIZE - 1);
-            }
-            Err(err) => {
-                debug!("{:?} while attempting to login. Aborting login...", err);
-                return;
-            }
-        }
+    if let Err(err) = buf_read.read_exact(&mut first_packet_buffer).await {
+        debug!("{:?} while attempting to login a client. Aborting login...", err);
+        return;
     }
+
+    // let mut cursor = 0usize;
+    // while cursor < LoginPacket::FIXED_SIZE - 1 {
+    //     match buf_read.read(&mut first_packet_buffer[cursor..]).await {
+    //         Ok(num) => {
+    //             if num == 0 {
+    //                 debug!("{} disconnected while attempting to login. Aborting login...", client_tcp_addr);
+    //                 return;
+    //             }
+    //             cursor += num;
+    //             trace!("LoginPacket {}/{}", cursor, LoginPacket::FIXED_SIZE - 1);
+    //         }
+    //         Err(err) => {
+    //             debug!("{:?} while attempting to login. Aborting login...", err);
+    //             return;
+    //         }
+    //     }
+    // }
 
     match LoginPacket::deserialize(&first_packet_buffer) {
         Some(login_packet) => {
@@ -153,7 +156,7 @@ async fn first_packet(
                 local,
                 login_packet,
                 buf_read,
-                buf_write,
+                write_half,
                 client_tcp_addr,
                 new_connection_sender,
                 udp_socket,
@@ -167,11 +170,12 @@ async fn first_packet(
     }
 }
 
+/// Identify the client.
 async fn try_login(
     local: bool,
     login_packet: LoginPacket,
     buf_read: BufReader<OwnedReadHalf>,
-    mut buf_write: BufWriter<OwnedWriteHalf>,
+    mut write_half: OwnedWriteHalf,
     client_tcp_addr: SocketAddrV6,
     new_connection_sender: crossbeam_channel::Sender<Connection>,
     udp_socket: Arc<UdpSocket>,
@@ -185,7 +189,7 @@ async fn try_login(
         false => {
             match login_packet.is_steam {
                 true => {
-                        // TODO: Check credential with steam.
+                    // TODO: Check credential with steam.
                     error!(
                         "{} is trying to login with steam. Verifying credential... ***TODO: use ClientId 1 for now***",
                         client_tcp_addr
@@ -204,18 +208,11 @@ async fn try_login(
     };
 
     // Send LoginResponse.
-    if let Err(err) = buf_write.write(&LoginResponsePacket::Accepted {
+    if let Err(err) = write_half.write_all(&LoginResponsePacket::Accepted {
         client_id,
     }.serialize()).await {
         warn!(
             "{:?} while trying to write LoginResponsePacket to {}. Aborting login...",
-            err, client_tcp_addr
-        );
-        return;
-    }
-    if let Err(err) = buf_write.flush().await {
-        warn!(
-            "{:?} while trying to flush LoginResponsePacket to {}. Aborting login...",
             err, client_tcp_addr
         );
         return;
@@ -234,7 +231,7 @@ async fn try_login(
         .insert(client_udp_address, udp_received);
 
     let (tcp_sender, tcp_to_send) = tokio::sync::mpsc::channel(32);
-    spawn(send_tcp(tcp_to_send, buf_write, client_tcp_addr));
+    spawn(send_tcp(tcp_to_send, write_half, client_tcp_addr));
 
     let (tcp_received, tcp_receiver) = crossbeam_channel::unbounded();
     spawn(recv_tcp(
@@ -264,13 +261,10 @@ async fn send_udp(
 ) {
     loop {
         if let Some(packet) = udp_to_send.recv().await {
-            // We don't care about being too correct when sending udp.
-            match packet.serialize() {
-                Ok(buf) => {
-                    let _ = udp_socket.send_to(&buf, client_udp_address).await;
-                }
-                Err(err) => {
-                    debug!("Could not serialize packet {:?}. Not sending...", err);
+            if let Err(err) = udp_socket.send_to(&packet.serialize(), client_udp_address).await {
+                if is_err_fatal(&err) {
+                    debug!("Fatal error while sending packet to {}. Disconnecting...", client_udp_address);
+                    break;
                 }
             }
         } else {
@@ -286,7 +280,7 @@ async fn recv_udp(
     udp_senders: Arc<Mutex<HashMap<SocketAddrV6, crossbeam_channel::Sender<UdpClient>>>>,
     udp_socket: Arc<UdpSocket>,
 ) {
-    let mut buf = [0u8; UdpClient::FIXED_SIZE];
+    let mut buf = [0u8; 1200];
 
     loop {
         match udp_socket.recv_from(&mut buf).await {
@@ -300,31 +294,25 @@ async fn recv_udp(
                     std::net::SocketAddr::V6(v6) => v6,
                 };
 
-                // Check number of bytes.
-                if num != UdpClient::FIXED_SIZE {
-                    trace!("{} sent an udp packet with missing bytes. Ignoring...", client_udp_addr);
-                    continue;
-                }
-
-                // Deserialize packet.
-                if let Some(packet) = UdpClient::deserialize(&buf) {
-                    // Check if we have a channel for this addr.
-                    if let Some(sender) = udp_senders.lock().unwrap().get(&client_udp_addr) {
+                // Check if we have a channel for this addr.
+                if let Some(sender) = udp_senders.lock().unwrap().get(&client_udp_addr) {
+                    // Deserialize packet.
+                    if let Some(packet) = UdpClient::deserialize(&buf[..num]) {
                         if sender.send(packet).is_err() {
-                            warn!("{} 's channel is drop and should've been removed.", client_udp_addr);
+                            warn!("{} 's channel is drop and should've been removed. Ignoring...", client_udp_addr);
                         }
                     } else {
-                        trace!("{} sent an udp packet, but is not connected. Ignoring...", client_udp_addr);
+                        trace!(
+                            "{} sent an udp packet that could not be deserialized. Ignoring...",
+                            client_udp_addr
+                        );
                     }
                 } else {
-                    trace!(
-                        "{} sent an udp packet that could not be deserialized. Ignoring...",
-                        client_udp_addr
-                    );
+                    trace!("{} sent an udp packet, but is not connected. Ignoring...", client_udp_addr);
                 }
             }
             Err(err) => {
-                warn!("{:?} while receiving udp packet from clients. Ignoring...", err);
+                debug!("{:?} while receiving udp packet from clients. Ignoring...", err);
             }
         }
     }
@@ -332,16 +320,17 @@ async fn recv_udp(
 
 async fn send_tcp(
     mut tcp_to_send: tokio::sync::mpsc::Receiver<TcpServer>,
-    mut buf_write: BufWriter<OwnedWriteHalf>,
+    mut write_half: OwnedWriteHalf,
     client_tcp_addr: SocketAddrV6,
 ) {
     loop {
         if let Some(packet) = tcp_to_send.recv().await {
             // Serialize and send data.
-            let _ = buf_write.write(&packet.serialize()).await;
-            if let Err(err) = buf_write.flush().await {
-                debug!("{} while flushing {} 's tcp stream. Disconnecting...", err, client_tcp_addr);
-                break;
+            if let Err(err) = write_half.write_all(&packet.serialize()).await {
+                if is_err_fatal(&err) {
+                    debug!("Fatal error while writting to {} 's tcp socket. Disconnecting...", client_tcp_addr);
+                    break;
+                }
             }
         } else {
             debug!("Tcp sender for {} shutdown.", client_tcp_addr);
@@ -376,8 +365,8 @@ async fn recv_tcp(
                 if next_payload_size > TcpClient::MAX_SIZE {
                     // Next packet is too large.
                     debug!(
-                        "{} tried to send a packet of {} bytes. Disconnecting...",
-                        client_tcp_addr, next_payload_size
+                        "{} tried to send a packet of {} bytes which is over size limit of {}. Disconnecting...",
+                        client_tcp_addr, next_payload_size, TcpClient::MAX_SIZE
                     );
                     break;
                 } else if next_payload_size > buf.len() {
@@ -395,31 +384,34 @@ async fn recv_tcp(
 
                         // Try to deserialize.
                         match TcpClient::deserialize(&buf[..next_payload_size]) {
-                            Ok(packet) => {
+                            Some(packet) => {
                                 // Send packet to channel.
                                 if tcp_received.send(packet).is_err() {
                                     debug!("Tcp sender for {} shutdown.", client_tcp_addr);
                                     break;
                                 }
                             }
-                            Err(err) => {
+                            None => {
                                 debug!(
-                                    "{} while deserializing {} 's tcp packet. Disconnecting...",
-                                    err, client_tcp_addr
+                                    "Error while deserializing {} 's tcp packet. Disconnecting...", client_tcp_addr
                                 );
                                 break;
                             }
                         }
                     }
                     Err(err) => {
-                        debug!("{} while reading {} 's tcp packet. Disconnecting...", err, client_tcp_addr);
-                        break;
+                        if is_err_fatal(&err) {
+                            debug!("Fatal error while reading {} 's tcp packet. Disconnecting...", client_tcp_addr);
+                            break;
+                        }
                     }
                 }
             }
             Err(err) => {
-                debug!("{} while reading {} 's tcp header. Disconnecting...", err, client_tcp_addr);
-                break;
+                if is_err_fatal(&err) {
+                    debug!("Fatal error while reading {} 's tcp header. Disconnecting...", client_tcp_addr);
+                    break;
+                }
             }
         }
     }
