@@ -1,7 +1,6 @@
 use crate::client::Client;
 use crate::input_handler::InputHandler;
 use crate::util::*;
-use ahash::AHashMap;
 use common::generation::GenerationParameters;
 use common::idx::*;
 use common::packets::*;
@@ -23,7 +22,7 @@ impl MetascapeDataCommand {
 #[derive(Debug, Clone)]
 struct MetascapeData {
     /// Ordered the same as the server would send entity position.
-    entity_order: IndexSet<u64>,
+    entity_order: IndexSet<ServerEntity>,
 }
 impl Default for MetascapeData {
     fn default() -> Self {
@@ -47,7 +46,7 @@ struct MetascapeState {
     tick: u64,
     /// How far are from previous to current tick.
     state_delta: f32,
-    entity: IndexMap<u64, MetascapeEntity>,
+    entity: IndexMap<ServerEntity, MetascapeEntity>,
 }
 impl Default for MetascapeState {
     fn default() -> Self {
@@ -76,7 +75,7 @@ pub struct ClientMetascape {
 
     metascape_state: MetascapeState,
     /// The expected entity order for a particular tick.
-    entity_orders: Vec<(u64, Vec<u64>)>,
+    entity_orders: Vec<(u64, Vec<ServerEntity>)>,
 
     metascape_data_commands: Vec<(u64, MetascapeDataCommand)>,
 
@@ -134,14 +133,15 @@ impl ClientMetascape {
                         client_inputs,
                         battlescape_tick,
                     } => {}
-                    UdpServer::Metascape {
-                        entities_position,
+                    UdpServer::MetascapeEntityPosition {
                         metascape_tick,
+                        part,
+                        entities_position,
                     } => {
                         // Add to state buffer.
                         self.state_buffer.push(IncompleteState {
                             tick: metascape_tick,
-                            part: 0,
+                            part,
                             entities_position,
                         });
                         self.last_received_state_tick = self.last_received_state_tick.max(metascape_tick);
@@ -236,7 +236,7 @@ impl ClientMetascape {
         for (entity_id, entity) in self.metascape_state.entity.iter() {
             let r = 0.0;
             let g = 0.0;
-            let b = (*entity_id % 10) as f32 / 10.0;
+            let b = (entity_id.0 % 10) as f32 / 10.0;
             let a = entity.fade * 0.8;
 
             let interpolation =

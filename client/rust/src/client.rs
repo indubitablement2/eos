@@ -110,21 +110,21 @@ impl Client {
 
 /// Receive udp from the server.
 async fn udp_recv_loop(udp_socket: Arc<UdpSocket>, udp_received_sender: crossbeam_channel::Sender<UdpServer>) {
-    let mut recv_buf = [0u8; UdpServer::PAYLOAD_MAX_SIZE + 1];
+    let mut recv_buf = [0u8; 1200];
     loop {
         match udp_socket.recv(&mut recv_buf).await {
             Ok(num) => match UdpServer::deserialize(&recv_buf[..num]) {
-                Ok(packet) => {
+                Some(packet) => {
                     if let Err(err) = udp_received_sender.send(packet) {
-                        trace!(
+                        debug!(
                             "{:?} while sending udp packet on channel. Terminating udp recv loop...",
                             err
                         );
                         break;
                     }
                 }
-                Err(err) => {
-                    warn!("{:?} while deserialize udp packet. Ignoring...", err);
+                None => {
+                    warn!("Error deserialize udp packet. Ignoring...");
                 }
             },
             Err(err) => {
@@ -191,15 +191,15 @@ async fn tcp_recv_loop(
 
                         // Try to deserialize.
                         match TcpServer::deserialize(&buf[..next_payload_size]) {
-                            Ok(packet) => {
+                            Some(packet) => {
                                 // Send packet to channel.
                                 if tcp_received_sender.send(packet).is_err() {
                                     debug!("Tcp sender shutdown. Disconnecting...");
                                     break;
                                 }
                             }
-                            Err(err) => {
-                                debug!("{} while deserializing tcp packet. Disconnecting...", err);
+                            None => {
+                                debug!("Error deserializing tcp packet. Disconnecting...");
                                 break;
                             }
                         }

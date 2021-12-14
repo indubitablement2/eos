@@ -6,9 +6,8 @@ use common::parameters::MetascapeParameters;
 use common::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
-use std::net::IpAddr;
 use std::net::Ipv6Addr;
-use std::net::SocketAddr;
+use std::net::SocketAddrV6;
 
 /// Layer between godot and rust.
 /// Godot is used for input/rendering. Rust is used for logic.
@@ -80,10 +79,10 @@ impl Game {
         } else {
             let godot_addr_read = godot_addr.read();
             for s in godot_addr_read.iter() {
-                if let Ok(addr) = s.to_string().parse::<IpAddr>() {
+                if let Ok(addr) = s.to_string().parse::<Ipv6Addr>() {
                     let server_addresses = ServerAddresses {
-                        tcp_address: SocketAddr::new(addr, SERVER_PORT),
-                        udp_address: SocketAddr::new(addr, SERVER_PORT),
+                        tcp_address: SocketAddrV6::new(addr, SERVER_PORT, 0, 0),
+                        udp_address: SocketAddrV6::new(addr, SERVER_PORT, 0, 0),
                     };
 
                     if let Ok(new_client_metascape) = ClientMetascape::new(
@@ -107,8 +106,8 @@ impl Game {
             return true;
         } else {
             let server_addresses = ServerAddresses {
-                tcp_address: SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), SERVER_PORT),
-                udp_address: SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), SERVER_PORT),
+                tcp_address: SocketAddrV6::new(Ipv6Addr::LOCALHOST, SERVER_PORT, 0, 0),
+                udp_address: SocketAddrV6::new(Ipv6Addr::LOCALHOST, SERVER_PORT, 0, 0),
             };
 
             if let Ok(new_client_metascape) = ClientMetascape::new(
