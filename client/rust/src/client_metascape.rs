@@ -58,7 +58,6 @@ impl Default for MetascapeState {
     }
 }
 
-
 struct IncompleteState {
     tick: u64,
     part: u8,
