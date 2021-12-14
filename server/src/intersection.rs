@@ -233,7 +233,8 @@ impl AccelerationStructureSnapshot {
         }
     }
 
-    // Update snapshot with the data of a runner.
+    /// Update snapshot with the data of a runner.
+    /// TODO: Overridde clone from to reuse the resources of self to avoid unnecessary allocations.
     fn clone_from_runner(&mut self, runner: &AccelerationStructureRunner) {
         self.colliders.clone_from(&runner.colliders);
         self.collider_entity.clone_from(&runner.collider_entity);
@@ -257,43 +258,26 @@ impl AccelerationStructureSnapshot {
         let top = collider.position.y + collider.radius;
         let first_overlapping_row = self.rows.partition_point(|row| row.end < bottom);
         for row in &self.rows[first_overlapping_row..] {
+            // Check that the collider overlap this row.
             if row.start > top {
                 break;
             }
-            // The collider overlap this row.
 
-            let closest = row
+            // The furthest we should look to the left and right.
+            let left = collider.position.x - collider.radius - row.biggest_radius;
+            let right = collider.position.x + collider.radius + row.biggest_radius;
+
+            let left_index = row
                 .data
-                .partition_point(|i| self.colliders[*i as usize].position.x < collider.position.x);
+                .partition_point(|i| self.colliders[*i as usize].position.x < left);
 
-            // The furthest we should look in each dirrections.
-            let threshold = collider.radius + row.biggest_radius;
-
-            // Look to the left.
-            let mut left = closest.saturating_sub(1);
-            while let Some(i) = row.data.get(left) {
+            // Look from left to right.
+            for i in &row.data[left_index..] {
                 let other = self.colliders[*i as usize];
-                if collider.position.x - other.position.x > threshold {
+                if other.position.x > right {
                     break;
                 }
                 to_test.insert(*i);
-
-                if left == 0 {
-                    break;
-                } else {
-                    left -= 1;
-                }
-            }
-            // Look to the right.
-            let mut right = closest;
-            while let Some(i) = row.data.get(right) {
-                let other = self.colliders[*i as usize];
-                if other.position.x - collider.position.x > threshold {
-                    break;
-                }
-                to_test.insert(*i);
-
-                right += 1;
             }
         }
 
@@ -314,43 +298,29 @@ impl AccelerationStructureSnapshot {
         let top = collider.position.y + collider.radius;
         let first_overlapping_row = self.rows.partition_point(|row| row.end < bottom);
         for row in &self.rows[first_overlapping_row..] {
+            // Check that the collider overlap this row.
             if row.start > top {
                 break;
             }
-            // The collider overlap this row.
 
-            let closest = row
+            // The furthest we should look to the left and right.
+            let left = collider.position.x - collider.radius - row.biggest_radius;
+            let right = collider.position.x + collider.radius + row.biggest_radius;
+
+            let left_index = row
                 .data
-                .partition_point(|i| self.colliders[*i as usize].position.x < collider.position.x);
+                .partition_point(|i| self.colliders[*i as usize].position.x < left);
 
             // The furthest we should look in each dirrections.
             let threshold = collider.radius + row.biggest_radius;
 
-            // Look to the left.
-            let mut left = closest.saturating_sub(1);
-            while let Some(i) = row.data.get(left) {
+            // Look from left to right.
+            for i in &row.data[left_index..] {
                 let other = self.colliders[*i as usize];
-                if collider.position.x - other.position.x > threshold {
+                if other.position.x > right {
                     break;
                 }
                 to_test.insert(*i);
-
-                if left == 0 {
-                    break;
-                } else {
-                    left -= 1;
-                }
-            }
-            // Look to the right.
-            let mut right = closest;
-            while let Some(i) = row.data.get(right) {
-                let other = self.colliders[*i as usize];
-                if other.position.x - collider.position.x > threshold {
-                    break;
-                }
-                to_test.insert(*i);
-
-                right += 1;
             }
         }
 
@@ -372,39 +342,22 @@ impl AccelerationStructureSnapshot {
         let mut to_test = AHashSet::with_capacity(16);
         let overlapping_row = self.rows.partition_point(|row| row.end < point.y);
         if let Some(row) = self.rows.get(overlapping_row) {
-            // The closest collider to this point.
-            let closest = row
+            // The furthest we should look to the left and right.
+            let left = point.x - row.biggest_radius;
+            let right = point.x + row.biggest_radius;
+
+            let left_index = row
                 .data
-                .partition_point(|i| self.colliders[*i as usize].position.x < point.x);
+                .partition_point(|i| self.colliders[*i as usize].position.x < left);
 
-            // The furthest we should look in each dirrections.
-            let threshold = row.biggest_radius;
 
-            // Look to the left.
-            let mut left = closest.saturating_sub(1);
-            while let Some(i) = row.data.get(left) {
+            // Look from left to right.
+            for i in &row.data[left_index..] {
                 let other = self.colliders[*i as usize];
-                if point.x - other.position.x > threshold {
+                if other.position.x > right {
                     break;
                 }
                 to_test.insert(*i);
-
-                if left == 0 {
-                    break;
-                } else {
-                    left -= 1;
-                }
-            }
-            // Look to the right.
-            let mut right = closest;
-            while let Some(i) = row.data.get(right) {
-                let other = self.colliders[*i as usize];
-                if other.position.x - point.x > threshold {
-                    break;
-                }
-                to_test.insert(*i);
-
-                right += 1;
             }
         }
 
