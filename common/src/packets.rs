@@ -181,20 +181,23 @@ fn test_udp_client() {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum UdpServer {
     Battlescape {
-        client_inputs: Vec<BattlescapeInput>,
         battlescape_tick: u64,
+        client_inputs: Vec<BattlescapeInput>,
     },
     Metascape {
+        metascape_tick: u64,
+        part: u8,
         /// Sorted by entity.
         /// What is the entity is sent over tcp.
         entities_position: Vec<Vec2>,
-        metascape_tick: u64,
     },
 }
 impl UdpServer {
     // TODO: This should be 1200.
     /// Payload maximum size.
     pub const PAYLOAD_MAX_SIZE: usize = u8::MAX as usize;
+    /// One UdpServer::Metascape packet will contain at most this amount of positions.
+    pub const ENTITIES_POSITION_NUM_MAX: usize = 25;
 
     pub fn serialize(&self) -> Result<Vec<u8>, PacketError> {
         let payload = bincode::serialize(self).unwrap();
@@ -263,7 +266,7 @@ pub enum TcpServer {
     EntityList {
         tick: u64,
         /// The order that the server will send entity info.
-        list: Vec<u64>,
+        list: Vec<ServerEntity>,
     },
 }
 impl TcpServer {
