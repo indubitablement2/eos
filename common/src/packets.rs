@@ -1,21 +1,12 @@
+use crate::idx::*;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
-use crate::idx::*;
+use std::net::SocketAddrV6;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ServerAddresses {
-    pub tcp_address: SocketAddr,
-    pub udp_address: SocketAddr,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum PacketError {
-    TooLarge,
-    WrongSize,
-    NoHeader,
-    NoPayload,
-    BincodeError,
+    pub tcp_address: SocketAddrV6,
+    pub udp_address: SocketAddrV6,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
@@ -35,7 +26,7 @@ impl LoginPacket {
         match bincode::deserialize::<Self>(&buffer) {
             Ok(result) => Some(result),
             Err(err) => {
-                debug!("{} while trying to deserialize LoginPacket.", err);
+                warn!("{} while trying to deserialize packet.", err);
                 None
             }
         }
@@ -55,9 +46,7 @@ fn test_login_packet() {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum LoginResponsePacket {
-    Accepted{
-        client_id: ClientId
-    },
+    Accepted { client_id: ClientId },
     Error,
     DeserializeError,
 }
@@ -68,7 +57,10 @@ impl LoginResponsePacket {
         match bincode::serialize(self) {
             Ok(v) => v,
             Err(err) => {
-                warn!("{:?} while trying to serialize LoginResponsePacket. Sending empty packet...", err);
+                warn!(
+                    "{:?} while trying to serialize LoginResponsePacket. Sending empty packet...",
+                    err
+                );
                 Vec::new()
             }
         }
@@ -80,7 +72,9 @@ impl LoginResponsePacket {
 }
 #[test]
 fn test_login_response_packet() {
-    let og = LoginResponsePacket::Accepted { client_id: ClientId(1234)};
+    let og = LoginResponsePacket::Accepted {
+        client_id: ClientId(1234),
+    };
     assert_eq!(og, LoginResponsePacket::deserialize(&og.serialize()));
     assert_eq!(og.serialize().len(), LoginResponsePacket::FIXED_SIZE);
 }
@@ -120,45 +114,19 @@ pub enum UdpClient {
     },
 }
 impl UdpClient {
-    /// These packets are always the same size.
-    pub const FIXED_SIZE: usize = 100;
-
     /// Serialize into a buffer ready to be sent over Udp.
     pub fn serialize(&self) -> Vec<u8> {
-        let payload = bincode::serialize(self).unwrap();
-        let mut v = Vec::with_capacity(Self::FIXED_SIZE);
-        v.push(payload.len() as u8);
-        v.extend_from_slice(&payload);
-        v.resize(Self::FIXED_SIZE, 0);
-        v
+        bincode::serialize(self).unwrap()
     }
 
-    /// Deserialize from a buffer received from Udp.
     pub fn deserialize(buffer: &[u8]) -> Option<Self> {
-        let size = match buffer.first() {
-            Some(b) => *b as usize,
-            None => {
-                return None;
-            }
-        };
-
-        if size <= 1 {
-            return None;
-        }
-
-        if buffer.len() < size + 1 {
-            return None;
-        }
-
-        match bincode::deserialize::<Self>(&buffer[1..size + 1]) {
+        match bincode::deserialize::<Self>(&buffer) {
             Ok(result) => Some(result),
-            Err(_) => None,
+            Err(err) => {
+                warn!("{} while trying to deserialize packet.", err);
+                None
+            }
         }
-    }
-
-    /// TODO: Serialize directly into a buffer.
-    pub fn serialize_into(&self, mut _buf: &mut [u8]) {
-        todo!()
     }
 }
 
@@ -173,7 +141,6 @@ fn test_udp_client() {
         },
         acknowledge_command: 50,
     };
-    assert_eq!(og.serialize().len(), UdpClient::FIXED_SIZE);
     println!("{:?}", &og);
     println!("{:?}", UdpClient::deserialize(&og.serialize()).unwrap());
 }
@@ -193,52 +160,21 @@ pub enum UdpServer {
     },
 }
 impl UdpServer {
-    // TODO: This should be 1200.
-    /// Payload maximum size.
-    pub const PAYLOAD_MAX_SIZE: usize = u8::MAX as usize;
-    /// One UdpServer::Metascape packet will contain at most this amount of positions.
-    pub const ENTITIES_POSITION_NUM_MAX: usize = 25;
+    /// One UdpServer::Metascape packet will contain at most this amount of positions per packet.
+    pub const NUM_ENTITIES_POSITION_MAX: usize = 25;
 
-    pub fn serialize(&self) -> Result<Vec<u8>, PacketError> {
-        let payload = bincode::serialize(self).unwrap();
-
-        // Check that we do not try to send a packet above max size.
-        if payload.len() >= Self::PAYLOAD_MAX_SIZE {
-            return Err(PacketError::TooLarge);
-        }
-
-        let mut v = Vec::with_capacity(Self::PAYLOAD_MAX_SIZE);
-        v.push(payload.len() as u8);
-        v.extend_from_slice(&payload);
-        Ok(v)
+    pub fn serialize(&self) -> Vec<u8> {
+        bincode::serialize(self).unwrap()
     }
 
-    pub fn deserialize(buffer: &[u8]) -> Result<Self, PacketError> {
-        // Get the size of the payload.
-        let payload_size = match buffer.first() {
-            Some(b) => *b as usize,
-            None => {
-                return Err(PacketError::NoHeader);
+    pub fn deserialize(buffer: &[u8]) -> Option<Self> {
+        match bincode::deserialize::<Self>(&buffer) {
+            Ok(result) => Some(result),
+            Err(err) => {
+                warn!("{} while trying to deserialize packet.", err);
+                None
             }
-        };
-
-        if payload_size == 0 {
-            return Err(PacketError::NoPayload);
         }
-
-        if buffer.len() != payload_size + 1 {
-            return Err(PacketError::WrongSize);
-        }
-
-        match bincode::deserialize::<Self>(&buffer[1..]) {
-            Ok(result) => Ok(result),
-            Err(_) => Err(PacketError::BincodeError),
-        }
-    }
-
-    /// TODO: Serialize directly into a buffer.
-    pub fn serialize_into(&self, mut _buf: &mut [u8]) {
-        todo!()
     }
 }
 
@@ -256,8 +192,14 @@ impl TcpClient {
     }
 
     /// Expect no header.
-    pub fn deserialize(buffer: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
-        bincode::deserialize(buffer)
+    pub fn deserialize(buffer: &[u8]) -> Option<Self> {
+        match bincode::deserialize::<Self>(&buffer) {
+            Ok(result) => Some(result),
+            Err(err) => {
+                warn!("{} while trying to deserialize packet.", err);
+                None
+            }
+        }
     }
 }
 
@@ -279,7 +221,13 @@ impl TcpServer {
     }
 
     /// Expect no header.
-    pub fn deserialize(buffer: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
-        bincode::deserialize(buffer)
+    pub fn deserialize(buffer: &[u8]) -> Option<Self> {
+        match bincode::deserialize::<Self>(&buffer) {
+            Ok(result) => Some(result),
+            Err(err) => {
+                warn!("{} while trying to deserialize packet.", err);
+                None
+            }
+        }
     }
 }
