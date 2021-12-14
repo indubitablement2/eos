@@ -45,4 +45,5 @@ fn fleet_client_id() {
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FactionId(u32);
 
-pub struct ServerEntity(u32, u32);
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct ServerEntity(pub u32, pub u32);
