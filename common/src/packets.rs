@@ -152,7 +152,8 @@ pub enum UdpServer {
         battlescape_tick: u64,
         client_inputs: Vec<BattlescapeInput>,
     },
-    Metascape {
+    /// TODO: Entity position is compressed into 4 bytes and is relative.
+    MetascapeEntityPosition {
         metascape_tick: u64,
         part: u8,
         /// Sorted by entity.

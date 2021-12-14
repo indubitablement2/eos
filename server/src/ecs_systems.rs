@@ -12,6 +12,7 @@ use common::parameters::MetascapeParameters;
 use common::res_time::TimeRes;
 use common::idx::*;
 use glam::Vec2;
+use glam::vec2;
 use rand::Rng;
 
 pub fn add_systems(schedule: &mut Schedule) {
@@ -386,33 +387,36 @@ fn update_intersection_pipeline(mut intersection_pipeline: ResMut<IntersectionPi
 // Send detected fleet to clients over udp.
 fn send_detected_fleet(
     query_client: Query<(&ClientId, &Position, &EntityDetected)>,
-    query_fleet: Query<(&FleetId, &Position)>,
+    query_entity: Query<&Position>,
     time_res: Res<TimeRes>,
     clients_res: Res<ClientsRes>,
 ) {
     query_client.for_each(|(client_id, pos, fleet_detected)| {
         if let Some(client) = clients_res.connected_clients.get(client_id) {
-            let mut entities_position = Vec::with_capacity(25);
+            let mut part = 0u8;
+            let mut entities_position = Vec::with_capacity(fleet_detected.0.len().min(UdpServer::NUM_ENTITIES_POSITION_MAX));
 
-            // TODO: If too many fleet are detected, throttle which ones are sent.
             for detected_entity in fleet_detected.0.iter() {
-                if let Ok((detected_fleet_id, detected_fleet_pos)) = query_fleet.get(*detected_entity) {
+                if let Ok(detected_fleet_pos) = query_entity.get(*detected_entity) {
                     entities_position.push(detected_fleet_pos.0);
-                    if entities_position.len() >= 25 {
-                        debug!("Could not send all detected fleet position. Ignoring rest...");
-                        break;
+                    if entities_position.len() >= UdpServer::NUM_ENTITIES_POSITION_MAX {
+                        // Send this part.
+                        let packet = UdpServer::MetascapeEntityPosition {
+                            metascape_tick: time_res.tick,
+                            part,
+                            entities_position,
+                        };
+                        let _ = client.connection.udp_sender.blocking_send(packet);
+
+                        // Prepare next part.
+                        part += 1;
+                        entities_position = Vec::with_capacity((fleet_detected.0.len().saturating_sub(usize::from(part) * UdpServer::NUM_ENTITIES_POSITION_MAX)).min(UdpServer::NUM_ENTITIES_POSITION_MAX));
                     }
                 } else {
-                    debug!("Could not find a detected entity. Client will be out of sync...");
+                    entities_position.push(vec2(0.0, 1000.0));
+                    debug!("Could not find a detected entity. Sending made up position...");
                 }
             }
-
-            let packet = UdpServer::Metascape {
-                entities_position,
-                metascape_tick: time_res.tick,
-            };
-
-            let _ = client.connection.udp_sender.blocking_send(packet);
         }
     });
 }
