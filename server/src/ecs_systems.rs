@@ -143,7 +143,7 @@ fn ai_fleet_sensor(
                     position: pos.0,
                 };
 
-                intersection_pipeline.intersect_collider_into(detector_collider, &mut detected.0);
+                intersection_pipeline.snapshot.intersect_collider_into(detector_collider, &mut detected.0);
             }
         },
     );
@@ -174,7 +174,7 @@ fn client_fleet_sensor(
                     position: pos.0,
                 };
 
-                intersection_pipeline.intersect_collider_into(detector_collider, &mut detected.0);
+                intersection_pipeline.snapshot.intersect_collider_into(detector_collider, &mut detected.0);
 
                 if let Some(client) = clients_res.connected_clients.get(client_id) {
                     // Sort result.
@@ -335,22 +335,48 @@ fn spawn_ai_fleet(time_res: Res<TimeRes>, mut commands: Commands, mut fleets_res
 
 //* last
 
+/// Take a snapshot of the AccelerationStructure from the last update and request a new update on the runner thread.
+/// 
+/// This effectively just swap the snapshots between the runner thread and this IntersectionPipeline
 fn update_intersection_pipeline(
     query: Query<(Entity, &Position, &DetectedRadius)>,
     mut intersection_pipeline: ResMut<IntersectionPipeline>,
-    time_res: Res<TimeRes>,
 ) {
-    if time_res.tick % 20 == 0 {
-        // Update all collider.
-        query.for_each(|(entity, pos, detected_radius)| {
-            let new_collider = Collider {
-                radius: detected_radius.0,
-                position: pos.0,
-            };
-            intersection_pipeline.modify_collider(ColliderId::new(entity.id()), new_collider);
-        });
+    intersection_pipeline.last_update_delta += 1;
 
-        intersection_pipeline.update();
+    if intersection_pipeline.last_update_delta > 5 {
+        // Take back the AccelerationStructure on the runner thread.
+        match intersection_pipeline.update_result_receiver.try_recv() {
+            Ok(mut runner) => {
+                // Update all colliders.
+                intersection_pipeline.snapshot.colliders.clear();
+                query.for_each(|(entity, pos, detected_radius)| {
+                    let new_collider = Collider {
+                        radius: detected_radius.0,
+                        position: pos.0,
+                    };
+                    intersection_pipeline.snapshot.colliders.insert(ColliderId::new(entity.id()), new_collider);
+                });
+
+                // Swap snapshot.
+                std::mem::swap(&mut intersection_pipeline.snapshot, &mut runner);
+
+                // Return runner.
+                if intersection_pipeline.update_request_sender.send(runner).is_err() {
+                    error!("Intersection pipeline update runner thread dropped. Creating a new runner...");
+                    intersection_pipeline.start_new_runner_thread();
+                }
+
+                intersection_pipeline.last_update_delta = 0;
+            }
+            Err(err) => {
+                if err == crossbeam_channel::TryRecvError::Disconnected {
+                    error!("Intersection pipeline update runner thread dropped. Creating a new runner...");
+                    intersection_pipeline.start_new_runner_thread();
+                }
+                debug!("AccelerationStructure runner is taking longer than expected to update. Trying again latter...");
+            }
+        }
     }
 }
 

@@ -107,11 +107,10 @@ pub struct FleetAI {
 
 //* Detection
 
-/// Used to make a fleet detectable.
+/// Used to make an entity detectable.
 pub struct DetectedRadius(pub f32);
 
-/// Used to detect things.
-/// Radius is tested agains DetectedRadius to determine if this entity can see it.
+/// Used to detect entity that have a DetectedRadius.
 pub struct DetectorRadius(pub f32);
 
 /// Collider that are detected by this entity.
