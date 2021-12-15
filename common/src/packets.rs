@@ -9,6 +9,7 @@ pub struct ServerAddresses {
     pub udp_address: SocketAddrV6,
 }
 
+/// TODO: This should also send client version. 
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct LoginPacket {
     pub is_steam: bool,
