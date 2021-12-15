@@ -15,7 +15,7 @@ glam = { version = "0.20.0", features = ["serde", "rand"] }
 # bytes = "1.1.0"
 
 ahash = "0.7.6"
-indexmap = {version = "1.7.0", features = ["serde"] }
+# indexmap = {version = "1.7.0", features = ["serde"] }
 
 rand = { version = "0.8.4", features = ["nightly", "simd_support"] }
 rand_xoshiro = "0.6.0"
