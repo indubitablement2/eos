@@ -15,30 +15,21 @@ impl ColliderId {
     }
 }
 
-/// _________ -infinity
+/// _________ rows top
 ///
 /// first row
 ///
-/// _________ Some real number
+/// _________ rows top + lenght * 1
 ///
 /// second row
 ///
-/// _________ Some real number
+/// _________ rows top + lenght * 2
 ///
 /// last row
 ///
-/// _________ infinity
-///
-///
-/// Use a really large number instead of infinity to avoid it spreading.
+/// _________ rows top + lenght * num row
 #[derive(Debug, Clone)]
 struct SAPRow {
-    /// This is a smaller number than bot as up is negative.
-    /// This is also bot of the previous row (if there is one).
-    top: f32,
-    /// This is a bigger number than top as down is positive.
-    /// This is also top of the next row (if there is one).
-    bot: f32,
     /// The biggest radius found in this row.
     biggest_radius: f32,
     /// The colliders indices on the colliders IndexMap that overlap this row.
@@ -48,30 +39,15 @@ struct SAPRow {
 impl Default for SAPRow {
     fn default() -> Self {
         Self {
-            top: 0.0,
-            bot: 0.0,
             biggest_radius: 0.0,
-            data: Vec::with_capacity(AccelerationStructure::MIN_COLLIDER_PER_ROW * 4),
+            data: Vec::with_capacity(16),
         }
     }
 }
 impl SAPRow {
-    /// The lenght from an extremity to the other.
-    fn lenght(&self) -> f32 {
-        self.bot - self.top
-    }
-
-    /// Split this row in two.
-    /// `self` become the top row.
-    /// `other` become the bottom row.
-    ///
-    /// Takes a SAPRow to allow recycling and avoid unnecessary allocations.
-    fn split(&mut self, mut other: Self) -> Self {
-        other.bot = self.bot;
-        self.bot -= self.lenght() * 0.5;
-        other.top = self.bot;
-        other
-    }
+    /// Row have a static lenght.
+    /// TODO: Is this the optimal row lenght?
+    const LENGHT: f32 = 64.0;
 
     /// Insert all possible overlap from `self` in `buffer`.
     fn get_possible_overlap(
@@ -130,73 +106,64 @@ impl SAPRow {
 #[derive(Debug)]
 pub struct AccelerationStructure {
     pub colliders: IndexMap<ColliderId, Collider>,
+    /// The top of the first row.
+    rows_top: f32,
+    /// The bot of the last row
+    rows_bot: f32,
     /// Rows are sorted on the y axis. From top to bottom.
     rows: Vec<SAPRow>,
 }
 impl AccelerationStructure {
-    /// Row will not be split unless they have at least that many collider.
-    const MIN_COLLIDER_PER_ROW: usize = 8;
-    /// Row will not be split under this lenght.
-    const MIN_ROW_LENGHT: f32 = 512.0;
-
     fn new() -> Self {
         Self {
             colliders: IndexMap::new(),
-            rows: Vec::new(),
+            rows_top: 0.0,
+            rows_bot: 0.0,
+            rows: vec![SAPRow::default()],
         }
     }
 
     /// # Safety
     /// Will panic if any collider's position is not real.
     fn update(&mut self) {
-        // Recycle old rows.
-        let num_old_row = self.rows.len();
-        let mut old_row = std::mem::replace(&mut self.rows, Vec::with_capacity(num_old_row + 4));
-        for row in &mut old_row {
+        // Find the upper and lower collider.
+        let mut upper = 0.0f32;
+        let mut lower = 0.0f32;
+        let mut biggest_radius = 0.0f32;
+        for collider in self.colliders.values() {
+            upper = upper.min(collider.position.y);
+            lower = lower.max(collider.position.y);
+            biggest_radius = biggest_radius.max(collider.radius);
+        }
+        upper -= biggest_radius + 1.0;
+        lower += biggest_radius + 1.0;
+        self.rows_top = upper;
+        self.rows_bot = lower;
+
+        // Clean the rows to reuse them.
+        for row in self.rows.iter_mut() {
+            row.biggest_radius = 0.0;
             row.data.clear();
         }
 
-        // Prepare first row.
-        let mut first_row = old_row.pop().unwrap_or_default();
-        first_row.top = -1.0e30f32;
-        first_row.bot = 1.0e30f32;
-        self.rows.push(first_row);
-
-        if self.colliders.is_empty() {
-            return;
-        }
-
-        for (collider, index) in self.colliders.values().zip(0u32..) {
-            let row_index = self.find_row_at_position(collider.position.y);
-            let row = &mut self.rows[row_index];
-            row.data.push(index);
-
-            if row.data.len() > Self::MIN_COLLIDER_PER_ROW && row.lenght() > Self::MIN_ROW_LENGHT {
-                // Split this row in two.
-                let mut new_row = row.split(old_row.pop().unwrap_or_default());
-
-                // Move colliders that now belong in the new row.
-                let row_bot = row.bot;
-                row.data
-                    .drain_filter(|collider_index| row_bot < self.colliders[*collider_index as usize].position.y)
-                    .for_each(|collider_index| new_row.data.push(collider_index));
-
-                // Add the new row after the current row.
-                self.rows.insert(row_index, new_row);
-            }
+        // Create rows.
+        let num_row = ((lower - upper) / SAPRow::LENGHT) as usize + 1;
+        if num_row > self.rows.len() {
+            self.rows.resize_with(num_row, Default::default);
         }
 
         // Add colliders to overlapping rows.
         for (collider, collider_index) in self.colliders.values().zip(0u32..) {
-            let collider_top = collider.top();
-            let first_overlapping_row = self.find_row_at_position(collider_top);
+            let first_overlapping_row = self.find_row_at_position(collider.top());
 
+            let mut row_bot = SAPRow::LENGHT.mul_add((first_overlapping_row + 1) as f32, self.rows_top);
             let collider_bot = collider.bot();
             for row in &mut self.rows[first_overlapping_row..] {
                 row.data.push(collider_index);
-                if collider_bot < row.bot {
+                if collider_bot < row_bot {
                     break;
                 }
+                row_bot += SAPRow::LENGHT;
             }
         }
 
@@ -226,8 +193,46 @@ impl AccelerationStructure {
     /// Get the index of the row that this position fit into.
     ///
     /// If this is used with the top of a collider, it return the first row that this collider overlap.
-    pub fn find_row_at_position(&self, y_postion: f32) -> usize {
-        self.rows.partition_point(|row| row.bot < y_postion)
+    ///
+    /// This index is clamped to be within the valid part of this AccelerationStructure.
+    fn find_row_at_position(&self, y_postion: f32) -> usize {
+        ((y_postion.min(self.rows_bot) - self.rows_top) / SAPRow::LENGHT) as usize
+    }
+
+    /// Get all colliders that should be tested.
+    fn get_colliders_to_test(&self, collider: Collider) -> AHashSet<u32> {
+        let mut to_test = AHashSet::with_capacity(16);
+
+        let first_overlapping_row = self.find_row_at_position(collider.top());
+
+        if first_overlapping_row < self.rows.len() {
+            let mut row_bot = SAPRow::LENGHT.mul_add((first_overlapping_row + 1) as f32, self.rows_top);
+            let collider_bot = collider.bot();
+            for row in &self.rows[first_overlapping_row..] {
+                row.get_possible_overlap(&self.colliders, collider, &mut to_test);
+                if collider_bot < row_bot {
+                    break;
+                }
+                row_bot += SAPRow::LENGHT;
+            }
+        }
+
+        to_test
+    }
+
+    /// Get all colliders that should be tested.
+    ///
+    /// This version is for point
+    fn get_colliders_to_test_point(&self, point: Vec2) -> AHashSet<u32> {
+        let mut to_test = AHashSet::with_capacity(16);
+
+        let overlapping_row = self.find_row_at_position(point.y);
+
+        if let Some(row) = self.rows.get(overlapping_row) {
+            row.get_possible_overlap_point(&self.colliders, point, &mut to_test);
+        }
+
+        to_test
     }
 
     /// Brute test a collider against every collider until one return true. Useful for debug.
@@ -242,21 +247,7 @@ impl AccelerationStructure {
 
     /// Test if a any collider intersect the provided collider.
     pub fn test_collider(&self, collider: Collider) -> bool {
-        let mut to_test = AHashSet::with_capacity(16);
-
-        let collider_top = collider.top();
-        let first_overlapping_row = self.find_row_at_position(collider_top);
-
-        let collider_bot = collider.bot();
-        for row in &self.rows[first_overlapping_row..] {
-            row.get_possible_overlap(&self.colliders, collider, &mut to_test);
-            if collider_bot < row.bot {
-                break;
-            }
-        }
-
-        // Test each Collider we have collected.
-        for i in to_test.into_iter() {
+        for i in self.get_colliders_to_test(collider).into_iter() {
             if collider.intersection_test(self.colliders[i as usize]) {
                 return true;
             }
@@ -266,23 +257,11 @@ impl AccelerationStructure {
     }
 
     /// Return all colliders that intersect the provided collider.
-    /// Buffer will containt the result.
+    /// `buffer` will containt the result.
+    ///
+    /// Provided `buffer` should be clear.
     pub fn intersect_collider_into(&self, collider: Collider, buffer: &mut Vec<ColliderId>) {
-        let mut to_test = AHashSet::with_capacity(16);
-
-        let collider_top = collider.top();
-        let first_overlapping_row = self.find_row_at_position(collider_top);
-
-        let collider_bot = collider.bot();
-        for row in &self.rows[first_overlapping_row..] {
-            row.get_possible_overlap(&self.colliders, collider, &mut to_test);
-            if collider_bot < row.bot {
-                break;
-            }
-        }
-
-        // Test each Collider we have collected.
-        for i in to_test.into_iter() {
+        for i in self.get_colliders_to_test(collider).into_iter() {
             if let Some((collider_id, other)) = self.colliders.get_index(i as usize) {
                 if collider.intersection_test(*other) {
                     buffer.push(*collider_id);
@@ -293,14 +272,7 @@ impl AccelerationStructure {
 
     /// Test if any collider intersect with the provided point.
     pub fn test_point(&self, point: Vec2) -> bool {
-        let mut to_test = AHashSet::with_capacity(16);
-
-        if let Some(row) = self.rows.get(self.find_row_at_position(point.y)) {
-            row.get_possible_overlap_point(&self.colliders, point, &mut to_test);
-        }
-
-        // Test each Collider we have collected.
-        for i in to_test.into_iter() {
+        for i in self.get_colliders_to_test_point(point).into_iter() {
             if self.colliders[i as usize].intersection_test_point(point) {
                 return true;
             }
@@ -312,14 +284,7 @@ impl AccelerationStructure {
     /// Return all colliders that intersect the provided point.
     /// Buffer will containt the result.
     pub fn intersect_point_into(&self, point: Vec2, buffer: &mut Vec<ColliderId>) {
-        let mut to_test = AHashSet::with_capacity(16);
-
-        if let Some(row) = self.rows.get(self.find_row_at_position(point.y)) {
-            row.get_possible_overlap_point(&self.colliders, point, &mut to_test);
-        }
-
-        // Test each Collider we have collected.
-        for i in to_test.into_iter() {
+        for i in self.get_colliders_to_test_point(point).into_iter() {
             if let Some((collider_id, other)) = self.colliders.get_index(i as usize) {
                 if other.intersection_test_point(point) {
                     buffer.push(*collider_id);
@@ -331,13 +296,13 @@ impl AccelerationStructure {
     /// Get the separation line between each row. Useful for debug.
     pub fn get_rows_separation(&self) -> Vec<f32> {
         let mut v = Vec::with_capacity(self.rows.len() + 1);
+        v.push(self.rows_top);
 
-        self.rows.iter().for_each(|row| {
-            v.push(row.top);
-        });
-
-        if let Some(last) = self.rows.last() {
-            v.push(last.bot);
+        for (row, i) in self.rows.iter().zip(1..) {
+            if row.data.is_empty() {
+                break;
+            }
+            v.push((i as f32).mul_add(SAPRow::LENGHT, self.rows_top));
         }
 
         v
@@ -443,72 +408,17 @@ fn test_basic() {
     intersection_pipeline.snapshot.colliders.remove(&first_collider_id);
     intersection_pipeline.snapshot.update();
     for row in &intersection_pipeline.snapshot.rows {
-        assert_eq!(row.data.len(), 1, "should only have one row");
+        assert_eq!(row.data.len(), 0, "row should be empty");
     }
+    assert_eq!(
+        intersection_pipeline.snapshot.rows.len(),
+        1,
+        "there should only be one row"
+    );
     assert!(!intersection_pipeline.snapshot.test_collider(Collider {
         radius: 10.0,
         position: vec2(0.0, 0.0),
     }));
-}
-
-#[test]
-fn test_row() {
-    use glam::vec2;
-
-    let mut intersection_pipeline = IntersectionPipeline::new();
-
-    intersection_pipeline.snapshot.colliders.insert(
-        ColliderId::new(1),
-        Collider {
-            radius: 10.0,
-            position: vec2(0.0, 0.0),
-        },
-    );
-    intersection_pipeline.snapshot.update();
-    assert_eq!(intersection_pipeline.snapshot.rows.len(), 1);
-
-    // We should have 2 rows after this
-    for i in 0..AccelerationStructure::MIN_COLLIDER_PER_ROW {
-        intersection_pipeline.snapshot.colliders.insert(
-            ColliderId::new(2 + i as u32),
-            Collider {
-                radius: 10.0,
-                position: vec2(0.0, 10000.0),
-            },
-        );
-    }
-    intersection_pipeline.snapshot.update();
-    assert_eq!(intersection_pipeline.snapshot.rows.len(), 2);
-
-    // We should have 2 rows.
-    for i in 0..AccelerationStructure::MIN_COLLIDER_PER_ROW - 1 {
-        intersection_pipeline.snapshot.colliders.insert(
-            ColliderId::new(2 + i as u32 + AccelerationStructure::MIN_COLLIDER_PER_ROW as u32),
-            Collider {
-                radius: 10.0,
-                position: vec2(0.0, 5000.0),
-            },
-        );
-    }
-    intersection_pipeline.snapshot.update();
-    assert_eq!(intersection_pipeline.snapshot.rows.len(), 2);
-
-    let mid = ColliderId::new(1000);
-    intersection_pipeline.snapshot.colliders.insert(
-        mid,
-        Collider {
-            radius: 10.0,
-            position: vec2(0.0, 5000.0),
-        },
-    );
-    intersection_pipeline.snapshot.update();
-    println!("\n{:?}", &intersection_pipeline.snapshot.rows);
-    assert_eq!(intersection_pipeline.snapshot.rows.len(), 3);
-
-    intersection_pipeline.snapshot.colliders.remove(&mid);
-    intersection_pipeline.snapshot.update();
-    println!("\n{:?}", &intersection_pipeline.snapshot.rows);
-    assert_eq!(intersection_pipeline.snapshot.rows.len(), 2);
 }
 
 #[test]
