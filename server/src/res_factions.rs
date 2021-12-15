@@ -1,6 +1,6 @@
 use crate::ecs_components::Reputation;
-use common::idx::*;
 use ahash::AHashMap;
+use common::idx::*;
 use indexmap::IndexMap;
 
 pub struct FactionsRes {

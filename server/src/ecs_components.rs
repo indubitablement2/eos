@@ -1,6 +1,6 @@
 use crate::intersection::ColliderId;
-use common::idx::*;
 use bevy_ecs::prelude::*;
+use common::idx::*;
 use glam::Vec2;
 use std::ops::{Add, Sub};
 
@@ -21,10 +21,10 @@ pub struct FleetBundle {
     pub velocity: Velocity,
     pub acceleration: Acceleration,
     pub fleet_ai: FleetAI,
-    pub fleet_collider: FleetCollider,
     pub reputation: Reputation,
+    pub detected_radius: DetectedRadius,
     pub detector_radius: DetectorRadius,
-    pub fleet_detected: EntityDetected,
+    pub entity_detected: EntityDetected,
 }
 
 //* generic
@@ -79,13 +79,6 @@ impl Sub for Reputation {
     }
 }
 
-/// Radius that is tested agains fleet colliders (or other things in space) to determine if this fleet can see it.
-pub struct DetectorRadius(pub f32);
-
-/// Fleets that are detected by this fleet.
-/// If this is a client, this is sorted by fleet id.
-pub struct EntityDetected(pub Vec<Entity>);
-
 //* ai
 
 /// Not a components.
@@ -112,7 +105,15 @@ pub struct FleetAI {
     pub goal: FleetGoal,
 }
 
-//* collider
+//* Detection
 
 /// Used to make a fleet detectable.
-pub struct FleetCollider(pub ColliderId);
+pub struct DetectedRadius(pub f32);
+
+/// Used to detect things.
+/// Radius is tested agains DetectedRadius to determine if this entity can see it.
+pub struct DetectorRadius(pub f32);
+
+/// Collider that are detected by this entity.
+/// If this is a client, this is sorted by collider id.
+pub struct EntityDetected(pub Vec<ColliderId>);

@@ -208,9 +208,10 @@ async fn try_login(
     };
 
     // Send LoginResponse.
-    if let Err(err) = write_half.write_all(&LoginResponsePacket::Accepted {
-        client_id,
-    }.serialize()).await {
+    if let Err(err) = write_half
+        .write_all(&LoginResponsePacket::Accepted { client_id }.serialize())
+        .await
+    {
         warn!(
             "{:?} while trying to write LoginResponsePacket to {}. Aborting login...",
             err, client_tcp_addr
@@ -225,10 +226,7 @@ async fn try_login(
     spawn(send_udp(udp_to_send, udp_socket, client_udp_address));
 
     let (udp_received, udp_receiver) = crossbeam_channel::unbounded();
-    udp_senders
-        .lock()
-        .unwrap()
-        .insert(client_udp_address, udp_received);
+    udp_senders.lock().unwrap().insert(client_udp_address, udp_received);
 
     let (tcp_sender, tcp_to_send) = tokio::sync::mpsc::channel(32);
     spawn(send_tcp(tcp_to_send, write_half, client_tcp_addr));
@@ -263,7 +261,10 @@ async fn send_udp(
         if let Some(packet) = udp_to_send.recv().await {
             if let Err(err) = udp_socket.send_to(&packet.serialize(), client_udp_address).await {
                 if is_err_fatal(&err) {
-                    debug!("Fatal error while sending packet to {}. Disconnecting...", client_udp_address);
+                    debug!(
+                        "Fatal error while sending packet to {}. Disconnecting...",
+                        client_udp_address
+                    );
                     break;
                 }
             }
@@ -299,7 +300,10 @@ async fn recv_udp(
                     // Deserialize packet.
                     if let Some(packet) = UdpClient::deserialize(&buf[..num]) {
                         if sender.send(packet).is_err() {
-                            warn!("{} 's channel is drop and should've been removed. Ignoring...", client_udp_addr);
+                            warn!(
+                                "{} 's channel is drop and should've been removed. Ignoring...",
+                                client_udp_addr
+                            );
                         }
                     } else {
                         trace!(
@@ -308,7 +312,10 @@ async fn recv_udp(
                         );
                     }
                 } else {
-                    trace!("{} sent an udp packet, but is not connected. Ignoring...", client_udp_addr);
+                    trace!(
+                        "{} sent an udp packet, but is not connected. Ignoring...",
+                        client_udp_addr
+                    );
                 }
             }
             Err(err) => {
@@ -328,7 +335,10 @@ async fn send_tcp(
             // Serialize and send data.
             if let Err(err) = write_half.write_all(&packet.serialize()).await {
                 if is_err_fatal(&err) {
-                    debug!("Fatal error while writting to {} 's tcp socket. Disconnecting...", client_tcp_addr);
+                    debug!(
+                        "Fatal error while writting to {} 's tcp socket. Disconnecting...",
+                        client_tcp_addr
+                    );
                     break;
                 }
             }
@@ -366,7 +376,9 @@ async fn recv_tcp(
                     // Next packet is too large.
                     debug!(
                         "{} tried to send a packet of {} bytes which is over size limit of {}. Disconnecting...",
-                        client_tcp_addr, next_payload_size, TcpClient::MAX_SIZE
+                        client_tcp_addr,
+                        next_payload_size,
+                        TcpClient::MAX_SIZE
                     );
                     break;
                 } else if next_payload_size > buf.len() {
@@ -378,7 +390,10 @@ async fn recv_tcp(
                 match buf_read.read_exact(&mut buf[..next_payload_size]).await {
                     Ok(num) => {
                         if num != next_payload_size {
-                            debug!("{} disconnected while sending a packet. Ignoring packet...", client_tcp_addr);
+                            debug!(
+                                "{} disconnected while sending a packet. Ignoring packet...",
+                                client_tcp_addr
+                            );
                             break;
                         }
 
@@ -393,7 +408,8 @@ async fn recv_tcp(
                             }
                             None => {
                                 debug!(
-                                    "Error while deserializing {} 's tcp packet. Disconnecting...", client_tcp_addr
+                                    "Error while deserializing {} 's tcp packet. Disconnecting...",
+                                    client_tcp_addr
                                 );
                                 break;
                             }
@@ -401,7 +417,10 @@ async fn recv_tcp(
                     }
                     Err(err) => {
                         if is_err_fatal(&err) {
-                            debug!("Fatal error while reading {} 's tcp packet. Disconnecting...", client_tcp_addr);
+                            debug!(
+                                "Fatal error while reading {} 's tcp packet. Disconnecting...",
+                                client_tcp_addr
+                            );
                             break;
                         }
                     }
@@ -409,7 +428,10 @@ async fn recv_tcp(
             }
             Err(err) => {
                 if is_err_fatal(&err) {
-                    debug!("Fatal error while reading {} 's tcp header. Disconnecting...", client_tcp_addr);
+                    debug!(
+                        "Fatal error while reading {} 's tcp header. Disconnecting...",
+                        client_tcp_addr
+                    );
                     break;
                 }
             }

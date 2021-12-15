@@ -1,42 +1,17 @@
-use ahash::{AHashMap, AHashSet};
-use bevy_ecs::prelude::Entity;
+use ahash::AHashSet;
 use common::collider::Collider;
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
-use crossbeam_queue::SegQueue;
 use glam::Vec2;
 use indexmap::IndexMap;
-use std::{
-    cmp::Ordering,
-    fmt::Debug,
-    sync::{atomic::AtomicU32, Arc},
-    thread::spawn,
-};
+use std::{cmp::Ordering, fmt::Debug, thread::spawn};
 
 /// Recycled after a collider is removed.
+/// For Eos, this id is the same as the entity's id.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ColliderId(pub u32);
-
-#[derive(Debug)]
-struct ColliderIdDispenser {
-    last: AtomicU32,
-    available: SegQueue<ColliderId>,
-}
-impl ColliderIdDispenser {
-    fn new() -> Self {
-        Self {
-            last: AtomicU32::new(0),
-            available: SegQueue::new(),
-        }
-    }
-
-    fn new_collider_id(&self) -> ColliderId {
-        self.available
-            .pop()
-            .unwrap_or_else(|| ColliderId(self.last.fetch_add(1, std::sync::atomic::Ordering::Relaxed)))
-    }
-
-    fn recycle_collider_id(&self, collider_id: ColliderId) {
-        self.available.push(collider_id);
+impl ColliderId {
+    pub fn new(id: u32) -> Self {
+        Self(id)
     }
 }
 
@@ -66,20 +41,14 @@ impl Default for SAPRow {
 struct AccelerationStructureRunner {
     /// Sorted on the y axis.
     colliders: IndexMap<ColliderId, Collider>,
-    collider_entity: AHashMap<ColliderId, Entity>,
-    /// The difference between each row's start and end can not be smaller than this.
     /// Sorted on the x axis.
     rows: Vec<SAPRow>,
 
-    insert_collider_receiver: Receiver<(ColliderId, Collider, Entity)>,
     modify_collider_receiver: Receiver<(ColliderId, Collider)>,
     remove_collider_receiver: Receiver<ColliderId>,
-    /// Sometime remove may be called before insert when both are called at the same time.
+    /// Sometime remove order may be received before insert when both are called at the same time.
     /// This prevent that by waiting an extra update before removing colliders.
     remove_queue: Vec<ColliderId>,
-    /// Collider id that have just been removed on the runner may still be in use on the snapshot.
-    /// This prevent that by waiting an extra update before recycling collider id.
-    free_collider_id: Vec<ColliderId>,
 }
 impl AccelerationStructureRunner {
     const MIN_COLLIDER_PER_ROW: usize = 8;
@@ -87,52 +56,32 @@ impl AccelerationStructureRunner {
 
     fn new(
         remove_collider_receiver: Receiver<ColliderId>,
-        insert_collider_receiver: Receiver<(ColliderId, Collider, Entity)>,
         modify_collider_receiver: Receiver<(ColliderId, Collider)>,
     ) -> Self {
         Self {
             colliders: IndexMap::new(),
-            collider_entity: AHashMap::new(),
             rows: Vec::new(),
-            insert_collider_receiver,
             modify_collider_receiver,
             remove_collider_receiver,
             remove_queue: Vec::new(),
-            free_collider_id: Vec::new(),
         }
     }
 
-    fn update(&mut self, collider_id_dispenser: &Arc<ColliderIdDispenser>) {
-        // Recycle collider id.
-        for collider_id in self.free_collider_id.drain(..) {
-            collider_id_dispenser.recycle_collider_id(collider_id);
-        }
-        // Insert new colliders.
-        while let Ok((collider_id, collider, entity)) = self.insert_collider_receiver.try_recv() {
+    fn update(&mut self) {
+        // Insert / Modify colliders.
+        while let Ok((collider_id, collider)) = self.modify_collider_receiver.try_recv() {
             self.colliders.insert(collider_id, collider);
-            self.collider_entity.insert(collider_id, entity);
-        }
-        // Modify colliders.
-        while let Ok((collider_id, new_collider)) = self.modify_collider_receiver.try_recv() {
-            if let Some(collider) = self.colliders.get_mut(&collider_id) {
-                *collider = new_collider;
-            }
         }
         // Try to remove collider id that could not be found last update again.
         for collider_id in self.remove_queue.drain(..) {
-            if self.colliders.remove(&collider_id).is_some() {
-                self.collider_entity.remove(&collider_id);
-                self.free_collider_id.push(collider_id);
-            } else {
-                warn!("A collider id could not be removed. That could mean a memory leak. Ignoring...");
+            if self.colliders.remove(&collider_id).is_none() {
+                warn!("A collider could not be removed. That could be a memory leak. Ignoring...");
             }
         }
         // Remove colliders and recycle collider id.
         while let Ok(collider_id) = self.remove_collider_receiver.try_recv() {
-            if self.colliders.remove(&collider_id).is_some() {
-                self.collider_entity.remove(&collider_id);
-                self.free_collider_id.push(collider_id);
-            } else {
+            if self.colliders.remove(&collider_id).is_none() {
+                // We will try again next update.
                 self.remove_queue.push(collider_id);
             }
         }
@@ -149,8 +98,12 @@ impl AccelerationStructureRunner {
         }
 
         // Sort on y axis.
-        self.colliders
-            .sort_by(|_, v1, _, v2| v1.position.y.partial_cmp(&v2.position.y).unwrap_or(Ordering::Equal));
+        self.colliders.sort_by(|_, v1, _, v2| {
+            v1.position.y.partial_cmp(&v2.position.y).unwrap_or_else(|| {
+                error!("A collider's position has an imaginary number. Terminating runner thread...");
+                panic!("A collider's position has an imaginary number. Terminating runner thread...");
+            })
+        });
 
         // Prepare first row.
         let mut current_row = old_row.pop().unwrap_or_default();
@@ -221,14 +174,12 @@ impl AccelerationStructureRunner {
 #[derive(Debug)]
 struct AccelerationStructureSnapshot {
     colliders: IndexMap<ColliderId, Collider>,
-    collider_entity: AHashMap<ColliderId, Entity>,
     rows: Vec<SAPRow>,
 }
 impl AccelerationStructureSnapshot {
     fn new() -> Self {
         Self {
             colliders: IndexMap::new(),
-            collider_entity: AHashMap::new(),
             rows: Vec::new(),
         }
     }
@@ -237,7 +188,6 @@ impl AccelerationStructureSnapshot {
     /// TODO: Overridde clone from to reuse the resources of self to avoid unnecessary allocations.
     fn clone_from_runner(&mut self, runner: &AccelerationStructureRunner) {
         self.colliders.clone_from(&runner.colliders);
-        self.collider_entity.clone_from(&runner.collider_entity);
         self.rows.clone_from(&runner.rows);
     }
 
@@ -292,7 +242,8 @@ impl AccelerationStructureSnapshot {
     }
 
     /// Return all colliders that intersect the provided collider.
-    fn intersect_collider(&self, collider: Collider) -> Vec<ColliderId> {
+    /// Buffer will containt the result.
+    fn intersect_collider_into(&self, collider: Collider, mut buffer: &mut Vec<ColliderId>) {
         let mut to_test = AHashSet::with_capacity(16);
         let bottom = collider.position.y - collider.radius;
         let top = collider.position.y + collider.radius;
@@ -325,16 +276,13 @@ impl AccelerationStructureSnapshot {
         }
 
         // Test each Collider we have collected.
-        let mut result = Vec::with_capacity(to_test.len());
         for i in to_test.into_iter() {
             if let Some((collider_id, other)) = self.colliders.get_index(i as usize) {
                 if collider.intersection_test(*other) {
-                    result.push(*collider_id);
+                    buffer.push(*collider_id);
                 }
             }
         }
-
-        result
     }
 
     /// Test if any collider intersect with the provided point.
@@ -349,7 +297,6 @@ impl AccelerationStructureSnapshot {
             let left_index = row
                 .data
                 .partition_point(|i| self.colliders[*i as usize].position.x < left);
-
 
             // Look from left to right.
             for i in &row.data[left_index..] {
@@ -387,19 +334,16 @@ impl AccelerationStructureSnapshot {
     }
 }
 
-// TODO: Intersection that can filter based on collider id or entity.
+// TODO: Intersection that can filter based on collider id.
 /// Allow fast circle-circle intersection and test between colliders.
 /// This intersection pipeline is fully async, but there is a delay before commands take effect.
 #[derive(Debug)]
 pub struct IntersectionPipeline {
-    collider_id_dispenser: Arc<ColliderIdDispenser>,
-
     update_request_sender: Sender<AccelerationStructureRunner>,
     update_result_receiver: Receiver<AccelerationStructureRunner>,
 
     remove_collider_sender: Sender<ColliderId>,
     modify_collider_sender: Sender<(ColliderId, Collider)>,
-    insert_collider_sender: Sender<(ColliderId, Collider, Entity)>,
 
     snapshot: AccelerationStructureSnapshot,
 }
@@ -410,36 +354,20 @@ impl IntersectionPipeline {
 
         let (remove_collider_sender, remove_collider_receiver) = unbounded();
         let (modify_collider_sender, modify_collider_receiver) = unbounded();
-        let (insert_collider_sender, insert_collider_receiver) = unbounded();
 
-        let collider_id_dispenser = Arc::new(ColliderIdDispenser::new());
-        let collider_id_dispenser_clone = collider_id_dispenser.clone();
+        spawn(move || runner_loop(update_request_receiver, update_result_sender));
 
-        spawn(move || {
-            runner_loop(
-                update_request_receiver,
-                update_result_sender,
-                collider_id_dispenser_clone,
-            )
-        });
-
-        let runner = AccelerationStructureRunner::new(
-            remove_collider_receiver,
-            insert_collider_receiver,
-            modify_collider_receiver,
-        );
+        let runner = AccelerationStructureRunner::new(remove_collider_receiver, modify_collider_receiver);
 
         update_request_sender
             .send(runner)
             .expect("Could not send runner to thread.");
 
         Self {
-            collider_id_dispenser,
             update_request_sender,
             update_result_receiver,
             remove_collider_sender,
             modify_collider_sender,
-            insert_collider_sender,
             snapshot: AccelerationStructureSnapshot::new(),
         }
     }
@@ -460,14 +388,7 @@ impl IntersectionPipeline {
         }
     }
 
-    /// Insert a collider with its entity.
-    pub fn insert_collider(&self, collider: Collider, entity: Entity) -> ColliderId {
-        let collider_id = self.collider_id_dispenser.new_collider_id();
-        let _ = self.insert_collider_sender.send((collider_id, collider, entity));
-        collider_id
-    }
-
-    /// Modify a collider.
+    /// Modify or insert a collider.
     pub fn modify_collider(&self, collider_id: ColliderId, collider: Collider) {
         let _ = self.modify_collider_sender.send((collider_id, collider));
     }
@@ -485,17 +406,16 @@ impl IntersectionPipeline {
             .map(|collider| collider.to_owned())
     }
 
-    /// Get a copy of a collider's entity.
-    pub fn get_collider_entity(&self, collider_id: ColliderId) -> Option<Entity> {
-        self.snapshot
-            .collider_entity
-            .get(&collider_id)
-            .map(|entity| entity.to_owned())
-    }
-
     /// Return all colliders that intersect the provided collider.
     pub fn intersect_collider(&self, collider: Collider) -> Vec<ColliderId> {
-        self.snapshot.intersect_collider(collider)
+        let mut result = Vec::new();
+        self.snapshot.intersect_collider_into(collider, &mut result);
+        result
+    }
+
+    /// Same as intersect_collider, but reuse a buffer to store the intersected colliders.
+    pub fn intersect_collider_into(&self, collider: Collider, buffer: &mut Vec<ColliderId>) {
+        self.snapshot.intersect_collider_into(collider, buffer);
     }
 
     /// Test if a any collider intersect the provided collider.
@@ -522,12 +442,11 @@ impl IntersectionPipeline {
 fn runner_loop(
     update_request_receiver: Receiver<AccelerationStructureRunner>,
     update_result_sender: Sender<AccelerationStructureRunner>,
-    collider_id_dispenser: Arc<ColliderIdDispenser>,
 ) {
     while let Ok(mut runner) = update_request_receiver.recv() {
-        runner.update(&collider_id_dispenser);
+        runner.update();
         if update_result_sender.send(runner).is_err() {
-            info!("Intersection pipeline update runner thread dropped.");
+            error!("Intersection pipeline update runner thread dropped.");
             break;
         }
     }
@@ -546,12 +465,13 @@ fn test_basic() {
     }));
 
     // Basic test.
-    let first_collider_id = intersection_pipeline.insert_collider(
+    let first_collider_id = ColliderId::new(1);
+    intersection_pipeline.modify_collider(
+        first_collider_id,
         Collider {
             radius: 10.0,
             position: vec2(0.0, 0.0),
         },
-        Entity::new(0),
     );
     intersection_pipeline.update();
     intersection_pipeline.update();
@@ -577,12 +497,6 @@ fn test_basic() {
         radius: 10.0,
         position: vec2(0.0, 0.0),
     }));
-
-    // Collider id are recycled.
-    assert_eq!(
-        intersection_pipeline.collider_id_dispenser.new_collider_id(),
-        ColliderId(0)
-    );
 }
 
 #[test]
@@ -591,46 +505,52 @@ fn test_row() {
 
     let mut intersection_pipeline = IntersectionPipeline::new();
 
-    intersection_pipeline.insert_collider(
+    intersection_pipeline.modify_collider(
+        ColliderId::new(1),
         Collider {
             radius: 10.0,
             position: vec2(0.0, 0.0),
         },
-        Entity::new(0),
     );
     intersection_pipeline.update();
     intersection_pipeline.update();
     assert_eq!(intersection_pipeline.snapshot.rows.len(), 1);
 
-    // Do we have 2 rows?
-    for _ in 0..AccelerationStructureRunner::MIN_COLLIDER_PER_ROW {
-        intersection_pipeline.insert_collider(
+    // We should have 2 rows after this
+    for i in 0..AccelerationStructureRunner::MIN_COLLIDER_PER_ROW {
+        intersection_pipeline.modify_collider(
+            ColliderId::new(2 + i as u32),
             Collider {
                 radius: 10.0,
                 position: vec2(0.0, 10000.0),
             },
-            Entity::new(0),
         );
     }
     intersection_pipeline.update();
     intersection_pipeline.update();
     assert_eq!(intersection_pipeline.snapshot.rows.len(), 2);
 
-    for _ in 0..AccelerationStructureRunner::MIN_COLLIDER_PER_ROW - 1 {
-        intersection_pipeline.insert_collider(
+    // We should have 2 rows.
+    for i in 0..AccelerationStructureRunner::MIN_COLLIDER_PER_ROW - 1 {
+        intersection_pipeline.modify_collider(
+            ColliderId::new(2 + i as u32 + AccelerationStructureRunner::MIN_COLLIDER_PER_ROW as u32),
             Collider {
                 radius: 10.0,
                 position: vec2(0.0, 5000.0),
             },
-            Entity::new(0),
         );
     }
-    let mid = intersection_pipeline.insert_collider(
+    intersection_pipeline.update();
+    intersection_pipeline.update();
+    assert_eq!(intersection_pipeline.snapshot.rows.len(), 2);
+
+    let mid = ColliderId::new(1000);
+    intersection_pipeline.modify_collider(
+        mid,
         Collider {
             radius: 10.0,
             position: vec2(0.0, 5000.0),
         },
-        Entity::new(0),
     );
     intersection_pipeline.update();
     intersection_pipeline.update();
@@ -652,13 +572,14 @@ fn test_random() {
     for _ in 0..1000 {
         let mut intersection_pipeline = IntersectionPipeline::new();
 
-        intersection_pipeline.insert_collider(
+        intersection_pipeline.modify_collider(
+            ColliderId::new(1),
             Collider {
                 radius: random::<f32>() * 256.0,
                 position: random::<Vec2>() * 512.0 - 256.0,
             },
-            Entity::new(0),
         );
+        intersection_pipeline.update();
         intersection_pipeline.update();
 
         let other = Collider {
@@ -684,13 +605,14 @@ fn test_random_point() {
     for _ in 0..1000 {
         let mut intersection_pipeline = IntersectionPipeline::new();
 
-        intersection_pipeline.insert_collider(
+        intersection_pipeline.modify_collider(
+            ColliderId::new(1),
             Collider {
                 radius: random::<f32>() * 256.0,
                 position: random::<Vec2>() * 512.0 - 256.0,
             },
-            Entity::new(0),
         );
+        intersection_pipeline.update();
         intersection_pipeline.update();
 
         let point = random::<Vec2>() * 512.0 - 256.0;
@@ -718,13 +640,13 @@ fn test_overlap_colliders() {
         position: Vec2::ZERO,
     };
 
-    for _ in 0..10 {
+    for i in 0..10 {
         let new_collider = Collider {
             radius: 10.0,
             position: Vec2::ZERO,
         };
 
-        intersection_pipeline.insert_collider(new_collider, Entity::new(0));
+        intersection_pipeline.modify_collider(ColliderId::new(i), new_collider);
     }
 
     intersection_pipeline.update();
@@ -749,13 +671,14 @@ fn test_random_colliders() {
         let mut expected_result = Vec::new();
 
         // Add colliders.
-        for _ in 0..32 {
+        for i in 0..32 {
             let new_collider = Collider {
                 radius: random::<f32>() * 128.0,
                 position: (random::<Vec2>() * 512.0 - 256.0),
             };
 
-            let new_id = intersection_pipeline.insert_collider(new_collider, Entity::new(0));
+            let new_id = ColliderId::new(i);
+            intersection_pipeline.modify_collider(new_id, new_collider);
 
             if og_collider.intersection_test(new_collider) {
                 expected_result.push(new_id);
@@ -775,7 +698,7 @@ fn test_random_colliders() {
 }
 
 #[test]
-fn test_reclycling_collider() {
+fn test_remove_collider() {
     use indexmap::IndexSet;
     use rand::random;
 
@@ -787,12 +710,10 @@ fn test_reclycling_collider() {
     };
 
     let mut used = IndexSet::new();
-    for _ in 0..1000 {
+    for i in 0..1000 {
         assert!(used.insert({
-            let id = intersection_pipeline.insert_collider(collider, Entity::new(0));
-
-            assert!(intersection_pipeline.snapshot.collider_entity.get(&id).is_none());
-
+            let id = ColliderId::new(i);
+            intersection_pipeline.modify_collider(id, collider);
             id
         }));
 

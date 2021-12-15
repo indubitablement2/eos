@@ -1,5 +1,5 @@
-use common::idx::*;
 use bevy_ecs::prelude::Entity;
+use common::idx::*;
 use indexmap::IndexMap;
 
 pub struct FleetsRes {

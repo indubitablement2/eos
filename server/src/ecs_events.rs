@@ -1,5 +1,5 @@
-use common::idx::*;
 use bevy_ecs::prelude::*;
+use common::idx::*;
 use crossbeam_queue::SegQueue;
 
 /// Register the events.
