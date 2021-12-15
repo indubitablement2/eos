@@ -16,20 +16,20 @@ impl ColliderId {
 }
 
 /// _________ -infinity
-/// 
+///
 /// first row
-/// 
+///
 /// _________ Some real number
-/// 
+///
 /// second row
-/// 
+///
 /// _________ Some real number
-/// 
+///
 /// last row
-/// 
+///
 /// _________ infinity
-/// 
-/// 
+///
+///
 /// Use a really large number instead of infinity to avoid it spreading.
 #[derive(Debug, Clone)]
 struct SAPRow {
@@ -64,7 +64,7 @@ impl SAPRow {
     /// Split this row in two.
     /// `self` become the top row.
     /// `other` become the bottom row.
-    /// 
+    ///
     /// Takes a SAPRow to allow recycling and avoid unnecessary allocations.
     fn split(&mut self, mut other: Self) -> Self {
         other.bot = self.bot;
@@ -78,7 +78,7 @@ impl SAPRow {
         &self,
         colliders: &IndexMap<ColliderId, Collider>,
         collider: Collider,
-        buffer: &mut AHashSet<u32>
+        buffer: &mut AHashSet<u32>,
     ) {
         // The furthest we should look to the left and right.
         let left_threshold = collider.left() - self.biggest_radius;
@@ -103,7 +103,7 @@ impl SAPRow {
         &self,
         colliders: &IndexMap<ColliderId, Collider>,
         point: Vec2,
-        buffer: &mut AHashSet<u32>
+        buffer: &mut AHashSet<u32>,
     ) {
         // The furthest we should look to the left and right.
         let left_threshold = point.x - self.biggest_radius;
@@ -177,11 +177,9 @@ impl AccelerationStructure {
 
                 // Move colliders that now belong in the new row.
                 let row_bot = row.bot;
-                row.data.drain_filter(|collider_index| {
-                    row_bot < self.colliders[*collider_index as usize].position.y
-                }).for_each(|collider_index| {
-                    new_row.data.push(collider_index)
-                });
+                row.data
+                    .drain_filter(|collider_index| row_bot < self.colliders[*collider_index as usize].position.y)
+                    .for_each(|collider_index| new_row.data.push(collider_index));
 
                 // Add the new row after the current row.
                 self.rows.insert(row_index, new_row);
@@ -196,7 +194,7 @@ impl AccelerationStructure {
             let collider_bot = collider.bot();
             for row in &mut self.rows[first_overlapping_row..] {
                 row.data.push(collider_index);
-                if collider_bot < row.bot  {
+                if collider_bot < row.bot {
                     break;
                 }
             }
@@ -226,7 +224,7 @@ impl AccelerationStructure {
     }
 
     /// Get the index of the row that this position fit into.
-    /// 
+    ///
     /// If this is used with the top of a collider, it return the first row that this collider overlap.
     pub fn find_row_at_position(&self, y_postion: f32) -> usize {
         self.rows.partition_point(|row| row.bot < y_postion)
@@ -252,7 +250,7 @@ impl AccelerationStructure {
         let collider_bot = collider.bot();
         for row in &self.rows[first_overlapping_row..] {
             row.get_possible_overlap(&self.colliders, collider, &mut to_test);
-            if collider_bot < row.bot  {
+            if collider_bot < row.bot {
                 break;
             }
         }
@@ -278,7 +276,7 @@ impl AccelerationStructure {
         let collider_bot = collider.bot();
         for row in &self.rows[first_overlapping_row..] {
             row.get_possible_overlap(&self.colliders, collider, &mut to_test);
-            if collider_bot < row.bot  {
+            if collider_bot < row.bot {
                 break;
             }
         }
@@ -354,7 +352,7 @@ pub struct IntersectionPipeline {
     pub update_request_sender: Sender<AccelerationStructure>,
     pub update_result_receiver: Receiver<AccelerationStructure>,
     /// Does not do anything.
-    /// This is just there to know when was the last time an update was done. 
+    /// This is just there to know when was the last time an update was done.
     /// If this is 0, snapshot has just been updated.
     pub last_update_delta: u64,
 
@@ -380,7 +378,7 @@ impl IntersectionPipeline {
     }
 
     /// Drop the current runner thread and start a new one.
-    /// 
+    ///
     /// Its snapshot will be lost and remplaced with a new empty one.
     pub fn start_new_runner_thread(&mut self) {
         let (update_request_sender, update_request_receiver) = bounded(0);
@@ -423,10 +421,13 @@ fn test_basic() {
 
     // Basic test.
     let first_collider_id = ColliderId::new(1);
-    intersection_pipeline.snapshot.colliders.insert(first_collider_id, Collider {
-        radius: 10.0,
-        position: vec2(0.0, 0.0),
-    });
+    intersection_pipeline.snapshot.colliders.insert(
+        first_collider_id,
+        Collider {
+            radius: 10.0,
+            position: vec2(0.0, 0.0),
+        },
+    );
     intersection_pipeline.snapshot.update();
     println!("{:?}", &intersection_pipeline.snapshot);
     assert!(intersection_pipeline.snapshot.test_collider(Collider {
@@ -590,13 +591,18 @@ fn test_overlap_colliders() {
             position: Vec2::ZERO,
         };
 
-        intersection_pipeline.snapshot.colliders.insert(ColliderId::new(i), new_collider);
+        intersection_pipeline
+            .snapshot
+            .colliders
+            .insert(ColliderId::new(i), new_collider);
     }
 
     intersection_pipeline.snapshot.update();
 
     let mut result = Vec::new();
-    intersection_pipeline.snapshot.intersect_collider_into(og_collider, &mut result);
+    intersection_pipeline
+        .snapshot
+        .intersect_collider_into(og_collider, &mut result);
     assert_eq!(10, result.len(),);
 }
 
@@ -635,7 +641,9 @@ fn test_random_colliders() {
         intersection_pipeline.snapshot.update();
 
         let mut result = Vec::new();
-        intersection_pipeline.snapshot.intersect_collider_into(og_collider, &mut result);
+        intersection_pipeline
+            .snapshot
+            .intersect_collider_into(og_collider, &mut result);
         result.sort();
 
         assert_eq!(result, expected_result, "\n{:?}\n\n{:?}\n", result, expected_result);

@@ -60,7 +60,6 @@ fn get_new_clients(
     mut fleets_res: ResMut<FleetsRes>,
     data_manager: Res<DataManager>,
     client_connected: ResMut<EventRes<ClientConnected>>,
-    intersection_pipeline: Res<IntersectionPipeline>,
 ) {
     while let Ok(connection) = clients_res.connection_manager.new_connection_receiver.try_recv() {
         let client_id = connection.client_id;
@@ -127,8 +126,8 @@ fn ai_fleet_sensor(
     task_pool: Res<TaskPool>,
     time_res: Res<TimeRes>,
 ) {
-    // We will only update 1/20 at a time.
-    let num_turn = 20u64;
+    // We will only update 1/10 at a time.
+    let num_turn = 10u64;
     let turn = time_res.tick % num_turn;
 
     query.par_for_each_mut(
@@ -143,7 +142,9 @@ fn ai_fleet_sensor(
                     position: pos.0,
                 };
 
-                intersection_pipeline.snapshot.intersect_collider_into(detector_collider, &mut detected.0);
+                intersection_pipeline
+                    .snapshot
+                    .intersect_collider_into(detector_collider, &mut detected.0);
             }
         },
     );
@@ -157,8 +158,8 @@ fn client_fleet_sensor(
     task_pool: Res<TaskPool>,
     time_res: Res<TimeRes>,
 ) {
-    // We will only update 1/20 at a time.
-    let num_turn = 20u64;
+    // We will only update 1/10 at a time.
+    let num_turn = 10u64;
     let turn = time_res.tick % num_turn;
 
     query.par_for_each_mut(
@@ -174,7 +175,9 @@ fn client_fleet_sensor(
                     position: pos.0,
                 };
 
-                intersection_pipeline.snapshot.intersect_collider_into(detector_collider, &mut detected.0);
+                intersection_pipeline
+                    .snapshot
+                    .intersect_collider_into(detector_collider, &mut detected.0);
 
                 if let Some(client) = clients_res.connected_clients.get(client_id) {
                     // Sort result.
@@ -336,7 +339,7 @@ fn spawn_ai_fleet(time_res: Res<TimeRes>, mut commands: Commands, mut fleets_res
 //* last
 
 /// Take a snapshot of the AccelerationStructure from the last update and request a new update on the runner thread.
-/// 
+///
 /// This effectively just swap the snapshots between the runner thread and this IntersectionPipeline
 fn update_intersection_pipeline(
     query: Query<(Entity, &Position, &DetectedRadius)>,
@@ -355,7 +358,10 @@ fn update_intersection_pipeline(
                         radius: detected_radius.0,
                         position: pos.0,
                     };
-                    intersection_pipeline.snapshot.colliders.insert(ColliderId::new(entity.id()), new_collider);
+                    intersection_pipeline
+                        .snapshot
+                        .colliders
+                        .insert(ColliderId::new(entity.id()), new_collider);
                 });
 
                 // Swap snapshot.

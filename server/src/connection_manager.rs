@@ -87,7 +87,7 @@ async fn login_loop(
 
                 // Convert generic address to v6.
                 let client_tcp_addr = match generic_client_tcp_addr {
-                    std::net::SocketAddr::V4(v4) => {
+                    std::net::SocketAddr::V4(_) => {
                         warn!("Client tcp address is v4. Aborting login...");
                         continue;
                     }
@@ -288,7 +288,7 @@ async fn recv_udp(
             Ok((num, generic_client_udp_addr)) => {
                 // Convert generic address to v6.
                 let client_udp_addr = match generic_client_udp_addr {
-                    std::net::SocketAddr::V4(v4) => {
+                    std::net::SocketAddr::V4(_) => {
                         trace!("Got an udp packet from a v4 address. Ignoring...");
                         continue;
                     }
