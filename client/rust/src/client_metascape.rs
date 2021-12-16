@@ -1,3 +1,7 @@
+use std::collections::VecDeque;
+use std::ops::Add;
+use std::time::Duration;
+
 use crate::client::Client;
 use crate::input_handler::InputHandler;
 use crate::util::*;
@@ -51,6 +55,8 @@ pub struct ClientMetascape {
 
     /// Send input to server. Receive command from server.
     client: Client,
+    recent_ping_duration: VecDeque<f32>,
+    average_ping: f32,
     send_timer: f32,
 
     metascape_state: MetascapeState,
@@ -76,6 +82,8 @@ impl ClientMetascape {
             send_timer: 0.0,
             metascape_state: MetascapeState::default(),
             entity_orders: AHashMap::new(),
+            recent_ping_duration: VecDeque::new(),
+            average_ping: 0.0,
         })
     }
 
@@ -84,6 +92,32 @@ impl ClientMetascape {
         let mut quit = false;
 
         self.metascape_state.state_delta += delta / UPDATE_INTERVAL.as_secs_f32();
+        
+        // Handle pings.
+        loop {
+            match self.client.ping_duration_receiver.try_recv() {
+                Ok(ping_time) => {
+                    info!("{}", ping_time);
+                    self.recent_ping_duration.push_back(ping_time);
+                    // Only keep 10 recent ping time.
+                    while self.recent_ping_duration.len() > 10 {
+                        self.recent_ping_duration.pop_front();
+                    }
+                }
+                Err(err) => {
+                    if err == crossbeam_channel::TryRecvError::Disconnected {
+                        warn!("Ping loop disconnected. Quitting...");
+                        quit = true;
+                    }
+                    break;
+                }
+            }
+        }
+        if let Some(total_ping) = self.recent_ping_duration.iter().copied().reduce(|acc, dur| {
+            acc + dur
+        }) {
+            self.average_ping = total_ping / self.recent_ping_duration.len() as f32;
+        }
 
         // Handle server tcp packets.
         loop {

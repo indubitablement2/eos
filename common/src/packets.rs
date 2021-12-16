@@ -172,7 +172,7 @@ pub struct MetascapeStatePart  {
 }
 impl MetascapeStatePart {
     /// One UdpServer::Metascape packet will contain at most this amount of positions per packet.
-    pub const NUM_ENTITIES_POSITION_MAX: usize = 1000;
+    pub const NUM_ENTITIES_POSITION_MAX: usize = 100;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

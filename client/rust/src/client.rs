@@ -32,7 +32,7 @@ pub struct Client {
     /// Receive packet over tcp from the server.
     pub tcp_receiver: crossbeam_channel::Receiver<TcpServer>,
 
-    pub ping_duration_receiver: crossbeam_channel::Receiver<Duration>,
+    pub ping_duration_receiver: crossbeam_channel::Receiver<f32>,
 
     pub server_addresses: ServerAddresses,
 }
@@ -261,7 +261,7 @@ async fn tcp_send_loop(
     }
 }
 
-async fn ping_loop(udp_socket: UdpSocket, ping_duration_sender: Sender<Duration>) {
+async fn ping_loop(udp_socket: UdpSocket, ping_duration_sender: Sender<f32>) {
     let mut buf = [0; 1];
 
     let sleep = tokio::time::sleep(Duration::from_secs(1));
@@ -288,7 +288,7 @@ async fn ping_loop(udp_socket: UdpSocket, ping_duration_sender: Sender<Duration>
             _ = &mut sleep => {}
         };
 
-        let ping_time = last_ping.elapsed();
+        let ping_time = last_ping.elapsed().as_secs_f32();
         if ping_duration_sender.send(ping_time).is_err() {
             debug!("Ping loop terminated.");
             break;
