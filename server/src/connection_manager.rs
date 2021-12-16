@@ -1,6 +1,8 @@
+use common::SERVER_PING_PORT;
 use common::idx::*;
 use common::packets::*;
 use common::Version;
+use tokio::task::JoinHandle;
 use std::{
     collections::HashMap,
     net::{Ipv6Addr, SocketAddrV6},
@@ -27,6 +29,7 @@ pub struct Connection {
 pub struct ConnectionsManager {
     pub new_connection_receiver: crossbeam_channel::Receiver<Connection>,
     _rt: Runtime,
+    pub ping_loop_handle: JoinHandle<()>,
 }
 impl ConnectionsManager {
     pub fn new(local: bool) -> Result<Self> {
@@ -38,6 +41,13 @@ impl ConnectionsManager {
             true => SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, common::SERVER_PORT, 0, 0),
             false => SocketAddrV6::new(Ipv6Addr::LOCALHOST, common::SERVER_PORT, 0, 0),
         };
+
+        // Create ping loop.
+        let udp_ping_socket = rt.block_on(async { UdpSocket::bind(
+            SocketAddrV6::new(*addr.ip(), SERVER_PING_PORT, 0, 0)
+        ).await })?;
+        let ping_loop_handle = rt.spawn(ping_loop(udp_ping_socket));
+        debug!("Started ping loop.");
 
         // Create TcpListener.
         let tcp_listener = rt.block_on(async { TcpListener::bind(addr).await })?;
@@ -69,6 +79,7 @@ impl ConnectionsManager {
         Ok(Self {
             new_connection_receiver,
             _rt: rt,
+            ping_loop_handle,
         })
     }
 }
@@ -422,6 +433,15 @@ async fn recv_tcp(
         "Tcp receiver for {} shutdown. Also removed {} from udp list.",
         client_tcp_addr, udp_address
     );
+}
+
+async fn ping_loop(udp_socket: UdpSocket) {
+    let mut buf = [0;4];
+    loop {
+        if let Ok((num, ping_addr)) = udp_socket.recv_from(&mut buf).await {
+            let _ = udp_socket.send_to(&buf[..num], ping_addr).await;
+        }
+    }
 }
 
 /// If the io error is fatal, return true and print the err to debug log.
