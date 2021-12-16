@@ -1,8 +1,10 @@
 use common::{idx::ClientId, packets::*, Version};
+use crossbeam_channel::Sender;
 use std::{
     io::Error,
     net::{Ipv6Addr, SocketAddrV6},
     sync::Arc,
+    time::Duration,
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
@@ -11,6 +13,8 @@ use tokio::{
         TcpStream, UdpSocket,
     },
     runtime::Runtime,
+    select,
+    time::Instant,
 };
 
 pub struct Client {
@@ -28,6 +32,8 @@ pub struct Client {
     /// Receive packet over tcp from the server.
     pub tcp_receiver: crossbeam_channel::Receiver<TcpServer>,
 
+    pub ping_duration_receiver: crossbeam_channel::Receiver<Duration>,
+
     pub server_addresses: ServerAddresses,
 }
 impl Client {
@@ -39,6 +45,13 @@ impl Client {
             .enable_all()
             .build()?;
         debug!("Created tokio runtime.");
+
+        // Start ping loop.
+        let udp_ping_socket =
+            rt.block_on(async { UdpSocket::bind(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0)).await })?;
+        let (ping_duration_sender, ping_duration_receiver) = crossbeam_channel::unbounded();
+        rt.spawn(ping_loop(udp_ping_socket, ping_duration_sender));
+        debug!("Started ping loop.");
 
         // Connect tcp stream.
         let mut tcp_stream = rt.block_on(async { TcpStream::connect(server_addresses.tcp_address).await })?;
@@ -105,6 +118,7 @@ impl Client {
             tcp_sender,
             tcp_receiver,
             server_addresses,
+            ping_duration_receiver,
         })
     }
 }
@@ -242,6 +256,41 @@ async fn tcp_send_loop(
             }
         } else {
             debug!("Tcp sender shutdown. Disconnecting...");
+            break;
+        }
+    }
+}
+
+async fn ping_loop(udp_socket: UdpSocket, ping_duration_sender: Sender<Duration>) {
+    let mut buf = [0; 1];
+
+    let sleep = tokio::time::sleep(Duration::from_secs(1));
+    tokio::pin!(sleep);
+
+    let mut interval = tokio::time::interval(Duration::from_secs(1));
+    loop {
+        interval.tick().await;
+
+        let _ = udp_socket.send(&buf).await;
+        let last_ping = Instant::now();
+
+        select! {
+            r = udp_socket.recv(&mut buf) => {
+                if let Err(err) =  r {
+                    if is_err_fatal(&err) {
+                        debug!("Fatal error while receiving ping. Terminating ping loop...");
+                        break;
+                    } else {
+                        continue;
+                    }
+                }
+            }
+            _ = &mut sleep => {}
+        };
+
+        let ping_time = last_ping.elapsed();
+        if ping_duration_sender.send(ping_time).is_err() {
+            debug!("Ping loop terminated.");
             break;
         }
     }

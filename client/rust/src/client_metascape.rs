@@ -89,8 +89,12 @@ impl ClientMetascape {
         loop {
             match self.client.tcp_receiver.try_recv() {
                 Ok(tcp_packet) => match tcp_packet {
-                    TcpServer::EntityList { tick, entity_order_id, list } => {
-                        self.entity_orders.insert(entity_order_id,(tick, list));
+                    TcpServer::EntityList {
+                        tick,
+                        entity_order_id,
+                        list,
+                    } => {
+                        self.entity_orders.insert(entity_order_id, (tick, list));
                         // Remove obselete entity order.
                         self.entity_orders.remove(&entity_order_id.wrapping_add(u8::MAX / 2));
                     }
@@ -147,9 +151,7 @@ impl ClientMetascape {
             self.metascape_state.state_delta = 0.0;
             debug!(
                 "Client metascape state is behind by {}. Catching up from tick {} to {}...",
-                tick_delta,
-                previous_tick,
-                self.metascape_state.tick
+                tick_delta, previous_tick, self.metascape_state.tick
             );
         } else if tick_delta < 3 {
             // We need to keep a buffer.
@@ -160,7 +162,8 @@ impl ClientMetascape {
             let previous_tick = self.metascape_state.tick;
             self.metascape_state.tick = max_tick.saturating_sub(4);
             self.metascape_state.state_delta = 0.0;
-            debug!("Client metascape buffer is too small.
+            debug!(
+                "Client metascape buffer is too small.
             Current tick: {},
             Current buffer: {},
             Most recent server tick: {},
@@ -181,9 +184,7 @@ impl ClientMetascape {
         let current_tick = self.metascape_state.tick;
 
         // Consume states.
-        for state in self.state_buffer.drain_filter(|state| {
-            state.tick <= current_tick
-        }) {
+        for state in self.state_buffer.drain_filter(|state| state.tick <= current_tick) {
             let order = match self.entity_orders.get(&state.entity_order_required) {
                 Some((_, o)) => o,
                 None => {
@@ -193,7 +194,11 @@ impl ClientMetascape {
             };
 
             // Update each entity position.
-            for (state_pos, i) in state.entities_position.into_iter().zip((state.part as usize * MetascapeStatePart::NUM_ENTITIES_POSITION_MAX)..) {
+            for (state_pos, i) in state
+                .entities_position
+                .into_iter()
+                .zip((state.part as usize * MetascapeStatePart::NUM_ENTITIES_POSITION_MAX)..)
+            {
                 if let Some(entity_id) = order.get(i) {
                     if let Some(entity) = self.metascape_state.entity.get_mut(entity_id) {
                         if state.tick > entity.current_tick {
@@ -209,7 +214,7 @@ impl ClientMetascape {
                         }
                     } else {
                         // Create entity.
-                        let new_entity =  MetascapeEntity {
+                        let new_entity = MetascapeEntity {
                             fade: 0.0,
                             previous_tick: state.tick,
                             current_tick: state.tick,
@@ -256,14 +261,14 @@ impl ClientMetascape {
             if entity.fade <= 0.0 {
                 continue;
             }
-            
+
             let r = 0.0;
             let g = 0.0;
             let b = (*entity_id % 10) as f32 / 10.0;
             let a = entity.fade * 0.9;
 
-            let interpolation =
-                (self.metascape_state.tick.saturating_sub(1 + entity.previous_tick)) as f32 + self.metascape_state.state_delta;
+            let interpolation = (self.metascape_state.tick.saturating_sub(1 + entity.previous_tick)) as f32
+                + self.metascape_state.state_delta;
 
             // Interpolate position.
             let pos = entity.previous_position.lerp(entity.current_position, interpolation);
