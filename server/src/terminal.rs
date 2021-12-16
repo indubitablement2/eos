@@ -328,7 +328,7 @@ impl Terminal {
                     }
                     TerminalTab::Info => {
                         let text = vec![
-                            Spans::from(format!("version: {}", VERSION)),
+                            Spans::from(format!("version: {}", Version::CURRENT)),
                             Spans::from(format!("port: {}", common::SERVER_PORT)),
                         ];
                         let paragraph = Paragraph::new(text)

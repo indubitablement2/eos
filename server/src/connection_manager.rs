@@ -1,5 +1,6 @@
 use common::idx::*;
 use common::packets::*;
+use common::Version;
 use std::{
     collections::HashMap,
     net::{Ipv6Addr, SocketAddrV6},
@@ -120,7 +121,7 @@ async fn first_packet(
     udp_senders: Arc<Mutex<HashMap<SocketAddrV6, crossbeam_channel::Sender<UdpClient>>>>,
 ) {
     // Wrap stream into buffers.
-    let (r, write_half) = new_tcp_stream.into_split();
+    let (r, mut write_half) = new_tcp_stream.into_split();
     let mut buf_read = BufReader::new(r);
 
     // Get the first packet.
@@ -131,104 +132,45 @@ async fn first_packet(
         return;
     }
 
-    // let mut cursor = 0usize;
-    // while cursor < LoginPacket::FIXED_SIZE - 1 {
-    //     match buf_read.read(&mut first_packet_buffer[cursor..]).await {
-    //         Ok(num) => {
-    //             if num == 0 {
-    //                 debug!("{} disconnected while attempting to login. Aborting login...", client_tcp_addr);
-    //                 return;
-    //             }
-    //             cursor += num;
-    //             trace!("LoginPacket {}/{}", cursor, LoginPacket::FIXED_SIZE - 1);
-    //         }
-    //         Err(err) => {
-    //             debug!("{:?} while attempting to login. Aborting login...", err);
-    //             return;
-    //         }
-    //     }
-    // }
-
-    match LoginPacket::deserialize(&first_packet_buffer) {
-        Some(login_packet) => {
+    let login_packet = match LoginPacket::deserialize(&first_packet_buffer) {
+        Some(p) => {
             debug!("Received LoginPacket from {}. Attempting login...", client_tcp_addr);
-            try_login(
-                local,
-                login_packet,
-                buf_read,
-                write_half,
-                client_tcp_addr,
-                new_connection_sender,
-                udp_socket,
-                udp_senders,
-            )
-            .await;
+            p
         }
         None => {
             debug!("Error while deserializing LoginPacket. Aborting login...");
-        }
-    }
-}
-
-/// Identify the client.
-async fn try_login(
-    local: bool,
-    login_packet: LoginPacket,
-    buf_read: BufReader<OwnedReadHalf>,
-    mut write_half: OwnedWriteHalf,
-    client_tcp_addr: SocketAddrV6,
-    new_connection_sender: crossbeam_channel::Sender<Connection>,
-    udp_socket: Arc<UdpSocket>,
-    udp_senders: Arc<Mutex<HashMap<SocketAddrV6, crossbeam_channel::Sender<UdpClient>>>>,
-) {
-    let client_id = match local {
-        true => {
-            debug!("{} logged-in localy as ClientId 1", client_tcp_addr);
-            ClientId(1)
-        }
-        false => {
-            match login_packet.is_steam {
-                true => {
-                    // TODO: Check credential with steam.
-                    error!(
-                        "{} is trying to login with steam. Verifying credential... ***TODO: use ClientId 1 for now***",
-                        client_tcp_addr
-                    );
-                    ClientId(1)
-                }
-                false => {
-                    debug!(
-                        "{} tried to login without steam which is not implemented. Aborting login...",
-                        client_tcp_addr
-                    );
-                    return;
-                }
-            }
+            return;
         }
     };
 
+    // Try login.
+    let login_response = try_login(local, login_packet, client_tcp_addr).await;
+
     // Send LoginResponse.
-    if let Err(err) = write_half
-        .write_all(&LoginResponsePacket::Accepted { client_id }.serialize())
-        .await
-    {
-        warn!(
+    if let Err(err) = write_half.write_all(&login_response.serialize()).await {
+        debug!(
             "{:?} while trying to write LoginResponsePacket to {}. Aborting login...",
             err, client_tcp_addr
         );
         return;
     }
 
-    let client_udp_address = SocketAddrV6::new(*client_tcp_addr.ip(), login_packet.client_udp_port, 0, 0);
+    let client_id = if let LoginResponsePacket::Accepted { client_id } = login_response {
+        client_id
+    } else {
+        return;
+    };
 
     // Start runners.
-    let (udp_sender, udp_to_send) = tokio::sync::mpsc::channel(32);
+    let client_udp_address = SocketAddrV6::new(*client_tcp_addr.ip(), login_packet.client_udp_port, 0, 0);
+
+    let (udp_sender, udp_to_send) = tokio::sync::mpsc::channel(16);
     spawn(send_udp(udp_to_send, udp_socket, client_udp_address));
 
     let (udp_received, udp_receiver) = crossbeam_channel::unbounded();
     udp_senders.lock().unwrap().insert(client_udp_address, udp_received);
 
-    let (tcp_sender, tcp_to_send) = tokio::sync::mpsc::channel(32);
+    let (tcp_sender, tcp_to_send) = tokio::sync::mpsc::channel(8);
     spawn(send_tcp(tcp_to_send, write_half, client_tcp_addr));
 
     let (tcp_received, tcp_receiver) = crossbeam_channel::unbounded();
@@ -250,6 +192,42 @@ async fn try_login(
     };
 
     let _ = new_connection_sender.send(connection);
+}
+
+/// Identify the client.
+async fn try_login(local: bool, login_packet: LoginPacket, client_tcp_addr: SocketAddrV6) -> LoginResponsePacket {
+    // Check client version.
+    if login_packet.client_version != Version::CURRENT {
+        return LoginResponsePacket::WrongVersion;
+    }
+
+    let client_id = match local {
+        true => {
+            debug!("{} logged-in localy as ClientId 1", client_tcp_addr);
+            ClientId(1)
+        }
+        false => {
+            match login_packet.is_steam {
+                true => {
+                    // TODO: Check credential with steam.
+                    error!(
+                        "{} is trying to login with steam. Verifying credential... ***TODO: use ClientId 1 for now***",
+                        client_tcp_addr
+                    );
+                    ClientId(1)
+                }
+                false => {
+                    debug!(
+                        "{} tried to login without steam which is not implemented. Aborting login...",
+                        client_tcp_addr
+                    );
+                    return LoginResponsePacket::NotSteam;
+                }
+            }
+        }
+    };
+
+    LoginResponsePacket::Accepted { client_id }
 }
 
 async fn send_udp(

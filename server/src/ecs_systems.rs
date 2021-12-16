@@ -153,7 +153,14 @@ fn ai_fleet_sensor(
 
 /// Determine what each client's fleet can see.
 fn client_fleet_sensor(
-    mut query: Query<(&Position, &ClientId, &FleetId, &DetectorRadius, &mut EntityDetected, &mut EntityOrder)>,
+    mut query: Query<(
+        &Position,
+        &ClientId,
+        &FleetId,
+        &DetectorRadius,
+        &mut EntityDetected,
+        &mut EntityOrder,
+    )>,
     intersection_pipeline: Res<IntersectionPipeline>,
     clients_res: Res<ClientsRes>,
     task_pool: Res<TaskPool>,
@@ -386,10 +393,18 @@ fn send_detected_fleet(
     query_client.for_each(|(client_id, pos, entity_order)| {
         if let Some(client) = clients_res.connected_clients.get(client_id) {
             let mut part = 0u8;
-            let mut entities_position =
-                Vec::with_capacity(entity_order.current_entity_order.len().min(UdpServer::NUM_ENTITIES_POSITION_MAX));
+            let mut entities_position = Vec::with_capacity(
+                entity_order
+                    .current_entity_order
+                    .len()
+                    .min(UdpServer::NUM_ENTITIES_POSITION_MAX),
+            );
 
-            for detected_entity in entity_order.current_entity_order.iter().map(|entity_id| Entity::new(*entity_id)) {
+            for detected_entity in entity_order
+                .current_entity_order
+                .iter()
+                .map(|entity_id| Entity::new(*entity_id))
+            {
                 if let Ok(detected_pos) = query_entity.get(detected_entity) {
                     entities_position.push(detected_pos.0 - pos.0);
 

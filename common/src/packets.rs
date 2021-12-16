@@ -9,8 +9,7 @@ pub struct ServerAddresses {
     pub udp_address: SocketAddrV6,
 }
 
-/// TODO: This should also send client version.
-#[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct LoginPacket {
     pub is_steam: bool,
     pub token: u64,
@@ -52,8 +51,12 @@ fn test_login_packet() {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum LoginResponsePacket {
     Accepted { client_id: ClientId },
+    /// Client version does not match server version.
     WrongVersion,
-    Error,
+    /// Login without steam is not implemented.
+    NotSteam,
+    OtherError,
+    /// Could not deserialize login response received from the server.
     DeserializeError,
 }
 impl LoginResponsePacket {
