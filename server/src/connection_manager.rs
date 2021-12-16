@@ -259,7 +259,7 @@ async fn recv_udp(
     udp_senders: Arc<Mutex<HashMap<SocketAddrV6, crossbeam_channel::Sender<UdpClient>>>>,
     udp_socket: Arc<UdpSocket>,
 ) {
-    let mut buf = [0u8; 1200];
+    let mut buf = [0u8; UdpClient::MAX_SIZE];
 
     loop {
         match udp_socket.recv_from(&mut buf).await {

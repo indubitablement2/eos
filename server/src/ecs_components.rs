@@ -114,6 +114,10 @@ pub struct EntityOrder {
     /// The id that identify this order.
     pub id: u8,
 }
+impl EntityOrder {
+    /// Id will wrap around this valid.
+    pub const ID_MOD: u8 = 30;
+}
 
 //* Detection
 

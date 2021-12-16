@@ -1,4 +1,4 @@
-use common::{idx::ClientId, packets::*};
+use common::{idx::ClientId, packets::*, Version};
 use std::{
     io::Error,
     net::{Ipv6Addr, SocketAddrV6},
@@ -55,6 +55,7 @@ impl Client {
             is_steam: true,
             token: 0,
             client_udp_port: udp_socket.local_addr()?.port(),
+            client_version: Version::CURRENT,
         }
         .serialize();
         debug!("Created LoginPacket.");
@@ -110,7 +111,7 @@ impl Client {
 
 /// Receive udp from the server.
 async fn udp_recv_loop(udp_socket: Arc<UdpSocket>, udp_received_sender: crossbeam_channel::Sender<UdpServer>) {
-    let mut recv_buf = [0u8; 1200];
+    let mut recv_buf = [0u8; UdpServer::MAX_SIZE];
     loop {
         match udp_socket.recv(&mut recv_buf).await {
             Ok(num) => match UdpServer::deserialize(&recv_buf[..num]) {

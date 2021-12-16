@@ -123,6 +123,8 @@ pub enum UdpClient {
     },
 }
 impl UdpClient {
+    pub const MAX_SIZE: usize = 200;
+
     /// Serialize into a buffer ready to be sent over Udp.
     pub fn serialize(&self) -> Vec<u8> {
         bincode::serialize(self).unwrap()
@@ -155,27 +157,34 @@ fn test_udp_client() {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MetascapeStatePart  {
+    pub tick: u64,
+    /// This may only be a part of the whole state. This is the part number.
+    pub part: u8,
+    /// You need this entity order (from tcp) to make sense of this packet.
+    pub entity_order_required: u8,
+    /// Entities positions are relative to this position and not world origin.
+    pub relative_position: Vec2,
+    /// Sorted by entity id (see entity_order_required).
+    /// What is the entity and their order is sent over tcp.
+    /// TODO: Entity position is compressed from 8 bytes into 4 bytes.
+    pub entities_position: Vec<Vec2>,
+}
+impl MetascapeStatePart {
+    /// One UdpServer::Metascape packet will contain at most this amount of positions per packet.
+    pub const NUM_ENTITIES_POSITION_MAX: usize = 1000;
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum UdpServer {
     Battlescape {
         battlescape_tick: u16,
         client_inputs: Vec<BattlescapeInput>,
     },
-    MetascapeEntityPosition {
-        metascape_tick: u64,
-        part: u8,
-        /// You need this entity order (from tcp) to make sense of this packet.
-        entity_order_required: u8,
-        /// Entities positions are relative to this position and not world origin.
-        relative_position: Vec2,
-        /// Sorted by entity id.
-        /// What is the entity and their order is sent over tcp.
-        /// TODO: Entity position is compressed from 8 bytes into 4 bytes.
-        entities_position: Vec<Vec2>,
-    },
+    MetascapeEntityPosition(MetascapeStatePart),
 }
 impl UdpServer {
-    /// One UdpServer::Metascape packet will contain at most this amount of positions per packet.
-    pub const NUM_ENTITIES_POSITION_MAX: usize = 25;
+    pub const MAX_SIZE: usize = 1200;
 
     pub fn serialize(&self) -> Vec<u8> {
         bincode::serialize(self).unwrap()

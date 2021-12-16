@@ -189,7 +189,7 @@ fn client_fleet_sensor(
                     if entity_order.current_entity_order != detected.0 {
                         entity_order.current_entity_order.clear();
                         entity_order.current_entity_order.extend_from_slice(&detected.0);
-                        entity_order.id = entity_order.id.wrapping_add(1);
+                        entity_order.id = (entity_order.id + 1) % EntityOrder::ID_MOD;
 
                         let _ = client.connection.tcp_sender.blocking_send(TcpServer::EntityList {
                             tick: time_res.tick,
@@ -392,57 +392,58 @@ fn send_detected_fleet(
 ) {
     query_client.for_each(|(client_id, pos, entity_order)| {
         if let Some(client) = clients_res.connected_clients.get(client_id) {
-            let mut part = 0u8;
-            let mut entities_position = Vec::with_capacity(
-                entity_order
-                    .current_entity_order
-                    .len()
-                    .min(UdpServer::NUM_ENTITIES_POSITION_MAX),
-            );
+            let mut metascape_state_part = MetascapeStatePart {
+                tick: time_res.tick,
+                part: 0,
+                entity_order_required: entity_order.id,
+                relative_position: pos.0,
+                entities_position: Vec::with_capacity(
+                    entity_order
+                        .current_entity_order
+                        .len()
+                        .min(MetascapeStatePart::NUM_ENTITIES_POSITION_MAX),
+                ),
+            };
 
             for detected_entity in entity_order
                 .current_entity_order
                 .iter()
                 .map(|entity_id| Entity::new(*entity_id))
             {
+                // Add entity position.
                 if let Ok(detected_pos) = query_entity.get(detected_entity) {
-                    entities_position.push(detected_pos.0 - pos.0);
+                    metascape_state_part.entities_position.push(detected_pos.0 - pos.0);
+                } else {
+                    metascape_state_part.entities_position.push(vec2(0.0, 1000.0));
+                    debug!("Could not find a detected entity. Sending made up position...");
+                }
 
-                    if entities_position.len() >= UdpServer::NUM_ENTITIES_POSITION_MAX {
-                        // Send this part.
-                        let packet = UdpServer::MetascapeEntityPosition {
-                            metascape_tick: time_res.tick,
-                            part,
-                            entities_position,
-                            entity_order_required: entity_order.id,
-                            relative_position: pos.0,
-                        };
-                        let _ = client.connection.udp_sender.blocking_send(packet);
-
-                        // Prepare next part.
-                        part += 1;
-                        entities_position = Vec::with_capacity(
+                if metascape_state_part.entities_position.len() >= MetascapeStatePart::NUM_ENTITIES_POSITION_MAX {
+                    // Prepare next part.
+                    let new_metascape_state_part = MetascapeStatePart {
+                        tick: metascape_state_part.tick,
+                        part: metascape_state_part.part + 1,
+                        entity_order_required: metascape_state_part.entity_order_required,
+                        relative_position: metascape_state_part.relative_position,
+                        entities_position: Vec::with_capacity(
                             (entity_order
                                 .current_entity_order
                                 .len()
-                                .saturating_sub(usize::from(part) * UdpServer::NUM_ENTITIES_POSITION_MAX))
-                            .min(UdpServer::NUM_ENTITIES_POSITION_MAX),
-                        );
-                    }
-                } else {
-                    entities_position.push(vec2(0.0, 1000.0));
-                    debug!("Could not find a detected entity. Sending made up position...");
+                                .saturating_sub(usize::from(metascape_state_part.part) * MetascapeStatePart::NUM_ENTITIES_POSITION_MAX))
+                            .min(MetascapeStatePart::NUM_ENTITIES_POSITION_MAX),
+                        ),
+                    };
+
+                    // Send this part.
+                    let packet = UdpServer::MetascapeEntityPosition(metascape_state_part);
+                    let _ = client.connection.udp_sender.blocking_send(packet);
+
+                    metascape_state_part = new_metascape_state_part;
                 }
             }
 
-            if !entities_position.is_empty() {
-                let packet = UdpServer::MetascapeEntityPosition {
-                    metascape_tick: time_res.tick,
-                    part,
-                    entities_position,
-                    entity_order_required: entity_order.id,
-                    relative_position: pos.0,
-                };
+            if !metascape_state_part.entities_position.is_empty() {
+                let packet = UdpServer::MetascapeEntityPosition(metascape_state_part);
                 let _ = client.connection.udp_sender.blocking_send(packet);
             }
         }
