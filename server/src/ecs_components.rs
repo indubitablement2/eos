@@ -8,6 +8,7 @@ use std::ops::{Add, Sub};
 #[derive(Bundle)]
 pub struct ClientFleetBundle {
     pub client_id: ClientId,
+    pub entity_order: EntityOrder,
     #[bundle]
     pub fleet_bundle: FleetBundle,
 }
@@ -102,6 +103,16 @@ pub enum FleetGoal {
 }
 pub struct FleetAI {
     pub goal: FleetGoal,
+}
+
+//* Client
+
+/// The order that this client should receive entities.
+pub struct EntityOrder {
+    /// The most recent order. This is sorted by id.
+    pub current_entity_order: Vec<u32>,
+    /// The id that identify this order.
+    pub id: u8,
 }
 
 //* Detection

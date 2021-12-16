@@ -157,16 +157,16 @@ pub enum UdpServer {
         battlescape_tick: u16,
         client_inputs: Vec<BattlescapeInput>,
     },
-    /// TODO: Entity position is compressed into 4 bytes.
     MetascapeEntityPosition {
         metascape_tick: u64,
         part: u8,
         /// You need this entity order (from tcp) to make sense of this packet.
         entity_order_required: u8,
-        /// Entities positions sent are relative to this position.
+        /// Entities positions are relative to this position and not world origin.
         relative_position: Vec2,
         /// Sorted by entity id.
         /// What is the entity and their order is sent over tcp.
+        /// TODO: Entity position is compressed from 8 bytes into 4 bytes.
         entities_position: Vec<Vec2>,
     },
 }

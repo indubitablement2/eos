@@ -93,6 +93,10 @@ fn get_new_clients(
             let entity = commands
                 .spawn_bundle(ClientFleetBundle {
                     client_id,
+                    entity_order: EntityOrder {
+                        current_entity_order: Vec::new(),
+                        id: 0,
+                    },
                     fleet_bundle: FleetBundle {
                         fleet_id,
                         position: Position(Vec2::ZERO),
@@ -149,7 +153,7 @@ fn ai_fleet_sensor(
 
 /// Determine what each client's fleet can see.
 fn client_fleet_sensor(
-    mut query: Query<(&Position, &ClientId, &FleetId, &DetectorRadius, &mut EntityDetected)>,
+    mut query: Query<(&Position, &ClientId, &FleetId, &DetectorRadius, &mut EntityDetected, &mut EntityOrder)>,
     intersection_pipeline: Res<IntersectionPipeline>,
     clients_res: Res<ClientsRes>,
     task_pool: Res<TaskPool>,
@@ -162,11 +166,8 @@ fn client_fleet_sensor(
     query.par_for_each_mut(
         &task_pool,
         32 * num_turn as usize,
-        |(pos, client_id, fleet_id, detector_radius, mut detected)| {
+        |(pos, client_id, fleet_id, detector_radius, mut detected, mut entity_order)| {
             if fleet_id.0 % num_turn == turn {
-                let old_len = detected.0.len();
-                let old_detected = std::mem::replace(&mut detected.0, Vec::with_capacity(old_len));
-
                 let detector_collider = Collider::new_idless(detector_radius.0, pos.0);
 
                 intersection_pipeline
@@ -178,9 +179,14 @@ fn client_fleet_sensor(
                     detected.0.sort_unstable();
 
                     // If the entity list changed, sent it to the client.
-                    if old_detected != detected.0 {
+                    if entity_order.current_entity_order != detected.0 {
+                        entity_order.current_entity_order.clear();
+                        entity_order.current_entity_order.extend_from_slice(&detected.0);
+                        entity_order.id = entity_order.id.wrapping_add(1);
+
                         let _ = client.connection.tcp_sender.blocking_send(TcpServer::EntityList {
                             tick: time_res.tick,
+                            entity_order_id: entity_order.id,
                             list: detected.0.clone(),
                         });
                     }
@@ -372,20 +378,20 @@ fn update_intersection_pipeline(
 
 /// Send detected fleet to clients over udp.
 fn send_detected_fleet(
-    query_client: Query<(&ClientId, &Position, &EntityDetected)>,
+    query_client: Query<(&ClientId, &Position, &EntityOrder)>,
     query_entity: Query<&Position>,
     time_res: Res<TimeRes>,
     clients_res: Res<ClientsRes>,
 ) {
-    query_client.for_each(|(client_id, pos, entity_detected)| {
+    query_client.for_each(|(client_id, pos, entity_order)| {
         if let Some(client) = clients_res.connected_clients.get(client_id) {
             let mut part = 0u8;
             let mut entities_position =
-                Vec::with_capacity(entity_detected.0.len().min(UdpServer::NUM_ENTITIES_POSITION_MAX));
+                Vec::with_capacity(entity_order.current_entity_order.len().min(UdpServer::NUM_ENTITIES_POSITION_MAX));
 
-            for detected_entity in entity_detected.0.iter().map(|entity_id| Entity::new(*entity_id)) {
+            for detected_entity in entity_order.current_entity_order.iter().map(|entity_id| Entity::new(*entity_id)) {
                 if let Ok(detected_pos) = query_entity.get(detected_entity) {
-                    entities_position.push(detected_pos.0);
+                    entities_position.push(detected_pos.0 - pos.0);
 
                     if entities_position.len() >= UdpServer::NUM_ENTITIES_POSITION_MAX {
                         // Send this part.
@@ -393,14 +399,16 @@ fn send_detected_fleet(
                             metascape_tick: time_res.tick,
                             part,
                             entities_position,
+                            entity_order_required: entity_order.id,
+                            relative_position: pos.0,
                         };
                         let _ = client.connection.udp_sender.blocking_send(packet);
 
                         // Prepare next part.
                         part += 1;
                         entities_position = Vec::with_capacity(
-                            (entity_detected
-                                .0
+                            (entity_order
+                                .current_entity_order
                                 .len()
                                 .saturating_sub(usize::from(part) * UdpServer::NUM_ENTITIES_POSITION_MAX))
                             .min(UdpServer::NUM_ENTITIES_POSITION_MAX),
@@ -417,6 +425,8 @@ fn send_detected_fleet(
                     metascape_tick: time_res.tick,
                     part,
                     entities_position,
+                    entity_order_required: entity_order.id,
+                    relative_position: pos.0,
                 };
                 let _ = client.connection.udp_sender.blocking_send(packet);
             }
