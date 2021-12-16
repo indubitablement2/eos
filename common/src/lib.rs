@@ -1,19 +1,19 @@
 #![feature(test)]
 
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
-use serde::{Serialize, Deserialize};
 
 #[macro_use]
 extern crate log;
 
 pub mod array_difference;
+pub mod collider;
 pub mod generation;
 pub mod idx;
 pub mod packets;
 pub mod parameters;
 pub mod res_time;
 pub mod system;
-pub mod collider;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Version {
@@ -26,11 +26,15 @@ impl Display for Version {
         write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
     }
 }
-pub const VERSION: Version = Version {
-    major: 0,
-    minor: 1,
-    patch: 0,
-};
+impl Version {
+    /// The current app version.
+    pub const CURRENT: Version = Version {
+        major: 0,
+        minor: 1,
+        patch: 0,
+    };
+}
+
 /// How long between each Battlescape/Metascape tick.
 pub const UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 /// The server udp/tcp port number.

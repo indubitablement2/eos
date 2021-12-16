@@ -10,11 +10,7 @@ pub struct Collider {
 }
 impl Collider {
     pub fn new(id: u32, radius: f32, position: Vec2) -> Self {
-        Self {
-            id,
-            radius,
-            position,
-        }
+        Self { id, radius, position }
     }
 
     /// Create a new collider with an id of 0.

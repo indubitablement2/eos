@@ -1,4 +1,4 @@
-use crate::idx::*;
+use crate::{idx::*, Version};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddrV6;
@@ -9,16 +9,18 @@ pub struct ServerAddresses {
     pub udp_address: SocketAddrV6,
 }
 
-/// TODO: This should also send client version. 
+/// TODO: This should also send client version.
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct LoginPacket {
     pub is_steam: bool,
     pub token: u64,
     /// The port the client will be using to send/recv packet over udp.
     pub client_udp_port: u16,
+    /// Server version should match
+    pub client_version: Version,
 }
 impl LoginPacket {
-    pub const FIXED_SIZE: usize = 11;
+    pub const FIXED_SIZE: usize = 17;
 
     pub fn serialize(&self) -> Vec<u8> {
         bincode::serialize(self).expect("could not serialize LoginPacket")
@@ -41,6 +43,7 @@ fn test_login_packet() {
         is_steam: false,
         token: 255,
         client_udp_port: 747,
+        client_version: Version::CURRENT,
     };
     assert_eq!(og, LoginPacket::deserialize(&og.serialize()).unwrap());
     assert_eq!(og.serialize().len(), LoginPacket::FIXED_SIZE);
@@ -49,6 +52,7 @@ fn test_login_packet() {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum LoginResponsePacket {
     Accepted { client_id: ClientId },
+    WrongVersion,
     Error,
     DeserializeError,
 }
@@ -150,15 +154,19 @@ fn test_udp_client() {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum UdpServer {
     Battlescape {
-        battlescape_tick: u64,
+        battlescape_tick: u16,
         client_inputs: Vec<BattlescapeInput>,
     },
-    /// TODO: Entity position is compressed into 4 bytes and is relative.
+    /// TODO: Entity position is compressed into 4 bytes.
     MetascapeEntityPosition {
         metascape_tick: u64,
         part: u8,
-        /// Sorted by entity.
-        /// What is the entity is sent over tcp.
+        /// You need this entity order (from tcp) to make sense of this packet.
+        entity_order_required: u8,
+        /// Entities positions sent are relative to this position.
+        relative_position: Vec2,
+        /// Sorted by entity id.
+        /// What is the entity and their order is sent over tcp.
         entities_position: Vec<Vec2>,
     },
 }
@@ -210,6 +218,7 @@ impl TcpClient {
 pub enum TcpServer {
     EntityList {
         tick: u64,
+        entity_order_id: u8,
         /// The order that the server will send entity info.
         /// These are the id of entity on the server.
         list: Vec<u32>,
