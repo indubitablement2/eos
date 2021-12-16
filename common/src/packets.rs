@@ -211,7 +211,8 @@ pub enum TcpServer {
     EntityList {
         tick: u64,
         /// The order that the server will send entity info.
-        list: Vec<ServerEntity>,
+        /// These are the id of entity on the server.
+        list: Vec<u32>,
     },
 }
 impl TcpServer {

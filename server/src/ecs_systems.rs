@@ -137,10 +137,7 @@ fn ai_fleet_sensor(
             if fleet_id.0 % num_turn == turn {
                 detected.0.clear();
 
-                let detector_collider = Collider {
-                    radius: detector_radius.0,
-                    position: pos.0,
-                };
+                let detector_collider = Collider::new_idless(detector_radius.0, pos.0);
 
                 intersection_pipeline
                     .snapshot
@@ -170,10 +167,7 @@ fn client_fleet_sensor(
                 let old_len = detected.0.len();
                 let old_detected = std::mem::replace(&mut detected.0, Vec::with_capacity(old_len));
 
-                let detector_collider = Collider {
-                    radius: detector_radius.0,
-                    position: pos.0,
-                };
+                let detector_collider = Collider::new_idless(detector_radius.0, pos.0);
 
                 intersection_pipeline
                     .snapshot
@@ -187,11 +181,7 @@ fn client_fleet_sensor(
                     if old_detected != detected.0 {
                         let _ = client.connection.tcp_sender.blocking_send(TcpServer::EntityList {
                             tick: time_res.tick,
-                            list: detected
-                                .0
-                                .iter()
-                                .map(|collider_id| ServerEntity(collider_id.0))
-                                .collect(),
+                            list: detected.0.clone(),
                         });
                     }
                 }
@@ -354,14 +344,8 @@ fn update_intersection_pipeline(
                 // Update all colliders.
                 intersection_pipeline.snapshot.colliders.clear();
                 query.for_each(|(entity, pos, detected_radius)| {
-                    let new_collider = Collider {
-                        radius: detected_radius.0,
-                        position: pos.0,
-                    };
-                    intersection_pipeline
-                        .snapshot
-                        .colliders
-                        .insert(ColliderId::new(entity.id()), new_collider);
+                    let new_collider = Collider::new(entity.id(), detected_radius.0, pos.0);
+                    intersection_pipeline.snapshot.colliders.push(new_collider);
                 });
 
                 // Swap snapshot.
@@ -399,7 +383,7 @@ fn send_detected_fleet(
             let mut entities_position =
                 Vec::with_capacity(entity_detected.0.len().min(UdpServer::NUM_ENTITIES_POSITION_MAX));
 
-            for detected_entity in entity_detected.0.iter().map(|collider_id| Entity::new(collider_id.0)) {
+            for detected_entity in entity_detected.0.iter().map(|entity_id| Entity::new(*entity_id)) {
                 if let Ok(detected_pos) = query_entity.get(detected_entity) {
                     entities_position.push(detected_pos.0);
 

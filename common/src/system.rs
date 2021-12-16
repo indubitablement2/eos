@@ -118,10 +118,7 @@ impl Systems {
                 continue;
             }
 
-            let collider = Collider {
-                radius: system.radius + Self::SYSTEM_SAFE_DISTANCE,
-                position,
-            };
+            let collider = Collider::new_idless(system.radius + Self::SYSTEM_SAFE_DISTANCE, position);
 
             // Test if it overlap with any existing system.
             for other_collider in system_colliders.iter() {

@@ -1,4 +1,3 @@
-use crate::intersection::ColliderId;
 use bevy_ecs::prelude::*;
 use common::idx::*;
 use glam::Vec2;
@@ -113,6 +112,6 @@ pub struct DetectedRadius(pub f32);
 /// Used to detect entity that have a DetectedRadius.
 pub struct DetectorRadius(pub f32);
 
-/// Collider that are detected by this entity.
-/// If this is a client, this is sorted by collider id.
-pub struct EntityDetected(pub Vec<ColliderId>);
+/// Entity id that are detected by this entity.
+/// If this is a client, this is sorted by entity id.
+pub struct EntityDetected(pub Vec<u32>);

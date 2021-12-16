@@ -7,13 +7,13 @@ use serde::{Serialize, Deserialize};
 extern crate log;
 
 pub mod array_difference;
-pub mod collider;
 pub mod generation;
 pub mod idx;
 pub mod packets;
 pub mod parameters;
 pub mod res_time;
 pub mod system;
+pub mod collider;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Version {
