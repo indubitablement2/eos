@@ -120,7 +120,7 @@ impl Terminal {
             backend_terminal,
             input_receiver,
             current_tab: TerminalTab::default(),
-            help: true,
+            help: false,
             need_redraw: true,
             log_state: TuiWidgetState::default(),
             performance_metascape: PerformanceMetrics::default(),
@@ -199,7 +199,7 @@ impl Terminal {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 // .margin(5)
-                .constraints([Constraint::Length(3), Constraint::Percentage(60), Constraint::Min(8)].as_ref())
+                .constraints([Constraint::Length(3), Constraint::Percentage(60), Constraint::Min(10)].as_ref())
                 .split(size);
 
             // Tabs titles.
@@ -328,11 +328,8 @@ impl Terminal {
                     }
                     TerminalTab::Info => {
                         let text = vec![
-                            Spans::from(format!(
-                                "version: {}.{}.{}",
-                                VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH
-                            )),
-                            Spans::from(format!("port {:?}", common::SERVER_PORT)),
+                            Spans::from(format!("version: {}", VERSION)),
+                            Spans::from(format!("port: {}", common::SERVER_PORT)),
                         ];
                         let paragraph = Paragraph::new(text)
                             .alignment(Alignment::Left)
