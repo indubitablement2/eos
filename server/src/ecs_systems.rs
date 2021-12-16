@@ -426,10 +426,9 @@ fn send_detected_fleet(
                         entity_order_required: metascape_state_part.entity_order_required,
                         relative_position: metascape_state_part.relative_position,
                         entities_position: Vec::with_capacity(
-                            (entity_order
-                                .current_entity_order
-                                .len()
-                                .saturating_sub(usize::from(metascape_state_part.part) * MetascapeStatePart::NUM_ENTITIES_POSITION_MAX))
+                            (entity_order.current_entity_order.len().saturating_sub(
+                                usize::from(metascape_state_part.part) * MetascapeStatePart::NUM_ENTITIES_POSITION_MAX,
+                            ))
                             .min(MetascapeStatePart::NUM_ENTITIES_POSITION_MAX),
                         ),
                     };

@@ -1,13 +1,13 @@
-use common::SERVER_PING_PORT;
 use common::idx::*;
 use common::packets::*;
 use common::Version;
-use tokio::task::JoinHandle;
+use common::SERVER_PING_PORT;
 use std::{
     collections::HashMap,
     net::{Ipv6Addr, SocketAddrV6},
     sync::{Arc, Mutex},
 };
+use tokio::task::JoinHandle;
 use tokio::{
     io::*,
     net::{
@@ -43,9 +43,8 @@ impl ConnectionsManager {
         };
 
         // Create ping loop.
-        let udp_ping_socket = rt.block_on(async { UdpSocket::bind(
-            SocketAddrV6::new(*addr.ip(), SERVER_PING_PORT, 0, 0)
-        ).await })?;
+        let udp_ping_socket =
+            rt.block_on(async { UdpSocket::bind(SocketAddrV6::new(*addr.ip(), SERVER_PING_PORT, 0, 0)).await })?;
         let ping_loop_handle = rt.spawn(ping_loop(udp_ping_socket));
         debug!("Started ping loop.");
 
@@ -436,7 +435,7 @@ async fn recv_tcp(
 }
 
 async fn ping_loop(udp_socket: UdpSocket) {
-    let mut buf = [0;4];
+    let mut buf = [0; 4];
     loop {
         if let Ok((num, ping_addr)) = udp_socket.recv_from(&mut buf).await {
             let _ = udp_socket.send_to(&buf[..num], ping_addr).await;
