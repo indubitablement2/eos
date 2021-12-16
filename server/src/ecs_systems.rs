@@ -189,7 +189,7 @@ fn client_fleet_sensor(
                     if entity_order.current_entity_order != detected.0 {
                         entity_order.current_entity_order.clear();
                         entity_order.current_entity_order.extend_from_slice(&detected.0);
-                        entity_order.id = (entity_order.id + 1) % EntityOrder::ID_MOD;
+                        entity_order.id = entity_order.id.wrapping_add(1);
 
                         let _ = client.connection.tcp_sender.blocking_send(TcpServer::EntityList {
                             tick: time_res.tick,
