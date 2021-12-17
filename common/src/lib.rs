@@ -8,7 +8,6 @@ extern crate log;
 
 pub mod array_difference;
 pub mod collider;
-pub mod generation;
 pub mod idx;
 pub mod packets;
 pub mod parameters;

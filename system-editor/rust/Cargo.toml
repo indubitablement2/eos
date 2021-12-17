@@ -1,0 +1,28 @@
+[package]
+name = "system-editor"
+version = "0.1.0"
+authors = ["indubitablement2 <jeanmichel88@hotmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+log = { version = "0.4.14", features = ["release_max_level_off"] }
+
+common = { path = "../../common" }
+
+gdnative = { git = "https://github.com/godot-rust/godot-rust.git", rev = "976ca4676ffe4b97f381473926ef8d9a595ea599" }
+
+rand = { version = "0.8.4", features = ["nightly", "simd_support"] }
+rand_xoshiro = "0.6.0"
+
+ahash = "0.7.6"
+indexmap = {version = "1.7.0", features = ["serde"] }
+
+serde = { version = "1.0.131", features = ["derive"] }
+bincode = "1.3.3"
+serde_yaml = "0.8.21"
+
+# Non deterministic math.
+glam = { version = "0.20.1", features = ["serde", "rand"] }
