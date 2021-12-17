@@ -6,6 +6,7 @@ use crate::res_clients::*;
 use crate::res_fleets::*;
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
+use common::array_difference::sorted_arrays_add;
 use common::collider::Collider;
 use common::idx::*;
 use common::packets::*;
@@ -43,7 +44,7 @@ pub fn add_systems(schedule: &mut Schedule) {
     let previous_stage = current_stage;
     let current_stage = "last";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
-    schedule.add_system_to_stage(current_stage, send_detected_fleet.system());
+    schedule.add_system_to_stage(current_stage, send_detected_entity.system());
     schedule.add_system_to_stage(current_stage, update_intersection_pipeline.system());
 }
 
@@ -151,7 +152,7 @@ fn ai_fleet_sensor(
 
 /// Determine what each client's fleet can see.
 fn client_fleet_sensor(
-    mut query: Query<(
+    mut query_client: Query<(
         &Position,
         &ClientId,
         &FleetId,
@@ -159,6 +160,7 @@ fn client_fleet_sensor(
         &mut EntityDetected,
         &mut EntityOrder,
     )>,
+    query_fleet: Query<&FleetId>,
     intersection_pipeline: Res<IntersectionPipeline>,
     clients_res: Res<ClientsRes>,
     task_pool: Res<TaskPool>,
@@ -168,7 +170,7 @@ fn client_fleet_sensor(
     let num_turn = 10u64;
     let turn = time_res.tick % num_turn;
 
-    query.par_for_each_mut(
+    query_client.par_for_each_mut(
         &task_pool,
         32 * num_turn as usize,
         |(pos, client_id, fleet_id, detector_radius, mut detected, mut entity_order)| {
@@ -184,8 +186,10 @@ fn client_fleet_sensor(
                     // Sort result.
                     detected.0.sort_unstable();
 
-                    // If the entity list changed, sent it to the client.
-                    if entity_order.current_entity_order != detected.0 {
+                    // Check if the entity list has changed.
+                    let difference = sorted_arrays_add(&entity_order.current_entity_order, &detected.0);
+                    if difference.has_changed {
+                        // Send the new entity list to the client.
                         entity_order.current_entity_order.clear();
                         entity_order.current_entity_order.extend(detected.0.iter());
                         entity_order.id = entity_order.id.wrapping_add(1);
@@ -195,6 +199,17 @@ fn client_fleet_sensor(
                             entity_order_id: entity_order.id,
                             list: detected.0.clone(),
                         });
+
+                        // Send new entity info to the client.
+                        for new_entity in difference.add.into_iter().map(|entity_id| Entity::new(entity_id)) {
+                            if let Ok(new_entity_fleet_id) = query_fleet.get(new_entity) {
+                                let _ = client.connection.tcp_sender.blocking_send(TcpServer::FleetInfo {
+                                    entity_id: new_entity.id(),
+                                    fleet_id: *new_entity_fleet_id,
+                                });
+                            }
+                            // TODO: Query other type of entity here.
+                        }
                     }
                 }
             }
@@ -382,8 +397,17 @@ fn update_intersection_pipeline(
     }
 }
 
+// fn send_changed_entity(
+//     query_client: Query<(&ClientId, &Position, &EntityOrder)>,
+//     query_entity_changed: Query<&FleetId, Or<(Changed<FleetId>)>>,
+//     time_res: Res<TimeRes>,
+//     clients_res: Res<ClientsRes>,
+// ) {
+    
+// }
+
 /// Send detected fleet to clients over udp.
-fn send_detected_fleet(
+fn send_detected_entity(
     query_client: Query<(&ClientId, &Position, &EntityOrder)>,
     query_entity: Query<&Position>,
     time_res: Res<TimeRes>,

@@ -235,6 +235,10 @@ pub enum TcpServer {
         /// These are the id of entity on the server.
         list: Vec<u32>,
     },
+    FleetInfo {
+        entity_id: u32,
+        fleet_id: FleetId,
+    }
 }
 impl TcpServer {
     /// Adds a 32bits header representing payload size.

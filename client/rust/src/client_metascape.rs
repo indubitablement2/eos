@@ -1,7 +1,3 @@
-use std::collections::VecDeque;
-use std::ops::Add;
-use std::time::Duration;
-
 use crate::client::Client;
 use crate::input_handler::InputHandler;
 use crate::util::*;
@@ -16,17 +12,21 @@ use gdnative::api::*;
 use gdnative::prelude::*;
 use glam::Vec2;
 use indexmap::IndexMap;
+use std::collections::VecDeque;
 
 #[derive(Debug, Clone)]
 enum MetascapeCommand {}
 
-struct MetascapeEntity {
+struct MetascapeEntityState {
     /// Used for fade in/out.
     fade: f32,
     previous_tick: u64,
     current_tick: u64,
     previous_position: Vec2,
     current_position: Vec2,
+}
+struct MetascapeFleet {
+    fleet_id: FleetId,
 }
 
 struct MetascapeState {
@@ -36,7 +36,8 @@ struct MetascapeState {
     state_delta: f32,
     /// Multiply how fast tick increment.
     time_multiplier: f32,
-    entity: IndexMap<u32, MetascapeEntity>,
+    entity_state: IndexMap<u32, MetascapeEntityState>,
+    entity_fleet: AHashMap<u32, MetascapeFleet>,
 }
 impl Default for MetascapeState {
     fn default() -> Self {
@@ -44,7 +45,8 @@ impl Default for MetascapeState {
             tick: 0,
             state_delta: 0.0,
             time_multiplier: 1.0,
-            entity: IndexMap::new(),
+            entity_state: IndexMap::new(),
+            entity_fleet: AHashMap::new(),
         }
     }
 }
@@ -91,7 +93,7 @@ impl ClientMetascape {
     /// Return true if we should quit.
     pub fn update(&mut self, delta: f32, input_handler: &InputHandler) -> bool {
         let mut quit = false;
-        
+
         // Handle pings.
         loop {
             match self.client.ping_duration_receiver.try_recv() {
@@ -112,9 +114,7 @@ impl ClientMetascape {
                 }
             }
         }
-        if let Some(total_ping) = self.recent_ping.iter().copied().reduce(|acc, dur| {
-            acc + dur
-        }) {
+        if let Some(total_ping) = self.recent_ping.iter().copied().reduce(|acc, dur| acc + dur) {
             self.average_ping = total_ping / self.recent_ping.len() as f32;
         }
 
@@ -130,9 +130,18 @@ impl ClientMetascape {
                         self.entity_orders.insert(entity_order_id, (tick, list));
                         debug!("added an entity order.");
                         // Remove obselete entity order.
-                        if self.entity_orders.remove(&entity_order_id.wrapping_add(u8::MAX / 2)).is_some() {
+                        if self
+                            .entity_orders
+                            .remove(&entity_order_id.wrapping_add(u8::MAX / 2))
+                            .is_some()
+                        {
                             debug!("deleted an entity order.");
                         }
+                    }
+                    TcpServer::FleetInfo { entity_id, fleet_id } => {
+                        self.metascape_state
+                            .entity_fleet
+                            .insert(entity_id, MetascapeFleet { fleet_id });
                     }
                 },
                 Err(err) => {
@@ -168,7 +177,6 @@ impl ClientMetascape {
             }
         }
 
-        // Get most sensible tick.
         // Get the last state we are ready to use.
         let max_tick = self.state_buffer.iter().fold(0, |acc, state| {
             // Check if we have the order for this state.
@@ -178,7 +186,6 @@ impl ClientMetascape {
                 acc
             }
         });
-        // TODO: Min and max buffer should be relative to connection quality.
         let tick_delta = max_tick.saturating_sub(self.metascape_state.tick);
         if tick_delta > 10 {
             // We need to catch up.
@@ -212,19 +219,32 @@ impl ClientMetascape {
                 );
             }
         }
+
+        // Speedup/slowdown time to get to target tick.
         let current_delta = tick_delta as f32 + self.metascape_state.state_delta;
         let target_delta = self.average_ping / UPDATE_INTERVAL.as_secs_f32() + 3.0;
-        let target_time_multiplier = (current_delta / target_delta).clamp(0.66, 1.5);
+        let mut target_time_multiplier = (current_delta / target_delta).clamp(0.66, 1.5);
+        if (1.0 - target_time_multiplier).abs() < 1.2 {
+            // When we are close to 1.0 multiplier, try not to fluctuate much.
+            target_time_multiplier = target_time_multiplier.mul_add(0.25, 0.75);
+        }
         self.metascape_state.time_multiplier *= 0.50;
         self.metascape_state.time_multiplier += target_time_multiplier * 0.2;
         self.metascape_state.time_multiplier += 0.30;
-        self.metascape_state.state_delta += (delta / UPDATE_INTERVAL.as_secs_f32()) * self.metascape_state.time_multiplier;
+        self.metascape_state.state_delta +=
+            (delta / UPDATE_INTERVAL.as_secs_f32()) * self.metascape_state.time_multiplier;
         if self.metascape_state.state_delta >= 1.0 {
             self.metascape_state.tick += 1;
             self.metascape_state.state_delta -= 1.0;
             self.metascape_state.state_delta = self.metascape_state.state_delta.clamp(-1.0, 1.0);
         }
+        if (1.0 - self.metascape_state.time_multiplier).abs() > 1.1 {
+            debug!("time_multiplier: {}", self.metascape_state.time_multiplier);
+        }
+
         let current_tick = self.metascape_state.tick;
+
+        // TODO: Remove obselete entities.
 
         // Consume states.
         for state in self.state_buffer.drain_filter(|state| state.tick <= current_tick) {
@@ -244,7 +264,7 @@ impl ClientMetascape {
             {
                 let state_pos = state_relative_pos + state.relative_position;
                 if let Some(entity_id) = order.get(i) {
-                    if let Some(entity) = self.metascape_state.entity.get_mut(entity_id) {
+                    if let Some(entity) = self.metascape_state.entity_state.get_mut(entity_id) {
                         if state.tick > entity.current_tick {
                             entity.previous_tick = entity.current_tick;
                             entity.previous_position = entity.current_position;
@@ -254,18 +274,21 @@ impl ClientMetascape {
                             entity.previous_tick = state.tick;
                             entity.previous_position = state_pos;
                         } else {
-                            debug!("Received useless state. state: {} entity: {}. Ignoring...", state.tick, entity.current_tick);
+                            debug!(
+                                "Received useless state. state: {} entity: {}. Ignoring...",
+                                state.tick, entity.current_tick
+                            );
                         }
                     } else {
                         // Create entity.
-                        let new_entity = MetascapeEntity {
+                        let new_entity = MetascapeEntityState {
                             fade: 0.0,
                             previous_tick: state.tick,
                             current_tick: state.tick,
                             previous_position: state_pos,
                             current_position: state_pos,
                         };
-                        self.metascape_state.entity.insert(*entity_id, new_entity);
+                        self.metascape_state.entity_state.insert(*entity_id, new_entity);
                     }
                 } else {
                     warn!("Missing entity in order. Ignoring entity...");
@@ -296,9 +319,7 @@ impl ClientMetascape {
     }
 
     pub fn render(&mut self, owner: &Node2D) {
-        owner.draw_circle(Vector2::new(0.0, 0.0), 50.0, Color { r: 1.0, g: 1.0, b: 1.0, a: 0.4 });
-
-        for (entity_id, entity) in self.metascape_state.entity.iter_mut() {
+        for (entity_id, entity) in self.metascape_state.entity_state.iter_mut() {
             if entity.current_tick < self.metascape_state.tick {
                 entity.fade = (entity.fade - 0.05).max(0.0);
             } else {
@@ -308,17 +329,36 @@ impl ClientMetascape {
                 continue;
             }
 
-            let r = 0.0;
-            let g = 0.0;
+            // Interpolate position.
+            let interpolation = (self.metascape_state.tick.saturating_sub(1 + entity.previous_tick)) as f32
+                + self.metascape_state.state_delta;
+            let pos = entity.previous_position.lerp(entity.current_position, interpolation);
+            // let pos = entity.current_position;
+
+            let mut r = 0.0;
+            let mut g = 0.0;
             let b = (*entity_id % 10) as f32 / 10.0;
             let a = entity.fade * 0.9;
 
-            let interpolation = (self.metascape_state.tick.saturating_sub(1 + entity.previous_tick)) as f32
-                + self.metascape_state.state_delta;
-
-            // Interpolate position.
-            let pos = entity.previous_position.lerp(entity.current_position, interpolation);
-            // let pos = entity.current_position;
+            if let Some(fleet_info) = self.metascape_state.entity_fleet.get(entity_id) {
+                if ClientId::from(fleet_info.fleet_id) == self.client.client_id {
+                    // This is us!
+                    g = 1.0;
+                    owner.draw_circle(
+                        glam_to_godot(pos),
+                        50.0,
+                        Color {
+                            r: 1.0,
+                            g: 1.0,
+                            b: 1.0,
+                            a: 0.2,
+                        },
+                    );
+                }
+            } else {
+                // We don't know who is this entity.
+                r = 1.0;
+            }
 
             // Draw entity.
             owner.draw_circle(glam_to_godot(pos), 10.0, Color { r, g, b, a });
