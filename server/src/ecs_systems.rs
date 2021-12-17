@@ -83,11 +83,10 @@ fn get_new_clients(
         // Check if fleet is already spawned.
         if let Some(old_fleet_entity) = fleets_res.spawned_fleets.get(&fleet_id) {
             // TODO: Check old fleet components.
-            error!("{:?} is already spawned.", fleet_id);
+            error!("{:?} is already spawned. TODO handle this.", fleet_id);
             for k in fleets_res.spawned_fleets.keys() {
                 warn!("{:?}", k);
             }
-            // todo!();
         } else {
             // TODO: Load or create client's fleet.
             let entity = commands
@@ -108,7 +107,7 @@ fn get_new_clients(
                         },
                         reputation: Reputation(0),
                         detected_radius: DetectedRadius(10.0),
-                        detector_radius: DetectorRadius(30.0),
+                        detector_radius: DetectorRadius(50.0),
                         entity_detected: EntityDetected(Vec::new()),
                     },
                 })
@@ -139,10 +138,9 @@ fn ai_fleet_sensor(
         64 * num_turn as usize,
         |(pos, fleet_id, detector_radius, mut detected)| {
             if fleet_id.0 % num_turn == turn {
-                detected.0.clear();
-
                 let detector_collider = Collider::new_idless(detector_radius.0, pos.0);
 
+                detected.0.clear();
                 intersection_pipeline
                     .snapshot
                     .intersect_collider_into(detector_collider, &mut detected.0);
@@ -177,6 +175,7 @@ fn client_fleet_sensor(
             if fleet_id.0 % num_turn == turn {
                 let detector_collider = Collider::new_idless(detector_radius.0, pos.0);
 
+                detected.0.clear();
                 intersection_pipeline
                     .snapshot
                     .intersect_collider_into(detector_collider, &mut detected.0);
@@ -188,7 +187,7 @@ fn client_fleet_sensor(
                     // If the entity list changed, sent it to the client.
                     if entity_order.current_entity_order != detected.0 {
                         entity_order.current_entity_order.clear();
-                        entity_order.current_entity_order.extend_from_slice(&detected.0);
+                        entity_order.current_entity_order.extend(detected.0.iter());
                         entity_order.id = entity_order.id.wrapping_add(1);
 
                         let _ = client.connection.tcp_sender.blocking_send(TcpServer::EntityList {
@@ -312,14 +311,14 @@ fn disconnect_client(mut clients_res: ResMut<ClientsRes>, client_disconnected: R
 
 /// TODO: This just spawn ai fleet every seconds for testing.
 fn spawn_ai_fleet(time_res: Res<TimeRes>, mut commands: Commands, mut fleets_res: ResMut<FleetsRes>) {
-    if time_res.tick == 5 {
-        for _ in 0..500 {
+    if time_res.tick > 5 && time_res.tick < 15 {
+        for _ in 0..10 {
             let fleet_id = fleets_res.get_new_fleet_id();
 
             let entity = commands
                 .spawn_bundle(FleetBundle {
                     fleet_id,
-                    position: Position(Vec2::ZERO),
+                    position: Position(rand::random::<Vec2>() * vec2(512.0, 512.0) - vec2(256.0, 256.0)),
                     wish_position: WishPosition(Vec2::ZERO),
                     velocity: Velocity(Vec2::ZERO),
                     acceleration: Acceleration(0.1),
@@ -377,7 +376,7 @@ fn update_intersection_pipeline(
                     error!("Intersection pipeline update runner thread dropped. Creating a new runner...");
                     intersection_pipeline.start_new_runner_thread();
                 }
-                debug!("AccelerationStructure runner is taking longer than expected to update. Trying again latter...");
+                warn!("AccelerationStructure runner is taking longer than expected to update. Trying again latter...");
             }
         }
     }

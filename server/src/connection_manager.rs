@@ -37,6 +37,7 @@ impl ConnectionsManager {
         let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
         debug!("Create server tokio runtime.");
 
+        // Server uses ipv6
         let addr = match local {
             true => SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, common::SERVER_PORT, 0, 0),
             false => SocketAddrV6::new(Ipv6Addr::LOCALHOST, common::SERVER_PORT, 0, 0),
@@ -277,7 +278,7 @@ async fn recv_udp(
                 // Convert generic address to v6.
                 let client_udp_addr = match generic_client_udp_addr {
                     std::net::SocketAddr::V4(_) => {
-                        trace!("Got an udp packet from a v4 address. Ignoring...");
+                        trace!("Got an udp packet from a ipv4 address. Ignoring...");
                         continue;
                     }
                     std::net::SocketAddr::V6(v6) => v6,
@@ -363,7 +364,7 @@ async fn recv_tcp(
                 if next_payload_size > TcpClient::MAX_SIZE {
                     // Next packet is too large.
                     debug!(
-                        "{} tried to send a packet of {} bytes which is over size limit of {}. Disconnecting...",
+                        "{} tried to send a packet of {} bytes which is over the size limit of {}. Disconnecting...",
                         client_tcp_addr,
                         next_payload_size,
                         TcpClient::MAX_SIZE
