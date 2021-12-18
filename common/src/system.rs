@@ -1,3 +1,5 @@
+use std::f32::consts::TAU;
+
 use glam::Vec2;
 
 pub enum CelestialBodyType {
@@ -22,7 +24,13 @@ pub struct CelestialBody {
     /// How far is this `CelestialBody` orbiting from its origin.
     pub orbit_radius: f32,
     /// How many tick does it take this `CelestialBody` to complete an orbit.
-    pub orbit_time: u32,
+    pub orbit_time: f32,
+}
+impl CelestialBody {
+    /// Return the orbit rotation in radian.
+    pub fn get_orbit_rotation(&self, tick: f32) -> f32 {
+        (tick / self.orbit_time) * TAU
+    }
 }
 
 pub struct System {
@@ -34,11 +42,32 @@ pub struct System {
     /// The center of this `System`
     pub position: Vec2,
 
+    /// Bodies are ordered by parent -> child.
+    /// The first body can not be a child.
     pub bodies: Vec<CelestialBody>,
 }
 impl System {
-    pub fn get_bodies_position(&self,) {
-        
+    /// Return the position of bodies relative to system center.
+    pub fn get_bodies_system_position(&self, tick: f32) -> Vec<Vec2> {
+        let mut positions = Vec::with_capacity(self.bodies.len());
+        for body in self.bodies.iter() {
+            let origin = match body.parent {
+                CelestialBodyParent::CelestialBody(other) => positions[other],
+                CelestialBodyParent::StaticPosition(p) => p,
+            };
+            let rot = body.get_orbit_rotation(tick);
+            positions.push(Vec2::new(f32::cos(rot), f32::sin(rot)) * body.orbit_radius + origin);
+        }
+        positions
+    }
+
+    /// Return the position of bodies relative to world center.
+    pub fn get_bodies_world_position(&self, tick: f32) -> Vec<Vec2> {
+        let mut positions = self.get_bodies_system_position(tick);
+        for pos in positions.iter_mut() {
+            *pos += self.position;
+        }
+        positions
     }
 }
 
