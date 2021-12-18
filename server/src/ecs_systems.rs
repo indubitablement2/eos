@@ -51,7 +51,10 @@ pub fn add_systems(schedule: &mut Schedule) {
 //* first
 
 fn increment_time(mut time_res: ResMut<TimeRes>) {
-    time_res.tick += 1;
+    if time_res.increment() {
+        // handle new cycle.
+        todo!();
+    }
 }
 
 /// Get new connection and insert client.
@@ -132,7 +135,7 @@ fn ai_fleet_sensor(
 ) {
     // We will only update 1/10 at a time.
     let num_turn = 10u64;
-    let turn = time_res.tick % num_turn;
+    let turn = time_res.tick as u64 % num_turn;
 
     query.par_for_each_mut(
         &task_pool,
@@ -168,7 +171,7 @@ fn client_fleet_sensor(
 ) {
     // We will only update 1/10 at a time.
     let num_turn = 10u64;
-    let turn = time_res.tick % num_turn;
+    let turn = time_res.tick as u64 % num_turn;
 
     query_client.par_for_each_mut(
         &task_pool,

@@ -1,6 +1,5 @@
 use crate::client_metascape::ClientMetascape;
 use crate::input_handler::InputHandler;
-use common::generation::GenerationParameters;
 use common::packets::*;
 use common::parameters::MetascapeParameters;
 use common::*;
@@ -88,7 +87,6 @@ impl Game {
                     if let Ok(new_client_metascape) = ClientMetascape::new(
                         server_addresses,
                         MetascapeParameters::default(),
-                        GenerationParameters::default(),
                     ) {
                         self.client_metascape.replace(new_client_metascape);
                         return true;
@@ -113,7 +111,6 @@ impl Game {
             if let Ok(new_client_metascape) = ClientMetascape::new(
                 server_addresses,
                 MetascapeParameters::default(),
-                GenerationParameters::default(),
             ) {
                 self.client_metascape.replace(new_client_metascape);
                 return true;

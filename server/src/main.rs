@@ -6,7 +6,6 @@
 
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
-use common::generation::GenerationParameters;
 use common::parameters::MetascapeParameters;
 use common::res_time::TimeRes;
 use common::system::Systems;
@@ -43,14 +42,12 @@ impl Metascape {
     fn new(
         local: bool,
         metascape_parameters: MetascapeParameters,
-        generation_parameters: GenerationParameters,
     ) -> std::io::Result<Self> {
         let mut world = World::new();
         ecs_events::add_event_res(&mut world);
         world.insert_resource(TaskPool::new());
         world.insert_resource(TimeRes::default());
         world.insert_resource(DataManager::new());
-        world.insert_resource(Systems::generate(&generation_parameters, &metascape_parameters));
         world.insert_resource(metascape_parameters);
         world.insert_resource(IntersectionPipeline::new());
         world.insert_resource(ClientsRes::new(local)?);
@@ -149,11 +146,9 @@ fn startup() -> std::io::Result<Metascape> {
 
     // Init Metascape.
     if default_values {
-        let generation_parameters = GenerationParameters::default();
         return Ok(Metascape::new(
             local,
             MetascapeParameters::default(),
-            generation_parameters,
         )?);
     } else {
         return Err(std::io::Error::new(

@@ -158,7 +158,7 @@ fn test_udp_client() {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MetascapeStatePart  {
-    pub tick: u64,
+    pub tick: u32,
     /// This may only be a part of the whole state. This is the part number.
     pub part: u8,
     /// You need this entity order (from tcp) to make sense of this packet.
@@ -178,7 +178,7 @@ impl MetascapeStatePart {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum UdpServer {
     Battlescape {
-        battlescape_tick: u16,
+        battlescape_tick: u32,
         client_inputs: Vec<BattlescapeInput>,
     },
     MetascapeEntityPosition(MetascapeStatePart),
@@ -229,7 +229,7 @@ impl TcpClient {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum TcpServer {
     EntityList {
-        tick: u64,
+        tick: u32,
         entity_order_id: u8,
         /// The order that the server will send entity info.
         /// These are the id of entity on the server.

@@ -2,7 +2,6 @@ use crate::client::Client;
 use crate::input_handler::InputHandler;
 use crate::util::*;
 use ahash::AHashMap;
-use common::generation::GenerationParameters;
 use common::idx::*;
 use common::packets::*;
 use common::parameters::MetascapeParameters;
@@ -20,8 +19,8 @@ enum MetascapeCommand {}
 struct MetascapeEntityState {
     /// Used for fade in/out.
     fade: f32,
-    previous_tick: u64,
-    current_tick: u64,
+    previous_tick: u32,
+    current_tick: u32,
     previous_position: Vec2,
     current_position: Vec2,
 }
@@ -31,7 +30,7 @@ struct MetascapeFleet {
 
 struct MetascapeState {
     /// The current tick.
-    tick: u64,
+    tick: u32,
     /// How far are from previous to current tick.
     state_delta: f32,
     /// Multiply how fast tick increment.
@@ -65,20 +64,19 @@ pub struct ClientMetascape {
     metascape_state: MetascapeState,
     /// The expected entity order for a particular tick.
     /// Keys are order id.
-    entity_orders: AHashMap<u8, (u64, Vec<u32>)>,
+    entity_orders: AHashMap<u8, (u32, Vec<u32>)>,
 
-    metascape_data_commands: Vec<(u64, MetascapeCommand)>,
+    metascape_data_commands: Vec<(u32, MetascapeCommand)>,
     state_buffer: Vec<MetascapeStatePart>,
 }
 impl ClientMetascape {
     pub fn new(
         server_addresses: ServerAddresses,
         metascape_parameters: MetascapeParameters,
-        generation_parameters: GenerationParameters,
     ) -> std::io::Result<Self> {
         Ok(Self {
             client: Client::new(server_addresses)?,
-            systems: Systems::generate(&generation_parameters, &metascape_parameters),
+            systems: Systems(Vec::new()),
             metascape_parameters,
             state_buffer: Vec::new(),
             metascape_data_commands: Vec::new(),

@@ -8,10 +8,7 @@ pub enum CelestialBodyType {
 /// Represent either a position or another `CelestialBody`.
 pub enum CelestialBodyParent {
     /// This `CelestialBody` is orbiting another `CelestialBody`.
-    /// 
-    /// Although `CelestialBody` within a `System` are tipicaly identified with u8, 
-    /// this is an u64 here as it take that same amount of memory.
-    CelestialBody(u64),
+    CelestialBody(usize),
     /// This `CelestialBody` is orbiting a static position.
     StaticPosition(Vec2)
 }
