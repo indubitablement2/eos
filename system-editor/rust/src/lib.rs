@@ -3,12 +3,12 @@
 #[macro_use]
 extern crate log;
 
-mod system_editor;
-mod godot_logger;
-mod util;
 mod generation;
-mod generation_mask;
+mod generation_parameters;
+mod godot_logger;
+mod system_editor;
 mod systems_merge;
+mod util;
 
 use gdnative::prelude::{godot_init, InitHandle};
 use godot_logger::GodotLogger;

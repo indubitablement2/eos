@@ -4,7 +4,7 @@
 [ext_resource path="res://scene/Main.gd" type="Script" id=2]
 [ext_resource path="res://component/Camera.tscn" type="PackedScene" id=3]
 
-[node name="Main" type="Node"]
+[node name="Main" type="Node2D"]
 script = ExtResource( 2 )
 
 [node name="Camera2D" parent="." instance=ExtResource( 3 )]
@@ -22,14 +22,193 @@ __meta__ = {
 "_edit_use_anchors_": false
 }
 
-[node name="Generate" type="Button" parent="CanvasLayer/Control"]
-margin_left = 17.2603
-margin_top = 16.3211
-margin_right = 88.2603
-margin_bottom = 36.3211
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Control"]
+anchor_left = 0.05
+anchor_top = 0.05
+anchor_right = 0.05
+anchor_bottom = 0.05
+margin_left = -0.200001
+margin_right = 105.8
+margin_bottom = 48.0
+rect_min_size = Vector2( 128, 0 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Generate" type="Button" parent="CanvasLayer/Control/VBoxContainer"]
+margin_right = 181.0
+margin_bottom = 20.0
 text = "Generate"
 __meta__ = {
 "_edit_use_anchors_": false
 }
 
-[connection signal="pressed" from="CanvasLayer/Control/Generate" to="." method="_on_Generate_pressed"]
+[node name="Seed" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
+margin_top = 24.0
+margin_right = 181.0
+margin_bottom = 48.0
+
+[node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/Seed"]
+margin_top = 5.0
+margin_right = 119.0
+margin_bottom = 19.0
+size_flags_horizontal = 3
+text = "Seed:"
+
+[node name="Seed" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/Seed"]
+margin_left = 123.0
+margin_right = 181.0
+margin_bottom = 24.0
+text = "-1"
+caret_blink = true
+caret_blink_speed = 0.5
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Bound" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
+margin_top = 52.0
+margin_right = 181.0
+margin_bottom = 76.0
+
+[node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/Bound"]
+margin_top = 5.0
+margin_right = 119.0
+margin_bottom = 19.0
+size_flags_horizontal = 3
+text = "Bound:"
+
+[node name="Bound" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/Bound"]
+margin_left = 123.0
+margin_right = 181.0
+margin_bottom = 24.0
+text = "1024"
+caret_blink = true
+caret_blink_speed = 0.5
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="RadiusMin" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
+margin_top = 80.0
+margin_right = 181.0
+margin_bottom = 104.0
+
+[node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/RadiusMin"]
+margin_top = 5.0
+margin_right = 119.0
+margin_bottom = 19.0
+size_flags_horizontal = 3
+text = "Radius min:"
+
+[node name="RadiusMin" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/RadiusMin"]
+margin_left = 123.0
+margin_right = 181.0
+margin_bottom = 24.0
+text = "32"
+caret_blink = true
+caret_blink_speed = 0.5
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="RadiusMax" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
+margin_top = 108.0
+margin_right = 181.0
+margin_bottom = 132.0
+
+[node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/RadiusMax"]
+margin_top = 5.0
+margin_right = 119.0
+margin_bottom = 19.0
+size_flags_horizontal = 3
+text = "Radius max:"
+
+[node name="RadiusMax" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/RadiusMax"]
+margin_left = 123.0
+margin_right = 181.0
+margin_bottom = 24.0
+text = "128"
+caret_blink = true
+caret_blink_speed = 0.5
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="DistanceMin" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
+margin_top = 136.0
+margin_right = 181.0
+margin_bottom = 160.0
+
+[node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/DistanceMin"]
+margin_top = 5.0
+margin_right = 119.0
+margin_bottom = 19.0
+size_flags_horizontal = 3
+text = "Distance min:"
+
+[node name="DistanceMin" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/DistanceMin"]
+margin_left = 123.0
+margin_right = 181.0
+margin_bottom = 24.0
+text = "16"
+caret_blink = true
+caret_blink_speed = 0.5
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Density" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
+margin_top = 164.0
+margin_right = 181.0
+margin_bottom = 188.0
+
+[node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/Density"]
+margin_top = 5.0
+margin_right = 119.0
+margin_bottom = 19.0
+size_flags_horizontal = 3
+text = "Density Multiplier:"
+
+[node name="Density" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/Density"]
+margin_left = 123.0
+margin_right = 181.0
+margin_bottom = 24.0
+text = "1"
+caret_blink = true
+caret_blink_speed = 0.5
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Size" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
+margin_top = 192.0
+margin_right = 181.0
+margin_bottom = 216.0
+
+[node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/Size"]
+margin_top = 5.0
+margin_right = 119.0
+margin_bottom = 19.0
+size_flags_horizontal = 3
+text = "Size multiplier:"
+
+[node name="Size" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/Size"]
+margin_left = 123.0
+margin_right = 181.0
+margin_bottom = 24.0
+text = "1"
+caret_blink = true
+caret_blink_speed = 0.5
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[connection signal="pressed" from="CanvasLayer/Control/VBoxContainer/Generate" to="." method="_on_Generate_pressed"]
+[connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/Seed/Seed" to="." method="_on_Seed_text_changed"]
+[connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/Bound/Bound" to="." method="_on_bound_text_changed"]
+[connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/RadiusMin/RadiusMin" to="." method="_on_RadiusMin_text_changed"]
+[connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/RadiusMax/RadiusMax" to="." method="_on_RadiusMax_text_changed"]
+[connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/DistanceMin/DistanceMin" to="." method="_on_DistanceMin_text_changed"]
+[connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/Density/Density" to="." method="_on_Density_text_changed"]
+[connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/Size/Size" to="." method="_on_Size_text_changed"]

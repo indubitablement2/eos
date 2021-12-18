@@ -31,16 +31,23 @@ pub struct GenerationParameters {
     /// Systems will not generate outside this radius.
     pub bound: f32,
 
-    pub system_density: GenerationMask,
-    pub system_size: GenerationMask,
+    pub radius_min: f32,
+    pub radius_max: f32,
+    pub min_distance: f32,
+
+    pub system_density: f32,
+    pub system_size: f32,
 }
 impl Default for GenerationParameters {
     fn default() -> Self {
         Self {
             seed: 0,
-            bound: 512.0,
-            system_density: Default::default(),
-            system_size: Default::default(),
+            bound: 1024.0,
+            radius_min: 32.0,
+            radius_max: 128.0,
+            min_distance: 16.0,
+            system_density: 1.0,
+            system_size: 1.0,
         }
     }
 }

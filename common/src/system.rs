@@ -39,6 +39,11 @@ pub struct System {
 
     pub bodies: Vec<CelestialBody>,
 }
+impl System {
+    pub fn get_bodies_position(&self,) {
+        
+    }
+}
 
 /// Since this vec should never be modified, index can be used as id.
 /// Index can change from version to version however.

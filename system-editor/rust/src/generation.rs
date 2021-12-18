@@ -1,26 +1,16 @@
 use common::collider::Collider;
-use common::parameters::MetascapeParameters;
 use common::system::*;
 use glam::Vec2;
 use rand::Rng;
 use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoshiro256PlusPlus;
 
-use crate::generation_mask::GenerationParameters;
-
-const RADIUS_MIN: f32 = 32.0;
-const RADIUS_MAX: f32 = 128.0;
 const ORBIT_TIME_MIN_PER_RADIUS: u32 = 600;
-const SYSTEM_SAFE_DISTANCE: f32 = 32.0;
 
 /// Return a randomly generated System with its radius.
 /// The ColliderId provided is invalid and needs to be replaced.
-fn generate_system(position: Vec2, size_multiplier: f32, rng: &mut Xoshiro256PlusPlus) -> System {
+fn generate_system(position: Vec2, max_radius: f32, rng: &mut Xoshiro256PlusPlus) -> System {
     let mut bodies = Vec::new();
-
-    // How big we will try to make this system.
-    let target_system_radius = (rng.gen_range((RADIUS_MIN / 0.8)..(RADIUS_MAX * 0.8)) * size_multiplier)
-        .clamp(RADIUS_MIN, RADIUS_MAX);
 
     // Create System center body.
     let center_body = CelestialBody {
@@ -34,19 +24,24 @@ fn generate_system(position: Vec2, size_multiplier: f32, rng: &mut Xoshiro256Plu
     bodies.push(center_body);
 
     // Add bodies.
-    while used_radius < target_system_radius {
+    while used_radius < max_radius {
         let radius = 1.0;
         let orbit_radius = radius + used_radius + rng.gen_range(1.0..10.0);
         let orbit_time = ORBIT_TIME_MIN_PER_RADIUS * orbit_radius as u32;
 
-        bodies.push( CelestialBody {
+        let new_used_radius = used_radius + orbit_radius + radius;
+        if new_used_radius > max_radius {
+            break;
+        }
+
+        used_radius = new_used_radius;
+        bodies.push(CelestialBody {
             body_type: CelestialBodyType::Planet,
             radius,
             parent: CelestialBodyParent::CelestialBody(0),
             orbit_radius,
             orbit_time,
         });
-        used_radius += orbit_radius + radius
     }
 
     System {
@@ -57,44 +52,45 @@ fn generate_system(position: Vec2, size_multiplier: f32, rng: &mut Xoshiro256Plu
     }
 }
 
-pub fn generate_systems(generation_parameters: &GenerationParameters) -> Systems {
-    let mut rng = Xoshiro256PlusPlus::seed_from_u64(generation_parameters.seed);
+pub fn generate_systems(
+    seed: u64,
+    bound: f32,
+    radius_min: f32,
+    radius_max: f32,
+    min_distance: f32,
+    system_density: f32,
+    system_size: f32,
+) -> Systems {
+    let mut rng = Xoshiro256PlusPlus::seed_from_u64(seed);
 
     let mut systems = Vec::new();
     let mut colliders = Vec::new();
 
-    let bound = generation_parameters.bound;
+    let bound_squared = bound.powi(2);
 
     // How many systems we will try to place randomly.
-    let num_attempt = (bound.powi(2) / RADIUS_MAX.powi(2)) as usize;
-    debug!("Num system generation attempt: {}.", num_attempt);
-
-    'outer: for attempt_number in 0..num_attempt {
-        let completion = attempt_number as f32 / num_attempt as f32;
-        let uv: Vec2 = rng.gen::<Vec2>();
-
+    let num_attempt = (bound_squared * system_density / radius_max.powi(2)) as usize;
+    'outer: for _ in 0..num_attempt {
         // Check if we are within metascape bound.
-        let position: Vec2 = uv * 2.0 * bound - bound;
-        if position.length_squared() > bound.powi(2) {
+        let position: Vec2 = rng.gen::<Vec2>() * 2.0 * bound - bound;
+        if position.length_squared() > bound_squared {
             continue;
         }
 
-        // Check density.
-        if completion > generation_parameters.system_density.sample(uv) {
-            continue;
-        }
+        // How big we will try to make this system.
+        let max_system_radius =
+            (rng.gen_range((radius_min / 0.8)..(radius_max * 0.8)) * system_size).clamp(radius_min, radius_max);
 
         // Generate a random system.
-        let system_size_multiplier = generation_parameters.system_size.sample(uv);
-        let system = generate_system(position, system_size_multiplier, &mut rng);
+        let system = generate_system(position, max_system_radius, &mut rng);
 
         // Check if system bound is within metascape bound.
-        let system_bound_squared = position.length_squared() + system.radius.powi(2);
-        if system_bound_squared > bound.powi(2) {
+        let system_bound_squared = (system.position.length() + system.radius).powi(2);
+        if system_bound_squared > bound_squared {
             continue;
         }
 
-        let collider = Collider::new_idless(system.radius + SYSTEM_SAFE_DISTANCE, position);
+        let collider = Collider::new_idless(system.radius + min_distance, position);
 
         // Test if it overlap with any existing system.
         for other_collider in colliders.iter() {
@@ -107,15 +103,15 @@ pub fn generate_systems(generation_parameters: &GenerationParameters) -> Systems
         colliders.push(collider);
         systems.push(system);
     }
-
-    debug!("Num system generated: {}.", systems.len());
+    let success_rate = ((systems.len() as f32 / num_attempt as f32) * 100.0) as i32;
+    debug!("Systems generated: {}/{}  {}%.", systems.len(), num_attempt, success_rate);
 
     // Sort systems on the x axis.
     systems.sort_unstable_by(|a, b| {
         a.position
             .x
             .partial_cmp(&b.position.x)
-            .expect("this should be a normal float.")
+            .expect("this should be a real number.")
     });
 
     Systems(systems)

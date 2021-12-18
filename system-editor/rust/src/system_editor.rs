@@ -2,12 +2,10 @@ use common::res_time::TimeRes;
 use common::system::Systems;
 use gdnative::api::*;
 use gdnative::prelude::*;
+use rand::random;
 
 use crate::generation::generate_systems;
-use crate::generation_mask::GenerationMask;
-use crate::generation_mask::GenerationParameters;
 use crate::util::glam_to_godot;
-
 
 #[derive(NativeClass)]
 #[inherit(Node2D)]
@@ -15,7 +13,7 @@ use crate::util::glam_to_godot;
 pub struct SystemEditor {
     delta: f32,
     time: TimeRes,
-    systems: Systems
+    systems: Systems,
 }
 impl Default for SystemEditor {
     fn default() -> Self {
@@ -60,13 +58,46 @@ impl SystemEditor {
     }
 
     #[export]
-    unsafe fn generate(&mut self, _owner: &Node2D) {
-        self.systems = generate_systems(&GenerationParameters::default());
+    unsafe fn generate(
+        &mut self,
+        _owner: &Node2D,
+        seed: i64,
+        bound: f32,
+        radius_min: f32,
+        radius_max: f32,
+        min_distance: f32,
+        system_density: f32,
+        system_size: f32,
+    ) {
+        let seed = if seed.is_negative() {
+            random::<u64>()
+        } else {
+            seed as u64
+        };
+
+        self.systems = generate_systems(
+            seed,
+            bound,
+            radius_min,
+            radius_max,
+            min_distance,
+            system_density,
+            system_size,
+        );
     }
 }
 
 fn render_systems(owner: &Node2D, system_editor: &SystemEditor) {
     for system in system_editor.systems.0.iter() {
-        owner.draw_circle(glam_to_godot(system.position), system.radius.into(), Color { r: 1.0, g: 0.0, b: 1.0, a: 0.5 });
+        owner.draw_circle(
+            glam_to_godot(system.position),
+            system.radius.into(),
+            Color {
+                r: 1.0,
+                g: 0.0,
+                b: 1.0,
+                a: 0.5,
+            },
+        );
     }
 }
