@@ -37,7 +37,7 @@ Estimate US$360/months, US$4320/years.
 
 Explore - Fight - Customize (gradual fleet upgrade)
 
-### Decay and entropy
+### Decay & entropy
 Ship need to be rebuilt and maintained.
 Storage cost resource. 
 
@@ -76,7 +76,7 @@ This make it harder to stockpile wealth in conjonction with entropy.
 ### Acquiring ship/weapon/module
 Low tier ship and civilian ship are available everywhere.
 
-Getting higher tier gear is hard:
+Getting higher tier gear is harder:
 * Ranking inside a faction (still need to buy, only give access to this faction's gear).
 * Post battle salvage (needs to be repaired).
 * Random wreck and cargo in space.
@@ -111,8 +111,15 @@ Getting higher tier gear is hard:
   * 4 heavy and many medium/light weapons.
   * Often has unique built-in weapon.
   * The size of 3 cruisers or more.
-  * Extremely expensive to buy and maintain.
+  * Extremely expensive to build and maintain.
   * Very slow.
+
+* Experimental
+  * 8 heavy and many medium weapons.
+  * Has fortress like capability, but is mobile. 
+  * 1.5+ capital
+  * Ludicrously expensive to maintain.
+  * Can not be build (no blueprint hence the name). 
 
 ### Manufacturer
 Weapon and ship have manufacturer.
@@ -173,9 +180,36 @@ Creating faction:
   * Needs to provide costly incentives to vassals (insurance, lower market price)
   * Needs to sustain a military
 
+### Reputation & relation
+Relation determine a fleet-faction or faction-faction standing. 
+
+If a fleet-faction reputation is not present, it use the faction's default. Pacifist may be higher. Xenophobe may be lower. 
+
+Fleet in faction inherit their faction's relation with other factions. 
+
+Fleet have reputation which act as a multiplier(0..1.0) to relation with factions and a relation with other factionless fleet (rep_self.min(rep_other). 
+
+Some faction (pirate) do not care about reputation much.
+
+### Faction archetype 
+Pirate
+xeno
+pacifist
+wide
+tall
+capitalist 
+
 ## Market
 
 todo
+
+## Technical
+smoke
+light & shadow
+particle
+trail
+sprite batch
+ui
 
 ## Inspiration
 
