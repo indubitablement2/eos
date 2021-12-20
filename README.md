@@ -204,12 +204,16 @@ capitalist
 todo
 
 ## Technical
-smoke
-light & shadow
-particle
-trail
-sprite batch
-ui
+* smoke
+  * particles
+* light & shadow
+  * godot cpu lightmapper
+* particles collision
+  * custom particle shader
+* trail metascape
+  * godot lide2d
+* ui
+  * godot control & signal
 
 ## Inspiration
 
