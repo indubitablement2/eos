@@ -11,8 +11,7 @@ use common::idx::*;
 use common::packets::*;
 use common::parameters::MetascapeParameters;
 use common::res_time::TimeRes;
-use glam::vec2;
-use glam::Vec2;
+use glam::{Vec2, vec2};
 use rand::Rng;
 use std::hint::unreachable_unchecked;
 
