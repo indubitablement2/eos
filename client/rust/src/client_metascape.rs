@@ -76,7 +76,7 @@ impl ClientMetascape {
     ) -> std::io::Result<Self> {
         Ok(Self {
             client: Client::new(server_addresses)?,
-            systems: Systems(Vec::new()),
+            systems: Systems::default(),
             metascape_parameters,
             state_buffer: Vec::new(),
             metascape_data_commands: Vec::new(),

@@ -1,4 +1,5 @@
 #![feature(test)]
+#![feature(duration_constants)]
 
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -13,6 +14,9 @@ pub mod packets;
 pub mod parameters;
 pub mod res_time;
 pub mod system;
+pub mod udp_loops;
+pub mod connection;
+pub mod tcp_loops;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Version {
@@ -36,8 +40,7 @@ impl Version {
 
 /// How long between each Battlescape/Metascape tick.
 pub const UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
-/// The server udp/tcp port.
-/// TODO: There should be multiple udp port.
+/// The server's tcp port.
 pub const SERVER_PORT: u16 = 36188;
-/// The server udp port that will accept ping. 
+/// The server's udp port that will accept ping. 
 pub const SERVER_PING_PORT: u16 = 46465;

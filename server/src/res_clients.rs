@@ -1,4 +1,5 @@
-use crate::connection_manager::{Connection, ConnectionsManager};
+use crate::connection_manager::ConnectionsManager;
+use common::connection::Connection;
 use common::idx::*;
 use indexmap::IndexMap;
 

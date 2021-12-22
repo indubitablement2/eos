@@ -5,7 +5,49 @@ use rand::Rng;
 use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoshiro256PlusPlus;
 
-const ORBIT_TIME_MIN_PER_RADIUS: u32 = 600;
+const ORBIT_TIME_MIN_PER_RADIUS: f32 = 600.0;
+
+// /// Prevalence: 0.01,
+// /// Radius: 2.5..10
+// BlueStar,
+// /// Prevalence: 0.01,
+// /// Radius: 0.95..1,5
+// YellowDwarf,
+// /// Prevalence: 0.01,
+// /// Radius: 0.7..0.95
+// OrangeDwarf,
+// /// Prevalence: 0.73,
+// /// Radius: 0.6..0.8
+// RedDwarf,
+// /// Prevalence: 0.01,
+// /// Radius: 5..10
+// BlueGiant,
+// /// Prevalence: 0.01,
+// /// Radius: 18..25
+// BlueSuperGiant,
+// /// Prevalence: 0.01,
+// /// Radius: 20..100
+// RedGiant,
+// /// Prevalence: 0.01,
+// /// Radius: 100..1700
+// RedSuperGiant,
+// /// Prevalence: 0.4,
+// /// Radius: 0.1..0.2
+// WhiteDwarf,
+// /// Prevalence: 0.1,
+// /// Radius: 5..15
+// NeutronStar,
+// /// Prevalence: 0.001,
+// /// Radius: 0.1..0.2
+// BlackDwarf,
+// BlackHole,
+// /// Prevalence: 0.1,
+// /// Radius: 0.05..0.1
+// BrownDwarf,
+
+// Planet,
+// GasGiant,
+// Moon,
 
 /// Return a randomly generated System with its radius.
 /// The ColliderId provided is invalid and needs to be replaced.
@@ -18,18 +60,18 @@ fn generate_system(position: Vec2, max_radius: f32, rng: &mut Xoshiro256PlusPlus
         radius: 8.0,
         parent: CelestialBodyParent::StaticPosition(Vec2::ZERO),
         orbit_radius: 0.0,
-        orbit_time: 0,
+        orbit_time: 1.0,
     };
     let mut used_radius = center_body.radius;
     bodies.push(center_body);
 
     // Add bodies.
     while used_radius < max_radius {
-        let radius = 1.0;
+        let radius = rng.gen_range(0.4..4.0);
         let orbit_radius = radius + used_radius + rng.gen_range(1.0..10.0);
-        let orbit_time = ORBIT_TIME_MIN_PER_RADIUS * orbit_radius as u32;
+        let orbit_time = ORBIT_TIME_MIN_PER_RADIUS * orbit_radius * (rng.gen::<f32>() -0.5).signum();
 
-        let new_used_radius = used_radius + orbit_radius + radius;
+        let new_used_radius = orbit_radius + radius;
         if new_used_radius > max_radius {
             break;
         }
@@ -45,7 +87,6 @@ fn generate_system(position: Vec2, max_radius: f32, rng: &mut Xoshiro256PlusPlus
     }
 
     System {
-        seed: rng.gen(),
         radius: used_radius,
         position,
         bodies,

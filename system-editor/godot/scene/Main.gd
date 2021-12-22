@@ -9,6 +9,14 @@ var density := 1.0
 var size := 1.0 
 
 
+func _process(delta: float) -> void:
+	$CanvasLayer/Control/HBoxContainer/Tick.set_text("tick: " + str($SystemEditor.get_tick())) 
+	var r = get_tree().get_root().get_visible_rect()
+	r.position += $Camera2D.position
+	r.size *= $Camera2D.zoom
+	r.position -= r.size * 0.5
+	$SystemEditor.set_viewport_rect(r)
+
 func _draw() -> void:
 	draw_circle(Vector2.ZERO, bound, Color(1.0, 1.0, 1.0, 0.05))
 
@@ -45,3 +53,6 @@ func _on_Density_text_changed(new_text: String) -> void:
 
 func _on_Size_text_changed(new_text: String) -> void:
 	size = max(float(new_text), 0.1)
+
+func _on_TimeMultiplier_text_changed(new_text: String) -> void:
+	$SystemEditor.set_time_multiplier(max(float(new_text), 0.0))

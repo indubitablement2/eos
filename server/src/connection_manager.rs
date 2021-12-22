@@ -1,118 +1,113 @@
-use common::idx::*;
-use common::packets::*;
-use common::Version;
-use common::SERVER_PING_PORT;
-use std::{
-    collections::HashMap,
-    net::{Ipv6Addr, SocketAddrV6},
-    sync::{Arc, Mutex},
+use common::{
+    connection::Connection, idx::ClientId, packets::*, tcp_loops::*, udp_loops::*, Version, SERVER_PING_PORT,
+    SERVER_PORT,
 };
-use tokio::task::JoinHandle;
+use std::io::Result;
+use std::{
+    net::{Ipv6Addr, SocketAddrV6, UdpSocket},
+    sync::Arc,
+};
 use tokio::{
     io::*,
-    net::{
-        tcp::{OwnedReadHalf, OwnedWriteHalf},
-        TcpListener, TcpStream, UdpSocket,
-    },
+    net::{TcpListener, TcpStream},
     runtime::Runtime,
-    spawn,
+    sync::mpsc::channel,
 };
-
-pub struct Connection {
-    pub client_id: ClientId,
-    pub udp_sender: tokio::sync::mpsc::Sender<UdpServer>,
-    pub udp_receiver: crossbeam_channel::Receiver<UdpClient>,
-    pub tcp_sender: tokio::sync::mpsc::Sender<TcpServer>,
-    pub tcp_receiver: crossbeam_channel::Receiver<TcpClient>,
-}
 
 pub struct ConnectionsManager {
     pub new_connection_receiver: crossbeam_channel::Receiver<Connection>,
-    _rt: Runtime,
-    pub ping_loop_handle: JoinHandle<()>,
+    pub rt: Runtime,
 }
 impl ConnectionsManager {
     pub fn new(local: bool) -> Result<Self> {
-        // Create tokio runtime.
-        let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
-        debug!("Create server tokio runtime.");
-
-        // Server uses ipv6
+        // Server uses ipv6.
         let addr = match local {
-            true => SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, common::SERVER_PORT, 0, 0),
-            false => SocketAddrV6::new(Ipv6Addr::LOCALHOST, common::SERVER_PORT, 0, 0),
+            true => SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, SERVER_PORT, 0, 0),
+            false => SocketAddrV6::new(Ipv6Addr::LOCALHOST, SERVER_PORT, 0, 0),
         };
 
-        // Create ping loop.
-        let udp_ping_socket =
-            rt.block_on(async { UdpSocket::bind(SocketAddrV6::new(*addr.ip(), SERVER_PING_PORT, 0, 0)).await })?;
-        let ping_loop_handle = rt.spawn(ping_loop(udp_ping_socket));
-        debug!("Started ping loop.");
+        // Start ping loop.
+        let ping_socket = UdpSocket::bind(SocketAddrV6::new(*addr.ip(), SERVER_PING_PORT, 0, 0))?;
+        std::thread::spawn(move || ping_loop(ping_socket));
 
-        // Create TcpListener.
-        let tcp_listener = rt.block_on(async { TcpListener::bind(addr).await })?;
-        debug!("Created server TcpListener.");
+        // Start udp loops.
+        let socket = Arc::new(UdpSocket::bind(addr)?);
+        socket.set_nonblocking(true)?;
+        let socket_clone = socket.clone();
+        let (udp_connection_event_sender, udp_connection_event_receiver) = crossbeam_channel::unbounded();
+        let (udp_packet_to_send_sender, udp_packet_to_send_receiver) = crossbeam_channel::unbounded();
+        std::thread::spawn(move || udp_in_loop(socket_clone, udp_connection_event_receiver));
+        std::thread::spawn(move || udp_out_loop(socket, udp_packet_to_send_receiver));
 
-        // Create UdpSocket.
-        let udp_socket = Arc::new(rt.block_on(async { UdpSocket::bind(addr).await })?);
-        debug!("Created server UdpSocket.");
-
-        // Start udp receiver loop.
-        let udp_senders = Arc::new(Mutex::new(HashMap::with_capacity(32)));
-        rt.spawn(recv_udp(udp_senders.clone(), udp_socket.clone()));
-
-        // Create login channel.
-        let (new_connection_sender, new_connection_receiver) = crossbeam_channel::unbounded();
+        // Create tokio runtime.
+        let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
 
         // Start login loop.
+        let listener = rt.block_on(async { TcpListener::bind(addr).await })?;
+        let (new_connection_sender, new_connection_receiver) = crossbeam_channel::unbounded();
         rt.spawn(login_loop(
             local,
-            tcp_listener,
+            listener,
             new_connection_sender,
-            udp_socket,
-            udp_senders.clone(),
+            udp_connection_event_sender,
+            udp_packet_to_send_sender,
         ));
-        debug!("Started login loop.");
 
-        info!("Server ready.");
+        info!(
+            "Connection manager ready.\nAccepting login on {}.\nAccepting ping on {}.",
+            SERVER_PORT, SERVER_PING_PORT
+        );
 
         Ok(Self {
             new_connection_receiver,
-            _rt: rt,
-            ping_loop_handle,
+            rt,
         })
     }
 }
 
+#[derive(Debug)]
+struct LoginResult {
+    client_id: ClientId,
+    stream: TcpStream,
+    client_tcp_addr: SocketAddrV6,
+    client_udp_addr: SocketAddrV6,
+}
+
 /// Entry point for client.
-async fn login_loop(
+pub async fn login_loop(
     local: bool,
-    tcp_listener: TcpListener,
+    listener: TcpListener,
     new_connection_sender: crossbeam_channel::Sender<Connection>,
-    udp_socket: Arc<UdpSocket>,
-    udp_senders: Arc<Mutex<HashMap<SocketAddrV6, crossbeam_channel::Sender<UdpClient>>>>,
+    udp_connection_event_sender: crossbeam_channel::Sender<UdpConnectionEvent>,
+    udp_packet_to_send_sender: crossbeam_channel::Sender<(SocketAddrV6, Vec<u8>)>,
 ) {
+    let (login_result_sender, login_result_receiver) = channel(32);
+    tokio::spawn(handle_successful_login(
+        login_result_receiver,
+        new_connection_sender,
+        udp_connection_event_sender,
+        udp_packet_to_send_sender,
+    ));
+
     loop {
-        match tcp_listener.accept().await {
-            Ok((new_tcp_stream, generic_client_tcp_addr)) => {
+        match listener.accept().await {
+            Ok((new_stream, generic_client_tcp_addr)) => {
                 debug!("{} is attempting to login.", generic_client_tcp_addr);
 
                 // Convert generic address to v6.
                 let client_tcp_addr = match generic_client_tcp_addr {
-                    std::net::SocketAddr::V4(_) => {
-                        warn!("Client tcp address is v4. Aborting login...");
+                    std::net::SocketAddr::V4(v4) => {
+                        debug!("{:?} attempted to connect with an ipv4 address. Ignoring...", v4);
                         continue;
                     }
                     std::net::SocketAddr::V6(v6) => v6,
                 };
 
-                spawn(first_packet(
+                tokio::spawn(try_login(
                     local,
-                    new_tcp_stream,
+                    new_stream,
                     client_tcp_addr,
-                    new_connection_sender.clone(),
-                    udp_socket.clone(),
-                    udp_senders.clone(),
+                    login_result_sender.clone(),
                 ));
             }
             Err(err) => {
@@ -122,334 +117,178 @@ async fn login_loop(
     }
 }
 
-/// Get the client's first packet.
-async fn first_packet(
+async fn try_login(
     local: bool,
-    new_tcp_stream: TcpStream,
+    mut stream: TcpStream,
     client_tcp_addr: SocketAddrV6,
-    new_connection_sender: crossbeam_channel::Sender<Connection>,
-    udp_socket: Arc<UdpSocket>,
-    udp_senders: Arc<Mutex<HashMap<SocketAddrV6, crossbeam_channel::Sender<UdpClient>>>>,
+    login_result_sender: tokio::sync::mpsc::Sender<LoginResult>,
 ) {
-    // Wrap stream into buffers.
-    let (r, mut write_half) = new_tcp_stream.into_split();
-    let mut buf_read = BufReader::new(r);
-
     // Get the first packet.
-    // TODO: Add timeout duration.
     let mut first_packet_buffer = [0u8; LoginPacket::FIXED_SIZE];
-    if let Err(err) = buf_read.read_exact(&mut first_packet_buffer).await {
+    if let Err(err) = stream.read_exact(&mut first_packet_buffer).await {
         debug!("{:?} while attempting to login a client. Aborting login...", err);
         return;
     }
 
+    // Identify user.
+    let (login_response, client_udp_port) = handle_first_packet(local, first_packet_buffer, client_tcp_addr).await;
+
+    // Send login response.
+    if let Err(err) = stream.write_all(&login_response.serialize()).await {
+        debug!("{:?} while writing login response to stream. Aborting login...", err);
+        return;
+    }
+
+    if let LoginResponsePacket::Accepted { client_id } = login_response {
+        if let Err(err) = login_result_sender
+            .send(LoginResult {
+                client_id,
+                stream,
+                client_tcp_addr,
+                client_udp_addr: SocketAddrV6::new(*client_tcp_addr.ip(), client_udp_port, 0, 0),
+            })
+            .await
+        {
+            debug!(
+                "{:?} while sending login result to successful login handler. Aborting login...",
+                err
+            );
+            return;
+        }
+    }
+}
+
+async fn handle_first_packet(
+    local: bool,
+    first_packet_buffer: [u8; LoginPacket::FIXED_SIZE],
+    client_tcp_addr: SocketAddrV6,
+) -> (LoginResponsePacket, u16) {
+    // Deserialize first packet.
     let login_packet = match LoginPacket::deserialize(&first_packet_buffer) {
         Some(p) => {
-            debug!("Received LoginPacket from {}. Attempting login...", client_tcp_addr);
+            trace!(
+                "Received valid LoginPacket from {:?}. Attempting login...",
+                client_tcp_addr
+            );
             p
         }
         None => {
-            debug!("Error while deserializing LoginPacket. Aborting login...");
-            return;
+            debug!(
+                "Error while deserializing LoginPacket from {:?}. Aborting login...",
+                client_tcp_addr
+            );
+            return (LoginResponsePacket::DeserializeError, 0);
         }
     };
 
-    // Try login.
-    let login_response = try_login(local, login_packet, client_tcp_addr).await;
-
-    // Send LoginResponse.
-    if let Err(err) = write_half.write_all(&login_response.serialize()).await {
-        debug!(
-            "{:?} while trying to write LoginResponsePacket to {}. Aborting login...",
-            err, client_tcp_addr
-        );
-        return;
-    }
-
-    let client_id = if let LoginResponsePacket::Accepted { client_id } = login_response {
-        client_id
-    } else {
-        return;
-    };
-
-    // Start runners.
-    let client_udp_address = SocketAddrV6::new(*client_tcp_addr.ip(), login_packet.client_udp_port, 0, 0);
-
-    let (udp_sender, udp_to_send) = tokio::sync::mpsc::channel(16);
-    spawn(send_udp(udp_to_send, udp_socket, client_udp_address));
-
-    let (udp_received, udp_receiver) = crossbeam_channel::unbounded();
-    udp_senders.lock().unwrap().insert(client_udp_address, udp_received);
-
-    let (tcp_sender, tcp_to_send) = tokio::sync::mpsc::channel(8);
-    spawn(send_tcp(tcp_to_send, write_half, client_tcp_addr));
-
-    let (tcp_received, tcp_receiver) = crossbeam_channel::unbounded();
-    spawn(recv_tcp(
-        tcp_received,
-        buf_read,
-        client_tcp_addr,
-        udp_senders,
-        client_udp_address,
-    ));
-
-    // Create Connection.
-    let connection = Connection {
-        client_id,
-        udp_sender,
-        udp_receiver,
-        tcp_sender,
-        tcp_receiver,
-    };
-
-    let _ = new_connection_sender.send(connection);
-}
-
-/// Identify the client.
-async fn try_login(local: bool, login_packet: LoginPacket, client_tcp_addr: SocketAddrV6) -> LoginResponsePacket {
     // Check client version.
     if login_packet.client_version != Version::CURRENT {
-        return LoginResponsePacket::WrongVersion;
+        debug!(
+            "{} attempted to login with {} which does not match server. Aborting login...",
+            client_tcp_addr, login_packet.client_version
+        );
+        return (
+            LoginResponsePacket::WrongVersion {
+                server_version: Version::CURRENT,
+            },
+            0,
+        );
     }
 
+    // Check credential.
     let client_id = match local {
         true => {
-            debug!("{} logged-in localy as ClientId 1", client_tcp_addr);
+            debug!("{} logged-in localy as ClientId(1).", client_tcp_addr);
             ClientId(1)
         }
         false => {
             match login_packet.is_steam {
                 true => {
                     // TODO: Check credential with steam.
-                    error!(
-                        "{} is trying to login with steam. Verifying credential... ***TODO: use ClientId 1 for now***",
-                        client_tcp_addr
-                    );
-                    ClientId(1)
+                    todo!()
                 }
                 false => {
                     debug!(
-                        "{} tried to login without steam which is not implemented. Aborting login...",
+                        "{} tried to login without steam which is not emplemented. Ignoring...",
                         client_tcp_addr
                     );
-                    return LoginResponsePacket::NotSteam;
+                    return (LoginResponsePacket::NotSteam, 0);
                 }
             }
         }
     };
 
-    LoginResponsePacket::Accepted { client_id }
+    debug!("{} successfully identified as {:?}.", client_tcp_addr, client_id);
+    (
+        LoginResponsePacket::Accepted { client_id },
+        login_packet.client_udp_port,
+    )
 }
 
-async fn send_udp(
-    mut udp_to_send: tokio::sync::mpsc::Receiver<UdpServer>,
-    udp_socket: Arc<UdpSocket>,
-    client_udp_address: SocketAddrV6,
+async fn handle_successful_login(
+    mut login_result_receiver: tokio::sync::mpsc::Receiver<LoginResult>,
+    new_connection_sender: crossbeam_channel::Sender<Connection>,
+    udp_connection_event_sender: crossbeam_channel::Sender<UdpConnectionEvent>,
+    udp_packet_to_send_sender: crossbeam_channel::Sender<(SocketAddrV6, Vec<u8>)>,
 ) {
     loop {
-        if let Some(packet) = udp_to_send.recv().await {
-            if let Err(err) = udp_socket.send_to(&packet.serialize(), client_udp_address).await {
-                if is_err_fatal(&err) {
-                    debug!(
-                        "Fatal error while sending packet to {}. Disconnecting...",
-                        client_udp_address
-                    );
-                    break;
-                }
+        if let Some(login_result) = login_result_receiver.recv().await {
+            let (udp_packet_received_sender, udp_packet_received) = crossbeam_channel::unbounded::<Vec<u8>>();
+
+            // Wrap stream into buffers.
+            let (r, w) = login_result.stream.into_split();
+            let buf_read = BufReader::new(r);
+            let buf_write = BufWriter::new(w);
+
+            // Add connection to udp loop.
+            if let Err(err) = udp_connection_event_sender.send(UdpConnectionEvent::Connected {
+                client_udp_addr: login_result.client_udp_addr,
+                udp_packet_received_sender,
+            }) {
+                debug!(
+                    "{:?} while sending udp connection event to udp in loop. Terminating login success handler task...",
+                    err
+                );
+                break;
+            }
+
+            // Start tcp loops.
+            let (tcp_sender, tcp_to_send) = tokio::sync::mpsc::channel(8);
+            tokio::spawn(tcp_out_loop(tcp_to_send, buf_write, login_result.client_id));
+            let (tcp_received, tcp_receiver) = crossbeam_channel::unbounded();
+            tokio::spawn(tcp_in_loop(
+                tcp_received,
+                buf_read,
+                login_result.client_id,
+                udp_connection_event_sender.clone(),
+                login_result.client_udp_addr,
+            ));
+
+            if new_connection_sender
+                .send(Connection {
+                    client_id: login_result.client_id,
+                    peer_tcp_addr: login_result.client_tcp_addr,
+                    peer_udp_addr: login_result.client_udp_addr,
+                    udp_packet_received,
+                    tcp_packet_received: tcp_receiver,
+                    udp_packet_to_send: udp_packet_to_send_sender.clone(),
+                    tcp_packet_to_send: tcp_sender,
+                })
+                .is_err()
+            {
+                break;
             }
         } else {
-            debug!("Udp sender for {} shutdown.", client_udp_address);
             break;
         }
     }
 }
 
-/// Receive all udp packets.
-/// Does not know if a connection is dropped until the tcp receiver channel is dropped.
-async fn recv_udp(
-    udp_senders: Arc<Mutex<HashMap<SocketAddrV6, crossbeam_channel::Sender<UdpClient>>>>,
-    udp_socket: Arc<UdpSocket>,
-) {
-    let mut buf = [0u8; UdpClient::MAX_SIZE];
-
-    loop {
-        match udp_socket.recv_from(&mut buf).await {
-            Ok((num, generic_client_udp_addr)) => {
-                // Convert generic address to v6.
-                let client_udp_addr = match generic_client_udp_addr {
-                    std::net::SocketAddr::V4(_) => {
-                        trace!("Got an udp packet from a ipv4 address. Ignoring...");
-                        continue;
-                    }
-                    std::net::SocketAddr::V6(v6) => v6,
-                };
-
-                // Check if we have a channel for this addr.
-                if let Some(sender) = udp_senders.lock().unwrap().get(&client_udp_addr) {
-                    // Deserialize packet.
-                    if let Some(packet) = UdpClient::deserialize(&buf[..num]) {
-                        if sender.send(packet).is_err() {
-                            warn!(
-                                "{} 's channel is drop and should've been removed. Ignoring...",
-                                client_udp_addr
-                            );
-                        }
-                    } else {
-                        trace!(
-                            "{} sent an udp packet that could not be deserialized. Ignoring...",
-                            client_udp_addr
-                        );
-                    }
-                } else {
-                    trace!(
-                        "{} sent an udp packet, but is not connected. Ignoring...",
-                        client_udp_addr
-                    );
-                }
-            }
-            Err(err) => {
-                debug!("{:?} while receiving udp packet from clients. Ignoring...", err);
-            }
-        }
-    }
-}
-
-async fn send_tcp(
-    mut tcp_to_send: tokio::sync::mpsc::Receiver<TcpServer>,
-    mut write_half: OwnedWriteHalf,
-    client_tcp_addr: SocketAddrV6,
-) {
-    loop {
-        if let Some(packet) = tcp_to_send.recv().await {
-            // Serialize and send data.
-            if let Err(err) = write_half.write_all(&packet.serialize()).await {
-                if is_err_fatal(&err) {
-                    debug!(
-                        "Fatal error while writting to {} 's tcp socket. Disconnecting...",
-                        client_tcp_addr
-                    );
-                    break;
-                }
-            }
-        } else {
-            debug!("Tcp sender for {} shutdown.", client_tcp_addr);
-            break;
-        }
-    }
-}
-
-/// If a connection is dropped, also remove from udp addresses.
-async fn recv_tcp(
-    tcp_received: crossbeam_channel::Sender<TcpClient>,
-    mut buf_read: BufReader<OwnedReadHalf>,
-    client_tcp_addr: SocketAddrV6,
-    udp_senders: Arc<Mutex<HashMap<SocketAddrV6, crossbeam_channel::Sender<UdpClient>>>>,
-    udp_address: SocketAddrV6,
-) {
-    let mut next_payload_size;
-    let mut header_buffer = [0u8; 4];
-    let mut buf: Vec<u8> = Vec::new();
-
-    loop {
-        // Get a header.
-        match buf_read.read_exact(&mut header_buffer).await {
-            Ok(num) => {
-                if num == 0 {
-                    debug!("{} disconnected.", client_tcp_addr);
-                    break;
-                }
-
-                next_payload_size = u32::from_be_bytes(header_buffer) as usize;
-
-                if next_payload_size > TcpClient::MAX_SIZE {
-                    // Next packet is too large.
-                    debug!(
-                        "{} tried to send a packet of {} bytes which is over the size limit of {}. Disconnecting...",
-                        client_tcp_addr,
-                        next_payload_size,
-                        TcpClient::MAX_SIZE
-                    );
-                    break;
-                } else if next_payload_size > buf.len() {
-                    // Next packet will need a biger buffer.
-                    buf.resize(next_payload_size, 0);
-                }
-
-                // Get packet.
-                match buf_read.read_exact(&mut buf[..next_payload_size]).await {
-                    Ok(num) => {
-                        if num != next_payload_size {
-                            debug!(
-                                "{} disconnected while sending a packet. Ignoring packet...",
-                                client_tcp_addr
-                            );
-                            break;
-                        }
-
-                        // Try to deserialize.
-                        match TcpClient::deserialize(&buf[..next_payload_size]) {
-                            Some(packet) => {
-                                // Send packet to channel.
-                                if tcp_received.send(packet).is_err() {
-                                    debug!("Tcp sender for {} shutdown.", client_tcp_addr);
-                                    break;
-                                }
-                            }
-                            None => {
-                                debug!(
-                                    "Error while deserializing {} 's tcp packet. Disconnecting...",
-                                    client_tcp_addr
-                                );
-                                break;
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        if is_err_fatal(&err) {
-                            debug!(
-                                "Fatal error while reading {} 's tcp packet. Disconnecting...",
-                                client_tcp_addr
-                            );
-                            break;
-                        }
-                    }
-                }
-            }
-            Err(err) => {
-                if is_err_fatal(&err) {
-                    debug!(
-                        "Fatal error while reading {} 's tcp header. Disconnecting...",
-                        client_tcp_addr
-                    );
-                    break;
-                }
-            }
-        }
-    }
-
-    // Also remove udp address.
-    udp_senders.lock().unwrap().remove(&udp_address);
-    debug!(
-        "Tcp receiver for {} shutdown. Also removed {} from udp list.",
-        client_tcp_addr, udp_address
-    );
-}
-
-async fn ping_loop(udp_socket: UdpSocket) {
+fn ping_loop(socket: UdpSocket) {
     let mut buf = [0; 4];
     loop {
-        if let Ok((num, ping_addr)) = udp_socket.recv_from(&mut buf).await {
-            let _ = udp_socket.send_to(&buf[..num], ping_addr).await;
+        if let Ok((num, ping_addr)) = socket.recv_from(&mut buf) {
+            let _ = socket.send_to(&buf[..num], ping_addr);
         }
-    }
-}
-
-/// If the io error is fatal, return true and print the err to debug log.
-fn is_err_fatal(err: &Error) -> bool {
-    if err.kind() == std::io::ErrorKind::WouldBlock || err.kind() == std::io::ErrorKind::Interrupted {
-        false
-    } else {
-        debug!("Fatal io error {:?}.", err);
-        true
     }
 }

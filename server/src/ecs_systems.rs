@@ -1,3 +1,5 @@
+use std::hint::unreachable_unchecked;
+
 use crate::data_manager::DataManager;
 use crate::ecs_components::*;
 use crate::ecs_events::*;
@@ -197,19 +199,25 @@ fn client_fleet_sensor(
                         entity_order.current_entity_order.extend(detected.0.iter());
                         entity_order.id = entity_order.id.wrapping_add(1);
 
-                        let _ = client.connection.tcp_sender.blocking_send(TcpServer::EntityList {
-                            tick: time_res.tick,
-                            entity_order_id: entity_order.id,
-                            list: detected.0.clone(),
-                        });
+                        let _ = client
+                            .connection
+                            .tcp_packet_to_send
+                            .blocking_send(TcpPacket::EntityList {
+                                tick: time_res.tick,
+                                entity_order_id: entity_order.id,
+                                list: detected.0.clone(),
+                            });
 
                         // Send new entity info to the client.
                         for new_entity in difference.add.into_iter().map(|entity_id| Entity::new(entity_id)) {
                             if let Ok(new_entity_fleet_id) = query_fleet.get(new_entity) {
-                                let _ = client.connection.tcp_sender.blocking_send(TcpServer::FleetInfo {
-                                    entity_id: new_entity.id(),
-                                    fleet_id: *new_entity_fleet_id,
-                                });
+                                let _ = client
+                                    .connection
+                                    .tcp_packet_to_send
+                                    .blocking_send(TcpPacket::FleetInfo {
+                                        entity_id: new_entity.id(),
+                                        fleet_id: *new_entity_fleet_id,
+                                    });
                             }
                             // TODO: Query other type of entity here.
                         }
@@ -240,9 +248,12 @@ fn fleet_ai(
                     if let Some(client) = clients_res.connected_clients.get(&client_id) {
                         // Apply the udp packets of this client on this fleet.
                         loop {
-                            match client.connection.udp_receiver.try_recv() {
+                            match client.connection.udp_packet_received.try_recv() {
                                 Ok(packet) => {
-                                    match packet {
+                                    match UdpClient::deserialize(&packet) {
+                                        UdpClient::Invalid => {
+                                            debug!("{:?} sent an invalid UdpClient packet. Ignoring...", client_id);
+                                        }
                                         UdpClient::Battlescape {
                                             wish_input,
                                             acknowledge_command,
@@ -406,7 +417,7 @@ fn update_intersection_pipeline(
 //     time_res: Res<TimeRes>,
 //     clients_res: Res<ClientsRes>,
 // ) {
-    
+
 // }
 
 /// Send detected fleet to clients over udp.
@@ -445,31 +456,26 @@ fn send_detected_entity(
                 }
 
                 if metascape_state_part.entities_position.len() >= MetascapeStatePart::NUM_ENTITIES_POSITION_MAX {
-                    // Prepare next part.
-                    let new_metascape_state_part = MetascapeStatePart {
-                        tick: metascape_state_part.tick,
-                        part: metascape_state_part.part + 1,
-                        entity_order_required: metascape_state_part.entity_order_required,
-                        relative_position: metascape_state_part.relative_position,
-                        entities_position: Vec::with_capacity(
-                            (entity_order.current_entity_order.len().saturating_sub(
-                                usize::from(metascape_state_part.part) * MetascapeStatePart::NUM_ENTITIES_POSITION_MAX,
-                            ))
-                            .min(MetascapeStatePart::NUM_ENTITIES_POSITION_MAX),
-                        ),
-                    };
-
                     // Send this part.
                     let packet = UdpServer::MetascapeEntityPosition(metascape_state_part);
-                    let _ = client.connection.udp_sender.blocking_send(packet);
+                    let _ = client.connection.send_udp_packet(packet.serialize());
 
-                    metascape_state_part = new_metascape_state_part;
+                    // Prepare next part.
+                    unsafe {
+                        if let UdpServer::MetascapeEntityPosition(p) = packet {
+                            metascape_state_part = p;
+                        } else {
+                            unreachable_unchecked();
+                        }
+                    }
+                    metascape_state_part.part += 1;
+                    metascape_state_part.entities_position.clear();
                 }
             }
 
             if !metascape_state_part.entities_position.is_empty() {
                 let packet = UdpServer::MetascapeEntityPosition(metascape_state_part);
-                let _ = client.connection.udp_sender.blocking_send(packet);
+                let _ = client.connection.send_udp_packet(packet.serialize());
             }
         }
     });

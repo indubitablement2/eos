@@ -20,9 +20,9 @@ rand_xoshiro = "0.6.0"
 ahash = "0.7.6"
 indexmap = {version = "1.7.0", features = ["serde"] }
 
-serde = { version = "1.0.131", features = ["derive"] }
+serde = { version = "1.0.132", features = ["derive"] }
 bincode = "1.3.3"
-serde_yaml = "0.8.21"
+serde_yaml = "0.8.23"
 
 # Non deterministic math.
 glam = { version = "0.20.1", features = ["serde", "rand"] }

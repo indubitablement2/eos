@@ -52,7 +52,7 @@ fn test_login_packet() {
 pub enum LoginResponsePacket {
     Accepted { client_id: ClientId },
     /// Client version does not match server version.
-    WrongVersion,
+    WrongVersion { server_version: Version},
     /// Login without steam is not implemented.
     NotSteam,
     OtherError,
@@ -112,6 +112,8 @@ impl Default for BattlescapeInput {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum UdpClient {
+    /// Could not deserialize packet.
+    Invalid,
     Battlescape {
         wish_input: BattlescapeInput,
         /// A Battlescape command that has been received.
@@ -130,14 +132,13 @@ impl UdpClient {
         bincode::serialize(self).unwrap()
     }
 
-    pub fn deserialize(buffer: &[u8]) -> Option<Self> {
-        match bincode::deserialize::<Self>(&buffer) {
-            Ok(result) => Some(result),
-            Err(err) => {
-                warn!("{} while trying to deserialize packet.", err);
-                None
-            }
-        }
+    pub fn deserialize(buffer: &[u8]) -> Self {
+        bincode::deserialize::<Self>(&buffer).unwrap_or_default()
+    }
+}
+impl Default for UdpClient {
+    fn default() -> Self {
+        Self::Invalid
     }
 }
 
@@ -153,7 +154,7 @@ fn test_udp_client() {
         acknowledge_command: 50,
     };
     println!("{:?}", &og);
-    println!("{:?}", UdpClient::deserialize(&og.serialize()).unwrap());
+    println!("{:?}", UdpClient::deserialize(&og.serialize()));
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -177,6 +178,8 @@ impl MetascapeStatePart {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum UdpServer {
+    /// Could not deserialize packet.
+    Invalid,
     Battlescape {
         battlescape_tick: u32,
         client_inputs: Vec<BattlescapeInput>,
@@ -200,34 +203,14 @@ impl UdpServer {
         }
     }
 }
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum TcpClient {}
-impl TcpClient {
-    pub const MAX_SIZE: usize = 65536;
-
-    /// Adds a 32bits header representing payload size.
-    pub fn serialize(&self) -> Vec<u8> {
-        let mut payload = bincode::serialize(self).unwrap();
-        let mut v = (payload.len() as u32).to_be_bytes().to_vec();
-        v.append(&mut payload);
-        v
-    }
-
-    /// Expect no header.
-    pub fn deserialize(buffer: &[u8]) -> Option<Self> {
-        match bincode::deserialize::<Self>(&buffer) {
-            Ok(result) => Some(result),
-            Err(err) => {
-                warn!("{} while trying to deserialize packet.", err);
-                None
-            }
-        }
+impl Default for UdpServer {
+    fn default() -> Self {
+        Self::Invalid
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum TcpServer {
+pub enum TcpPacket {
     EntityList {
         tick: u32,
         entity_order_id: u8,
@@ -240,21 +223,51 @@ pub enum TcpServer {
         fleet_id: FleetId,
     }
 }
-impl TcpServer {
-    /// Adds a 32bits header representing payload size.
-    pub fn serialize(&self) -> Vec<u8> {
-        let mut payload = bincode::serialize(self).unwrap();
-        let mut v = (payload.len() as u32).to_be_bytes().to_vec();
-        v.append(&mut payload);
-        v
+impl TcpPacket {
+    /// Tcp packet above this size will be ignored.
+    pub const MAX_SIZE: usize = u16::MAX as usize;
+
+    pub fn serialize(&self) -> Option<Vec<u8>> {
+        match bincode::serialize(self) {
+            Ok(v) => {
+                if v.len() <= Self::MAX_SIZE {
+                    Some(v)
+                } else {
+                    warn!("Tried to serialize a TcpPacket of {} which is above size limit of {}.", v.len(), Self::MAX_SIZE);
+                    None
+                }
+            }
+            Err(err) => {
+                warn!("{} while trying to serialize TcpPacket.", err);
+                None
+            }
+        }
     }
 
-    /// Expect no header.
+    pub fn serialized_size(&self) -> Option<usize> {
+        match bincode::serialized_size(self) {
+            Ok(num) => Some(num as usize),
+            Err(err) => {
+                warn!("{:?} while trying to get the serialized size of a TcpPacket.", err);
+                None
+            }
+        }
+    }
+
+    pub fn serialize_into(&self, buf: &mut [u8]) -> bool {
+        if let Err(err) = bincode::serialize_into(buf, self) {
+            warn!("{:?} while trying to serialize TcpPacket into a provided buffer.", err);
+            false
+        } else {
+            true
+        }
+    }
+
     pub fn deserialize(buffer: &[u8]) -> Option<Self> {
         match bincode::deserialize::<Self>(&buffer) {
             Ok(result) => Some(result),
             Err(err) => {
-                warn!("{} while trying to deserialize packet.", err);
+                debug!("{} while trying to deserialize TcpPacket.", err);
                 None
             }
         }

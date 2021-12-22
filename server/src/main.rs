@@ -3,6 +3,7 @@
 #![feature(drain_filter)]
 #![feature(slice_split_at_unchecked)]
 #![feature(iter_advance_by)]
+#![feature(duration_constants)]
 
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
@@ -18,7 +19,7 @@ use std::{thread::sleep, time::Instant};
 
 use crate::terminal::Terminal;
 
-mod connection_manager;
+pub mod connection_manager;
 mod data_manager;
 mod ecs_components;
 mod ecs_events;
@@ -39,10 +40,7 @@ pub struct Metascape {
     schedule: Schedule,
 }
 impl Metascape {
-    fn new(
-        local: bool,
-        metascape_parameters: MetascapeParameters,
-    ) -> std::io::Result<Self> {
+    fn new(local: bool, metascape_parameters: MetascapeParameters) -> std::io::Result<Self> {
         let mut world = World::new();
         ecs_events::add_event_res(&mut world);
         world.insert_resource(TaskPool::new());
@@ -146,10 +144,7 @@ fn startup() -> std::io::Result<Metascape> {
 
     // Init Metascape.
     if default_values {
-        return Ok(Metascape::new(
-            local,
-            MetascapeParameters::default(),
-        )?);
+        return Ok(Metascape::new(local, MetascapeParameters::default())?);
     } else {
         return Err(std::io::Error::new(
             std::io::ErrorKind::Other,
