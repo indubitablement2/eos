@@ -1,15 +1,12 @@
-use std::hint::unreachable_unchecked;
-
 use crate::data_manager::DataManager;
 use crate::ecs_components::*;
 use crate::ecs_events::*;
-use crate::intersection::*;
 use crate::res_clients::*;
 use crate::res_fleets::*;
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
 use common::array_difference::sorted_arrays_add;
-use common::collider::Collider;
+use common::intersection::*;
 use common::idx::*;
 use common::packets::*;
 use common::parameters::MetascapeParameters;
@@ -17,6 +14,7 @@ use common::res_time::TimeRes;
 use glam::vec2;
 use glam::Vec2;
 use rand::Rng;
+use std::hint::unreachable_unchecked;
 
 pub fn add_systems(schedule: &mut Schedule) {
     let current_stage = "first";
