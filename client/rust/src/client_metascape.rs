@@ -1,4 +1,4 @@
-use crate::client::Client;
+use crate::connection_manager::ConnectionManager;
 use crate::input_handler::InputHandler;
 use crate::util::*;
 use ahash::AHashMap;
@@ -55,7 +55,7 @@ pub struct ClientMetascape {
     systems: Systems,
 
     /// Send input to server. Receive command from server.
-    client: Client,
+    connection_manager: ConnectionManager,
     send_timer: f32,
 
     recent_ping: VecDeque<f32>,
@@ -70,12 +70,9 @@ pub struct ClientMetascape {
     state_buffer: Vec<MetascapeStatePart>,
 }
 impl ClientMetascape {
-    pub fn new(
-        server_addresses: ServerAddresses,
-        metascape_parameters: MetascapeParameters,
-    ) -> std::io::Result<Self> {
+    pub fn new(server_addresses: ServerAddresses, metascape_parameters: MetascapeParameters) -> std::io::Result<Self> {
         Ok(Self {
-            client: Client::new(server_addresses)?,
+            connection_manager: ConnectionManager::connect_to_server("::1")?,
             systems: Systems::default(),
             metascape_parameters,
             state_buffer: Vec::new(),
@@ -94,7 +91,7 @@ impl ClientMetascape {
 
         // Handle pings.
         loop {
-            match self.client.ping_duration_receiver.try_recv() {
+            match self.connection_manager.ping_duration_receiver.try_recv() {
                 Ok(ping_time) => {
                     info!("{}", ping_time);
                     self.recent_ping.push_back(ping_time);
@@ -118,9 +115,9 @@ impl ClientMetascape {
 
         // Handle server tcp packets.
         loop {
-            match self.client.tcp_receiver.try_recv() {
+            match self.connection_manager.connection.tcp_packet_received.try_recv() {
                 Ok(tcp_packet) => match tcp_packet {
-                    TcpServer::EntityList {
+                    TcpPacket::EntityList {
                         tick,
                         entity_order_id,
                         list,
@@ -136,7 +133,7 @@ impl ClientMetascape {
                             debug!("deleted an entity order.");
                         }
                     }
-                    TcpServer::FleetInfo { entity_id, fleet_id } => {
+                    TcpPacket::FleetInfo { entity_id, fleet_id } => {
                         self.metascape_state
                             .entity_fleet
                             .insert(entity_id, MetascapeFleet { fleet_id });
@@ -154,8 +151,8 @@ impl ClientMetascape {
 
         // Handle server udp packets.
         loop {
-            match self.client.udp_receiver.try_recv() {
-                Ok(udp_packet) => match udp_packet {
+            match self.connection_manager.connection.udp_packet_received.try_recv() {
+                Ok(udp_packet) => match UdpServer::deserialize(&udp_packet) {
                     UdpServer::Battlescape {
                         client_inputs,
                         battlescape_tick,
@@ -163,6 +160,9 @@ impl ClientMetascape {
                     UdpServer::MetascapeEntityPosition(metascape_state_part) => {
                         // Add to state buffer.
                         self.state_buffer.push(metascape_state_part);
+                    }
+                    UdpServer::Invalid => {
+                        debug!("Received an invalid udp packet from the server. Ignoring...");
                     }
                 },
                 Err(err) => {
@@ -307,7 +307,12 @@ impl ClientMetascape {
 
             let wish_position = input_handler.relative_mouse_position;
             let packet = UdpClient::Metascape { wish_position };
-            if self.client.udp_sender.send(packet).is_err() {
+            if self
+                .connection_manager
+                .connection
+                .send_udp_packet(packet.serialize())
+                .is_err()
+            {
                 warn!("No udp connection to the server. Quitting...");
                 quit = true;
             }
@@ -339,7 +344,7 @@ impl ClientMetascape {
             let a = entity.fade * 0.9;
 
             if let Some(fleet_info) = self.metascape_state.entity_fleet.get(entity_id) {
-                if ClientId::from(fleet_info.fleet_id) == self.client.client_id {
+                if ClientId::from(fleet_info.fleet_id) == self.connection_manager.connection.client_id {
                     // This is us!
                     g = 1.0;
                     owner.draw_circle(

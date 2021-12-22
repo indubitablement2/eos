@@ -40,7 +40,7 @@ impl Version {
 
 /// How long between each Battlescape/Metascape tick.
 pub const UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
-/// The server's tcp port.
+/// The server's tcp/udp port.
 pub const SERVER_PORT: u16 = 36188;
 /// The server's udp port that will accept ping. 
 pub const SERVER_PING_PORT: u16 = 46465;

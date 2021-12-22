@@ -129,7 +129,7 @@ impl UdpClient {
 
     /// Serialize into a buffer ready to be sent over Udp.
     pub fn serialize(&self) -> Vec<u8> {
-        bincode::serialize(self).unwrap()
+        bincode::serialize(self).unwrap_or_default()
     }
 
     pub fn deserialize(buffer: &[u8]) -> Self {
@@ -190,17 +190,11 @@ impl UdpServer {
     pub const MAX_SIZE: usize = 1200;
 
     pub fn serialize(&self) -> Vec<u8> {
-        bincode::serialize(self).unwrap()
+        bincode::serialize(self).unwrap_or_default()
     }
 
-    pub fn deserialize(buffer: &[u8]) -> Option<Self> {
-        match bincode::deserialize::<Self>(&buffer) {
-            Ok(result) => Some(result),
-            Err(err) => {
-                warn!("{} while trying to deserialize packet.", err);
-                None
-            }
-        }
+    pub fn deserialize(buffer: &[u8]) -> Self {
+        bincode::deserialize::<Self>(&buffer).unwrap_or_default()
     }
 }
 impl Default for UdpServer {
@@ -230,10 +224,10 @@ impl TcpPacket {
     pub fn serialize(&self) -> Option<Vec<u8>> {
         match bincode::serialize(self) {
             Ok(v) => {
-                if v.len() <= Self::MAX_SIZE {
+                if v.len() <= Self::MAX_SIZE && !v.is_empty() {
                     Some(v)
                 } else {
-                    warn!("Tried to serialize a TcpPacket of {} which is above size limit of {}.", v.len(), Self::MAX_SIZE);
+                    warn!("Tried to serialize a TcpPacket of {} bytes.", v.len());
                     None
                 }
             }

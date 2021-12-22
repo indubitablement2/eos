@@ -15,8 +15,9 @@ pub mod ecs_systems;
 pub mod ecs_render_pipeline;
 pub mod yaml_components;
 
-mod client;
+// mod _client;
 mod client_metascape;
+mod connection_manager;
 mod game;
 mod godot_logger;
 mod input_handler;

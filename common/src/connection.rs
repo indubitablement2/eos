@@ -11,7 +11,7 @@ pub struct Connection {
     pub tcp_packet_received: crossbeam_channel::Receiver<TcpPacket>,
     /// Send udp packet to connected peer.
     /// 
-    /// Consider using `send_udp_packet` which automaticaly use the udp address in this struc.
+    /// Consider using `send_udp_packet` which automaticaly use the udp address found in this struc.
     pub udp_packet_to_send: crossbeam_channel::Sender<(SocketAddrV6, Vec<u8>)>,
     /// Send tcp packet to connected peer.
     pub tcp_packet_to_send: tokio::sync::mpsc::Sender<TcpPacket>,

@@ -84,10 +84,9 @@ impl Game {
                         udp_address: SocketAddrV6::new(addr, SERVER_PORT, 0, 0),
                     };
 
-                    if let Ok(new_client_metascape) = ClientMetascape::new(
-                        server_addresses,
-                        MetascapeParameters::default(),
-                    ) {
+                    if let Ok(new_client_metascape) =
+                        ClientMetascape::new(server_addresses, MetascapeParameters::default())
+                    {
                         self.client_metascape.replace(new_client_metascape);
                         return true;
                     }
@@ -108,10 +107,7 @@ impl Game {
                 udp_address: SocketAddrV6::new(Ipv6Addr::LOCALHOST, SERVER_PORT, 0, 0),
             };
 
-            if let Ok(new_client_metascape) = ClientMetascape::new(
-                server_addresses,
-                MetascapeParameters::default(),
-            ) {
+            if let Ok(new_client_metascape) = ClientMetascape::new(server_addresses, MetascapeParameters::default()) {
                 self.client_metascape.replace(new_client_metascape);
                 return true;
             }

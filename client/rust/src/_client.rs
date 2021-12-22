@@ -24,34 +24,29 @@ pub struct Client {
     pub rt: Runtime,
 
     /// Send packet over udp to the server.
-    pub udp_sender: tokio::sync::mpsc::UnboundedSender<UdpClient>,
+    pub udp_sender: tokio::sync::mpsc::UnboundedSender<Vec<u8>>,
     /// Receive packet over udp from the server.
-    pub udp_receiver: crossbeam_channel::Receiver<UdpServer>,
+    pub udp_receiver: crossbeam_channel::Receiver<Vec<u8>>,
     /// Send packet over tcp to the server.
-    pub tcp_sender: tokio::sync::mpsc::UnboundedSender<TcpClient>,
+    pub tcp_sender: tokio::sync::mpsc::UnboundedSender<TcpPacket>,
     /// Receive packet over tcp from the server.
-    pub tcp_receiver: crossbeam_channel::Receiver<TcpServer>,
+    pub tcp_receiver: crossbeam_channel::Receiver<TcpPacket>,
 
     pub ping_duration_receiver: crossbeam_channel::Receiver<f32>,
 
-    pub server_addresses: ServerAddresses,
+    pub server_addresses: SocketAddrV6,
 }
 impl Client {
     /// Try to connect to a server. This could also be set to loopback if server is also the client.
-    pub fn new(server_addresses: ServerAddresses) -> std::io::Result<Self> {
+    pub fn new(addr: &str) -> std::io::Result<Self> {
+        // Server uses ipv6.
+        let server_address = SocketAddrV6::new(addr.parse().unwrap_or(Ipv6Addr::LOCALHOST), SERVER_PORT, 0, 0);
+
         // Create tokio runtime.
         let rt = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(1)
             .enable_all()
             .build()?;
-        debug!("Created tokio runtime.");
-
-        // Start ping loop.
-        let udp_ping_socket =
-            rt.block_on(async { UdpSocket::bind(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0)).await })?;
-        let (ping_duration_sender, ping_duration_receiver) = crossbeam_channel::unbounded();
-        rt.spawn(ping_loop(udp_ping_socket, ping_duration_sender));
-        debug!("Started ping loop.");
 
         // Connect tcp stream.
         let mut tcp_stream = rt.block_on(async { TcpStream::connect(server_addresses.tcp_address).await })?;
@@ -109,6 +104,12 @@ impl Client {
         rt.spawn(udp_send_loop(udp_socket, udp_to_send_receiver));
         rt.spawn(tcp_recv_loop(buf_read, tcp_received_sender));
         rt.spawn(tcp_send_loop(buf_write, tcp_to_send_receiver));
+
+        // Start ping loop.
+        let udp_ping_socket =
+            rt.block_on(async { UdpSocket::bind(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0)).await })?;
+        let (ping_duration_sender, ping_duration_receiver) = crossbeam_channel::unbounded();
+        rt.spawn(ping_loop(udp_ping_socket, ping_duration_sender));
 
         Ok(Client {
             client_id,
@@ -240,7 +241,7 @@ async fn tcp_recv_loop(
 /// Send tcp to the server.
 async fn tcp_send_loop(
     mut buf_write: BufWriter<OwnedWriteHalf>,
-    mut tcp_to_send_receiver: tokio::sync::mpsc::UnboundedReceiver<TcpClient>,
+    mut tcp_to_send_receiver: tokio::sync::mpsc::UnboundedReceiver<TcpPacket>,
 ) {
     loop {
         if let Some(packet) = tcp_to_send_receiver.recv().await {
@@ -261,6 +262,7 @@ async fn tcp_send_loop(
     }
 }
 
+
 async fn ping_loop(udp_socket: UdpSocket, ping_duration_sender: Sender<f32>) {
     let mut buf = [0; 1];
 
@@ -271,14 +273,19 @@ async fn ping_loop(udp_socket: UdpSocket, ping_duration_sender: Sender<f32>) {
     loop {
         interval.tick().await;
 
-        let _ = udp_socket.send(&buf).await;
+        if let Err(err) = udp_socket.send(&buf).await {
+            if is_err_fatal(&err) {
+                error!("{} while sending ping to server. Terminating ping loop...", err);
+                break;
+            }
+        }
         let last_ping = Instant::now();
 
         select! {
             r = udp_socket.recv(&mut buf) => {
                 if let Err(err) =  r {
                     if is_err_fatal(&err) {
-                        debug!("Fatal error while receiving ping. Terminating ping loop...");
+                        error!("{} while receiving ping. Terminating ping loop...", err);
                         break;
                     } else {
                         continue;
