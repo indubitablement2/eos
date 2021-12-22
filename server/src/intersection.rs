@@ -39,9 +39,11 @@ impl Default for SAPRow {
     }
 }
 
+/// Allow fast circle-circle and circle-point test.
+/// 
 /// # Safety
-/// After modifying this and until it is updated,
-/// any test result will be at best meaningless or will panic due to out of bound array index.
+/// After any modification, and until it is updated,
+/// any test result will at best be meaningless or at worst will cause a panic due to out of bound array index.
 #[derive(Debug)]
 pub struct AccelerationStructure {
     pub colliders: Vec<Collider>,
@@ -56,19 +58,20 @@ pub struct AccelerationStructure {
     rows: Vec<SAPRow>,
 }
 impl AccelerationStructure {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             colliders: Vec::new(),
             rows_top: 0.0,
             rows_bot: 0.0,
-            rows_lenght: 1.0,
+            rows_lenght: 0.0,
             rows: vec![SAPRow::default()],
         }
     }
 
+    /// This function is expensive and warrant its own thread (see `IntersectionPipeline`).
     /// # Safety
     /// Will panic if any collider's position is not real.
-    fn update(&mut self) {
+    pub fn update(&mut self) {
         if self.colliders.is_empty() {
             self.rows.clear();
             self.rows_bot = 0.0;
@@ -89,8 +92,8 @@ impl AccelerationStructure {
             average_diameter += collider.radius;
         }
         average_diameter = average_diameter / self.colliders.len() as f32 * 2.0;
-        upper -= biggest_radius + 0.1;
-        lower += biggest_radius + 0.1;
+        upper -= biggest_radius;
+        lower += biggest_radius;
 
         // Clean the rows to reuse them.
         for row in self.rows.iter_mut() {
@@ -304,18 +307,13 @@ impl AccelerationStructure {
     }
 }
 
-// TODO: Intersection that can filter based on collider id.
-/// Allow fast circle-circle intersection and test between colliders.
-/// This intersection pipeline is fully async, but there is a delay before commands take effect.
+/// This wrap two `AccelerationStructure`, so that while one is used to make intersection test,
+/// the other is being updated. Update are therefore fully async, but there is a delay before changes take effect.
+/// If you want no delay, use the `AccelerationStructure` directly.
 #[derive(Debug)]
 pub struct IntersectionPipeline {
     pub update_request_sender: Sender<AccelerationStructure>,
     pub update_result_receiver: Receiver<AccelerationStructure>,
-    /// Does not do anything.
-    /// This is just there to know when was the last time an update was done.
-    /// If this is 0, snapshot has just been updated.
-    pub last_update_delta: u64,
-
     pub snapshot: AccelerationStructure,
 }
 impl IntersectionPipeline {
@@ -332,7 +330,6 @@ impl IntersectionPipeline {
         Self {
             update_request_sender,
             update_result_receiver,
-            last_update_delta: 1000,
             snapshot: AccelerationStructure::new(),
         }
     }

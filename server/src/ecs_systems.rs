@@ -375,10 +375,11 @@ fn spawn_ai_fleet(time_res: Res<TimeRes>, mut commands: Commands, mut fleets_res
 fn update_intersection_pipeline(
     query: Query<(Entity, &Position, &DetectedRadius)>,
     mut intersection_pipeline: ResMut<IntersectionPipeline>,
+    mut last_update_delta: Local<u8>,
 ) {
-    intersection_pipeline.last_update_delta += 1;
+    *last_update_delta += 1;
 
-    if intersection_pipeline.last_update_delta > 5 {
+    if *last_update_delta > 5 {
         // Take back the AccelerationStructure on the runner thread.
         match intersection_pipeline.update_result_receiver.try_recv() {
             Ok(mut runner) => {
@@ -398,7 +399,7 @@ fn update_intersection_pipeline(
                     intersection_pipeline.start_new_runner_thread();
                 }
 
-                intersection_pipeline.last_update_delta = 0;
+                *last_update_delta = 0;
             }
             Err(err) => {
                 if err == crossbeam_channel::TryRecvError::Disconnected {
