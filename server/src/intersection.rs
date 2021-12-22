@@ -3,6 +3,7 @@ use common::collider::Collider;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use glam::Vec2;
 use std::thread::spawn;
+extern crate test;
 
 /// _________ rows top
 ///
@@ -498,4 +499,28 @@ fn test_random_colliders() {
 
         assert_eq!(result, expected_result, "\n{:?}\n\n{:?}\n", result, expected_result);
     }
+}
+
+/// 3200 ns
+#[bench]
+fn bench_intersect_collider_into(b: &mut test::Bencher) {
+    use rand::Rng;
+    use test::black_box;
+    
+    // Create a large random intersection pipeline.
+    let mut rng = rand::thread_rng();
+    let mut intersection_pipeline = IntersectionPipeline::new();
+    for i in 0..5000 {
+        intersection_pipeline.snapshot.colliders.push(
+            Collider::new(i, rng.gen::<f32>() * 32.0, rng.gen::<Vec2>() * 1024.0 - 512.0)
+        );
+    }
+    intersection_pipeline.snapshot.update();
+
+    b.iter(|| {
+        let collider = Collider::new_idless(rng.gen::<f32>() * 32.0, rng.gen::<Vec2>() * 1024.0 - 512.0);
+        let mut result = Vec::new();
+        intersection_pipeline.snapshot.intersect_collider_into(collider, &mut result);
+        black_box(result);
+    });
 }
