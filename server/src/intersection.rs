@@ -2,7 +2,7 @@ use ahash::AHashSet;
 use common::collider::Collider;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use glam::Vec2;
-use std::{fmt::Debug, thread::spawn};
+use std::thread::spawn;
 
 /// _________ rows top
 ///
@@ -20,7 +20,11 @@ use std::{fmt::Debug, thread::spawn};
 #[derive(Debug, Clone)]
 struct SAPRow {
     /// The biggest radius found in this row.
-    biggest_radius: f32,
+    ///
+    /// . / " \\ <- same radius, but smaller threshold in this row
+    /// ___
+    /// / . . . \
+    threshold: f32,
     /// The colliders indices on the colliders IndexMap that overlap this row.
     /// Sorted on the x axis.
     data: Vec<u32>,
@@ -28,49 +32,8 @@ struct SAPRow {
 impl Default for SAPRow {
     fn default() -> Self {
         Self {
-            biggest_radius: 0.0,
+            threshold: 0.0,
             data: Vec::with_capacity(16),
-        }
-    }
-}
-impl SAPRow {
-    /// Insert all possible overlap from `self` in `buffer`.
-    fn get_possible_overlap(&self, colliders: &[Collider], collider: Collider, buffer: &mut AHashSet<u32>) {
-        // The furthest we should look to the left and right.
-        let left_threshold = collider.left() - self.biggest_radius;
-        let right_threshold = collider.right() + self.biggest_radius;
-
-        let left_index = self
-            .data
-            .partition_point(|i| colliders[*i as usize].position.x < left_threshold);
-
-        // Look from left to right.
-        for i in &self.data[left_index..] {
-            let other = colliders[*i as usize];
-            if other.position.x > right_threshold {
-                break;
-            }
-            buffer.insert(*i);
-        }
-    }
-
-    /// Insert all possible overlap from `self` in `buffer`.
-    fn get_possible_overlap_point(&self, colliders: &[Collider], point: Vec2, buffer: &mut AHashSet<u32>) {
-        // The furthest we should look to the left and right.
-        let left_threshold = point.x - self.biggest_radius;
-        let right_threshold = point.x + self.biggest_radius;
-
-        let left_index = self
-            .data
-            .partition_point(|i| colliders[*i as usize].position.x < left_threshold);
-
-        // Look from left to right.
-        for i in &self.data[left_index..] {
-            let other = colliders[*i as usize];
-            if other.position.x > right_threshold {
-                break;
-            }
-            buffer.insert(*i);
         }
     }
 }
@@ -86,21 +49,18 @@ pub struct AccelerationStructure {
     /// The bot of the last row
     rows_bot: f32,
     /// The distance between each row.
-    /// This is also equal to the biggest radius found clamped within some bound.
+    /// This is also equal to the average diameter found.
     rows_lenght: f32,
     /// Rows are sorted on the y axis. From top to bottom.
     rows: Vec<SAPRow>,
 }
 impl AccelerationStructure {
-    const ROWS_LENGHT_MIN: f32 = 16.0;
-    const ROWS_LENGHT_MAX: f32 = 256.0;
-
     fn new() -> Self {
         Self {
             colliders: Vec::new(),
             rows_top: 0.0,
             rows_bot: 0.0,
-            rows_lenght: Self::ROWS_LENGHT_MIN,
+            rows_lenght: 1.0,
             rows: vec![SAPRow::default()],
         }
     }
@@ -108,32 +68,43 @@ impl AccelerationStructure {
     /// # Safety
     /// Will panic if any collider's position is not real.
     fn update(&mut self) {
-        // Find the upper and lower collider.
+        if self.colliders.is_empty() {
+            self.rows.clear();
+            self.rows_bot = 0.0;
+            self.rows_top = 0.0;
+            self.rows_lenght = 0.0;
+            return
+        }
+
+        // Find rows parameters.
         let mut upper = 0.0f32;
         let mut lower = 0.0f32;
         let mut biggest_radius = 0.0f32;
+        let mut average_diameter = 0.0f32;
         for collider in self.colliders.iter() {
             upper = upper.min(collider.position.y);
             lower = lower.max(collider.position.y);
             biggest_radius = biggest_radius.max(collider.radius);
+            average_diameter += collider.radius;
         }
-        upper -= biggest_radius + 1.0;
-        lower += biggest_radius + 1.0;
-        self.rows_top = upper;
-        self.rows_bot = lower;
-        self.rows_lenght = biggest_radius.clamp(Self::ROWS_LENGHT_MIN, Self::ROWS_LENGHT_MAX);
+        average_diameter = average_diameter / self.colliders.len() as f32 * 2.0;
+        upper -= biggest_radius + 0.1;
+        lower += biggest_radius + 0.1;
 
         // Clean the rows to reuse them.
         for row in self.rows.iter_mut() {
-            row.biggest_radius = 0.0;
             row.data.clear();
         }
 
-        // Create rows.
-        let num_row = ((lower - upper) / self.rows_lenght) as usize + 1;
+        // Get the number of rows we should create.
+        let num_row = ((lower - upper) / average_diameter) as usize + 1;
         if num_row > self.rows.len() {
             self.rows.resize_with(num_row, Default::default);
         }
+
+        self.rows_top = upper;
+        self.rows_lenght = average_diameter;
+        self.rows_bot = ((num_row + 1) as f32).mul_add(self.rows_lenght, self.rows_top);
 
         // Add colliders to overlapping rows.
         for (collider, collider_index) in self.colliders.iter().zip(0u32..) {
@@ -166,12 +137,14 @@ impl AccelerationStructure {
             });
         }
 
-        // Find biggest radius for each row.
+        // Find biggest distance in each row.
+        let mut row_top = self.rows_top;
         for row in &mut self.rows {
-            row.biggest_radius = row
-                .data
-                .iter()
-                .fold(0.0, |acc, i| self.colliders[*i as usize].radius.max(acc));
+            let row_bot = row_top + self.rows_lenght;
+            row.threshold = row.data.iter().fold(0.0, |acc, i| {
+                self.colliders[*i as usize].biggest_slice_within_row(row_top, row_bot).max(acc)
+            });
+            row_top += self.rows_lenght;
         }
     }
 
@@ -186,22 +159,43 @@ impl AccelerationStructure {
 
     /// Get all colliders that should be tested.
     fn get_colliders_to_test(&self, collider: Collider) -> AHashSet<u32> {
-        let mut to_test = AHashSet::with_capacity(16);
+        let mut to_test = AHashSet::new();
 
         let first_overlapping_row = self.find_row_at_position(collider.top());
 
-        if first_overlapping_row < self.rows.len() {
-            let mut row_bot = self
-                .rows_lenght
-                .mul_add((first_overlapping_row + 1) as f32, self.rows_top);
-            let collider_bot = collider.bot();
-            for row in &self.rows[first_overlapping_row..] {
-                row.get_possible_overlap(&self.colliders, collider, &mut to_test);
-                if collider_bot < row_bot {
+        if first_overlapping_row >= self.rows.len() {
+            return to_test;
+        }
+
+        let collider_bot = collider.bot();
+        let mut row_top = self.rows_lenght.mul_add(first_overlapping_row as f32, self.rows_top);
+        let mut row_bot = row_top + self.rows_lenght;
+        for row in &self.rows[first_overlapping_row..] {
+            // This is used instead of the collider's radius as it is smaller.
+            let threshold = collider.biggest_slice_within_row(row_top, row_bot);
+
+            // The furthest we should look to the left and right.
+            let left_threshold = collider.position.x - row.threshold - threshold;
+            let right_threshold = collider.position.x + row.threshold + threshold;
+
+            let left_index = row
+                .data
+                .partition_point(|i| self.colliders[*i as usize].position.x < left_threshold);
+
+            // Look from left to right.
+            for i in &row.data[left_index..] {
+                let other = self.colliders[*i as usize];
+                if other.position.x > right_threshold {
                     break;
                 }
-                row_bot += self.rows_lenght;
+                to_test.insert(*i);
             }
+
+            if collider_bot < row_bot {
+                break;
+            }
+            row_bot += self.rows_lenght;
+            row_top += self.rows_lenght;
         }
 
         to_test
@@ -209,14 +203,29 @@ impl AccelerationStructure {
 
     /// Get all colliders that should be tested.
     ///
-    /// This version is for point
+    /// This version is for point and is a little faster.
     fn get_colliders_to_test_point(&self, point: Vec2) -> AHashSet<u32> {
-        let mut to_test = AHashSet::with_capacity(16);
+        let mut to_test = AHashSet::new();
 
         let overlapping_row = self.find_row_at_position(point.y);
 
         if let Some(row) = self.rows.get(overlapping_row) {
-            row.get_possible_overlap_point(&self.colliders, point, &mut to_test);
+            // The furthest we should look to the left and right.
+            let left_threshold = point.x - row.threshold;
+            let right_threshold = point.x + row.threshold;
+
+            let left_index = row
+                .data
+                .partition_point(|i| self.colliders[*i as usize].position.x < left_threshold);
+
+            // Look from left to right.
+            for i in &row.data[left_index..] {
+                let other = self.colliders[*i as usize];
+                if other.position.x > right_threshold {
+                    break;
+                }
+                to_test.insert(*i);
+            }
         }
 
         to_test
@@ -374,7 +383,7 @@ fn test_basic() {
         .colliders
         .push(Collider::new_idless(10.0, vec2(0.0, 0.0)));
     intersection_pipeline.snapshot.update();
-    println!("{:?}", &intersection_pipeline.snapshot);
+    println!("{:?}\n", &intersection_pipeline.snapshot);
     assert!(intersection_pipeline
         .snapshot
         .test_collider(Collider::new(0, 10.0, vec2(-4.0, 0.0))));
