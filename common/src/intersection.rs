@@ -52,6 +52,11 @@ impl Collider {
         self.position.distance_squared(point) <= self.radius.powi(2)
     }
 
+    /// Return true if these colliders fully overlap.
+    pub fn incorporate_test(self, other: Collider) -> bool {
+        self.position.distance_squared(other.position) <= (self.radius - other.radius).powi(2)
+    }
+
     /// Return half of the biggest horizontal lenght within two (possibly) intersecting horizontal lines.
     /// 
     /// This will return the collider radius if the collider's vertical position is within these lines.

@@ -45,9 +45,11 @@ fn fleet_client_id() {
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FactionId(pub u32);
 
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SystemId(pub u32);
 
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CelestialBodyId {
     pub system_id: SystemId,
-    pub body_index: u8,
+    pub body_offset: u8
 }

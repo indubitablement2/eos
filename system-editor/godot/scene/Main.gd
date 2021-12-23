@@ -8,18 +8,34 @@ var min_distance := 16.0
 var density := 1.0
 var size := 1.0 
 
+var hold := 0.0
+
+func _ready() -> void:
+	$SystemEditor.set_camera($Camera2D)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("primary"):
+		$SystemEditor.select()
+	elif event.is_action_released("primary"):
+		$SystemEditor.toggle_moving_selected(false)
+	elif event.is_action_pressed("secondary"):
+		$SystemEditor.select()
+		$SystemEditor.delete_selected()
 
 func _process(delta: float) -> void:
+	if Input.is_action_pressed("primary"):
+		hold += delta
+		if hold > 0.2:
+			$SystemEditor.toggle_moving_selected(true)
+	else:
+		hold = 0.0
 	$CanvasLayer/Control/HBoxContainer/Tick.set_text("tick: " + str($SystemEditor.get_tick())) 
-	var r = get_tree().get_root().get_visible_rect()
-	r.position += $Camera2D.position
-	r.size *= $Camera2D.zoom
-	r.position -= r.size * 0.5
-	$SystemEditor.set_viewport_rect(r)
 
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, bound, Color(1.0, 1.0, 1.0, 0.05))
-
+	var part := TAU / 20.0
+	for i in 10:
+		var start := part * float(i) * 2.0
+		draw_arc(Vector2.ZERO, bound, start, start + part, 3, Color.aliceblue, 0.5)
 
 func set_bound(b:float) -> void:
 	bound = b

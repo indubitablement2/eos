@@ -1,6 +1,12 @@
 use std::f32::consts::TAU;
 use glam::Vec2;
 
+/// Infos that do not affect the simulation.
+pub struct CelestialBodyInfo {
+    pub seed: u64,
+    pub name: String,
+}
+
 pub enum CelestialBodyType {
     Star,
     Planet,
@@ -12,14 +18,15 @@ pub struct CelestialBody {
     pub radius: f32,
     /// What is this body orbiting around.
     /// 
-    /// If this body is orbiting around another body (like a moon around its planet or a planet around a start),
-    /// this is the index of the other body.
+    /// If this body is orbiting around another
+    /// (like a moon around its planet or a planet around a start),
+    /// this is the index offset from the first body in the system of the other body.
     /// 
     /// Otherwise it is orbiting around the system center.
     pub parent: Option<u8>,
     /// The distance it is orbiting from its parent.
     pub orbit_radius: f32,
-    /// How many tick does it take this `CelestialBody` to complete an orbit.
+    /// How many tick does it take this body to complete an orbit.
     /// 
     /// This can be negative and will result in counter clockwise rotation.
     pub orbit_time: f32,
@@ -46,54 +53,64 @@ pub struct System {
     pub bound: f32,
     /// The center of this `System` in world space.
     pub position: Vec2,
-
+    /// The index of first body in this system.
     /// Bodies are ordered by parent -> child.
     /// The first body can not be a child.
-    pub bodies: Vec<CelestialBody>,
+    pub first_body: u32,
+    /// The number of body in this system.
+    pub num_bodies: u8,
 }
-impl System {
-    /// Return the position of bodies relative to the system center.
-    pub fn get_bodies_system_position(&self, time: f32) -> Vec<Vec2> {
-        let mut positions = Vec::with_capacity(self.bodies.len());
-        for body in self.bodies.iter() {
-            let mut body_position = body.get_body_relative_position(time);
-            if let Some(other) = body.parent {
-                body_position += positions[usize::from(other)];
+
+pub struct Systems {
+    /// Since this vec should never be modified at runtime, index are SystemId.
+    /// Systems can change from version to version however.
+    /// TODO: Add a way to update SystemId to a newer version.
+    /// 
+    /// Systems are sorted on the y axis from the top.
+    pub systems: Vec<System>,
+    pub bodies: Vec<CelestialBody>,
+    /// Some infos like name and looks that do not affect the simulation.
+    pub infos: Vec<CelestialBodyInfo>,
+}
+impl Systems {
+    pub fn get_bound(&self) -> f32 {
+        self.systems.iter().fold(0.0f32, |acc, system| {
+            acc.max(system.position.length() + system.bound)
+        })
+    }
+
+    /// Return the position of all bodies in a system in world space.
+    /// 
+    /// Result should be empty.
+    pub fn get_bodies_position(&self, system_index: usize, time: f32, result: &mut Vec<Vec2>) {
+        let system = &self.systems[system_index];
+        result.reserve(system.num_bodies as usize);
+        let first_body_index = system.first_body as usize;
+        let last_body_index = system.first_body as usize + system.num_bodies as usize;
+        for body in self.bodies[first_body_index..last_body_index].iter() {
+            let mut body_pos = body.get_body_relative_position(time) + system.position;
+            if let Some(other_offset) = body.parent {
+                body_pos += result[other_offset as usize];
             }
-            positions.push(body_position);
+            result.push(body_pos);
         }
-        positions
     }
 
-    /// Return the position of bodies relative to world center.
-    pub fn get_bodies_world_position(&self, time: f32) -> Vec<Vec2> {
-        let mut positions = self.get_bodies_system_position(time);
-        for pos in positions.iter_mut() {
-            *pos += self.position;
-        }
-        positions
-    }
-
-    /// Return the postion relative to its parent of a single body.
+    /// Return the postion of a single body relative to its parent in world space.
     /// 
     /// This can be used to efficiently calculate the body's position if you know it has no parent.
-    pub fn get_body_system_position(&self, time: f32, body_id: u8) -> Vec2 {
-        self.bodies[usize::from(body_id)].get_body_relative_position(time)
+    pub fn get_body_position(&self, time: f32, system_index: usize, body_offset: usize) -> Vec2 {
+        let system = &self.systems[system_index];
+        let body = &self.bodies[system.first_body as usize + body_offset];
+        system.position + body.get_body_relative_position(time)
     }
-}
-
-/// Since this vec should never be modified at runtime, index can be used as id.
-/// Index can change from version to version however.
-/// TODO: Add a way to update SystemId to a newer version.
-/// 
-/// Systems are sorted on the y axis.
-pub struct Systems {
-    pub systems: Vec<System>,
-    /// Edge of the outtermost system's `CelestialBody`.
-    pub bound: f32,
 }
 impl Default for Systems {
     fn default() -> Self {
-        Self { systems: Vec::new(), bound: 0.0 }
+        Self {
+            systems: Vec::new(),
+            bodies: Vec::new(),
+            infos: Vec::new(),
+        }
     }
 }
