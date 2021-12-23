@@ -240,6 +240,8 @@ impl SystemEditor {
                     // Update systems bound.
                     let new_bound = self.editor_systems[editor_systems_index].1.get_bound();
                     self.editor_systems[editor_systems_index].2 = new_bound;
+
+                    self.selected = Selected::Nothing;
                 }
                 Selected::Nothing => {}
             }

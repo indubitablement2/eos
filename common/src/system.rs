@@ -88,9 +88,11 @@ impl Systems {
         let first_body_index = system.first_body as usize;
         let last_body_index = system.first_body as usize + system.num_bodies as usize;
         for body in self.bodies[first_body_index..last_body_index].iter() {
-            let mut body_pos = body.get_body_relative_position(time) + system.position;
+            let mut body_pos = body.get_body_relative_position(time);
             if let Some(other_offset) = body.parent {
                 body_pos += result[other_offset as usize];
+            } else {
+                body_pos += system.position;
             }
             result.push(body_pos);
         }

@@ -4,7 +4,6 @@
 extern crate log;
 
 mod generation;
-mod generation_parameters;
 mod godot_logger;
 mod system_editor;
 mod systems_merge;

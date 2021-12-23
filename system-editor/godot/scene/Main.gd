@@ -8,7 +8,7 @@ var min_distance := 16.0
 var density := 1.0
 var size := 1.0 
 
-var hold := 0.0
+var hold_start_point := Vector2.ZERO
 
 func _ready() -> void:
 	$SystemEditor.set_camera($Camera2D)
@@ -16,6 +16,7 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("primary"):
 		$SystemEditor.select()
+		hold_start_point = get_global_mouse_position()
 	elif event.is_action_released("primary"):
 		$SystemEditor.toggle_moving_selected(false)
 	elif event.is_action_pressed("secondary"):
@@ -24,11 +25,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(delta: float) -> void:
 	if Input.is_action_pressed("primary"):
-		hold += delta
-		if hold > 0.2:
+		if hold_start_point.distance_squared_to(get_global_mouse_position()) > 1.0 * $Camera2D.zoom.x:
 			$SystemEditor.toggle_moving_selected(true)
-	else:
-		hold = 0.0
 	$CanvasLayer/Control/HBoxContainer/Tick.set_text("tick: " + str($SystemEditor.get_tick())) 
 
 func _draw() -> void:

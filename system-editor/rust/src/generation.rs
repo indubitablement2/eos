@@ -6,7 +6,7 @@ use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoshiro256PlusPlus;
 use std::convert::TryFrom;
 
-const ORBIT_TIME_MIN_PER_RADIUS: f32 = 600.0;
+const ORBIT_TIME_MIN_PER_RADIUS: f32 = 200.0;
 
 // /// Prevalence: 0.01,
 // /// Radius: 2.5..10
@@ -51,14 +51,13 @@ const ORBIT_TIME_MIN_PER_RADIUS: f32 = 600.0;
 // Moon,
 
 /// Return a randomly generated System with its radius.
-/// The ColliderId provided is invalid and needs to be replaced.
 fn generate_system(position: Vec2, max_radius: f32, rng: &mut Xoshiro256PlusPlus) -> (System, Vec<CelestialBody>) {
     let mut bodies = Vec::new();
 
     // Create System center body.
     let center_body = CelestialBody {
         body_type: CelestialBodyType::Star,
-        radius: 8.0,
+        radius: rng.gen_range(4.0..16.0),
         parent: None,
         orbit_radius: 0.0,
         orbit_time: 1.0,
@@ -68,16 +67,19 @@ fn generate_system(position: Vec2, max_radius: f32, rng: &mut Xoshiro256PlusPlus
 
     // Add bodies.
     loop {
-        let radius = rng.gen_range(0.4..4.0);
-        let orbit_radius = radius + used_radius + rng.gen_range(1.0..10.0);
-        let orbit_time = ORBIT_TIME_MIN_PER_RADIUS * orbit_radius * (rng.gen::<f32>() - 0.5).signum();
+        let radius = rng.gen_range(0.6..4.0);
+        let orbit_radius = radius + used_radius + rng.gen_range(1.0..32.0);
+        let orbit_time = ORBIT_TIME_MIN_PER_RADIUS * orbit_radius * rng.gen_range(0.5..2.0) * (rng.gen::<f32>() - 0.5).signum();
+
+        let max_moons_used_radius = orbit_radius - used_radius - radius - 1.0;
+        let moon_parent = bodies.len();
 
         let new_used_radius = orbit_radius + radius;
         if new_used_radius > max_radius {
             break;
         }
-
         used_radius = new_used_radius;
+
         bodies.push(CelestialBody {
             body_type: CelestialBodyType::Planet,
             radius,
@@ -85,6 +87,31 @@ fn generate_system(position: Vec2, max_radius: f32, rng: &mut Xoshiro256PlusPlus
             orbit_radius,
             orbit_time,
         });
+
+        // Maybe add moons.
+        let mut moon_used_radius = 0.0;
+        while rng.gen_bool((radius / 3.0).min(1.0) as f64) {
+            let moon_radius = rng.gen_range(0.4..radius / 1.5);
+            let moon_orbit_radius = radius + moon_used_radius + moon_radius + rng.gen_range(1.0..8.0);
+            let moon_orbit_time = ORBIT_TIME_MIN_PER_RADIUS * moon_orbit_radius * rng.gen_range(0.8..2.0) * (rng.gen::<f32>() - 0.5).signum();
+            
+            let moon = CelestialBody {
+                body_type: CelestialBodyType::Planet,
+                radius: moon_radius,
+                parent: Some(moon_parent as u8),
+                orbit_radius: moon_orbit_radius,
+                orbit_time: moon_orbit_time,
+            };
+
+            let new_used_radius = moon_used_radius + moon_orbit_radius + moon_radius;
+            if new_used_radius > max_moons_used_radius {
+                break;
+            }
+            moon_used_radius = new_used_radius;
+
+            bodies.push(moon);
+        }
+        used_radius += moon_used_radius;
     }
 
     let system = System {
