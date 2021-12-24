@@ -90,8 +90,8 @@ fn generate_system(position: Vec2, max_radius: f32, rng: &mut Xoshiro256PlusPlus
 
         // Maybe add moons.
         let mut moon_used_radius = 0.0;
-        while rng.gen_bool((radius / 3.0).min(1.0) as f64) {
-            let moon_radius = rng.gen_range(0.4..radius / 1.5);
+        while rng.gen_bool((radius / 5.0).min(1.0) as f64) {
+            let moon_radius = rng.gen_range(0.4..radius / 1.4);
             let moon_orbit_radius = radius + moon_used_radius + moon_radius + rng.gen_range(1.0..8.0);
             let moon_orbit_time = ORBIT_TIME_MIN_PER_RADIUS
                 * moon_orbit_radius
