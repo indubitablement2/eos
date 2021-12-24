@@ -66,10 +66,6 @@ This lead to surplus or scarsity increasing player activity:
 * Fight over scarse resource. 
 * Fight for monopoly.
 
-### Currency
-Standard currency is an item (credit chip). 
-This make it harder to stockpile wealth in conjonction with entropy.
-
 ### Acquiring ship/weapon/module
 Low tier ship and civilian ship are available everywhere.
 
@@ -79,7 +75,16 @@ Getting higher tier gear is harder:
 * Random wreck and cargo in space.
 * Quests.
 
-## Fleet & ships
+### Disconnected fleet
+When a played disconnect, his fleet does not disappear.
+It does not consume resources however. 
+
+It can be assigned to do a number of things:
+* idle near allied planet 
+* idle near last location and flee from enemy 
+* stay still
+
+## Gear & ships
 
 ### Hull size
 * Fighter: 
@@ -156,6 +161,35 @@ Ships have a limited number of free module slot.
 Higher quality ship have more.
 
 Damaged ship have negative built-in mods that are expensive to remove.
+
+### Captain
+Captain can be hired and assigned to a ship to provide bonuses. 
+
+They cost a salary based on their rank. 
+
+They gain experience by taking part in fight. 
+
+## Battlescape 
+Battle between fleets happens on a separate world. 
+
+### Battle point & lag prevention
+To limit lag, each team can only field a limited number of ship at a time. 
+Each ship has a set bp cost based on strenght.
+The bigger fleet has more bp available. 
+
+A battle can only happen between enemies. 
+A neutral can not interfere. 
+Multiple player can join the same side if they are allied. 
+
+### Ship control
+A player can control any of his ship and change at will. 
+Otherwise he can chose to let the ai control his ship. 
+
+### Fleet control
+Player can give general direction to his fleet. 
+Final action is left to the ai. 
+
+Fleet control is deliberately limited as to not overshadow directly controlling a ship. 
 
 ## World
 
