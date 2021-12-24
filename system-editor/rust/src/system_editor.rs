@@ -1,9 +1,11 @@
+use common::intersection::AccelerationStructure;
 use common::intersection::Collider;
 use common::res_time::TimeRes;
 use common::system::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
 use glam::Vec2;
+use indexmap::IndexMap;
 use rand::random;
 
 use crate::generation::generate_systems;
@@ -74,6 +76,11 @@ impl SystemEditor {
             self.time.tick += more as u32;
         }
 
+        // First editor systems is always at (0, 0).
+        if let Some((editor_systems_pos, _, _)) = self.editor_systems.first_mut() {
+            *editor_systems_pos = Vec2::ZERO;
+        }
+
         if self.moving_selected.0 {
             // Check if new position is valid.
             match self.selected {
@@ -86,11 +93,11 @@ impl SystemEditor {
                 } => {
                     let mouse_pos = godot_to_glam(owner.get_global_mouse_position());
                     let (systems_pos, editor_systems, _) = &self.editor_systems[editor_systems_index];
-                    let collider = Collider::new_idless(editor_systems.systems[system_index].bound, mouse_pos);
+                    let collider = Collider::new_idless(editor_systems.0[system_index].bound, mouse_pos);
                     self.moving_selected.1 = true;
 
                     // Check that new position does not intersect any other system.
-                    for (id, system) in editor_systems.systems.iter().enumerate() {
+                    for (id, system) in editor_systems.0.iter().enumerate() {
                         if id == system_index {
                             continue;
                         }
@@ -114,7 +121,7 @@ impl SystemEditor {
 
     #[export]
     unsafe fn _draw(&mut self, owner: &Node2D) {
-        render_systems(&owner, &self);
+        render_systems(&self, &owner);
     }
 
     #[export]
@@ -149,7 +156,7 @@ impl SystemEditor {
 
             // Check if mouse overlap this systems.
             if (systems_relative_mouse).length_squared() <= systems_bound.powi(2) {
-                for (system_index, system) in systems.systems.iter().enumerate() {
+                for (system_index, system) in systems.0.iter().enumerate() {
                     // Check if mouse overlap this system.
                     if (systems_relative_mouse).distance_squared(system.position) <= system.bound.powi(2) {
                         // We select a system.
@@ -182,25 +189,17 @@ impl SystemEditor {
                 editor_systems_index,
                 system_index,
             } => {
-                self.editor_systems[editor_systems_index].1.systems.remove(system_index);
+                self.editor_systems[editor_systems_index].1 .0.remove(system_index);
                 // Update systems bound.
                 let new_bound = self.editor_systems[editor_systems_index].1.get_bound();
                 self.editor_systems[editor_systems_index].2 = new_bound;
-
-                // Sort systems on the y axis.
-                self.editor_systems[editor_systems_index].1.systems.sort_unstable_by(|a, b| {
-                    a.position
-                        .y
-                        .partial_cmp(&b.position.x)
-                        .expect("this should be a real number.")
-                });
 
                 // Update systems bound.
                 let new_bound = self.editor_systems[editor_systems_index].1.get_bound();
                 self.editor_systems[editor_systems_index].2 = new_bound;
 
                 // Also delete systems if this is the last system
-                if self.editor_systems[editor_systems_index].1.systems.is_empty() {
+                if self.editor_systems[editor_systems_index].1 .0.is_empty() {
                     self.editor_systems.remove(editor_systems_index);
                 }
             }
@@ -227,15 +226,7 @@ impl SystemEditor {
                     system_index,
                 } => {
                     let (editor_systems_pos, editor_systems, _) = &mut self.editor_systems[editor_systems_index];
-                    editor_systems.systems[system_index].position = new_global_pos - *editor_systems_pos;
-                    
-                    // Sort systems on the y axis.
-                    editor_systems.systems.sort_unstable_by(|a, b| {
-                        a.position
-                            .y
-                            .partial_cmp(&b.position.x)
-                            .expect("this should be a real number.")
-                    });
+                    editor_systems.0[system_index].position = new_global_pos - *editor_systems_pos;
 
                     // Update systems bound.
                     let new_bound = self.editor_systems[editor_systems_index].1.get_bound();
@@ -282,9 +273,143 @@ impl SystemEditor {
         let systems_bound = new_system.get_bound();
         self.editor_systems.push((Vec2::ZERO, new_system, systems_bound));
     }
+
+    /// Merge all editor systems and return a file with a map from old to new index.
+    #[export]
+    unsafe fn merge(&mut self, _owner: &Node2D) -> TypedArray<u8> {
+        self.selected = Selected::Nothing;
+        merge(self)
+    }
+
+    /// Return a bin of all editor systems to resume editing latter.
+    #[export]
+    unsafe fn export_editor_systems(&mut self, _owner: &Node2D) -> TypedArray<u8> {
+        self.selected = Selected::Nothing;
+        export_editor_systems(self)
+    }
+
+    #[export]
+    unsafe fn load_editor_systems(&mut self, _owner: &Node2D, data: TypedArray<u8>) -> bool {
+        self.selected = Selected::Nothing;
+        load_editor_systems(self, data)
+    }
+
+    /// Return a bin the first systems to use ingame.
+    #[export]
+    unsafe fn export_first_systems(&mut self, _owner: &Node2D) -> TypedArray<u8> {
+        self.selected = Selected::Nothing;
+        export_first_systems(self)
+    }
+
+    #[export]
+    unsafe fn load_first_systems(&mut self, _owner: &Node2D, data: TypedArray<u8>) -> bool {
+        self.selected = Selected::Nothing;
+        load_first_systems(self, data)
+    }
 }
 
-fn render_systems(owner: &Node2D, system_editor: &SystemEditor) {
+fn load_first_systems(system_editor: &mut SystemEditor, data: TypedArray<u8>) -> bool {
+    let d = data.read();
+    if let Ok(result) = bincode::deserialize::<Systems>(&d) {
+        system_editor.editor_systems.clear();
+        let new_bound = result.get_bound();
+        system_editor.editor_systems.push((Vec2::ZERO, result, new_bound));
+        true
+    } else {
+        false
+    }
+}
+
+fn load_editor_systems(system_editor: &mut SystemEditor, data: TypedArray<u8>) -> bool {
+    let d = data.read();
+    if let Ok(result) = bincode::deserialize(&d) {
+        system_editor.editor_systems = result;
+        true
+    } else {
+        false
+    }
+}
+
+fn export_first_systems(system_editor: &SystemEditor) -> TypedArray<u8> {
+    if let Some((_, systems, _)) = system_editor.editor_systems.first() {
+        TypedArray::from_vec(bincode::serialize(&systems).unwrap())
+    } else {
+        TypedArray::new()
+    }
+}
+
+fn export_editor_systems(system_editor: &SystemEditor) -> TypedArray<u8> {
+    TypedArray::from_vec(bincode::serialize(&system_editor.editor_systems).unwrap())
+}
+
+fn merge(system_editor: &mut SystemEditor) -> TypedArray<u8> {
+    if system_editor.editor_systems.len() < 2 {
+        return TypedArray::new();
+    }
+
+    let (_, mut first_systems, _) = system_editor.editor_systems.swap_remove(0);
+
+    // Save the old index (old, new).
+    let mut old_index: IndexMap<u32, u32> = (0u32..first_systems.0.len() as u32)
+        .into_iter()
+        .map(|id| (id, id))
+        .collect();
+
+    // Create acceleration structure with the old index.
+    let mut acc = AccelerationStructure::new();
+    acc.colliders.extend(
+        first_systems
+            .0
+            .iter()
+            .zip(0u32..)
+            .map(|(system, id)| Collider::new(id, system.bound, system.position)),
+    );
+    acc.update();
+
+    while let Some((other_pos, other, _)) = system_editor.editor_systems.pop() {
+        let mut new_colliders = Vec::new();
+
+        for mut system in other.0.into_iter() {
+            system.position += other_pos;
+            let collider = Collider::new(u32::MAX, system.bound, system.position);
+            if !acc.test_collider(collider) {
+                first_systems.0.push(system);
+                new_colliders.push(collider);
+            }
+        }
+
+        acc.colliders.extend(new_colliders.drain(..));
+        acc.update();
+    }
+
+    // Update index.
+    acc.colliders.sort_by(|a, b| {
+        a.position
+            .y
+            .partial_cmp(&b.position.y)
+            .expect("this should be a real number.")
+    });
+    for (new_index, collider) in acc.colliders.iter().enumerate() {
+        if let Some((_, v)) = old_index.get_index_mut(collider.id as usize) {
+            *v = new_index as u32;
+        }
+    }
+
+    // Update merged systems
+    first_systems.0.sort_by(|a, b| {
+        a.position
+            .y
+            .partial_cmp(&b.position.y)
+            .expect("this should be a real number.")
+    });
+
+    let new_bound = first_systems.get_bound();
+    system_editor.editor_systems = vec![(Vec2::ZERO, first_systems, new_bound)];
+
+    TypedArray::from_vec(bincode::serialize(&old_index).unwrap())
+}
+
+fn render_systems(system_editor: &SystemEditor, owner: &Node2D) {
     let time = system_editor.time.tick as f32 + system_editor.delta;
     let cam = if let Some(c) = system_editor.camera {
         c
@@ -308,19 +433,35 @@ fn render_systems(owner: &Node2D, system_editor: &SystemEditor) {
     };
     let mut pos_buffer = Vec::new();
 
-    for (systems_pos, systems, systems_bound) in system_editor.editor_systems.iter() {
+    for (i, (systems_pos, systems, systems_bound)) in system_editor.editor_systems.iter().enumerate() {
         // Draw systems.
+        let (a, g) = if i == 0 {
+            // This is the og system. Highlight it.
+            owner.draw_arc(
+                Vector2::ZERO,
+                systems_bound.to_owned().into(),
+                0.0,
+                std::f64::consts::TAU,
+                32,
+                Color {
+                    r: 0.1,
+                    g: 0.1,
+                    b: 1.0,
+                    a: 0.5,
+                },
+                0.5,
+                false,
+            );
+            (0.15, 1.0)
+        } else {
+            (0.05, 0.8)
+        };
         owner.draw_circle(
             glam_to_godot(*systems_pos),
             systems_bound.to_owned().into(),
-            Color {
-                r: 1.0,
-                g: 1.0,
-                b: 1.0,
-                a: 0.1,
-            },
+            Color { r: 0.8, g, b: 0.8, a },
         );
-        for (system_index, system) in systems.systems.iter().enumerate() {
+        for system in systems.0.iter() {
             // Do not draw system that are not on screen.
             let system_pos = *systems_pos + system.position;
             if system_pos.x + system.bound < rect.position.x
@@ -344,14 +485,9 @@ fn render_systems(owner: &Node2D, system_editor: &SystemEditor) {
             );
 
             pos_buffer.clear();
-            systems.get_bodies_position(system_index, time, &mut pos_buffer);
-            let first_body_index = system.first_body as usize;
-            let last_body_index = system.first_body as usize + system.num_bodies as usize;
+            system.get_bodies_position(time, &mut pos_buffer);
 
-            for (body, body_pos) in systems.bodies[first_body_index..last_body_index]
-                .iter()
-                .zip(pos_buffer.iter())
-            {
+            for (body, body_pos) in system.bodies.iter().zip(pos_buffer.iter()) {
                 if body.radius < draw_threshold {
                     continue;
                 }
@@ -381,7 +517,7 @@ fn render_systems(owner: &Node2D, system_editor: &SystemEditor) {
             system_index,
         } => {
             let (systems_pos, editor_systems, _) = &system_editor.editor_systems[editor_systems_index];
-            let system = &editor_systems.systems[system_index];
+            let system = &editor_systems.0[system_index];
             (*systems_pos + system.position, system.bound)
         }
         Selected::Nothing => {
@@ -406,19 +542,18 @@ fn render_systems(owner: &Node2D, system_editor: &SystemEditor) {
 
     // Draw moving selected.
     if system_editor.moving_selected.0 {
-        let r = system_editor.moving_selected.0 as u8 as f32;
+        let (r, g) = if system_editor.moving_selected.1 {
+            (0.0, 1.0)
+        } else {
+            (1.0, 0.0)
+        };
         owner.draw_arc(
             owner.get_global_mouse_position(),
             radius as f64,
             0.0,
             std::f64::consts::TAU,
             32,
-            Color {
-                r,
-                g: 0.0,
-                b: 0.0,
-                a: 0.8,
-            },
+            Color { r, g, b: 0.0, a: 0.8 },
             0.5,
             false,
         );

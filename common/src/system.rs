@@ -1,18 +1,22 @@
 use std::f32::consts::TAU;
 use glam::Vec2;
+use serde::{Serialize, Deserialize};
 
 /// Infos that do not affect the simulation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CelestialBodyInfo {
     pub seed: u64,
     pub name: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CelestialBodyType {
     Star,
     Planet,
     BlackHole,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CelestialBody {
     pub body_type: CelestialBodyType,
     pub radius: f32,
@@ -48,71 +52,52 @@ impl CelestialBody {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct System {
     /// Edge of the outtermost `CelestialBody`.
     pub bound: f32,
     /// The center of this `System` in world space.
     pub position: Vec2,
-    /// The index of first body in this system.
     /// Bodies are ordered by parent -> child.
-    /// The first body can not be a child.
-    pub first_body: u32,
-    /// The number of body in this system.
-    pub num_bodies: u8,
-}
-
-pub struct Systems {
-    /// Since this vec should never be modified at runtime, index are SystemId.
-    /// Systems can change from version to version however.
-    /// TODO: Add a way to update SystemId to a newer version.
-    /// 
-    /// Systems are sorted on the y axis from the top.
-    pub systems: Vec<System>,
+    /// The first body is never a child.
     pub bodies: Vec<CelestialBody>,
     /// Some infos like name and looks that do not affect the simulation.
     pub infos: Vec<CelestialBodyInfo>,
 }
-impl Systems {
-    pub fn get_bound(&self) -> f32 {
-        self.systems.iter().fold(0.0f32, |acc, system| {
-            acc.max(system.position.length() + system.bound)
-        })
-    }
-
-    /// Return the position of all bodies in a system in world space.
+impl System {
+    /// Return the position of all bodies in this in world space.
     /// 
     /// Result should be empty.
-    pub fn get_bodies_position(&self, system_index: usize, time: f32, result: &mut Vec<Vec2>) {
-        let system = &self.systems[system_index];
-        result.reserve(system.num_bodies as usize);
-        let first_body_index = system.first_body as usize;
-        let last_body_index = system.first_body as usize + system.num_bodies as usize;
-        for body in self.bodies[first_body_index..last_body_index].iter() {
+    pub fn get_bodies_position(&self, time: f32, result: &mut Vec<Vec2>) {
+        result.reserve(self.bodies.len());
+        for body in self.bodies.iter() {
             let mut body_pos = body.get_body_relative_position(time);
             if let Some(other_offset) = body.parent {
                 body_pos += result[other_offset as usize];
             } else {
-                body_pos += system.position;
+                body_pos += self.position;
             }
             result.push(body_pos);
         }
     }
+}
 
-    /// Return the postion of a single body relative to its parent in world space.
-    /// 
-    /// This can be used to efficiently calculate the body's position if you know it has no parent.
-    pub fn get_body_position(&self, time: f32, system_index: usize, body_offset: usize) -> Vec2 {
-        let system = &self.systems[system_index];
-        let body = &self.bodies[system.first_body as usize + body_offset];
-        system.position + body.get_body_relative_position(time)
+/// Since this vec should never be modified at runtime, index are SystemId.
+/// Systems can change from version to version however.
+/// TODO: Add a way to update SystemId to a newer version.
+/// 
+/// Systems are sorted on the y axis from the top.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Systems(pub Vec<System>);
+impl Systems {
+    pub fn get_bound(&self) -> f32 {
+        self.0.iter().fold(0.0f32, |acc, system| {
+            acc.max(system.position.length() + system.bound)
+        })
     }
 }
 impl Default for Systems {
     fn default() -> Self {
-        Self {
-            systems: Vec::new(),
-            bodies: Vec::new(),
-            infos: Vec::new(),
-        }
+        Self(Vec::new())
     }
 }

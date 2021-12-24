@@ -4,7 +4,6 @@ use glam::Vec2;
 use rand::Rng;
 use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoshiro256PlusPlus;
-use std::convert::TryFrom;
 
 const ORBIT_TIME_MIN_PER_RADIUS: f32 = 200.0;
 
@@ -51,7 +50,7 @@ const ORBIT_TIME_MIN_PER_RADIUS: f32 = 200.0;
 // Moon,
 
 /// Return a randomly generated System with its radius.
-fn generate_system(position: Vec2, max_radius: f32, rng: &mut Xoshiro256PlusPlus) -> (System, Vec<CelestialBody>) {
+fn generate_system(position: Vec2, max_radius: f32, rng: &mut Xoshiro256PlusPlus) -> System {
     let mut bodies = Vec::new();
 
     // Create System center body.
@@ -69,7 +68,8 @@ fn generate_system(position: Vec2, max_radius: f32, rng: &mut Xoshiro256PlusPlus
     loop {
         let radius = rng.gen_range(0.6..4.0);
         let orbit_radius = radius + used_radius + rng.gen_range(1.0..32.0);
-        let orbit_time = ORBIT_TIME_MIN_PER_RADIUS * orbit_radius * rng.gen_range(0.5..2.0) * (rng.gen::<f32>() - 0.5).signum();
+        let orbit_time =
+            ORBIT_TIME_MIN_PER_RADIUS * orbit_radius * rng.gen_range(0.5..2.0) * (rng.gen::<f32>() - 0.5).signum();
 
         let max_moons_used_radius = orbit_radius - used_radius - radius - 1.0;
         let moon_parent = bodies.len();
@@ -93,8 +93,11 @@ fn generate_system(position: Vec2, max_radius: f32, rng: &mut Xoshiro256PlusPlus
         while rng.gen_bool((radius / 3.0).min(1.0) as f64) {
             let moon_radius = rng.gen_range(0.4..radius / 1.5);
             let moon_orbit_radius = radius + moon_used_radius + moon_radius + rng.gen_range(1.0..8.0);
-            let moon_orbit_time = ORBIT_TIME_MIN_PER_RADIUS * moon_orbit_radius * rng.gen_range(0.8..2.0) * (rng.gen::<f32>() - 0.5).signum();
-            
+            let moon_orbit_time = ORBIT_TIME_MIN_PER_RADIUS
+                * moon_orbit_radius
+                * rng.gen_range(0.8..2.0)
+                * (rng.gen::<f32>() - 0.5).signum();
+
             let moon = CelestialBody {
                 body_type: CelestialBodyType::Planet,
                 radius: moon_radius,
@@ -114,14 +117,12 @@ fn generate_system(position: Vec2, max_radius: f32, rng: &mut Xoshiro256PlusPlus
         used_radius += moon_used_radius;
     }
 
-    let system = System {
+    System {
         bound: used_radius,
         position,
-        first_body: 0,
-        num_bodies: u8::try_from(bodies.len()).unwrap(),
-    };
-
-    (system, bodies)
+        bodies,
+        infos: Vec::new(),
+    }
 }
 
 pub fn generate_systems(
@@ -136,7 +137,6 @@ pub fn generate_systems(
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(seed);
 
     let mut systems = Vec::new();
-    let mut bodies = Vec::new();
     let mut colliders = Vec::new();
 
     let systems_collider = Collider::new_idless(bound, Vec2::ZERO);
@@ -155,7 +155,7 @@ pub fn generate_systems(
             (rng.gen_range((radius_min / 0.8)..(radius_max * 0.8)) * system_size).clamp(radius_min, radius_max);
 
         // Generate a random system.
-        let (mut system, system_bodies) = generate_system(position, max_system_radius, &mut rng);
+        let system = generate_system(position, max_system_radius, &mut rng);
 
         let system_collider = Collider::new_idless(system.bound, system.position);
 
@@ -175,9 +175,7 @@ pub fn generate_systems(
 
         // Add system.
         colliders.push(system_collider);
-        system.first_body = bodies.len() as u32;
         systems.push(system);
-        bodies.extend(system_bodies.into_iter());
     }
     let success_rate = ((systems.len() as f32 / num_attempt as f32) * 100.0) as i32;
     debug!(
@@ -195,9 +193,5 @@ pub fn generate_systems(
             .expect("this should be a real number.")
     });
 
-    Systems {
-        systems,
-        bodies,
-        infos: Vec::new(),
-    }
+    Systems(systems)
 }
