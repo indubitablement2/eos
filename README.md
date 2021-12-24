@@ -121,27 +121,13 @@ Getting higher tier gear is harder:
   * Ludicrously expensive to maintain.
   * Can not be build (no blueprint hence the name). 
 
-### Manufacturer
-Weapon and ship have manufacturer.
+### Design 
+Weapon and ship have designer.
 
-Some ship and weapon mount may have an afinity toward a manufacturer. 
-Module and weapon slots generaly only accept a pacticular manufacturer.
+Some ship and weapon mount may have an afinity for a design. 
+Module and weapon mount may only accept a pacticular design.
 
-### Weapons size
-* Light:
-* Medium:
-* Heavy:
-
-### Modules
-They can be built-in.
-
-Ships have a limited number of free module slot. Higher quality ship have more.
-
-Damaged ship have negative built-in mods that are expensive to remove.
-
-## World
-
-### Manufacturers archetype
+Design archetype
 * UEF: Brute force. More frontal firepower and defence, but slower. Vulnerable when flanked or isolated. 
   * Theme: bulky, ww1
   * Specialist: Armor, balistic
@@ -159,7 +145,22 @@ Damaged ship have negative built-in mods that are expensive to remove.
   * Specialist: None
 * Civilian: Cheap utility ship. Poor combat ship. 
   * Theme: Dull, mining equipment 
-  * Specialist: Utility
+  * Specialist: Utility 
+
+### Weapons size
+* Light:
+* Medium:
+* Heavy:
+
+### Modules
+They can be built-in.
+
+Ships have a limited number of free module slot. 
+Higher quality ship have more.
+
+Damaged ship have negative built-in mods that are expensive to remove.
+
+## World
 
 ### Joining vs creating faction
 Joining faction:
@@ -180,24 +181,38 @@ Creating faction:
   * Needs to provide costly incentives to vassals (insurance, lower market price)
   * Needs to sustain a military
 
-### Reputation & relation
-Relation determine a fleet-faction or faction-faction standing. 
+### Relation
+* faction-faction
+  * a.min(b).relation(a.max(b))
+  * a.default_relation.min(b.default_relation)
+* faction-neutral
+  * a.relation(b)
+  * a.default_relation.min(b.relation)
+* neutral-neutral
+  * a.relation.min(b.relation)
 
-If a fleet-faction reputation is not present, it use the faction's default. Pacifist may be higher. Xenophobe may be lower. 
+Relation 0..3 default 2
+* 3 ally
+  * help encouraged
+* 2 neutral
+  * war discouraged
+* 1 hated
+  * war allowed
+* 0 enemy
+  * war encouraged
+  * no trade
 
-Fleet in faction inherit their faction's relation with other factions. 
+There is a delay before a faction relation change take effect. 
+Only allowed to step one relation tier at a time. 
+Going up require both parties to agree. 
 
-Fleet have reputation which act as a multiplier(0..1.0) to relation with factions and a relation with other factionless fleet (rep_self.min(rep_other). 
-
-Some faction (pirate) do not care about reputation much.
-
-### Faction archetype 
-Pirate
-xeno
-pacifist
-wide
-tall
-capitalist 
+Reputation trend toward neutral. 
+* It goes down by 
+  * initiating a fight with a neutral or ally 
+  * joining a pirate faction
+* It goes up by
+  * initiating a fight with an enemy
+  * defending an ally
 
 ## Market
 
