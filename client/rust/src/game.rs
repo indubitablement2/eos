@@ -70,35 +70,10 @@ impl Game {
         }
     }
 
+    /// Try to connect to the server localy.
     /// Return true when successfully connected.
     #[export]
-    unsafe fn connect_client(&mut self, _owner: &Node2D, godot_addr: StringArray) -> bool {
-        if self.client_metascape.is_some() {
-            return true;
-        } else {
-            let godot_addr_read = godot_addr.read();
-            for s in godot_addr_read.iter() {
-                if let Ok(addr) = s.to_string().parse::<Ipv6Addr>() {
-                    let server_addresses = ServerAddresses {
-                        tcp_address: SocketAddrV6::new(addr, SERVER_PORT, 0, 0),
-                        udp_address: SocketAddrV6::new(addr, SERVER_PORT, 0, 0),
-                    };
-
-                    if let Ok(new_client_metascape) =
-                        ClientMetascape::new(server_addresses, MetascapeParameters::default())
-                    {
-                        self.client_metascape.replace(new_client_metascape);
-                        return true;
-                    }
-                }
-            }
-        }
-        false
-    }
-
-    /// Try to connect to the server localy.
-    #[export]
-    unsafe fn connect_local(&mut self, _owner: &Node2D) -> bool {
+    unsafe fn connect_to_server(&mut self, _owner: &Node2D) -> bool {
         if self.client_metascape.is_some() {
             return true;
         } else {
@@ -107,7 +82,7 @@ impl Game {
                 udp_address: SocketAddrV6::new(Ipv6Addr::LOCALHOST, SERVER_PORT, 0, 0),
             };
 
-            if let Ok(new_client_metascape) = ClientMetascape::new(server_addresses, MetascapeParameters::default()) {
+            if let Ok(new_client_metascape) = ClientMetascape::new("::1", MetascapeParameters::default()) {
                 self.client_metascape.replace(new_client_metascape);
                 return true;
             }

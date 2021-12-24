@@ -70,10 +70,26 @@ pub struct ClientMetascape {
     state_buffer: Vec<MetascapeStatePart>,
 }
 impl ClientMetascape {
-    pub fn new(server_addresses: ServerAddresses, metascape_parameters: MetascapeParameters) -> std::io::Result<Self> {
+    pub fn new(server_address: &str, metascape_parameters: MetascapeParameters) -> std::io::Result<Self> {
+        // Load systems from file.
+        let file = File::new();
+        let system_file_path = "res://data/systems.bin";
+        if file.open(system_file_path, File::READ).is_err() {
+            error!("Can not open {}", system_file_path);
+            file.close();
+            return Err(std::io::Error::new(std::io::ErrorKind::Other, "Can not open path."));
+        }
+        let systems_data = file.get_buffer(file.get_len());
+        file.close();
+        let systems = if let Ok(systems) = bincode::deserialize(&systems_data.read()) {
+            systems
+        } else {
+            return Err(std::io::Error::new(std::io::ErrorKind::Other, "Can not deserialize systems file."));
+        };
+
         Ok(Self {
-            connection_manager: ConnectionManager::connect_to_server("::1")?,
-            systems: Systems::default(),
+            connection_manager: ConnectionManager::connect_to_server(server_address)?,
+            systems,
             metascape_parameters,
             state_buffer: Vec::new(),
             metascape_data_commands: Vec::new(),
@@ -322,6 +338,7 @@ impl ClientMetascape {
     }
 
     pub fn render(&mut self, owner: &Node2D) {
+        // Debug draw entities.
         for (entity_id, entity) in self.metascape_state.entity_state.iter_mut() {
             if entity.current_tick < self.metascape_state.tick {
                 entity.fade = (entity.fade - 0.05).max(0.0);
@@ -365,6 +382,16 @@ impl ClientMetascape {
 
             // Draw entity.
             owner.draw_circle(glam_to_godot(pos), 10.0, Color { r, g, b, a });
+        }
+
+        // Debug draw systems
+        for system in self.systems.0.iter() {
+            owner.draw_circle(glam_to_godot(system.position), system.bound.into(), Color {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: 0.1,
+            });
         }
     }
 }

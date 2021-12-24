@@ -91,7 +91,7 @@ func _init_mat() -> void:
 
 
 func _on_Button_pressed() -> void:
-	var result = $Game.connect_local()
+	var result = $Game.connect_to_server()
 	print("Connection result: " + str(result))
 	if result:
 		$Button.hide()

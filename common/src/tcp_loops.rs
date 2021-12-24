@@ -13,18 +13,17 @@ use tokio::{
 
 pub async fn tcp_out_loop(
     mut tcp_to_send: tokio::sync::mpsc::Receiver<TcpPacket>,
-    mut buf_write: BufWriter<OwnedWriteHalf>,
+    mut write: OwnedWriteHalf,
     client_id: ClientId,
 ) {
     let mut buf: Vec<u8> = Vec::new();
 
-    // TODO: Flush write buffer.
     loop {
         if let Some(packet) = tcp_to_send.recv().await {
             // Resize buf so that serialized packet fit into.
             let packet_size = if let Some(packet_size) = packet.serialized_size() {
-                if packet_size > buf.len() {
-                    buf.resize(packet_size, 0);
+                if packet_size + 2 > buf.len() {
+                    buf.resize(packet_size + 2, 0);
                 }
                 packet_size
             } else {
@@ -44,7 +43,7 @@ pub async fn tcp_out_loop(
                 continue;
             }
 
-            if let Err(err) = buf_write.write_all(&buf[..packet_size + 2]).await {
+            if let Err(err) = write.write_all(&buf[..packet_size + 2]).await {
                 if is_err_fatal(&err) {
                     debug!(
                         "Fatal error while writting to {:?} 's tcp stream. Disconnecting...",

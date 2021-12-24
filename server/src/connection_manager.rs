@@ -238,7 +238,6 @@ async fn handle_successful_login(
             // Wrap stream into buffers.
             let (r, w) = login_result.stream.into_split();
             let buf_read = BufReader::new(r);
-            let buf_write = BufWriter::new(w);
 
             // Add connection to udp loop.
             if let Err(err) = udp_connection_event_sender.send(UdpConnectionEvent::Connected {
@@ -254,7 +253,7 @@ async fn handle_successful_login(
 
             // Start tcp loops.
             let (tcp_sender, tcp_to_send) = tokio::sync::mpsc::channel(8);
-            tokio::spawn(tcp_out_loop(tcp_to_send, buf_write, login_result.client_id));
+            tokio::spawn(tcp_out_loop(tcp_to_send, w, login_result.client_id));
             let (tcp_received, tcp_receiver) = crossbeam_channel::unbounded();
             tokio::spawn(tcp_in_loop(
                 tcp_received,

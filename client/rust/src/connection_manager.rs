@@ -96,11 +96,10 @@ impl ConnectionManager {
         // Wrap stream into buffers.
         let (r, w) = stream.into_split();
         let buf_read = BufReader::new(r);
-        let buf_write = BufWriter::new(w);
 
         // Start tcp loops.
         let (tcp_packet_to_send, tcp_to_send) = tokio::sync::mpsc::channel(8);
-        rt.spawn(tcp_out_loop(tcp_to_send, buf_write, ClientId(0)));
+        rt.spawn(tcp_out_loop(tcp_to_send, w, ClientId(0)));
         let (tcp_received, tcp_packet_received) = crossbeam_channel::unbounded();
         rt.spawn(tcp_in_loop(
             tcp_received,
