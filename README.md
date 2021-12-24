@@ -25,12 +25,9 @@ Estimate US$360/months, US$4320/years.
 
 ### Income
 * Base cost $20
-* Ship/weapon skin trade cut 10%
+* Ship/weapon skin and character portrait trade cut 10%
   * Ship skin are gained by playing.
   * Community can create their skin.
-* Character portrait trade cut 10%
-  * Character portrait are gained by playing. Rarer ones can be more noticeable.
-
 ## User Experience
 
 ### Core loop
@@ -181,30 +178,48 @@ Creating faction:
   * Needs to provide costly incentives to vassals (insurance, lower market price)
   * Needs to sustain a military
 
-### Relation
-* faction-faction
-  * a.min(b).relation(a.max(b))
-  * a.default_relation.min(b.default_relation)
-* faction-neutral
-  * a.relation(b)
-  * a.default_relation.min(b.relation)
-* neutral-neutral
-  * a.relation.min(b.relation)
+### Faction research path
 
-Relation 0..3 default 2
-* 3 ally
+Player can hire (expensive) researcher to upgrade their faction. 
+This is a currency sink. 
+Upgrade are lost when a faction is dismantled. 
+
+* Piratry P
+  * Allow pirating fleet
+  * Default reputation is 0
+  * Enable futher research in pirating 
+* Minting P
+  * Allow building mint
+* Pirate ship 1..5 P
+  * Allow building some very cheap pirate ship
+* Trade 1..5
+  * Can start trade with other ally faction
+  * Better trade price
+* Insurance
+
+### Reputation
+* faction-faction
+  * a.min(b).reputation(a.max(b))
+  * a.default_reputation.min(b.default_reputation)
+* faction-neutral
+  * a.reputation(b)
+  * a.default_reputation.min(b.reputation)
+* neutral-neutral
+  * a.reputation.min(b.reputation)
+
+Reputation 0..100 default 70
+* 80+ ally
   * help encouraged
-* 2 neutral
+* 60+ neutral
   * war discouraged
-* 1 hated
+* 40+ hated
   * war allowed
-* 0 enemy
+* 0+ enemy
   * war encouraged
   * no trade
 
-There is a delay before a faction relation change take effect. 
-Only allowed to step one relation tier at a time. 
-Going up require both parties to agree. 
+There is a delay before a faction reputation change take effect. 
+Going up require both faction to agree. 
 
 Reputation trend toward neutral. 
 * It goes down by 
@@ -216,7 +231,9 @@ Reputation trend toward neutral.
 
 ## Market
 
-todo
+Player can see the whole market. 
+
+Item bought stay where they are and player need to get them. 
 
 ## Technical
 * smoke
