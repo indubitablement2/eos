@@ -25,12 +25,9 @@ Estimate US$360/months, US$4320/years.
 
 ### Income
 * Base cost $20
-* Ship/weapon skin trade cut 10%
+* Ship/weapon skin and character portrait trade cut 10%
   * Ship skin are gained by playing.
   * Community can create their skin.
-* Character portrait trade cut 10%
-  * Character portrait are gained by playing. Rarer ones can be more noticeable.
-
 ## User Experience
 
 ### Core loop
@@ -69,10 +66,6 @@ This lead to surplus or scarsity increasing player activity:
 * Fight over scarse resource. 
 * Fight for monopoly.
 
-### Currency
-Standard currency is an item (credit chip). 
-This make it harder to stockpile wealth in conjonction with entropy.
-
 ### Acquiring ship/weapon/module
 Low tier ship and civilian ship are available everywhere.
 
@@ -82,7 +75,16 @@ Getting higher tier gear is harder:
 * Random wreck and cargo in space.
 * Quests.
 
-## Fleet & ships
+### Disconnected fleet
+When a played disconnect, his fleet does not disappear.
+It does not consume resources however. 
+
+It can be assigned to do a number of things:
+* idle near allied planet 
+* idle near last location and flee from enemy 
+* stay still
+
+## Gear & ships
 
 ### Hull size
 * Fighter: 
@@ -121,27 +123,13 @@ Getting higher tier gear is harder:
   * Ludicrously expensive to maintain.
   * Can not be build (no blueprint hence the name). 
 
-### Manufacturer
-Weapon and ship have manufacturer.
+### Design 
+Weapon and ship have designer.
 
-Some ship and weapon mount may have an afinity toward a manufacturer. 
-Module and weapon slots generaly only accept a pacticular manufacturer.
+Some ship and weapon mount may have an afinity for a design. 
+Module and weapon mount may only accept a pacticular design.
 
-### Weapons size
-* Light:
-* Medium:
-* Heavy:
-
-### Modules
-They can be built-in.
-
-Ships have a limited number of free module slot. Higher quality ship have more.
-
-Damaged ship have negative built-in mods that are expensive to remove.
-
-## World
-
-### Manufacturers archetype
+Design archetype
 * UEF: Brute force. More frontal firepower and defence, but slower. Vulnerable when flanked or isolated. 
   * Theme: bulky, ww1
   * Specialist: Armor, balistic
@@ -159,7 +147,51 @@ Damaged ship have negative built-in mods that are expensive to remove.
   * Specialist: None
 * Civilian: Cheap utility ship. Poor combat ship. 
   * Theme: Dull, mining equipment 
-  * Specialist: Utility
+  * Specialist: Utility 
+
+### Weapons size
+* Light:
+* Medium:
+* Heavy:
+
+### Modules
+They can be built-in.
+
+Ships have a limited number of free module slot. 
+Higher quality ship have more.
+
+Damaged ship have negative built-in mods that are expensive to remove.
+
+### Captain
+Captain can be hired and assigned to a ship to provide bonuses. 
+
+They cost a salary based on their rank. 
+
+They gain experience by taking part in fight. 
+
+## Battlescape 
+Battle between fleets happens on a separate world. 
+
+### Battle point & lag prevention
+To limit lag, each team can only field a limited number of ship at a time. 
+Each ship has a set bp cost based on strenght.
+The bigger fleet has more bp available. 
+
+A battle can only happen between enemies. 
+A neutral can not interfere. 
+Multiple player can join the same side if they are allied. 
+
+### Ship control
+A player can control any of his ship and change at will. 
+Otherwise he can chose to let the ai control his ship. 
+
+### Fleet control
+Player can give general direction to his fleet. 
+Final action is left to the ai. 
+
+Fleet control is deliberately limited as to not overshadow directly controlling a ship. 
+
+## World
 
 ### Joining vs creating faction
 Joining faction:
@@ -180,28 +212,62 @@ Creating faction:
   * Needs to provide costly incentives to vassals (insurance, lower market price)
   * Needs to sustain a military
 
-### Reputation & relation
-Relation determine a fleet-faction or faction-faction standing. 
+### Faction research path
 
-If a fleet-faction reputation is not present, it use the faction's default. Pacifist may be higher. Xenophobe may be lower. 
+Player can hire (expensive) researcher to upgrade their faction. 
+This is a currency sink. 
+Upgrade are lost when a faction is dismantled. 
 
-Fleet in faction inherit their faction's relation with other factions. 
+* Piratry P
+  * Allow pirating fleet
+  * Default reputation is 0
+  * Enable futher research in pirating 
+* Minting P
+  * Allow building mint
+* Pirate ship 1..5 P
+  * Allow building some very cheap pirate ship
+* Trade 1..5
+  * Can start trade with other ally faction
+  * Better trade price
+* Insurance
 
-Fleet have reputation which act as a multiplier(0..1.0) to relation with factions and a relation with other factionless fleet (rep_self.min(rep_other). 
+### Reputation
+* faction-faction
+  * a.min(b).reputation(a.max(b))
+  * a.default_reputation.min(b.default_reputation)
+* faction-neutral
+  * a.reputation(b)
+  * a.default_reputation.min(b.reputation)
+* neutral-neutral
+  * a.reputation.min(b.reputation)
 
-Some faction (pirate) do not care about reputation much.
+Reputation 0..100 default 70
+* 80+ ally
+  * help encouraged
+* 60+ neutral
+  * war discouraged
+* 40+ hated
+  * war allowed
+* 0+ enemy
+  * war encouraged
+  * no trade
 
-### Faction archetype 
-Pirate
-xeno
-pacifist
-wide
-tall
-capitalist 
+There is a delay before a faction reputation change take effect. 
+Going up require both faction to agree. 
+
+Reputation trend toward neutral. 
+* It goes down by 
+  * initiating a fight with a neutral or ally 
+  * joining a pirate faction
+* It goes up by
+  * initiating a fight with an enemy
+  * defending an ally
 
 ## Market
 
-todo
+Player can see the whole market. 
+
+Item bought stay where they are and player need to get them. 
 
 ## Technical
 * smoke
