@@ -5,9 +5,9 @@ use crate::orbit_to_world_position;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Position {
-    /// A standard position relation to the world origin.
+    /// A standard position relative to the world origin.
     WorldPosition { world_position: Vec2 },
-    /// An orbit around an origin.
+    /// An orbit around an arbitrary origin.
     Orbit {
         /// Origin in world space this position is orbiting aound.
         origin: Vec2,

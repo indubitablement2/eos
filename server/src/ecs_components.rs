@@ -1,3 +1,4 @@
+use ahash::AHashMap;
 use bevy_ecs::prelude::*;
 use common::{idx::*, position::Position};
 use glam::Vec2;
@@ -19,7 +20,7 @@ pub struct ClientFleetBundle {
 #[derive(Bundle)]
 pub struct FleetBundle {
     pub fleet_id: FleetId,
-    pub fleet_position: FleetPosition,
+    pub entity_position: EntityPosition,
     pub wish_position: WishPosition,
     pub velocity: Velocity,
     pub acceleration: Acceleration,
@@ -31,17 +32,23 @@ pub struct FleetBundle {
 
 //* Client
 
+#[derive(Debug)]
+pub enum KnowEntityEnum {
+    /// Position, destination, velocity and fleet infos.
+    Full,
+    /// Fleet infos.
+    Partial,
+}
+
 /// Entity we have sent informations to the client.
 #[derive(Debug, Default)]
-pub struct KnowEntities {
-    /// Position, destination, velocity and fleet infos.
-    full: Vec<Entity>,
-    /// Fleet infos.
-    partial: Vec<Entity>,
-}
-//* Fleet
+pub struct KnowEntities(pub AHashMap<Entity, KnowEntityEnum>);
 
-pub struct FleetPosition(pub Position);
+// * Generic
+
+pub struct EntityPosition(pub Position);
+
+//* Fleet
 
 /// Where the entity wish to move.
 #[derive(Debug, Clone, Copy, Default)]

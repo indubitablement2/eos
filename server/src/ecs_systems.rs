@@ -85,7 +85,7 @@ fn get_new_clients(
                     know_entities: KnowEntities::default(),
                     fleet_bundle: FleetBundle {
                         fleet_id,
-                        fleet_position: FleetPosition(Position::WorldPosition {
+                        entity_position: EntityPosition(Position::WorldPosition {
                             world_position: Vec2::ZERO,
                         }),
                         wish_position: WishPosition::default(),
@@ -107,7 +107,7 @@ fn get_new_clients(
 
 /// Determine what each fleet can see.
 fn fleet_sensor(
-    mut query: Query<(&FleetId, &FleetPosition, &DetectorRadius, &mut EntityDetected)>,
+    mut query: Query<(&FleetId, &EntityPosition, &DetectorRadius, &mut EntityDetected)>,
     intersection_pipeline: Res<IntersectionPipeline>,
     task_pool: Res<TaskPool>,
     time_res: Res<TimeRes>,
@@ -121,10 +121,10 @@ fn fleet_sensor(
     query.par_for_each_mut(
         &task_pool,
         64 * num_turn as usize,
-        |(fleet_id, fleet_position, detector_radius, mut entity_detected)| {
+        |(fleet_id, entity_position, detector_radius, mut entity_detected)| {
             if fleet_id.0 % num_turn == turn {
                 let detector_collider =
-                    Collider::new_idless(detector_radius.0, fleet_position.0.to_world_position(time));
+                    Collider::new_idless(detector_radius.0, entity_position.0.to_world_position(time));
 
                 entity_detected.0.clear();
                 intersection_pipeline
@@ -189,13 +189,13 @@ fn handle_client_inputs(
 
 /// Ai that control the client's fleet while he is not connected.
 fn client_fleet_ai(
-    mut query: Query<(&ClientFleetAI, &FleetPosition, &mut WishPosition), With<ClientId>>,
+    mut query: Query<(&ClientFleetAI, &EntityPosition, &mut WishPosition), With<ClientId>>,
     task_pool: Res<TaskPool>,
 ) {
     query.par_for_each_mut(
         &task_pool,
         256,
-        |(client_fleet_ai, fleet_position, mut wish_position)| match client_fleet_ai.goal {
+        |(client_fleet_ai, entity_position, mut wish_position)| match client_fleet_ai.goal {
             ClientFleetAIGoal::Idle => {
                 if wish_position.0.is_some() {
                     wish_position.0 = None;
@@ -207,13 +207,13 @@ fn client_fleet_ai(
 
 /// TODO: Ai that control fleet owned by a colony.
 fn colony_fleet_ai(
-    mut query: Query<(&mut ColonyFleetAI, &FleetPosition, &mut WishPosition)>,
+    mut query: Query<(&mut ColonyFleetAI, &EntityPosition, &mut WishPosition)>,
     task_pool: Res<TaskPool>,
 ) {
     query.par_for_each_mut(
         &task_pool,
         256,
-        |(mut colony_fleet_ai, fleet_position, mut wish_position)| match &mut colony_fleet_ai.goal {
+        |(mut colony_fleet_ai, entity_position, mut wish_position)| match &mut colony_fleet_ai.goal {
             ColonyFleetAIGoal::Trade { colony } => todo!(),
             ColonyFleetAIGoal::Guard { duration } => todo!(),
         },
@@ -228,7 +228,7 @@ fn colony_fleet_ai(
 ///
 /// TODO: Fleets engaged in the same Battlescape should aggregate.
 fn apply_fleet_movement(
-    mut query: Query<(&mut FleetPosition, &WishPosition, &mut Velocity, &Acceleration)>,
+    mut query: Query<(&mut EntityPosition, &WishPosition, &mut Velocity, &Acceleration)>,
     metascape_parameters: Res<MetascapeParameters>,
     time_res: Res<TimeRes>,
     task_pool: Res<TaskPool>,
@@ -239,17 +239,17 @@ fn apply_fleet_movement(
     query.par_for_each_mut(
         &task_pool,
         256,
-        |(mut fleet_position, wish_position, mut velocity, acceleration)| {
+        |(mut entity_position, wish_position, mut velocity, acceleration)| {
             if let Some(world_position) = compute_fleet_movement(
-                fleet_position.0,
+                entity_position.0,
                 &mut velocity.0,
                 wish_position.0,
                 acceleration.0,
                 time,
                 metascape_parameters,
             ) {
-                // Change fleet_position and trigger component change.
-                fleet_position.0 = Position::WorldPosition { world_position };
+                // Change entity_position and trigger component change.
+                entity_position.0 = Position::WorldPosition { world_position };
             }
         },
     );
@@ -308,7 +308,7 @@ fn increment_time(mut time_res: ResMut<TimeRes>) {
 ///
 /// This effectively just swap the snapshots between the runner thread and this IntersectionPipeline.
 fn update_intersection_pipeline(
-    query: Query<(Entity, &FleetPosition, &DetectedRadius)>,
+    query: Query<(Entity, &EntityPosition, &DetectedRadius)>,
     mut intersection_pipeline: ResMut<IntersectionPipeline>,
     time_res: Res<TimeRes>,
     mut last_update_delta: Local<u32>,
@@ -323,9 +323,9 @@ fn update_intersection_pipeline(
 
                 // Update all colliders.
                 intersection_pipeline.snapshot.colliders.clear();
-                query.for_each(|(entity, fleet_position, detected_radius)| {
+                query.for_each(|(entity, entity_position, detected_radius)| {
                     let new_collider =
-                        Collider::new(entity.id(), detected_radius.0, fleet_position.0.to_world_position(time));
+                        Collider::new(entity.id(), detected_radius.0, entity_position.0.to_world_position(time));
                     intersection_pipeline.snapshot.colliders.push(new_collider);
                 });
 
@@ -354,10 +354,10 @@ fn update_intersection_pipeline(
 /// Send detected fleet to clients.
 fn send_detected_entity(
     mut query_client: Query<
-        (Entity, &ClientId, &FleetPosition, &EntityDetected, &mut KnowEntities),
+        (Entity, &ClientId, &EntityPosition, &EntityDetected, &mut KnowEntities),
         Changed<EntityDetected>,
     >,
-    query_entity: Query<(&FleetPosition, Option<&FleetId>), Changed<FleetPosition>>,
+    query_entity: Query<(&EntityPosition, Option<&FleetId>), Changed<EntityPosition>>,
     time_res: Res<TimeRes>,
     clients_res: Res<ClientsRes>,
     task_pool: Res<TaskPool>,
@@ -365,7 +365,7 @@ fn send_detected_entity(
     query_client.par_for_each_mut(
         &task_pool,
         32,
-        |(entity, client_id, fleet_position, entity_detected, know_entities)| {
+        |(entity, client_id, entity_position, entity_detected, know_entities)| {
             if let Some(connection) = clients_res.connected_clients.get(client_id) {
 
                 // let mut metascape_state_part = MetascapeStatePart {
