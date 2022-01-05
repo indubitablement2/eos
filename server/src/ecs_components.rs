@@ -39,7 +39,6 @@ pub struct KnowEntities {
     /// Fleet infos.
     partial: Vec<Entity>,
 }
-
 //* Fleet
 
 pub struct FleetPosition(pub Position);

@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use common::idx::*;
+use common::{idx::*, packets::Packet};
 use crossbeam_queue::SegQueue;
 
 /// Register the events.
@@ -11,6 +11,8 @@ pub fn add_event_res(world: &mut World) {
 pub struct ClientDisconnected {
     /// The client that just disconnected.
     pub client_id: ClientId,
+    /// This can be used to try to send a packet to the client before dropping the connection.
+    pub send_packet: Option<Packet>,
 }
 
 pub struct EventRes<T> {

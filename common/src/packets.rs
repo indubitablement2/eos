@@ -134,6 +134,14 @@ pub struct BattlescapeCommand {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum DisconnectedReasonEnum {
+    /// Server received an invalid packet.
+    InvalidPacket,
+    /// Someone else connected on the same account.
+    ConnectionFromOther
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Packet {
     /// Could not deserialize/serialize packet.
     Invalid,
@@ -150,6 +158,7 @@ pub enum Packet {
     },
     /// Server send some entities's infos.
     EntityInfo(Vec<EntityInfo>),
+    DisconnectedReason(DisconnectedReasonEnum),
 
     Message {
         /// Invalid ClientId means the origin is the server.

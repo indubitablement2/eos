@@ -137,6 +137,52 @@ fn fleet_sensor(
     );
 }
 
+/// TODO: Apply the client's input to his fleet.
+fn handle_client_inputs(
+    mut query: Query<(&ClientId, &FleetPosition, &mut WishPosition), Without<ClientFleetAI>>,
+    clients_res: Res<ClientsRes>,
+    client_disconnected: ResMut<EventRes<ClientDisconnected>>,
+    task_pool: Res<TaskPool>,
+) {
+    query.par_for_each_mut(&task_pool, 32, |(client_id, fleet_position, mut wish_position)| {
+        if let Some(connection) = clients_res.connected_clients.get(&client_id) {
+            loop {
+                match connection.inbound_receiver.try_recv() {
+                    Ok(payload) => match Packet::deserialize(&payload) {
+                        Packet::Invalid => {
+                            debug!("{:?} sent an invalid packet. Disconnecting...", client_id);
+                            client_disconnected.events.push(ClientDisconnected {
+                                client_id: *client_id,
+                                send_packet: Some(Packet::DisconnectedReason(DisconnectedReasonEnum::InvalidPacket)),
+                            });
+                            break;
+                        }
+                        Packet::Message { origin, content } => todo!(),
+                        Packet::MetascapeWishPos {
+                            sequence_number,
+                            wish_pos,
+                        } => todo!(),
+                        Packet::BattlescapeInput {
+                            wish_input,
+                            last_acknowledge_command,
+                        } => todo!(),
+                        _ => {}
+                    },
+                    Err(err) => {
+                        if err.is_disconnected() {
+                            client_disconnected.events.push(ClientDisconnected {
+                                client_id: *client_id,
+                                send_packet: None,
+                            });
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    });
+}
+
 //* pre_update
 
 /// Ai that control the client's fleet while he is not connected.
@@ -155,15 +201,6 @@ fn client_fleet_ai(
             }
         },
     )
-}
-
-/// TODO: Apply the client's input to his fleet.
-fn client_fleet_control(
-    mut query: Query<(&ClientId, &FleetPosition, &mut WishPosition), Without<ClientFleetAI>>,
-    clients_res: Res<ClientsRes>,
-    client_disconnected: ResMut<EventRes<ClientDisconnected>>,
-    task_pool: Res<TaskPool>,
-) {
 }
 
 /// TODO: Ai that control fleet owned by a colony.
@@ -226,7 +263,12 @@ fn disconnect_client(
     while let Some(client_disconnected) = client_disconnected.events.pop() {
         let client_id = client_disconnected.client_id;
 
+        // Remove connection.
         if let Some(connection) = clients_res.connected_clients.remove(&client_id) {
+            if let Some(packet) = client_disconnected.send_packet {
+                connection.send_packet(packet.serialize(), true);
+                connection.flush_tcp_stream();
+            }
             debug!("{:?} disconneced.", client_id);
         } else {
             warn!(
