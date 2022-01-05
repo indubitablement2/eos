@@ -168,8 +168,6 @@ pub enum Packet {
 
     /// Client send this when he wants his fleet to move to a position.
     MetascapeWishPos {
-        /// An ever increasing number that tells which `MetascapeWishPos` is newer.
-        sequence_number: u32,
         wish_pos: Vec2,
     },
     /// Client send his battlescape inputs and last acknowledged commands.

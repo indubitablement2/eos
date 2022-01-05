@@ -21,10 +21,12 @@ pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_stage(current_stage, SystemStage::parallel());
     schedule.add_system_to_stage(current_stage, get_new_clients.system());
     schedule.add_system_to_stage(current_stage, fleet_sensor.system());
+    schedule.add_system_to_stage(current_stage, handle_client_inputs.system());
 
     let previous_stage = current_stage;
     let current_stage = "pre_update";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
+    schedule.add_system_to_stage(current_stage, client_fleet_ai.system());
     schedule.add_system_to_stage(current_stage, colony_fleet_ai.system());
 
     let previous_stage = current_stage;
@@ -58,11 +60,7 @@ fn get_new_clients(
         if let Some(old_connection) = clients_res.connected_clients.insert(client_id, connection) {
             debug!("{:?} was disconnected as a new connection took this client.", client_id);
             // Send message to old client explaining why he got disconnected.
-            let message = Packet::Message {
-                origin: ClientId(0),
-                content: "Someone else connected on the same account.".to_string(),
-            };
-            old_connection.send_packet(message.serialize(), true);
+            old_connection.send_packet(Packet::DisconnectedReason(DisconnectedReasonEnum::ConnectionFromOther).serialize(), true);
             old_connection.flush_tcp_stream();
         }
 
@@ -133,23 +131,37 @@ fn fleet_sensor(
                     .snapshot
                     .intersect_collider_into(detector_collider, &mut entity_detected.0);
             }
-        },
+        }
     );
 }
 
-/// TODO: Apply the client's input to his fleet.
+/// Consume and apply the client's packets.
 fn handle_client_inputs(
-    mut query: Query<(&ClientId, &FleetPosition, &mut WishPosition), Without<ClientFleetAI>>,
+    mut query: Query<(&ClientId, &mut WishPosition), Without<ClientFleetAI>>,
     clients_res: Res<ClientsRes>,
     client_disconnected: ResMut<EventRes<ClientDisconnected>>,
     task_pool: Res<TaskPool>,
 ) {
-    query.par_for_each_mut(&task_pool, 32, |(client_id, fleet_position, mut wish_position)| {
+    query.par_for_each_mut(&task_pool, 32, |(client_id, mut wish_position)| {
         if let Some(connection) = clients_res.connected_clients.get(&client_id) {
             loop {
                 match connection.inbound_receiver.try_recv() {
                     Ok(payload) => match Packet::deserialize(&payload) {
-                        Packet::Invalid => {
+                        Packet::Message { origin, content } => {
+                            // TODO: Broadcast the message.
+                        }
+                        Packet::MetascapeWishPos {
+                            wish_pos,
+                        } => {
+                            wish_position.0 = Some(wish_pos);
+                        }
+                        Packet::BattlescapeInput {
+                            wish_input,
+                            last_acknowledge_command,
+                        } => {
+                            // TODO: Handle battlescape inputs.
+                        }
+                        _ => {
                             debug!("{:?} sent an invalid packet. Disconnecting...", client_id);
                             client_disconnected.events.push(ClientDisconnected {
                                 client_id: *client_id,
@@ -157,16 +169,6 @@ fn handle_client_inputs(
                             });
                             break;
                         }
-                        Packet::Message { origin, content } => todo!(),
-                        Packet::MetascapeWishPos {
-                            sequence_number,
-                            wish_pos,
-                        } => todo!(),
-                        Packet::BattlescapeInput {
-                            wish_input,
-                            last_acknowledge_command,
-                        } => todo!(),
-                        _ => {}
                     },
                     Err(err) => {
                         if err.is_disconnected() {
@@ -226,7 +228,7 @@ fn colony_fleet_ai(
 ///
 /// TODO: Fleets engaged in the same Battlescape should aggregate.
 fn apply_fleet_movement(
-    mut query: Query<(&mut FleetPosition, &mut WishPosition, &mut Velocity, &Acceleration)>,
+    mut query: Query<(&mut FleetPosition, &WishPosition, &mut Velocity, &Acceleration)>,
     metascape_parameters: Res<MetascapeParameters>,
     time_res: Res<TimeRes>,
     task_pool: Res<TaskPool>,
@@ -237,7 +239,7 @@ fn apply_fleet_movement(
     query.par_for_each_mut(
         &task_pool,
         256,
-        |(mut fleet_position, mut wish_position, mut velocity, acceleration)| {
+        |(mut fleet_position, wish_position, mut velocity, acceleration)| {
             if let Some(world_position) = compute_fleet_movement(
                 fleet_position.0,
                 &mut velocity.0,
@@ -266,6 +268,7 @@ fn disconnect_client(
         // Remove connection.
         if let Some(connection) = clients_res.connected_clients.remove(&client_id) {
             if let Some(packet) = client_disconnected.send_packet {
+                // Send last packet.
                 connection.send_packet(packet.serialize(), true);
                 connection.flush_tcp_stream();
             }
