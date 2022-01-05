@@ -3,6 +3,7 @@ use crate::input_handler::InputHandler;
 use crate::util::*;
 use ahash::AHashMap;
 use common::idx::*;
+use common::intersection::*;
 use common::packets::*;
 use common::parameters::MetascapeParameters;
 use common::system::Systems;
@@ -24,6 +25,14 @@ struct MetascapeEntityState {
     previous_position: Vec2,
     current_position: Vec2,
 }
+impl MetascapeEntityState {
+    pub fn get_interpolated_pos(&self, tick: u32, delta: f32) -> Vec2 {
+        // Interpolate position.
+        let interpolation = (tick.saturating_sub(1 + self.previous_tick)) as f32 + delta;
+        self.previous_position.lerp(self.current_position, interpolation)
+    }
+}
+
 struct MetascapeFleet {
     fleet_id: FleetId,
 }
@@ -35,6 +44,8 @@ struct MetascapeState {
     state_delta: f32,
     /// Multiply how fast tick increment.
     time_multiplier: f32,
+    /// Our entity.
+    own_entity: u32,
     entity_state: IndexMap<u32, MetascapeEntityState>,
     entity_fleet: AHashMap<u32, MetascapeFleet>,
 }
@@ -46,6 +57,7 @@ impl Default for MetascapeState {
             time_multiplier: 1.0,
             entity_state: IndexMap::new(),
             entity_fleet: AHashMap::new(),
+            own_entity: 0,
         }
     }
 }
@@ -53,6 +65,7 @@ impl Default for MetascapeState {
 pub struct ClientMetascape {
     metascape_parameters: MetascapeParameters,
     systems: Systems,
+    systems_acceleration: AccelerationStructure,
 
     /// Send input to server. Receive command from server.
     connection_manager: ConnectionManager,
@@ -81,15 +94,23 @@ impl ClientMetascape {
         }
         let systems_data = file.get_buffer(file.get_len());
         file.close();
-        let systems = if let Ok(systems) = bincode::deserialize(&systems_data.read()) {
+        let systems: Systems = if let Ok(systems) = bincode::deserialize(&systems_data.read()) {
             systems
         } else {
             return Err(std::io::Error::new(std::io::ErrorKind::Other, "Can not deserialize systems file."));
         };
 
+        // Create acceleration structure.
+        let mut systems_acceleration = AccelerationStructure::new();
+        systems_acceleration.colliders.extend(systems.0.iter()
+        .zip((0u32..).into_iter())
+        .map(|(system, id)| Collider::new(id, system.bound, system.position)));
+        systems_acceleration.update();
+
         Ok(Self {
             connection_manager: ConnectionManager::connect_to_server(server_address)?,
             systems,
+            systems_acceleration,
             metascape_parameters,
             state_buffer: Vec::new(),
             metascape_data_commands: Vec::new(),
@@ -109,7 +130,6 @@ impl ClientMetascape {
         loop {
             match self.connection_manager.ping_duration_receiver.try_recv() {
                 Ok(ping_time) => {
-                    info!("{}", ping_time);
                     self.recent_ping.push_back(ping_time);
                     // Only keep 10 recent ping time.
                     while self.recent_ping.len() > 10 {
@@ -139,17 +159,16 @@ impl ClientMetascape {
                         list,
                     } => {
                         self.entity_orders.insert(entity_order_id, (tick, list));
-                        debug!("added an entity order.");
                         // Remove obselete entity order.
-                        if self
+                        self
                             .entity_orders
-                            .remove(&entity_order_id.wrapping_add(u8::MAX / 2))
-                            .is_some()
-                        {
-                            debug!("deleted an entity order.");
-                        }
+                            .remove(&entity_order_id.wrapping_add(u8::MAX / 2));
                     }
                     TcpPacket::FleetInfo { entity_id, fleet_id } => {
+                        if ClientId::from(fleet_id) == self.connection_manager.connection.client_id {
+                            // This is us.
+                            self.metascape_state.own_entity = entity_id;
+                        }
                         self.metascape_state
                             .entity_fleet
                             .insert(entity_id, MetascapeFleet { fleet_id });
@@ -350,31 +369,15 @@ impl ClientMetascape {
             }
 
             // Interpolate position.
-            let interpolation = (self.metascape_state.tick.saturating_sub(1 + entity.previous_tick)) as f32
-                + self.metascape_state.state_delta;
-            let pos = entity.previous_position.lerp(entity.current_position, interpolation);
-            // let pos = entity.current_position;
+            let pos = entity.get_interpolated_pos(self.metascape_state.tick, self.metascape_state.state_delta);
 
             let mut r = 0.0;
-            let mut g = 0.0;
+            let g = 0.0;
             let b = (*entity_id % 10) as f32 / 10.0;
             let a = entity.fade * 0.9;
 
             if let Some(fleet_info) = self.metascape_state.entity_fleet.get(entity_id) {
-                if ClientId::from(fleet_info.fleet_id) == self.connection_manager.connection.client_id {
-                    // This is us!
-                    g = 1.0;
-                    owner.draw_circle(
-                        glam_to_godot(pos),
-                        50.0,
-                        Color {
-                            r: 1.0,
-                            g: 1.0,
-                            b: 1.0,
-                            a: 0.2,
-                        },
-                    );
-                }
+                // TODO: Do something with the fleet info.
             } else {
                 // We don't know who is this entity.
                 r = 1.0;
@@ -384,14 +387,52 @@ impl ClientMetascape {
             owner.draw_circle(glam_to_godot(pos), 10.0, Color { r, g, b, a });
         }
 
-        // Debug draw systems
-        for system in self.systems.0.iter() {
-            owner.draw_circle(glam_to_godot(system.position), system.bound.into(), Color {
+        // Get our entity.
+        let own_entity = if let Some(entity) = self.metascape_state.entity_state.get(&self.metascape_state.own_entity) {
+            entity
+        } else {
+            return;
+        };
+
+        // Debug draw our entity
+        let pos = own_entity.get_interpolated_pos(self.metascape_state.tick, self.metascape_state.state_delta);
+        owner.draw_circle(
+            glam_to_godot(pos),
+            50.0,
+            Color {
                 r: 1.0,
                 g: 1.0,
                 b: 1.0,
-                a: 0.1,
-            });
+                a: 0.2,
+            },
+        );
+
+        // Debug draw systems.
+        let screen_collider = Collider::new_idless(100.0, pos);
+        let mut system_seen = Vec::new();
+        self.systems_acceleration.intersect_collider_into(screen_collider, &mut system_seen);
+        let time = self.metascape_state.tick as f32 + self.metascape_state.state_delta;
+        let mut bodies_position = Vec::new();
+        for system_id in system_seen.into_iter() {
+            if let Some(system) = self.systems.0.get(system_id as usize) {
+                system.get_bodies_position(time, &mut bodies_position);
+                for (body, body_pos) in system.bodies.iter().zip(bodies_position.drain(..)) {
+                    let (r,g,b) = match body.body_type {
+                        common::system::CelestialBodyType::Star => (1.0, 0.2, 0.0),
+                        common::system::CelestialBodyType::Planet => (0.0, 0.5, 1.0),
+                        common::system::CelestialBodyType::BlackHole => (0.0, 0.0, 0.0),
+                    };
+
+                    owner.draw_circle(glam_to_godot(body_pos), body.radius.into(), Color {
+                        r,
+                        g,
+                        b,
+                        a: 0.5,
+                    });
+                }
+            } else {
+                warn!("Can not find system {}. Ignoring...", system_id);
+            }
         }
     }
 }

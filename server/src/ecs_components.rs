@@ -1,14 +1,17 @@
 use bevy_ecs::prelude::*;
-use common::idx::*;
+use common::{idx::*, position::Position};
 use glam::Vec2;
 use std::ops::{Add, Sub};
+
+// TODO: impl component for these when 0.6 release.
+// Position
 
 //* bundle
 
 #[derive(Bundle)]
 pub struct ClientFleetBundle {
     pub client_id: ClientId,
-    pub entity_order: EntityOrder,
+    pub know_entities: KnowEntities,
     #[bundle]
     pub fleet_bundle: FleetBundle,
 }
@@ -16,29 +19,37 @@ pub struct ClientFleetBundle {
 #[derive(Bundle)]
 pub struct FleetBundle {
     pub fleet_id: FleetId,
-    pub position: Position,
+    pub fleet_position: FleetPosition,
     pub wish_position: WishPosition,
     pub velocity: Velocity,
     pub acceleration: Acceleration,
-    pub fleet_ai: FleetAI,
     pub reputation: Reputation,
     pub detected_radius: DetectedRadius,
     pub detector_radius: DetectorRadius,
     pub entity_detected: EntityDetected,
 }
 
-//* generic
+//* Client
 
-/// The current position of the entity.
-#[derive(Debug, Clone, Copy)]
-pub struct Position(pub Vec2);
+/// Entity we have sent informations to the client.
+#[derive(Debug, Default)]
+pub struct KnowEntities {
+    /// Position, destination, velocity and fleet infos.
+    full: Vec<Entity>,
+    /// Fleet infos.
+    partial: Vec<Entity>,
+}
+
+//* Fleet
+
+pub struct FleetPosition(pub Position);
 
 /// Where the entity wish to move.
-#[derive(Debug, Clone, Copy)]
-pub struct WishPosition(pub Vec2);
+#[derive(Debug, Clone, Copy, Default)]
+pub struct WishPosition(pub Option<Vec2>);
 
 /// The current velocity of the entity.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Velocity(pub Vec2);
 
 #[derive(Debug, Clone, Copy)]
@@ -79,40 +90,31 @@ impl Sub for Reputation {
     }
 }
 
-//* ai
+//* AI
 
 /// Not a components.
-pub enum FleetGoal {
-    /// Directly controlled by a client.
-    Controlled,
-    Trade {
-        from: (),
-        to: (),
-    },
-    Guard {
-        who: Entity,
-        radius: f32,
-        duration: i32,
-    },
-    Idle {
-        duration: i32,
-    },
-    Wandering {
-        new_pos_timer: i32,
-    },
+#[derive(Debug, Clone, Copy)]
+pub enum ColonyFleetAIGoal {
+    Trade { colony: Entity },
+    Guard { duration: i32 },
 }
-pub struct FleetAI {
-    pub goal: FleetGoal,
+/// Ai for fleet that are owned by a colony.
+pub struct ColonyFleetAI {
+    pub goal: ColonyFleetAIGoal,
+    /// The colony that own this fleet.
+    pub colony: Entity,
 }
 
-//* Client
-
-/// The order that this client should receive entities.
-pub struct EntityOrder {
-    /// The most recent order. This is sorted by id.
-    pub current_entity_order: Vec<u32>,
-    /// The id that identify this order.
-    pub id: u8,
+/// Not a components.
+#[derive(Debug, Clone, Copy, Default)]
+pub enum ClientFleetAIGoal {
+    #[default]
+    Idle,
+}
+#[derive(Debug, Default, Clone, Copy)]
+/// Ai that takes over a client's fleet when it is not connected.
+pub struct ClientFleetAI {
+    pub goal: ClientFleetAIGoal,
 }
 
 //* Detection

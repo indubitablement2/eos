@@ -1,6 +1,6 @@
-use glam::Vec2;
 use ahash::AHashSet;
 use crossbeam_channel::{bounded, Receiver, Sender};
+use glam::Vec2;
 use std::thread::spawn;
 extern crate test;
 
@@ -58,20 +58,18 @@ impl Collider {
     }
 
     /// Return half of the biggest horizontal lenght within two (possibly) intersecting horizontal lines.
-    /// 
+    ///
     /// This will return the collider radius if the collider's vertical position is within these lines.
     /// Both lines needs to be either above or bellow the coillider's vertical position for it not to.
-    /// 
+    ///
     /// This is often used as a threshold for when we should stop looking for new possible colliders
-    /// to test in the intersection engine. 
+    /// to test in the intersection engine.
     pub fn biggest_slice_within_row(self, top: f32, bot: f32) -> f32 {
         if self.position.y > top && self.position.y < bot {
             self.radius
         } else {
             // The distance to the top or bot. Whichever is closest.
-            let distance = (self.position.y - top)
-                .abs()
-                .min((self.position.y - bot).abs());
+            let distance = (self.position.y - top).abs().min((self.position.y - bot).abs());
             // This is used instead of the collider's radius as it is smaller.
             (self.radius.powi(2) - distance.powi(2)).sqrt()
         }
@@ -113,7 +111,7 @@ impl Default for SAPRow {
 }
 
 /// Allow fast circle-circle and circle-point test.
-/// 
+///
 /// # Safety
 /// After any modification, and until it is updated,
 /// any test result will at best be meaningless or at worst will cause a panic due to out of bound array index.
@@ -150,7 +148,7 @@ impl AccelerationStructure {
             self.rows_bot = 0.0;
             self.rows_top = 0.0;
             self.rows_lenght = 0.0;
-            return
+            return;
         }
 
         // Find rows parameters.
@@ -219,7 +217,9 @@ impl AccelerationStructure {
         for row in &mut self.rows {
             let row_bot = row_top + self.rows_lenght;
             row.threshold = row.data.iter().fold(0.0, |acc, i| {
-                self.colliders[*i as usize].biggest_slice_within_row(row_top, row_bot).max(acc)
+                self.colliders[*i as usize]
+                    .biggest_slice_within_row(row_top, row_bot)
+                    .max(acc)
             });
             row_top += self.rows_lenght;
         }
@@ -525,9 +525,7 @@ fn test_overlap_colliders() {
     for i in 0..10 {
         let collider_copy = Collider::new(i, collider.radius, collider.position);
 
-        intersection_pipeline.snapshot.colliders.push(
-            collider_copy
-        );
+        intersection_pipeline.snapshot.colliders.push(collider_copy);
     }
 
     intersection_pipeline.snapshot.update();
@@ -580,21 +578,25 @@ fn test_random_colliders() {
 fn bench_intersect_collider_into(b: &mut test::Bencher) {
     use rand::Rng;
     use test::black_box;
-    
+
     // Create a large random intersection pipeline.
     let mut rng = rand::thread_rng();
     let mut intersection_pipeline = IntersectionPipeline::new();
     for i in 0..5000 {
-        intersection_pipeline.snapshot.colliders.push(
-            Collider::new(i, rng.gen::<f32>() * 32.0, rng.gen::<Vec2>() * 1024.0 - 512.0)
-        );
+        intersection_pipeline.snapshot.colliders.push(Collider::new(
+            i,
+            rng.gen::<f32>() * 32.0,
+            rng.gen::<Vec2>() * 1024.0 - 512.0,
+        ));
     }
     intersection_pipeline.snapshot.update();
 
     b.iter(|| {
         let collider = Collider::new_idless(rng.gen::<f32>() * 32.0, rng.gen::<Vec2>() * 1024.0 - 512.0);
         let mut result = Vec::new();
-        intersection_pipeline.snapshot.intersect_collider_into(collider, &mut result);
+        intersection_pipeline
+            .snapshot
+            .intersect_collider_into(collider, &mut result);
         black_box(result);
     });
 }

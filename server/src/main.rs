@@ -4,14 +4,16 @@
 #![feature(slice_split_at_unchecked)]
 #![feature(iter_advance_by)]
 #![feature(duration_constants)]
+#![feature(derive_default_enum)]
+#![feature(map_try_insert)]
 
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
+use common::intersection::IntersectionPipeline;
 use common::parameters::MetascapeParameters;
 use common::res_time::TimeRes;
 use common::system::Systems;
 use data_manager::DataManager;
-use common::intersection::IntersectionPipeline;
 use res_clients::ClientsRes;
 use res_factions::FactionsRes;
 use res_fleets::FleetsRes;

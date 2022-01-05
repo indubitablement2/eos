@@ -1,55 +1,64 @@
 use crate::idx::*;
-use crate::packets::*;
 use crate::udp_loops::UdpConnectionEvent;
-use std::{
-    net::SocketAddrV6,
-};
+use std::net::SocketAddrV6;
 use tokio::{
     io::*,
-    net::{
-        tcp::{OwnedReadHalf, OwnedWriteHalf},
-    },
+    net::tcp::{OwnedReadHalf, OwnedWriteHalf},
 };
 
+pub enum TcpOutboundEvent {
+    /// Send a packet (without header) to the connected peer.
+    PacketEvent(Vec<u8>),
+    /// Request a write flush.
+    FlushEvent,
+}
+
 pub async fn tcp_out_loop(
-    mut tcp_to_send: tokio::sync::mpsc::Receiver<TcpPacket>,
-    mut write: OwnedWriteHalf,
+    mut tcp_outbound_event_receiver: tokio::sync::mpsc::Receiver<TcpOutboundEvent>,
+    mut buf_write: BufWriter<OwnedWriteHalf>,
     client_id: ClientId,
 ) {
-    let mut buf: Vec<u8> = Vec::new();
-
     loop {
-        if let Some(packet) = tcp_to_send.recv().await {
-            // Resize buf so that serialized packet fit into.
-            let packet_size = if let Some(packet_size) = packet.serialized_size() {
-                if packet_size + 2 > buf.len() {
-                    buf.resize(packet_size + 2, 0);
+        if let Some(event) = tcp_outbound_event_receiver.recv().await {
+            match event {
+                TcpOutboundEvent::PacketEvent(packet) => {
+                    // Write header.
+                    match u16::try_from(packet.len()) {
+                        Ok(payload_size) => {
+                            if let Err(err) = buf_write.write_u16(payload_size).await {
+                                debug!(
+                                    "{:?} while writting header to {:?} 's tcp buf stream. Disconnecting...",
+                                    err, client_id
+                                );
+                                break;
+                            }
+                        }
+                        Err(err) => {
+                            warn!(
+                                "{:?} while getting payload size for {:?}. Ignoring packet and disconnecting...",
+                                err, client_id
+                            );
+                            break;
+                        }
+                    }
+
+                    // Write payload.
+                    if let Err(err) = buf_write.write_all(&packet).await {
+                        debug!(
+                            "{:?} while writting to {:?} 's tcp buf stream. Disconnecting...",
+                            err, client_id
+                        );
+                        break;
+                    }
                 }
-                packet_size
-            } else {
-                continue;
-            };
-
-            // Add header.
-            if let Ok(header) = u16::try_from(packet_size) {
-                buf[..2].copy_from_slice(&header.to_be_bytes());
-            } else {
-                warn!("Tried to send a packet of {} bytes which is above size limit of {}. Ignoring...", packet_size, TcpPacket::MAX_SIZE);
-                continue;
-            }
-
-            // Add packet.
-            if !packet.serialize_into(&mut buf[2..]) {
-                continue;
-            }
-
-            if let Err(err) = write.write_all(&buf[..packet_size + 2]).await {
-                if is_err_fatal(&err) {
-                    debug!(
-                        "Fatal error while writting to {:?} 's tcp stream. Disconnecting...",
-                        client_id
-                    );
-                    break;
+                TcpOutboundEvent::FlushEvent => {
+                    if let Err(err) = buf_write.flush().await {
+                        debug!(
+                            "{:?} while flushing {:?}'s tcp buf stream. Disconnecting...",
+                            err, client_id
+                        );
+                        break;
+                    }
                 }
             }
         } else {
@@ -60,27 +69,26 @@ pub async fn tcp_out_loop(
 }
 
 pub async fn tcp_in_loop(
-    tcp_received: crossbeam_channel::Sender<TcpPacket>,
+    inbound_sender: crossbeam_channel::Sender<Vec<u8>>,
     mut buf_read: BufReader<OwnedReadHalf>,
     client_id: ClientId,
     udp_connection_event_sender: crossbeam_channel::Sender<UdpConnectionEvent>,
-    udp_address: SocketAddrV6,
+    client_udp_address: SocketAddrV6,
 ) {
-    let mut header_buffer = [0u8; 2];
     let mut payload_buffer: Vec<u8> = Vec::new();
     loop {
         // Get a header.
-        match buf_read.read_exact(&mut header_buffer).await {
-            Ok(num) => {
-                if num == 0 {
-                    debug!("{:?} disconnected.", client_id);
-                    break;
+        match buf_read.read_u16().await {
+            Ok(next_payload_size) => {
+                if next_payload_size == 0 {
+                    debug!("{:?} sent a payload of 0 byte. Ignoring...", client_id);
+                    continue;
                 }
 
-                let next_payload_size = u16::from_be_bytes(header_buffer) as usize;
+                let next_payload_size = next_payload_size as usize;
 
+                // Increase buffer if needed.
                 if next_payload_size > payload_buffer.len() {
-                    // Next packet will need a bigger buffer.
                     payload_buffer.resize(next_payload_size, 0);
                 }
 
@@ -95,63 +103,44 @@ pub async fn tcp_in_loop(
                             break;
                         }
 
-                        // Try to deserialize.
-                        match TcpPacket::deserialize(&payload_buffer[..next_payload_size]) {
-                            Some(packet) => {
-                                // Send packet to channel.
-                                if tcp_received.send(packet).is_err() {
-                                    debug!("Tcp sender channel for {:?} shutdown. Disconnecting...", client_id);
-                                    break;
-                                }
-                            }
-                            None => {
-                                debug!(
-                                    "Error while deserializing {:?} 's TcpPacket. Disconnecting...",
-                                    client_id
-                                );
-                                break;
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        if is_err_fatal(&err) {
+                        if inbound_sender
+                            .send(payload_buffer[..next_payload_size].to_vec())
+                            .is_err()
+                        {
                             debug!(
-                                "Fatal error while reading {:?} 's tcp stream for a payload. Disconnecting...",
+                                "Tcp inbound sender channel for {:?} shutdown. Disconnecting...",
                                 client_id
                             );
                             break;
                         }
                     }
+                    Err(err) => {
+                        debug!(
+                            "{:?} while reading {:?} 's tcp stream for a payload. Disconnecting...",
+                            err, client_id
+                        );
+                        break;
+                    }
                 }
             }
             Err(err) => {
-                if is_err_fatal(&err) {
-                    debug!(
-                        "Fatal error while reading {:?} 's tcp stream for a header. Disconnecting...",
-                        client_id
-                    );
-                    break;
-                }
+                debug!(
+                    "{:?} while reading {:?} 's tcp stream for a header. Disconnecting...",
+                    err, client_id
+                );
+                break;
             }
         }
     }
 
     // Also remove udp address.
-    udp_connection_event_sender.send(UdpConnectionEvent::Disconnected {
-        addr: udp_address,
-    }).expect("should be hable to send udp UdpConnectionEvent::Disconnected");
+    udp_connection_event_sender
+        .send(UdpConnectionEvent::Disconnected {
+            addr: client_udp_address,
+        })
+        .expect("should be hable to send udp UdpConnectionEvent::Disconnected");
     debug!(
         "Tcp in loop for {:?} shutdown. Also sent disconnected event to udp loop.",
         client_id,
     );
-}
-
-/// If the io error is fatal, return true and print the err to debug log.
-fn is_err_fatal(err: &Error) -> bool {
-    if err.kind() == std::io::ErrorKind::WouldBlock || err.kind() == std::io::ErrorKind::Interrupted {
-        false
-    } else {
-        debug!("Fatal io error {:?}.", err);
-        true
-    }
 }

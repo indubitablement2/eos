@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+/// Never recycled.
 /// 0 is reserved and means invalid.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ClientId(pub u32);
@@ -46,10 +47,10 @@ fn fleet_client_id() {
 pub struct FactionId(pub u32);
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct SystemId(pub u32);
+pub struct SystemId(pub u16);
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CelestialBodyId {
     pub system_id: SystemId,
-    pub body_offset: u8
+    pub body_offset: u16,
 }
