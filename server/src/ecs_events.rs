@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 use common::{idx::*, packets::Packet};
-use crossbeam_queue::SegQueue;
+use crossbeam::queue::SegQueue;
 
 /// Register the events.
 pub fn add_event_res(world: &mut World) {

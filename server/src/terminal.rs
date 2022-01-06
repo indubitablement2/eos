@@ -1,5 +1,5 @@
 use common::*;
-use crossbeam_channel::*;
+use crossbeam::channel::*;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use std::{
     io::{self, stdin, Stdout},

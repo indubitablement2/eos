@@ -344,7 +344,7 @@ fn update_intersection_pipeline(
                 *last_update_delta = 0;
             }
             Err(err) => {
-                if err == crossbeam_channel::TryRecvError::Disconnected {
+                if err == crossbeam::channel::TryRecvError::Disconnected {
                     warn!("Intersection pipeline update runner thread dropped. Creating a new runner...");
                     intersection_pipeline.start_new_runner_thread();
                 }

@@ -15,7 +15,7 @@ use tokio::{
 };
 
 pub struct ConnectionsManager {
-    pub new_connection_receiver: crossbeam_channel::Receiver<Connection>,
+    pub new_connection_receiver: crossbeam::channel::Receiver<Connection>,
     pub rt: Runtime,
 }
 impl ConnectionsManager {
@@ -39,7 +39,7 @@ impl ConnectionsManager {
 
         // Start login loop.
         let listener = rt.block_on(async { TcpListener::bind(addr).await })?;
-        let (new_connection_sender, new_connection_receiver) = crossbeam_channel::unbounded();
+        let (new_connection_sender, new_connection_receiver) = crossbeam::channel::unbounded();
         rt.spawn(login_loop(
             local,
             listener,
@@ -69,9 +69,9 @@ struct LoginResult {
 pub async fn login_loop(
     local: bool,
     listener: TcpListener,
-    new_connection_sender: crossbeam_channel::Sender<Connection>,
+    new_connection_sender: crossbeam::channel::Sender<Connection>,
     socket: Arc<UdpSocket>,
-    udp_connections: Arc<RwLock<AHashMap<SocketAddrV6, crossbeam_channel::Sender<Vec<u8>>>>>,
+    udp_connections: Arc<RwLock<AHashMap<SocketAddrV6, crossbeam::channel::Sender<Vec<u8>>>>>,
 ) {
     let (login_result_sender, login_result_receiver) = channel(32);
     tokio::spawn(handle_successful_login(
@@ -229,13 +229,13 @@ async fn handle_first_packet(
 
 async fn handle_successful_login(
     mut login_result_receiver: tokio::sync::mpsc::Receiver<LoginResult>,
-    new_connection_sender: crossbeam_channel::Sender<Connection>,
+    new_connection_sender: crossbeam::channel::Sender<Connection>,
     socket: Arc<UdpSocket>,
-    udp_connections: Arc<RwLock<AHashMap<SocketAddrV6, crossbeam_channel::Sender<Vec<u8>>>>>,
+    udp_connections: Arc<RwLock<AHashMap<SocketAddrV6, crossbeam::channel::Sender<Vec<u8>>>>>,
 ) {
     loop {
         if let Some(login_result) = login_result_receiver.recv().await {
-            let (inbound_sender, inbound_receiver) = crossbeam_channel::unbounded::<Vec<u8>>();
+            let (inbound_sender, inbound_receiver) = crossbeam::channel::unbounded::<Vec<u8>>();
 
             // Wrap stream into buffers.
             let (r, w) = login_result.stream.into_split();
