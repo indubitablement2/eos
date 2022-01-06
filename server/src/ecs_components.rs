@@ -1,11 +1,11 @@
-use ahash::AHashMap;
+use ahash::AHashSet;
 use bevy_ecs::prelude::*;
-use common::{idx::*, position::Position};
+use common::idx::*;
 use glam::Vec2;
 use std::ops::{Add, Sub};
 
 // TODO: impl component for these when 0.6 release.
-// Position
+// Orbit
 
 //* bundle
 
@@ -20,10 +20,10 @@ pub struct ClientFleetBundle {
 #[derive(Bundle)]
 pub struct FleetBundle {
     pub fleet_id: FleetId,
-    pub entity_position: EntityPosition,
+    pub position: Position,
     pub wish_position: WishPosition,
     pub velocity: Velocity,
-    pub acceleration: Acceleration,
+    pub derived_fleet_stats: DerivedFleetStats,
     pub reputation: Reputation,
     pub detected_radius: DetectedRadius,
     pub detector_radius: DetectorRadius,
@@ -32,21 +32,14 @@ pub struct FleetBundle {
 
 //* Client
 
-#[derive(Debug)]
-pub enum KnowEntityEnum {
-    /// Position, destination, velocity and fleet infos.
-    Full,
-    /// Fleet infos.
-    Partial,
-}
-
 /// Entity we have sent informations to the client.
 #[derive(Debug, Default)]
-pub struct KnowEntities(pub AHashMap<Entity, (KnowEntityEnum, u8)>);
+pub struct KnowEntities(pub AHashSet<Entity>);
 
 // * Generic
 
-pub struct EntityPosition(pub Position);
+/// A standard position relative to the world origin.
+pub struct Position(pub Vec2);
 
 //* Fleet
 
@@ -58,8 +51,14 @@ pub struct WishPosition(pub Option<Vec2>);
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Velocity(pub Vec2);
 
+/// Fleet statistics that are derived from fleet composition.
 #[derive(Debug, Clone, Copy)]
-pub struct Acceleration(pub f32);
+pub struct DerivedFleetStats {
+    /// How much velocity this entity can gain each update.
+    pub acceleration:f32,
+    /// Velocity beyong which it can not accelerate itself anymore (it can still be pushed).
+    pub max_speed: f32,
+}
 
 /// Good boy points.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]

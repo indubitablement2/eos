@@ -1,6 +1,9 @@
 use crate::idx::*;
 use ahash::AHashMap;
-use std::{net::SocketAddrV6, sync::{RwLock, Arc}};
+use std::{
+    net::SocketAddrV6,
+    sync::{Arc, RwLock},
+};
 use tokio::{
     io::*,
     net::tcp::{OwnedReadHalf, OwnedWriteHalf},

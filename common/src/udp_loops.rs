@@ -9,10 +9,7 @@ use std::{
 };
 
 /// Socket should be in nonblocking mode.
-pub fn udp_in_loop(
-    socket: Arc<UdpSocket>,
-    udp_connections: Arc<RwLock<AHashMap<SocketAddrV6, Sender<Vec<u8>>>>>,
-) {
+pub fn udp_in_loop(socket: Arc<UdpSocket>, udp_connections: Arc<RwLock<AHashMap<SocketAddrV6, Sender<Vec<u8>>>>>) {
     let mut buf = [0; Connection::MAX_UDP_PACKET_SIZE];
 
     'outer: loop {

@@ -1,4 +1,4 @@
-use crate::{idx::*, position::Position, Version};
+use crate::{idx::*, Version};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
@@ -114,9 +114,9 @@ impl Default for BattlescapeInput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntityState {
     entity_id: u32,
-    position: Position,
+    position: Vec2,
     velocity: Vec2,
-    wish_position: Position,
+    wish_position: Vec2,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

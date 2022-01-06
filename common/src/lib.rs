@@ -10,12 +10,11 @@ extern crate log;
 
 pub mod array_difference;
 pub mod connection;
-pub mod fleet_movement;
 pub mod idx;
 pub mod intersection;
+pub mod orbit;
 pub mod packets;
 pub mod parameters;
-pub mod position;
 pub mod res_time;
 pub mod system;
 pub mod tcp_loops;
@@ -45,17 +44,3 @@ impl Version {
 pub const UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 /// The server's tcp/udp port.
 pub const SERVER_PORT: u16 = 31415;
-
-/// Return the world position of an orbit.
-///
-/// Time is an f32 to allow more granularity than tick. Otherwise `u32 as f32` will work just fine.
-pub fn orbit_to_world_position(
-    origin: Vec2,
-    orbit_radius: f32,
-    orbit_start_angle: f32,
-    orbit_time: f32,
-    time: f32,
-) -> Vec2 {
-    let rot = (time / orbit_time).mul_add(std::f32::consts::TAU, orbit_start_angle);
-    Vec2::new(rot.cos(), rot.sin()) * orbit_radius + origin
-}
