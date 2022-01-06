@@ -1,6 +1,6 @@
 use crate::idx::*;
 use ahash::AHashMap;
-use std::{net::SocketAddrV6, sync::RwLock};
+use std::{net::SocketAddrV6, sync::{RwLock, Arc}};
 use tokio::{
     io::*,
     net::tcp::{OwnedReadHalf, OwnedWriteHalf},
@@ -73,7 +73,7 @@ pub async fn tcp_in_loop(
     inbound_sender: crossbeam_channel::Sender<Vec<u8>>,
     mut buf_read: BufReader<OwnedReadHalf>,
     client_id: ClientId,
-    udp_connections: RwLock<AHashMap<SocketAddrV6, crossbeam_channel::Sender<Vec<u8>>>>,
+    udp_connections: Arc<RwLock<AHashMap<SocketAddrV6, crossbeam_channel::Sender<Vec<u8>>>>>,
     client_udp_address: SocketAddrV6,
 ) {
     let mut payload_buffer: Vec<u8> = Vec::new();

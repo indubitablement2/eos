@@ -60,7 +60,9 @@ fn get_new_clients(
         if let Some(old_connection) = clients_res.connected_clients.insert(client_id, connection) {
             debug!("{:?} was disconnected as a new connection took this client.", client_id);
             // Send message to old client explaining why he got disconnected.
-            old_connection.send_packet(Packet::DisconnectedReason(DisconnectedReasonEnum::ConnectionFromOther).serialize(), true);
+            old_connection.send_packet_reliable(
+                Packet::DisconnectedReason(DisconnectedReasonEnum::ConnectionFromOther).serialize(),
+            );
             old_connection.flush_tcp_stream();
         }
 
@@ -131,7 +133,7 @@ fn fleet_sensor(
                     .snapshot
                     .intersect_collider_into(detector_collider, &mut entity_detected.0);
             }
-        }
+        },
     );
 }
 
@@ -150,9 +152,7 @@ fn handle_client_inputs(
                         Packet::Message { origin, content } => {
                             // TODO: Broadcast the message.
                         }
-                        Packet::MetascapeWishPos {
-                            wish_pos,
-                        } => {
+                        Packet::MetascapeWishPos { wish_pos } => {
                             wish_position.0 = Some(wish_pos);
                         }
                         Packet::BattlescapeInput {
@@ -269,7 +269,7 @@ fn disconnect_client(
         if let Some(connection) = clients_res.connected_clients.remove(&client_id) {
             if let Some(packet) = client_disconnected.send_packet {
                 // Send last packet.
-                connection.send_packet(packet.serialize(), true);
+                connection.send_packet_reliable(packet.serialize());
                 connection.flush_tcp_stream();
             }
             debug!("{:?} disconneced.", client_id);
@@ -324,8 +324,11 @@ fn update_intersection_pipeline(
                 // Update all colliders.
                 intersection_pipeline.snapshot.colliders.clear();
                 query.for_each(|(entity, entity_position, detected_radius)| {
-                    let new_collider =
-                        Collider::new(entity.id(), detected_radius.0, entity_position.0.to_world_position(time));
+                    let new_collider = Collider::new(
+                        entity.id(),
+                        detected_radius.0,
+                        entity_position.0.to_world_position(time),
+                    );
                     intersection_pipeline.snapshot.colliders.push(new_collider);
                 });
 
@@ -357,7 +360,10 @@ fn send_detected_entity(
         (Entity, &ClientId, &EntityPosition, &EntityDetected, &mut KnowEntities),
         Changed<EntityDetected>,
     >,
-    query_changed_entity: Query<(&EntityPosition, &Velocity, &Acceleration, &WishPosition), Or<(Changed<WishPosition>, Changed<Acceleration>)>>,
+    query_changed_entity: Query<
+        (&EntityPosition, &Velocity, &Acceleration, &WishPosition),
+        Or<(Changed<WishPosition>, Changed<Acceleration>)>,
+    >,
     time_res: Res<TimeRes>,
     clients_res: Res<ClientsRes>,
     task_pool: Res<TaskPool>,
@@ -370,9 +376,7 @@ fn send_detected_entity(
         32,
         |(entity, client_id, entity_position, entity_detected, know_entities)| {
             if let Some(connection) = clients_res.connected_clients.get(client_id) {
-                for detected_entity in entity_detected.0.iter().map(|id| Entity::new(*id)) {
-                    
-                }
+                for detected_entity in entity_detected.0.iter().map(|id| Entity::new(*id)) {}
 
                 // let mut metascape_state_part = MetascapeStatePart {
                 //     tick: time_res.tick,

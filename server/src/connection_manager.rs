@@ -1,9 +1,12 @@
+use ahash::AHashMap;
 use common::{connection::Connection, idx::ClientId, packets::*, tcp_loops::*, udp_loops::*, Version, SERVER_PORT};
 use std::io::Result;
+use std::sync::RwLock;
 use std::{
     net::{Ipv6Addr, SocketAddrV6, UdpSocket},
     sync::Arc,
 };
+use tokio::task::spawn_blocking;
 use tokio::{
     io::*,
     net::{TcpListener, TcpStream},
@@ -27,10 +30,9 @@ impl ConnectionsManager {
         let socket = Arc::new(UdpSocket::bind(addr)?);
         socket.set_nonblocking(true)?;
         let socket_clone = socket.clone();
-        let (udp_connection_event_sender, udp_connection_event_receiver) = crossbeam_channel::unbounded();
-        let (udp_outbound_sender, udp_outbound_receiver) = crossbeam_channel::unbounded();
-        std::thread::spawn(move || udp_in_loop(socket_clone, udp_connection_event_receiver));
-        std::thread::spawn(move || udp_out_loop(socket, udp_outbound_receiver));
+        let udp_connections = Arc::new(RwLock::new(AHashMap::new()));
+        let udp_connections_clone = udp_connections.clone();
+        std::thread::spawn(move || udp_in_loop(socket_clone, udp_connections_clone));
 
         // Create tokio runtime.
         let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
@@ -42,8 +44,8 @@ impl ConnectionsManager {
             local,
             listener,
             new_connection_sender,
-            udp_connection_event_sender,
-            udp_outbound_sender,
+            socket,
+            udp_connections,
         ));
 
         info!("Connection manager ready. Accepting login on {}.", SERVER_PORT);
@@ -68,15 +70,15 @@ pub async fn login_loop(
     local: bool,
     listener: TcpListener,
     new_connection_sender: crossbeam_channel::Sender<Connection>,
-    udp_connection_event_sender: crossbeam_channel::Sender<UdpConnectionEvent>,
-    udp_outbound_sender: crossbeam_channel::Sender<(SocketAddrV6, Vec<u8>)>,
+    socket: Arc<UdpSocket>,
+    udp_connections: Arc<RwLock<AHashMap<SocketAddrV6, crossbeam_channel::Sender<Vec<u8>>>>>,
 ) {
     let (login_result_sender, login_result_receiver) = channel(32);
     tokio::spawn(handle_successful_login(
         login_result_receiver,
         new_connection_sender,
-        udp_connection_event_sender,
-        udp_outbound_sender,
+        socket,
+        udp_connections,
     ));
 
     loop {
@@ -228,8 +230,8 @@ async fn handle_first_packet(
 async fn handle_successful_login(
     mut login_result_receiver: tokio::sync::mpsc::Receiver<LoginResult>,
     new_connection_sender: crossbeam_channel::Sender<Connection>,
-    udp_connection_event_sender: crossbeam_channel::Sender<UdpConnectionEvent>,
-    udp_outbound_sender: crossbeam_channel::Sender<(SocketAddrV6, Vec<u8>)>,
+    socket: Arc<UdpSocket>,
+    udp_connections: Arc<RwLock<AHashMap<SocketAddrV6, crossbeam_channel::Sender<Vec<u8>>>>>,
 ) {
     loop {
         if let Some(login_result) = login_result_receiver.recv().await {
@@ -241,16 +243,14 @@ async fn handle_successful_login(
             let buf_write = BufWriter::new(w);
 
             // Add connection to udp loop.
-            if let Err(err) = udp_connection_event_sender.send(UdpConnectionEvent::Connected {
-                addr: login_result.client_udp_addr,
-                inbound_sender: inbound_sender.clone(),
-            }) {
-                info!(
-                    "{:?} while sending udp connection event to udp in loop. Terminating login success handler task...",
-                    err
-                );
-                break;
-            }
+            let udp_connections_clone = udp_connections.clone();
+            let inbound_sender_clone = inbound_sender.clone();
+            spawn_blocking(move || {
+                udp_connections_clone
+                    .write()
+                    .unwrap()
+                    .insert(login_result.client_udp_addr, inbound_sender_clone);
+            });
 
             // Start tcp loops.
             let (tcp_outbound_event_sender, tcp_outbound_event_receiver) = tokio::sync::mpsc::channel(8);
@@ -263,7 +263,7 @@ async fn handle_successful_login(
                 inbound_sender,
                 buf_read,
                 login_result.client_id,
-                udp_connection_event_sender.clone(),
+                udp_connections.clone(),
                 login_result.client_udp_addr,
             ));
 
@@ -273,7 +273,7 @@ async fn handle_successful_login(
                     login_result.client_tcp_addr,
                     login_result.client_udp_addr,
                     inbound_receiver,
-                    udp_outbound_sender.clone(),
+                    socket.clone(),
                     tcp_outbound_event_sender,
                 ))
                 .is_err()
