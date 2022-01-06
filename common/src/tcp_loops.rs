@@ -1,9 +1,10 @@
 use crate::idx::*;
-use crate::udp_loops::UdpConnectionEvent;
-use std::net::SocketAddrV6;
+use ahash::AHashMap;
+use std::{net::SocketAddrV6, sync::RwLock};
 use tokio::{
     io::*,
     net::tcp::{OwnedReadHalf, OwnedWriteHalf},
+    task::spawn_blocking,
 };
 
 pub enum TcpOutboundEvent {
@@ -72,7 +73,7 @@ pub async fn tcp_in_loop(
     inbound_sender: crossbeam_channel::Sender<Vec<u8>>,
     mut buf_read: BufReader<OwnedReadHalf>,
     client_id: ClientId,
-    udp_connection_event_sender: crossbeam_channel::Sender<UdpConnectionEvent>,
+    udp_connections: RwLock<AHashMap<SocketAddrV6, crossbeam_channel::Sender<Vec<u8>>>>,
     client_udp_address: SocketAddrV6,
 ) {
     let mut payload_buffer: Vec<u8> = Vec::new();
@@ -133,14 +134,13 @@ pub async fn tcp_in_loop(
         }
     }
 
-    // Also remove udp address.
-    udp_connection_event_sender
-        .send(UdpConnectionEvent::Disconnected {
-            addr: client_udp_address,
-        })
-        .expect("should be hable to send udp UdpConnectionEvent::Disconnected");
+    // Also remove udp connection.
+    spawn_blocking(move || {
+        udp_connections.write().unwrap().remove(&client_udp_address);
+    });
+
     debug!(
-        "Tcp in loop for {:?} shutdown. Also sent disconnected event to udp loop.",
+        "Tcp in loop for {:?} shutdown. Also queued udp connection removal.",
         client_id,
     );
 }

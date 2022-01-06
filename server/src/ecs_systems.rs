@@ -357,16 +357,22 @@ fn send_detected_entity(
         (Entity, &ClientId, &EntityPosition, &EntityDetected, &mut KnowEntities),
         Changed<EntityDetected>,
     >,
-    query_entity: Query<(&EntityPosition, Option<&FleetId>), Changed<EntityPosition>>,
+    query_changed_entity: Query<(&EntityPosition, &Velocity, &Acceleration, &WishPosition), Or<(Changed<WishPosition>, Changed<Acceleration>)>>,
     time_res: Res<TimeRes>,
     clients_res: Res<ClientsRes>,
     task_pool: Res<TaskPool>,
+    mut turn: Local<u8>,
 ) {
+    *turn = turn.wrapping_add(1);
+
     query_client.par_for_each_mut(
         &task_pool,
         32,
         |(entity, client_id, entity_position, entity_detected, know_entities)| {
             if let Some(connection) = clients_res.connected_clients.get(client_id) {
+                for detected_entity in entity_detected.0.iter().map(|id| Entity::new(*id)) {
+                    
+                }
 
                 // let mut metascape_state_part = MetascapeStatePart {
                 //     tick: time_res.tick,

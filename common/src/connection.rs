@@ -1,5 +1,8 @@
 use crate::{idx::ClientId, tcp_loops::TcpOutboundEvent};
-use std::net::SocketAddrV6;
+use std::{
+    net::{SocketAddrV6, UdpSocket},
+    sync::Arc,
+};
 
 pub struct Connection {
     pub client_id: ClientId,
@@ -8,8 +11,8 @@ pub struct Connection {
     /// Receive packet from the connected peer.
     pub inbound_receiver: crossbeam_channel::Receiver<Vec<u8>>,
     /// Send udp packet to connected peer.
-    udp_outbound_sender: crossbeam_channel::Sender<(SocketAddrV6, Vec<u8>)>,
-    /// Send tcp packet to the connected peer and request flush.
+    socket: Arc<UdpSocket>,
+    /// Send tcp packet to the connected peer or request a flush.
     tcp_outbound_event_sender: tokio::sync::mpsc::Sender<TcpOutboundEvent>,
 }
 impl Connection {
@@ -23,7 +26,7 @@ impl Connection {
         peer_tcp_addr: SocketAddrV6,
         peer_udp_addr: SocketAddrV6,
         inbound_receiver: crossbeam_channel::Receiver<Vec<u8>>,
-        udp_outbound_sender: crossbeam_channel::Sender<(SocketAddrV6, Vec<u8>)>,
+        socket: Arc<UdpSocket>,
         tcp_outbound_event_sender: tokio::sync::mpsc::Sender<TcpOutboundEvent>,
     ) -> Self {
         Self {
@@ -31,22 +34,25 @@ impl Connection {
             peer_tcp_addr,
             peer_udp_addr,
             inbound_receiver,
-            udp_outbound_sender,
+            socket,
             tcp_outbound_event_sender,
         }
     }
 
-    /// Send packet to the connected peer over udp or tcp.
+    /// Send a packet to the connected peer over udp.
+    ///
+    /// Return if the packet could be sent.
+    pub fn send_packet_unreliable(&self, packet: &[u8]) -> bool {
+        self.socket.send_to(packet, self.peer_udp_addr).is_err()
+    }
+
+    /// Send a packet to the connected peer over tcp.
     ///
     /// Return if there was an error sending the packet (the channel is disconnected).
-    pub fn send_packet(&self, packet: Vec<u8>, tcp: bool) -> bool {
-        if tcp {
-            self.tcp_outbound_event_sender
-                .blocking_send(TcpOutboundEvent::PacketEvent(packet))
-                .is_err()
-        } else {
-            self.udp_outbound_sender.send((self.peer_udp_addr, packet)).is_err()
-        }
+    pub fn send_packet_reliable(&self, packet: Vec<u8>) -> bool {
+        self.tcp_outbound_event_sender
+            .blocking_send(TcpOutboundEvent::PacketEvent(packet))
+            .is_err()
     }
 
     /// Send buffered packets.

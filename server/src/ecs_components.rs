@@ -42,7 +42,7 @@ pub enum KnowEntityEnum {
 
 /// Entity we have sent informations to the client.
 #[derive(Debug, Default)]
-pub struct KnowEntities(pub AHashMap<Entity, KnowEntityEnum>);
+pub struct KnowEntities(pub AHashMap<Entity, (KnowEntityEnum, u8)>);
 
 // * Generic
 
@@ -50,7 +50,7 @@ pub struct EntityPosition(pub Position);
 
 //* Fleet
 
-/// Where the entity wish to move.
+/// Where the fleet wish to move.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct WishPosition(pub Option<Vec2>);
 

@@ -138,7 +138,7 @@ pub enum DisconnectedReasonEnum {
     /// Server received an invalid packet.
     InvalidPacket,
     /// Someone else connected on the same account.
-    ConnectionFromOther
+    ConnectionFromOther,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -146,7 +146,9 @@ pub enum Packet {
     /// Could not deserialize/serialize packet.
     Invalid,
     /// Server send this for every commands that are not acknowledged by the client.
-    BattlescapeCommands { commands: Vec<BattlescapeCommand> },
+    BattlescapeCommands {
+        commands: Vec<BattlescapeCommand>,
+    },
     /// Server send some entities's position.
     EntitiesState {
         tick: u32,
