@@ -7,6 +7,7 @@ use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
 use common::idx::*;
 use common::intersection::*;
+use common::orbit::Orbit;
 use common::packets::*;
 use common::parameters::MetascapeParameters;
 use common::res_time::TimeRes;
@@ -24,6 +25,8 @@ pub fn add_systems(schedule: &mut Schedule) {
     let previous_stage = current_stage;
     let current_stage = "pre_update";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
+    schedule.add_system_to_stage(current_stage, handle_orbit.system());
+    schedule.add_system_to_stage(current_stage, remove_orbit.system());
     schedule.add_system_to_stage(current_stage, client_fleet_ai.system());
     schedule.add_system_to_stage(current_stage, colony_fleet_ai.system());
 
@@ -114,8 +117,6 @@ fn fleet_sensor(
     let turn = (time_res.tick % DETECTED_UPDATE_INTERVAL) as u64;
     let num_turn = DETECTED_UPDATE_INTERVAL as u64;
 
-    let time = time_res.tick as f32;
-
     query.par_for_each_mut(
         &task_pool,
         64 * num_turn as usize,
@@ -183,6 +184,32 @@ fn handle_client_inputs(
 
 //* pre_update
 
+/// Change the position of entities that have an orbit.
+fn handle_orbit(
+    mut query: Query<(&Orbit, &mut Position)>,
+    time_res: Res<TimeRes>,
+    task_pool: Res<TaskPool>,
+) {
+    let time = time_res.tick as f32;
+
+    query.par_for_each_mut(&task_pool, 256, |(orbit, mut position)| {
+        position.0 = orbit.to_position(time);
+    })
+}
+
+/// Remove the orbit component from entities with velocity.
+fn remove_orbit(
+    mut commands: Commands,
+    query: Query<(Entity, &Velocity), (Changed<Velocity>, With<Orbit>)>,
+) {
+    query.for_each(|(entity, velocity)| {
+        if velocity.0.x != 0.0 || velocity.0.x != 0.0 {
+            // Remove orbit as this entity has velocity.
+            commands.entity(entity).remove::<Orbit>();
+        }
+    });
+}
+
 /// Ai that control the client's fleet while he is not connected.
 fn client_fleet_ai(
     mut query: Query<(&ClientFleetAI, &Position, &mut WishPosition), With<ClientId>>,
@@ -224,7 +251,7 @@ fn colony_fleet_ai(
 ///
 /// TODO: Fleets engaged in the same Battlescape should aggregate.
 fn apply_fleet_movement(
-    mut query: Query<(&mut Position, &mut WishPosition, &mut Velocity, &DerivedFleetStats)>,
+    mut query: Query<(&mut Position, &mut WishPosition, &mut Velocity, &DerivedFleetStats), Without<Orbit>>,
     metascape_parameters: Res<MetascapeParameters>,
     task_pool: Res<TaskPool>,
 ) {
