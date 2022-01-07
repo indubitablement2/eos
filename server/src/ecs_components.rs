@@ -1,4 +1,4 @@
-use ahash::{AHashMap, AHashSet};
+use ahash::AHashMap;
 use bevy_ecs::prelude::*;
 use common::idx::*;
 use glam::Vec2;
@@ -127,6 +127,7 @@ pub struct ColonyFleetAI {
 pub enum ClientFleetAIGoal {
     #[default]
     Idle,
+    Flee,
 }
 #[derive(Debug, Default, Clone, Copy)]
 /// Ai that takes over a client's fleet when it is not connected.

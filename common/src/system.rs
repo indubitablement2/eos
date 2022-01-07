@@ -11,7 +11,7 @@ pub struct CelestialBodyInfo {
     pub name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash)]
 pub enum CelestialBodyType {
     Star,
     Planet,
@@ -43,13 +43,15 @@ pub struct System {
 ///
 /// Systems are sorted on the y axis from the top.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct Systems(pub Vec<System>);
+pub struct Systems{
+    pub systems: Vec<System>,
+}
 impl Systems {
     /// The furthest system bound from the world origin.
     ///
     /// Don't use this at runtime as it is very expensive.
     pub fn get_bound(&self) -> f32 {
-        self.0
+        self.systems
             .iter()
             .fold(0.0f32, |acc, system| acc.max(system.position.length() + system.bound))
     }

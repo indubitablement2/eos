@@ -1,3 +1,4 @@
+use crate::DetectedIntersectionPipeline;
 use crate::data_manager::DataManager;
 use crate::ecs_components::*;
 use crate::ecs_events::*;
@@ -40,7 +41,7 @@ pub fn add_systems(schedule: &mut Schedule) {
     let previous_stage = current_stage;
     let current_stage = "post_update";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
-    schedule.add_system_to_stage(current_stage, update_intersection_pipeline.system());
+    schedule.add_system_to_stage(current_stage, update_detected_intersection_pipeline.system());
     schedule.add_system_to_stage(current_stage, send_detected_entity.system());
 }
 
@@ -78,11 +79,12 @@ fn get_new_clients(
 
         // Check if fleet is already spawned.
         if let Some(old_fleet_entity) = fleets_res.spawned_fleets.get(&fleet_id) {
-            // Check old fleet components.
-            commands.entity(*old_fleet_entity)
+            // Update old fleet components.
+            commands
+                .entity(*old_fleet_entity)
                 .insert(KnowEntities::default())
                 .remove::<ClientFleetAI>();
-            
+
             debug!("{:?} has taken back control of his fleet.", client_id);
         } else {
             // Create default client fleet.
@@ -119,7 +121,7 @@ fn get_new_clients(
 /// Determine what each fleet can see.
 fn fleet_sensor(
     mut query: Query<(&FleetId, &Position, &DetectorRadius, &mut EntityDetected)>,
-    intersection_pipeline: Res<IntersectionPipeline>,
+    detected_intersection_pipeline: Res<DetectedIntersectionPipeline>,
     task_pool: Res<TaskPool>,
     time_res: Res<TimeRes>,
 ) {
@@ -135,7 +137,7 @@ fn fleet_sensor(
                 let detector_collider = Collider::new_idless(detector_radius.0, position.0);
 
                 entity_detected.0.clear();
-                intersection_pipeline
+                detected_intersection_pipeline.0
                     .snapshot
                     .intersect_collider_into(detector_collider, &mut entity_detected.0);
             }
@@ -226,6 +228,7 @@ fn client_fleet_ai(
                     wish_position.0 = None;
                 }
             }
+            ClientFleetAIGoal::Flee => todo!(),
         },
     )
 }
@@ -325,10 +328,12 @@ fn disconnect_client(
         // Add fleet ai and remove components that are not needed for unconnected client.
         if let Some(client_data) = clients_res.clients_data.get(&client_id) {
             if let Some(entity) = fleets_res.spawned_fleets.get(&FleetId::from(client_id)) {
-                commands
-                    .entity(*entity)
-                    .insert(client_data.client_fleet_ai)
+                let mut entity_cmd = commands.entity(*entity);
+                entity_cmd.insert(client_data.client_fleet_ai)
                     .remove::<KnowEntities>();
+                if let ClientFleetAIGoal::Idle = client_data.client_fleet_ai.goal {
+                    entity_cmd.remove::<EntityDetected>();
+                }
             }
         } else {
             warn!(
@@ -349,42 +354,49 @@ fn increment_time(mut time_res: ResMut<TimeRes>) {
 /// Take a snapshot of the AccelerationStructure from the last update and request a new update on the runner thread.
 ///
 /// This effectively just swap the snapshots between the runner thread and this IntersectionPipeline.
-fn update_intersection_pipeline(
+fn update_detected_intersection_pipeline(
     query: Query<(Entity, &Position, &DetectedRadius)>,
-    mut intersection_pipeline: ResMut<IntersectionPipeline>,
+    mut detected_intersection_pipeline: ResMut<DetectedIntersectionPipeline>,
     mut last_update_delta: Local<u32>,
 ) {
     *last_update_delta += 1;
+    let intersection_pipeline = &mut detected_intersection_pipeline.0;
 
-    if *last_update_delta > DETECTED_UPDATE_INTERVAL {
+    if intersection_pipeline.outdated.is_none() {
         // Take back the AccelerationStructure on the runner thread.
         match intersection_pipeline.update_result_receiver.try_recv() {
-            Ok(mut runner) => {
-                // Update all colliders.
-                intersection_pipeline.snapshot.colliders.clear();
-                query.for_each(|(entity, position, detected_radius)| {
-                    let new_collider = Collider::new(entity.id(), detected_radius.0, position.0);
-                    intersection_pipeline.snapshot.colliders.push(new_collider);
-                });
-
-                // Swap snapshot.
-                std::mem::swap(&mut intersection_pipeline.snapshot, &mut runner);
-
-                // Return runner.
-                if intersection_pipeline.update_request_sender.send(runner).is_err() {
-                    warn!("Intersection pipeline update runner thread dropped. Creating a new runner...");
-                    intersection_pipeline.start_new_runner_thread();
-                }
-
-                *last_update_delta = 0;
+            Ok(mut new_scapshot) => {
+                std::mem::swap(&mut intersection_pipeline.snapshot, &mut new_scapshot);
+                intersection_pipeline.outdated = Some(new_scapshot);
             }
             Err(err) => {
-                if err == crossbeam::channel::TryRecvError::Disconnected {
-                    warn!("Intersection pipeline update runner thread dropped. Creating a new runner...");
+                if err.is_disconnected() {
+                    warn!("Detected intersection pipeline update runner thread dropped. Creating a new runner...");
                     intersection_pipeline.start_new_runner_thread();
                 }
-                warn!("AccelerationStructure runner is taking longer than expected to update. Trying again latter...");
             }
+        }
+    }
+
+    if *last_update_delta > DETECTED_UPDATE_INTERVAL {
+        if let Some(mut old_snapshot) = intersection_pipeline.outdated.take() {
+            // Update all colliders.
+            old_snapshot.colliders.clear();
+            query.for_each(|(entity, position, detected_radius)| {
+                let new_collider = Collider::new(entity.id(), detected_radius.0, position.0);
+                old_snapshot.colliders.push(new_collider);
+            });
+
+            // Send snapshot to be updated.
+            if let Err(err) = intersection_pipeline.update_request_sender.send(old_snapshot) {
+                warn!("Detected intersection pipeline update runner thread dropped. Creating a new runner...");
+                intersection_pipeline.outdated = Some(err.0);
+                intersection_pipeline.start_new_runner_thread();
+            }
+
+            *last_update_delta = 0;
+        } else {
+            warn!("AccelerationStructure runner is taking longer than expected to update. Trying again latter...");
         }
     }
 }
@@ -422,7 +434,7 @@ fn send_detected_entity(
                                         fleet_id: fleet_id.to_owned(),
                                         composition: Vec::new(),
                                         orbit: orbit.cloned(),
-                                    })
+                                    }),
                                 ));
                             }
                             // TODO: Try to query other type of entity.
@@ -441,7 +453,7 @@ fn send_detected_entity(
                                         fleet_id: fleet_id.to_owned(),
                                         composition: Vec::new(),
                                         orbit: orbit.cloned(),
-                                    })
+                                    }),
                                 ));
                             }
 
@@ -470,7 +482,10 @@ fn send_detected_entity(
                             orbit: orbit.cloned(),
                         })
                     } else {
-                        warn!("{:?} does not return a result when queried for fleet info. Ignoring...", client_id);
+                        warn!(
+                            "{:?} does not return a result when queried for fleet info. Ignoring...",
+                            client_id
+                        );
                         None
                     }
                 } else {

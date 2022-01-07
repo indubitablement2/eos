@@ -9,7 +9,7 @@
 
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
-use common::intersection::IntersectionPipeline;
+use common::intersection::*;
 use common::parameters::MetascapeParameters;
 use common::res_time::TimeRes;
 use common::system::Systems;
@@ -17,7 +17,7 @@ use data_manager::DataManager;
 use res_clients::ClientsRes;
 use res_factions::FactionsRes;
 use res_fleets::FleetsRes;
-use std::{thread::sleep, time::Instant};
+use std::{fs::File, io::prelude::*, thread::sleep, time::Instant};
 
 use crate::terminal::Terminal;
 
@@ -36,6 +36,13 @@ mod terminal;
 #[macro_use]
 extern crate log;
 
+/// An acceleration structure that contain the systems bounds.
+/// It is never updated.
+pub struct SystemsAccelerationStructure(pub AccelerationStructure);
+
+/// Acceleration structure with the `detected` colliders.
+pub struct DetectedIntersectionPipeline(pub IntersectionPipeline);
+
 pub struct Metascape {
     world: World,
     schedule: Schedule,
@@ -48,11 +55,11 @@ impl Metascape {
         world.insert_resource(TimeRes::default());
         world.insert_resource(DataManager::new());
         world.insert_resource(metascape_parameters);
-        world.insert_resource(IntersectionPipeline::new());
+        world.insert_resource(DetectedIntersectionPipeline(IntersectionPipeline::new()));
         world.insert_resource(ClientsRes::new(local)?);
         world.insert_resource(FactionsRes::new());
         world.insert_resource(FleetsRes::new());
-        // elt asd = bevy_tasks::prelude::AsyncComputeTaskPool::
+
         let mut schedule = Schedule::default();
         ecs_systems::add_systems(&mut schedule);
 
@@ -60,7 +67,28 @@ impl Metascape {
     }
 
     fn load(&mut self) {
-        todo!()
+        // Load systems.
+        let mut file = File::open("systems.bin").unwrap();
+        let mut system_buffer = Vec::with_capacity(file.metadata().unwrap().len() as usize);
+        file.read_to_end(&mut system_buffer).unwrap();
+        let systems = bincode::deserialize::<Systems>(&system_buffer).expect("Could not deserialize systems.bin");
+
+        // Create an acceleration structure.
+        let mut acc = AccelerationStructure::new();
+        acc.colliders.extend(
+            systems
+                .systems
+                .iter()
+                .zip(0u32..)
+                .map(|(system, id)| Collider::new(id, system.bound, system.position)),
+        );
+        acc.update();
+
+        // Add systems and systems_acceleration_structure resource.
+        self.world.insert_resource(systems);
+        self.world.insert_resource(SystemsAccelerationStructure(acc));
+
+        // TODO: Factions.
     }
 
     fn update(&mut self) {
@@ -84,6 +112,9 @@ fn main() {
             }
         }
     }
+
+    println!("Loading...");
+    metascape.load();
 
     let mut terminal = Terminal::new().expect("Could not create Terminal.");
 
@@ -130,6 +161,7 @@ fn main() {
 
 fn startup() -> std::io::Result<Metascape> {
     let mut buffer = String::new();
+
     // Ask if we should create local server.
     println!("Do you want to create a server over localhost? [_/n]");
     std::io::stdin().read_line(&mut buffer)?;

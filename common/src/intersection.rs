@@ -388,6 +388,9 @@ pub struct IntersectionPipeline {
     pub update_request_sender: Sender<AccelerationStructure>,
     pub update_result_receiver: Receiver<AccelerationStructure>,
     pub snapshot: AccelerationStructure,
+    /// A place to park another `AccelerationStructure`,
+    /// if you want to wait before requesting another update.
+    pub outdated: Option<AccelerationStructure>,
 }
 impl IntersectionPipeline {
     pub fn new() -> Self {
@@ -396,14 +399,11 @@ impl IntersectionPipeline {
 
         spawn(move || runner_loop(update_request_receiver, update_result_sender));
 
-        update_request_sender
-            .send(AccelerationStructure::new())
-            .expect("Could not send acceleration structure.");
-
         Self {
             update_request_sender,
             update_result_receiver,
             snapshot: AccelerationStructure::new(),
+            outdated: Some(AccelerationStructure::new()),
         }
     }
 
@@ -416,9 +416,9 @@ impl IntersectionPipeline {
 
         spawn(move || runner_loop(update_request_receiver, update_result_sender));
 
-        update_request_sender
-            .send(AccelerationStructure::new())
-            .expect("Could not send acceleration structure.");
+        if self.outdated.is_none() {
+            self.outdated = Some(AccelerationStructure::new());
+        }
 
         self.update_request_sender = update_request_sender;
         self.update_result_receiver = update_result_receiver;
