@@ -25,8 +25,10 @@ pub struct FleetBundle {
     pub name: Name,
     pub fleet_id: FleetId,
     pub position: Position,
+    pub in_system: InSystem,
     pub wish_position: WishPosition,
     pub velocity: Velocity,
+    pub idle_counter: IdleCounter,
     pub derived_fleet_stats: DerivedFleetStats,
     pub reputation: Reputation,
     pub detected_radius: DetectedRadius,
@@ -53,7 +55,13 @@ pub struct Position(pub Vec2);
 /// An entity's display name.
 pub struct Name(pub String);
 
+/// If this entity is within a system.
+pub struct InSystem(pub Option<SystemId>);
+
 //* Fleet
+
+/// How long this entity has been without velocity.
+pub struct IdleCounter(pub u32);
 
 /// Where the fleet wish to move.
 #[derive(Debug, Clone, Copy, Default)]

@@ -17,6 +17,8 @@ pub struct Orbit {
     pub orbit_time: f32,
 }
 impl Orbit {
+    pub const DEFAULT_ORBIT_TIME: f32 = 300.0;
+
     /// Return the world position of this orbit.
     ///
     /// Time is an f32 to allow more granularity than tick. Otherwise `u32 as f32` will work just fine.

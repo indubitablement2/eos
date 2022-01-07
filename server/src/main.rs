@@ -37,7 +37,7 @@ mod terminal;
 extern crate log;
 
 /// An acceleration structure that contain the systems bounds.
-/// It is never updated.
+/// It is never updated at runtime.
 pub struct SystemsAccelerationStructure(pub AccelerationStructure);
 
 /// Acceleration structure with the `detected` colliders.

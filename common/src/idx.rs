@@ -1,4 +1,8 @@
+use std::ops::{Index, IndexMut};
+
 use serde::{Deserialize, Serialize};
+
+use crate::system::System;
 
 /// Never recycled.
 /// 0 is reserved and means invalid.
@@ -48,6 +52,18 @@ pub struct FactionId(pub u32);
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SystemId(pub u16);
+impl Index<SystemId> for Vec<System> {
+    type Output = System;
+
+    fn index(&self, index: SystemId) -> &Self::Output {
+        &self[usize::from(index.0)]
+    }
+}
+impl IndexMut<SystemId> for Vec<System> {
+    fn index_mut(&mut self, index: SystemId) -> &mut Self::Output {
+        &mut self[usize::from(index.0)]
+    }
+}
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CelestialBodyId {

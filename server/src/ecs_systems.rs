@@ -1,4 +1,5 @@
 use crate::DetectedIntersectionPipeline;
+use crate::SystemsAccelerationStructure;
 use crate::data_manager::DataManager;
 use crate::ecs_components::*;
 use crate::ecs_events::*;
@@ -12,6 +13,7 @@ use common::orbit::Orbit;
 use common::packets::*;
 use common::parameters::MetascapeParameters;
 use common::res_time::TimeRes;
+use common::system::Systems;
 use glam::Vec2;
 
 const DETECTED_UPDATE_INTERVAL: u32 = 5;
@@ -28,6 +30,7 @@ pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
     schedule.add_system_to_stage(current_stage, handle_orbit.system());
     schedule.add_system_to_stage(current_stage, remove_orbit.system());
+    schedule.add_system_to_stage(current_stage, add_orbit.system());
     schedule.add_system_to_stage(current_stage, client_fleet_ai.system());
     schedule.add_system_to_stage(current_stage, colony_fleet_ai.system());
 
@@ -97,8 +100,10 @@ fn get_new_clients(
                         name: Name(format!("{:?}", fleet_id)),
                         fleet_id,
                         position: Position(Vec2::ZERO),
+                        in_system: InSystem(None),
                         wish_position: WishPosition::default(),
                         velocity: Velocity::default(),
+                        idle_counter: IdleCounter(0),
                         derived_fleet_stats: DerivedFleetStats {
                             acceleration: 0.1,
                             max_speed: 2.0,
@@ -150,7 +155,7 @@ fn fleet_sensor(
 fn handle_client_inputs(
     mut query: Query<(&ClientId, &mut WishPosition), Without<ClientFleetAI>>,
     clients_res: Res<ClientsRes>,
-    client_disconnected: ResMut<EventRes<ClientDisconnected>>,
+    client_disconnected: Res<EventRes<ClientDisconnected>>,
     task_pool: Res<TaskPool>,
 ) {
     query.par_for_each_mut(&task_pool, 32, |(client_id, mut wish_position)| {
@@ -213,6 +218,44 @@ fn remove_orbit(mut commands: Commands, query: Query<(Entity, &Velocity), (Chang
             commands.entity(entity).remove::<Orbit>();
         }
     });
+}
+
+/// Add orbit to idle entity within a system.
+fn add_orbit(
+    mut commands: Commands,
+    query: Query<(&Position, &InSystem), Without<Orbit>>,
+    systems: Res<Systems>,
+    fleet_idle: Res<EventRes<FleetIdle>>,
+) {
+    while let Some(event) = fleet_idle.events.pop() {
+        if let Ok((position, in_system)) = query.get(event.entity) {
+            if let Some(system_id) = in_system.0 {
+                let system = &systems.systems[system_id];
+
+                let relative_pos = position.0 - system.position;
+                let orbit_radius = relative_pos.length();
+                
+                let mut orbit_time = Orbit::DEFAULT_ORBIT_TIME;
+                // Check if there is a body nearby we should copy its orbit time.
+                system.bodies.iter().fold(999.0f32, |closest, body| {
+                    if (body.orbit.orbit_radius - orbit_radius).abs() < closest {
+                        orbit_time = body.orbit.orbit_time;
+                        body.orbit.orbit_radius
+                    } else {
+                        closest
+                    }
+                });
+
+                // Add orbit as this entity has no velocity.
+                commands.entity(event.entity).insert(Orbit {
+                    origin: system.position,
+                    orbit_radius,
+                    orbit_start_angle: relative_pos.y.atan2(relative_pos.x),
+                    orbit_time,
+                });
+            }
+        }
+    }
 }
 
 /// Ai that control the client's fleet while he is not connected.
