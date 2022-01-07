@@ -1,4 +1,4 @@
-use crate::{idx::*, Version};
+use crate::{idx::*, Version, orbit::Orbit};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
@@ -112,19 +112,20 @@ impl Default for BattlescapeInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EntityState {
-    entity_id: u32,
-    position: Vec2,
-    velocity: Vec2,
-    wish_position: Vec2,
+pub struct FleetInfo {
+    pub name: String,
+    pub fleet_id: FleetId,
+    /// The ships composing the fleet.
+    pub composition: Vec<u32>,
+    /// If this entity follow an orbit, its state will not be sent.
+    pub orbit: Option<Orbit>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EntityInfo {
-    entity_id: u32,
-    /// TODO: This should be computed.
-    acceleration: Vec2,
-    fleet_id: Option<FleetId>,
+pub enum EntityInfo {
+    /// Free this entity. Its id will be reused in the future.
+    Remove,
+    Fleet(FleetInfo),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -141,25 +142,50 @@ pub enum DisconnectedReasonEnum {
     ConnectionFromOther,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum Packet {
     /// Could not deserialize/serialize packet.
+    #[default]
     Invalid,
+
     /// Server send this for every commands that are not acknowledged by the client.
     BattlescapeCommands {
         commands: Vec<BattlescapeCommand>,
     },
     /// Server send some entities's position.
-    EntitiesState {
+    /// 
+    /// This is used when there are 32 or less entities.
+    EntitiesStateSmall {
         tick: u32,
-        client_entity_state: EntityState,
-        /// Compressed and relative to client's world position.
+        client_entity_position: Vec2,
+        /// Entity's id and position compressed and relative to client's position. 
         ///
-        /// TODO: Compressed
-        relative_entities_states: Vec<EntityState>,
+        /// TODO: Compressed to 8 + 24 bits
+        relative_entities_position: Vec<(u8, Vec2)>,
+    },
+    /// Server send some entities's position.
+    /// 
+    /// This is used when there are more than 32 entities.
+    EntitiesStateLarge {
+        tick: u32,
+        client_entity_position: Vec2,
+        /// Entity idx that are updated `1` or not `0`.
+        bitfield: [u8; 32],
+        /// Compressed and relative to client's position.
+        ///
+        /// TODO: Compressed to 24 bits
+        relative_entities_position: Vec<Vec2>,
     },
     /// Server send some entities's infos.
-    EntityInfo(Vec<EntityInfo>),
+    EntitiesInfo {
+        /// This is useful with orbit.
+        /// Any state before this tick can be discarded and apply the orbit instead.
+        /// Any state after this tick will remove the orbit.
+        tick: u32,
+        /// The client's fleet info, if it has changed.
+        client_fleet_info: Option<FleetInfo>,
+        infos: Vec<(u8, EntityInfo)>,
+    },
     DisconnectedReason(DisconnectedReasonEnum),
 
     Message {
@@ -187,10 +213,5 @@ impl Packet {
 
     pub fn deserialize(buffer: &[u8]) -> Self {
         bincode::deserialize::<Self>(buffer).unwrap_or_default()
-    }
-}
-impl Default for Packet {
-    fn default() -> Self {
-        Self::Invalid
     }
 }

@@ -52,7 +52,7 @@ impl Metascape {
         world.insert_resource(ClientsRes::new(local)?);
         world.insert_resource(FactionsRes::new());
         world.insert_resource(FleetsRes::new());
-
+        // elt asd = bevy_tasks::prelude::AsyncComputeTaskPool::
         let mut schedule = Schedule::default();
         ecs_systems::add_systems(&mut schedule);
 

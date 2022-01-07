@@ -40,8 +40,8 @@ pub fn add_systems(schedule: &mut Schedule) {
     let previous_stage = current_stage;
     let current_stage = "post_update";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
-    schedule.add_system_to_stage(current_stage, send_detected_entity.system());
     schedule.add_system_to_stage(current_stage, update_intersection_pipeline.system());
+    schedule.add_system_to_stage(current_stage, send_detected_entity.system());
 }
 
 //* first
@@ -91,7 +91,10 @@ fn get_new_clients(
                         position: Position(Vec2::ZERO),
                         wish_position: WishPosition::default(),
                         velocity: Velocity::default(),
-                        derived_fleet_stats: DerivedFleetStats { acceleration: 0.1, max_speed: 2.0 },
+                        derived_fleet_stats: DerivedFleetStats {
+                            acceleration: 0.1,
+                            max_speed: 2.0,
+                        },
                         reputation: Reputation(0),
                         detected_radius: DetectedRadius(10.0),
                         detector_radius: DetectorRadius(50.0),
@@ -122,8 +125,7 @@ fn fleet_sensor(
         64 * num_turn as usize,
         |(fleet_id, position, detector_radius, mut entity_detected)| {
             if fleet_id.0 % num_turn == turn {
-                let detector_collider =
-                    Collider::new_idless(detector_radius.0, position.0);
+                let detector_collider = Collider::new_idless(detector_radius.0, position.0);
 
                 entity_detected.0.clear();
                 intersection_pipeline
@@ -185,11 +187,7 @@ fn handle_client_inputs(
 //* pre_update
 
 /// Change the position of entities that have an orbit.
-fn handle_orbit(
-    mut query: Query<(&Orbit, &mut Position)>,
-    time_res: Res<TimeRes>,
-    task_pool: Res<TaskPool>,
-) {
+fn handle_orbit(mut query: Query<(&Orbit, &mut Position)>, time_res: Res<TimeRes>, task_pool: Res<TaskPool>) {
     let time = time_res.tick as f32;
 
     query.par_for_each_mut(&task_pool, 256, |(orbit, mut position)| {
@@ -198,10 +196,7 @@ fn handle_orbit(
 }
 
 /// Remove the orbit component from entities with velocity.
-fn remove_orbit(
-    mut commands: Commands,
-    query: Query<(Entity, &Velocity), (Changed<Velocity>, With<Orbit>)>,
-) {
+fn remove_orbit(mut commands: Commands, query: Query<(Entity, &Velocity), (Changed<Velocity>, With<Orbit>)>) {
     query.for_each(|(entity, velocity)| {
         if velocity.0.x != 0.0 || velocity.0.x != 0.0 {
             // Remove orbit as this entity has velocity.
@@ -229,18 +224,13 @@ fn client_fleet_ai(
 }
 
 /// TODO: Ai that control fleet owned by a colony.
-fn colony_fleet_ai(
-    mut query: Query<(&mut ColonyFleetAI, &Position, &mut WishPosition)>,
-    task_pool: Res<TaskPool>,
-) {
-    query.par_for_each_mut(
-        &task_pool,
-        256,
-        |(mut colony_fleet_ai, position, mut wish_position)| match &mut colony_fleet_ai.goal {
+fn colony_fleet_ai(mut query: Query<(&mut ColonyFleetAI, &Position, &mut WishPosition)>, task_pool: Res<TaskPool>) {
+    query.par_for_each_mut(&task_pool, 256, |(mut colony_fleet_ai, position, mut wish_position)| {
+        match &mut colony_fleet_ai.goal {
             ColonyFleetAIGoal::Trade { colony } => todo!(),
             ColonyFleetAIGoal::Guard { duration } => todo!(),
-        },
-    );
+        }
+    });
 }
 
 //* update
@@ -366,11 +356,7 @@ fn update_intersection_pipeline(
                 // Update all colliders.
                 intersection_pipeline.snapshot.colliders.clear();
                 query.for_each(|(entity, position, detected_radius)| {
-                    let new_collider = Collider::new(
-                        entity.id(),
-                        detected_radius.0,
-                        position.0,
-                    );
+                    let new_collider = Collider::new(entity.id(), detected_radius.0, position.0);
                     intersection_pipeline.snapshot.colliders.push(new_collider);
                 });
 
@@ -398,76 +384,156 @@ fn update_intersection_pipeline(
 
 /// Send detected fleet to clients.
 fn send_detected_entity(
-    mut query_client: Query<
-        (Entity, &ClientId, &Position, &EntityDetected, &mut KnowEntities),
-        Changed<EntityDetected>,
-    >,
-    query_changed_entity: Query<
-        (&Position, &Velocity, &DerivedFleetStats, &WishPosition),
-        Or<(Changed<WishPosition>, Changed<DerivedFleetStats>)>,
-    >,
+    mut query_client: Query<(Entity, &ClientId, &Position, &EntityDetected, &mut KnowEntities)>,
+    query_changed_entity: Query<Entity, Changed<Orbit>>,
+    query_fleet_info: Query<(&FleetId, &Name, Option<&Orbit>)>,
+    query_entity_state: Query<&Position, Without<Orbit>>,
     time_res: Res<TimeRes>,
     clients_res: Res<ClientsRes>,
     task_pool: Res<TaskPool>,
-    mut turn: Local<u8>,
 ) {
-    *turn = turn.wrapping_add(1);
-
     query_client.par_for_each_mut(
         &task_pool,
-        32,
-        |(entity, client_id, position, entity_detected, know_entities)| {
+        64,
+        |(entity, client_id, position, entity_detected, mut know_entities)| {
             if let Some(connection) = clients_res.connected_clients.get(client_id) {
-                for detected_entity in entity_detected.0.iter().map(|id| Entity::new(*id)) {}
+                let mut updated = Vec::with_capacity(entity_detected.0.len());
+                let mut entities_info = Vec::new();
+                let know_entities = &mut *know_entities;
 
-                // let mut metascape_state_part = MetascapeStatePart {
-                //     tick: time_res.tick,
-                //     part: 0,
-                //     entity_order_required: entity_order.id,
-                //     relative_position: pos.0,
-                //     entities_position: Vec::with_capacity(
-                //         entity_order
-                //             .current_entity_order
-                //             .len()
-                //             .min(MetascapeStatePart::NUM_ENTITIES_POSITION_MAX),
-                //     ),
-                // };
+                for detected_entity in entity_detected.0.iter().map(|id| Entity::new(*id)) {
+                    if let Some(temp_id) = know_entities.known.remove(&detected_entity) {
+                        // Client already know about this entity.
+                        // Check if the entity infos changed. Otherwise do nothing.
+                        if query_changed_entity.get(detected_entity).is_ok() {
+                            // TODO: This should be a function that write directly into a buffer. (1)
+                            if let Ok((fleet_id, name, orbit)) = query_fleet_info.get(detected_entity) {
+                                entities_info.push((
+                                    temp_id,
+                                    EntityInfo::Fleet(FleetInfo {
+                                        name: name.0.clone(),
+                                        fleet_id: fleet_id.to_owned(),
+                                        composition: Vec::new(),
+                                        orbit: orbit.cloned(),
+                                    })
+                                ));
+                            }
+                            // TODO: Try to query other type of entity.
+                        }
 
-                // for detected_entity in entity_order
-                //     .current_entity_order
-                //     .iter()
-                //     .map(|entity_id| Entity::new(*entity_id))
-                // {
-                //     // Add entity position.
-                //     if let Ok(detected_pos) = query_entity.get(detected_entity) {
-                //         metascape_state_part.entities_position.push(detected_pos.0 - pos.0);
-                //     } else {
-                //         metascape_state_part.entities_position.push(vec2(0.0, 1000.0));
-                //         debug!("Could not find a detected entity. Sending made up position...");
-                //     }
+                        updated.push((detected_entity, temp_id));
+                    } else {
+                        // Send a new entity.
+                        if let Some(temp_id) = know_entities.free_idx.pop_front() {
+                            // TODO: This should be a function that write directly into a buffer. (2)
+                            if let Ok((fleet_id, name, orbit)) = query_fleet_info.get(detected_entity) {
+                                entities_info.push((
+                                    temp_id,
+                                    EntityInfo::Fleet(FleetInfo {
+                                        name: name.0.clone(),
+                                        fleet_id: fleet_id.to_owned(),
+                                        composition: Vec::new(),
+                                        orbit: orbit.cloned(),
+                                    })
+                                ));
+                            }
 
-                //     if metascape_state_part.entities_position.len() >= MetascapeStatePart::NUM_ENTITIES_POSITION_MAX {
-                //         // Send this part.
-                //         let packet = UdpServer::MetascapeEntityPosition(metascape_state_part);
-                //         let _ = client.connection.send_udp(packet.serialize());
+                            updated.push((detected_entity, temp_id));
+                        }
+                    }
+                }
 
-                //         // Prepare next part.
-                //         unsafe {
-                //             if let UdpServer::MetascapeEntityPosition(p) = packet {
-                //                 metascape_state_part = p;
-                //             } else {
-                //                 unreachable_unchecked();
-                //             }
-                //         }
-                //         metascape_state_part.part += 1;
-                //         metascape_state_part.entities_position.clear();
-                //     }
-                // }
+                // Ask the client to remove uneeded entities.
+                for (_, temp_id) in know_entities.known.drain() {
+                    entities_info.push((temp_id, EntityInfo::Remove));
+                    know_entities.free_idx.push_back(temp_id);
+                }
 
-                // if !metascape_state_part.entities_position.is_empty() {
-                //     let packet = UdpServer::MetascapeEntityPosition(metascape_state_part);
-                //     let _ = client.connection.send_udp(packet.serialize());
-                // }
+                // Update known map.
+                know_entities.known.extend(updated.into_iter());
+
+                // Check if we should update the client's fleet.
+                let client_fleet_info = if query_changed_entity.get(entity).is_ok() {
+                    // TODO: This should be a function that write directly into a buffer. (3)
+                    if let Ok((fleet_id, name, orbit)) = query_fleet_info.get(entity) {
+                        Some(FleetInfo {
+                            name: name.0.clone(),
+                            fleet_id: fleet_id.to_owned(),
+                            composition: Vec::new(),
+                            orbit: orbit.cloned(),
+                        })
+                    } else {
+                        warn!("{:?} does not return a result when queried for fleet info. Ignoring...", client_id);
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                // Send new entities info.
+                let packet = Packet::EntitiesInfo {
+                    tick: time_res.tick,
+                    client_fleet_info,
+                    infos: entities_info,
+                }
+                .serialize();
+                connection.send_packet_reliable(packet);
+
+                // Send entities state.
+                let packet = if know_entities.known.len() > 32 {
+                    // Large state.
+                    let mut bitfield = [0u8; 32];
+                    let relative_entities_position = know_entities
+                        .known
+                        .iter()
+                        .filter_map(|(entity, temp_id)| {
+                            if let Ok(entity_position) = query_entity_state.get(*entity) {
+                                // Set updated bit.
+                                let byte = temp_id / 8;
+                                let bit = temp_id % 8 + 1;
+                                bitfield[byte as usize] |= bit;
+
+                                Some(entity_position.0)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+
+                    Packet::EntitiesStateLarge {
+                        tick: time_res.tick,
+                        client_entity_position: position.0,
+                        bitfield,
+                        relative_entities_position,
+                    }
+                    .serialize()
+                } else {
+                    // Small state.
+                    let relative_entities_position = know_entities
+                        .known
+                        .iter()
+                        .filter_map(|(entity, temp_id)| {
+                            if let Ok(entity_position) = query_entity_state.get(*entity) {
+                                Some((*temp_id, entity_position.0))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+
+                    Packet::EntitiesStateSmall {
+                        tick: time_res.tick,
+                        client_entity_position: position.0,
+                        relative_entities_position,
+                    }
+                    .serialize()
+                };
+
+                // TODO: Reuse this buffer to write entities infos.
+                connection.send_packet_unreliable(&packet);
+
+                // Flush tcp buffer.
+                connection.flush_tcp_stream();
             }
         },
     );

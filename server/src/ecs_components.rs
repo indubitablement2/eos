@@ -1,8 +1,11 @@
-use ahash::AHashSet;
+use ahash::{AHashMap, AHashSet};
 use bevy_ecs::prelude::*;
 use common::idx::*;
 use glam::Vec2;
-use std::ops::{Add, Sub};
+use std::{
+    collections::VecDeque,
+    ops::{Add, Sub},
+};
 
 // TODO: impl component for these when 0.6 release.
 // Orbit
@@ -33,13 +36,21 @@ pub struct FleetBundle {
 //* Client
 
 /// Entity we have sent informations to the client.
+///
+/// Instead of sending the whole entity id, we identify entities with a temporary 8bits id.
 #[derive(Debug, Default)]
-pub struct KnowEntities(pub AHashSet<Entity>);
+pub struct KnowEntities {
+    pub free_idx: VecDeque<u8>,
+    pub known: AHashMap<Entity, u8>,
+}
 
 // * Generic
 
 /// A standard position relative to the world origin.
 pub struct Position(pub Vec2);
+
+/// An entity's display name.
+pub struct Name(pub String);
 
 //* Fleet
 
@@ -55,7 +66,7 @@ pub struct Velocity(pub Vec2);
 #[derive(Debug, Clone, Copy)]
 pub struct DerivedFleetStats {
     /// How much velocity this entity can gain each update.
-    pub acceleration:f32,
+    pub acceleration: f32,
     /// Velocity beyong which it can not accelerate itself anymore (it can still be pushed).
     pub max_speed: f32,
 }

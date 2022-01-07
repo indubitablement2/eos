@@ -1,7 +1,7 @@
 #![feature(test)]
 #![feature(duration_constants)]
+#![feature(derive_default_enum)]
 
-use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
