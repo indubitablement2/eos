@@ -144,5 +144,5 @@ pub struct DetectedRadius(pub f32);
 pub struct DetectorRadius(pub f32);
 
 /// Entity id that are detected by this entity.
-/// If this is a client, this is sorted by entity id.
+#[derive(Debug, Default)]
 pub struct EntityDetected(pub Vec<u32>);

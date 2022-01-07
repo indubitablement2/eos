@@ -83,6 +83,7 @@ fn get_new_clients(
             commands
                 .entity(*old_fleet_entity)
                 .insert(KnowEntities::default())
+                .insert(EntityDetected::default())
                 .remove::<ClientFleetAI>();
 
             debug!("{:?} has taken back control of his fleet.", client_id);
