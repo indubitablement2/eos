@@ -78,8 +78,12 @@ fn get_new_clients(
 
         // Check if fleet is already spawned.
         if let Some(old_fleet_entity) = fleets_res.spawned_fleets.get(&fleet_id) {
-            // TODO: Check old fleet components.
-            debug!("{:?} is already spawned. TODO: Check old fleet components.", fleet_id);
+            // Check old fleet components.
+            commands.entity(*old_fleet_entity)
+                .insert(KnowEntities::default())
+                .remove::<ClientFleetAI>();
+            
+            debug!("{:?} has taken back control of his fleet.", client_id);
         } else {
             // Create default client fleet.
             let entity = commands
@@ -87,6 +91,7 @@ fn get_new_clients(
                     client_id,
                     know_entities: KnowEntities::default(),
                     fleet_bundle: FleetBundle {
+                        name: Name(format!("{:?}", fleet_id)),
                         fleet_id,
                         position: Position(Vec2::ZERO),
                         wish_position: WishPosition::default(),
@@ -105,6 +110,8 @@ fn get_new_clients(
 
             // Insert fleet.
             let _ = fleets_res.spawned_fleets.insert(fleet_id, entity);
+
+            debug!("Created a new fleet for {:?} which he now control.", client_id);
         }
     }
 }

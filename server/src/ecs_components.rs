@@ -22,6 +22,7 @@ pub struct ClientFleetBundle {
 
 #[derive(Bundle)]
 pub struct FleetBundle {
+    pub name: Name,
     pub fleet_id: FleetId,
     pub position: Position,
     pub wish_position: WishPosition,
