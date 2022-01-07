@@ -364,6 +364,39 @@ impl AccelerationStructure {
         }
     }
 
+    /// Return the first collider intersecting this point if any.
+    pub fn intersect_point_single(&self, point: Vec2) -> Option<u32> {
+        let mut to_test = AHashSet::new();
+
+        let overlapping_row = self.find_row_at_position(point.y);
+
+        if let Some(row) = self.rows.get(overlapping_row) {
+            // The furthest we should look to the left and right.
+            let left_threshold = point.x - row.threshold;
+            let right_threshold = point.x + row.threshold;
+
+            let left_index = row
+                .data
+                .partition_point(|i| self.colliders[*i as usize].position.x < left_threshold);
+
+            // Look from left to right.
+            for i in &row.data[left_index..] {
+                let other = self.colliders[*i as usize];
+                if other.position.x > right_threshold {
+                    break;
+                }
+                if to_test.insert(*i) {
+                    let other = self.colliders[*i as usize];
+                    if other.intersection_test_point(point) {
+                        return Some(other.id);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
     /// Get the separation line between each row. Useful for debug.
     pub fn get_rows_separation(&self) -> Vec<f32> {
         let mut v = Vec::with_capacity(self.rows.len() + 1);

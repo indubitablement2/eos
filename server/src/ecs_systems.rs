@@ -44,6 +44,7 @@ pub fn add_systems(schedule: &mut Schedule) {
     let previous_stage = current_stage;
     let current_stage = "post_update";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
+    schedule.add_system_to_stage(current_stage, update_in_system.system());
     schedule.add_system_to_stage(current_stage, update_detected_intersection_pipeline.system());
     schedule.add_system_to_stage(current_stage, send_detected_entity.system());
 }
@@ -394,6 +395,35 @@ fn increment_time(mut time_res: ResMut<TimeRes>) {
 }
 
 //* post_update
+
+/// Update the system each entity is currently in.
+fn update_in_system(
+    mut query: Query<(&FleetId, &Position, &mut InSystem)>,
+    systems: Res<Systems>,
+    systems_acceleration_structure: Res<SystemsAccelerationStructure>,
+    task_pool: Res<TaskPool>,
+    mut turn: Local<u64>,
+) {
+    *turn = (*turn + 1) % 10;
+
+    query.par_for_each_mut(&task_pool, 2048, |(fleet_id, position, mut in_system)| {
+        if fleet_id.0 % 10 == *turn {
+            match in_system.0 {
+                Some(system_id) => {
+                    let system = &systems.systems[system_id];
+                    if system.position.distance_squared(position.0) > system.bound.powi(2) {
+                        in_system.0 = None;
+                    }
+                }
+                None => {
+                    if let Some(id) = systems_acceleration_structure.0.intersect_point_single(position.0) {
+                        in_system.0 = Some(SystemId(id as u16));
+                    }
+                }
+            }
+        }
+    })
+}
 
 /// Take a snapshot of the AccelerationStructure from the last update and request a new update on the runner thread.
 ///
