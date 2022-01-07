@@ -16,7 +16,7 @@ pub struct ClientDisconnected {
     pub send_packet: Option<Packet>,
 }
 
-/// A fleet has been without velocity for some time, but does not have an orbit.
+/// A fleet has been without velocity for some time and does not have an orbit.
 pub struct FleetIdle {
     pub entity: Entity
 }

@@ -296,8 +296,9 @@ fn colony_fleet_ai(mut query: Query<(&mut ColonyFleetAI, &Position, &mut WishPos
 ///
 /// TODO: Fleets engaged in the same Battlescape should aggregate.
 fn apply_fleet_movement(
-    mut query: Query<(&mut Position, &mut WishPosition, &mut Velocity, &DerivedFleetStats), Without<Orbit>>,
+    mut query: Query<(Entity, &mut Position, &mut WishPosition, &mut Velocity, &DerivedFleetStats, &mut IdleCounter), Without<Orbit>>,
     metascape_parameters: Res<MetascapeParameters>,
+    fleet_idle: Res<EventRes<FleetIdle>>,
     task_pool: Res<TaskPool>,
 ) {
     let bound_squared = metascape_parameters.bound.powi(2);
@@ -305,7 +306,7 @@ fn apply_fleet_movement(
     query.par_for_each_mut(
         &task_pool,
         256,
-        |(mut position, mut wish_position, mut velocity, derived_fleet_stats)| {
+        |(entity, mut position, mut wish_position, mut velocity, derived_fleet_stats, mut idle_counter)| {
             if let Some(target) = wish_position.0 {
                 // A vector equal to our current velocity toward our target.
                 let wish_vel = target - position.0 - velocity.0;
@@ -317,6 +318,9 @@ fn apply_fleet_movement(
                 if wish_vel.length_squared() < 0.5 {
                     wish_position.0 = None;
                 }
+
+                // Fleet is not idle.
+                idle_counter.0 = 0;
             } else if velocity.0.x != 0.0 || velocity.0.y != 0.0 {
                 // Go against current velocity.
                 let vel_change = -velocity.0.clamp_length_max(derived_fleet_stats.acceleration);
@@ -328,6 +332,15 @@ fn apply_fleet_movement(
                 }
                 if velocity.0.y.abs() < 0.001 {
                     velocity.0.y = 0.0;
+                }
+
+                // Fleet is not idle.
+                idle_counter.0 = 0;
+            } else {
+                // Fleet is idle.
+                idle_counter.0 += 1;
+                if idle_counter.0 > IdleCounter::IDLE_DELAY {
+                    fleet_idle.events.push(FleetIdle { entity });
                 }
             }
 

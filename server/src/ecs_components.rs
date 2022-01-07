@@ -62,6 +62,10 @@ pub struct InSystem(pub Option<SystemId>);
 
 /// How long this entity has been without velocity.
 pub struct IdleCounter(pub u32);
+impl IdleCounter {
+    /// Delay before a fleet without velocity is considered idle in tick.
+    pub const IDLE_DELAY: u32 = 50;
+}
 
 /// Where the fleet wish to move.
 #[derive(Debug, Clone, Copy, Default)]
