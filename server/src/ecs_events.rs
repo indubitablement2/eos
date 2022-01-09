@@ -1,4 +1,4 @@
-use bevy_ecs::prelude::*;
+use bevy::prelude::*;
 use common::{idx::*, packets::Packet};
 use crossbeam::queue::SegQueue;
 

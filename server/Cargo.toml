@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 log = { version = "0.4.14", features = ["release_max_level_info"] }
-tui-logger = "0.6.6"
+tui-logger = "0.7.0"
 termion = "1.5.6"
 tui = { version = "0.16", default-features = false, features = ['termion'] }
 
@@ -13,11 +13,12 @@ tui = { version = "0.16", default-features = false, features = ['termion'] }
 
 common = { path = "../common" }
 
-bevy_ecs = "0.5.0"
-bevy_tasks = "0.5.0"
+bevy = { version = "0.6", default-features = false, features = [] }
+# bevy_ecs = "0.5.0"
+# bevy_tasks = "0.5.0"
 
 ahash = "0.7.6"
-indexmap = {version = "1.7.0", features = ["serde"] }
+indexmap = {version = "1.8.0", features = ["serde"] }
 
 num_enum = "0.5.6"
 

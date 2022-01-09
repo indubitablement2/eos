@@ -1,4 +1,4 @@
-use bevy_ecs::prelude::Entity;
+use bevy::prelude::Entity;
 use common::idx::*;
 use indexmap::IndexMap;
 

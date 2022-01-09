@@ -1,8 +1,11 @@
-use bevy_ecs::prelude::*;
+use bevy::prelude::*;
 use rand::random;
 
+#[derive(Debug, Component)]
 struct C1();
+#[derive(Debug, Component)]
 struct C2();
+#[derive(Debug, Component)]
 struct C3();
 
 pub fn main() {
@@ -27,7 +30,7 @@ pub fn main() {
 }
 
 fn s(query: Query<(Entity, &C1)>) {
-    let mut last = Entity::new(0);
+    let mut last = Entity::from_raw(0);
     query.for_each(|(e, _)| {
         assert!(last <= e);
         last = e;
