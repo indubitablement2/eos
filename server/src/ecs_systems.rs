@@ -8,17 +8,16 @@ use crate::DetectedIntersectionPipeline;
 use crate::SystemsAccelerationStructure;
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
-// use bevy_tasks::TaskPool;
 use common::idx::*;
 use common::intersection::*;
 use common::orbit::Orbit;
 use common::packets::*;
 use common::parameters::MetascapeParameters;
 use common::res_time::TimeRes;
-use common::system::Systems;
+use common::world_data::WorldData;
 use glam::Vec2;
 
-const DETECTED_UPDATE_INTERVAL: u32 = 5;
+const DETECTED_UPDATE_INTERVAL: u64 = 5;
 
 pub fn add_systems(schedule: &mut Schedule) {
     let current_stage = "first";
@@ -39,12 +38,12 @@ pub fn add_systems(schedule: &mut Schedule) {
     let current_stage = "update";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
     schedule.add_system_to_stage(current_stage, apply_fleet_movement.system());
-    schedule.add_system_to_stage(current_stage, disconnect_client.system());
     schedule.add_system_to_stage(current_stage, increment_time.system());
 
     let previous_stage = current_stage;
     let current_stage = "post_update";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
+    schedule.add_system_to_stage(current_stage, disconnect_client.system());
     schedule.add_system_to_stage(current_stage, update_in_system.system());
     schedule.add_system_to_stage(current_stage, update_detected_intersection_pipeline.system());
     schedule.add_system_to_stage(current_stage, send_detected_entity.system());
@@ -121,7 +120,7 @@ fn get_new_clients(
                         velocity: Velocity::default(),
                         idle_counter: IdleCounter(0),
                         derived_fleet_stats: DerivedFleetStats { acceleration: 0.1 },
-                        reputation: Reputation(0),
+                        reputations: Reputations::default(),
                         detected_radius: DetectedRadius(10.0),
                         detector_radius: DetectorRadius(50.0),
                         entity_detected: EntityDetected(Vec::new()),
@@ -145,14 +144,13 @@ fn fleet_sensor(
     time_res: Res<TimeRes>,
 ) {
     // We will only update one part every tick.
-    let turn = (time_res.tick % DETECTED_UPDATE_INTERVAL) as u64;
-    let num_turn = DETECTED_UPDATE_INTERVAL as u64;
+    let turn = time_res.tick % DETECTED_UPDATE_INTERVAL;
 
     query.par_for_each_mut(
         &task_pool,
-        1024 * num_turn as usize,
+        1024 * DETECTED_UPDATE_INTERVAL as usize,
         |(fleet_id_comp, position, detector_radius, mut entity_detected)| {
-            if fleet_id_comp.0 .0 % num_turn == turn {
+            if fleet_id_comp.0.0 % DETECTED_UPDATE_INTERVAL == turn {
                 let detector_collider = Collider::new_idless(detector_radius.0, position.0);
 
                 entity_detected.0.clear();
@@ -217,7 +215,7 @@ fn handle_client_inputs(
 
 /// Change the position of entities that have an orbit.
 fn handle_orbit(mut query: Query<(&OrbitComp, &mut Position)>, time_res: Res<TimeRes>, task_pool: Res<TaskPool>) {
-    let time = time_res.tick as f32;
+    let time = time_res.as_time();
 
     query.par_for_each_mut(&task_pool, 4096, |(orbit_comp, mut position)| {
         position.0 = orbit_comp.0.to_position(time);
@@ -238,15 +236,16 @@ fn remove_orbit(mut commands: Commands, query: Query<(Entity, &Velocity), (Chang
 fn handle_idle(
     mut commands: Commands,
     query: Query<(&Position, &InSystem, &FleetIdComp)>,
-    systems: Res<Systems>,
+    world_data: Res<WorldData>,
     mut data_manager: ResMut<DataManager>,
+    clients_res: Res<ClientsRes>,
     mut fleets_res: ResMut<FleetsRes>,
     fleet_idle: Res<EventRes<FleetIdle>>,
 ) {
     while let Some(event) = fleet_idle.events.pop() {
         if let Ok((position, in_system, fleet_id_comp)) = query.get(event.entity) {
             let client_id = ClientId::from(fleet_id_comp.0);
-            if client_id.is_valid() {
+            if client_id.is_valid() && clients_res.connected_clients.get(&client_id).is_none() {
                 // Remove client's fleet.
                 fleets_res.spawned_fleets.remove(&fleet_id_comp.0);
                 commands.entity(event.entity).despawn();
@@ -254,7 +253,7 @@ fn handle_idle(
                 data_manager.client_fleets.insert(client_id, ());
             } else if let Some(system_id) = in_system.0 {
                 // Add orbit.
-                let system = &systems.systems[system_id];
+                let system = &world_data.systems[system_id];
 
                 let relative_pos = position.0 - system.position;
                 let orbit_radius = relative_pos.length();
@@ -379,11 +378,18 @@ fn apply_fleet_movement(
     );
 }
 
+fn increment_time(mut time_res: ResMut<TimeRes>) {
+    time_res.tick += 1;
+}
+
+//* post_update
+
 /// Remove a client from connected client map and trigger idle event again if to remove the fleet.
 fn disconnect_client(
+    mut query: Query<&mut IdleCounter>,
     mut clients_res: ResMut<ClientsRes>,
     client_disconnected: Res<EventRes<ClientDisconnected>>,
-    fleet_idle: Res<EventRes<FleetIdle>>,
+    fleets_res: Res<FleetsRes>,
 ) {
     while let Some(client_disconnected) = client_disconnected.events.pop() {
         let client_id = client_disconnected.client_id;
@@ -395,27 +401,27 @@ fn disconnect_client(
                 connection.send_packet_reliable(packet.serialize());
                 connection.flush_tcp_stream();
             }
-            debug!("{:?} disconneced.", client_id);
+            debug!("{:?} disconnected.", client_id);
         } else {
             warn!(
                 "Got ClientDisconnected event, but {:?} can not be found. Ignoring...",
                 client_id
             );
         }
+
+        // Make sure the client's fleet is not already idle, so that idle detection pick it up.
+        if let Some(entity) = fleets_res.spawned_fleets.get(&FleetId::from(client_id)) {
+            if let Ok(mut idle_counter) = query.get_mut(*entity) {
+                idle_counter.0 = idle_counter.0.min(IdleCounter::IDLE_DELAY - 10);
+            }
+        }
     }
 }
-
-/// Are we in the past or the future now?
-fn increment_time(mut time_res: ResMut<TimeRes>) {
-    time_res.tick += 1;
-}
-
-//* post_update
 
 /// Update the system each entity is currently in.
 fn update_in_system(
     mut query: Query<(&FleetIdComp, &Position, &mut InSystem)>,
-    systems: Res<Systems>,
+    world_data: Res<WorldData>,
     systems_acceleration_structure: Res<SystemsAccelerationStructure>,
     task_pool: Res<TaskPool>,
     mut turn: Local<u64>,
@@ -426,7 +432,7 @@ fn update_in_system(
         if fleet_id_comp.0 .0 % 10 == *turn {
             match in_system.0 {
                 Some(system_id) => {
-                    let system = &systems.systems[system_id];
+                    let system = &world_data.systems[system_id];
                     if system.position.distance_squared(position.0) > system.bound.powi(2) {
                         in_system.0 = None;
                     }
@@ -468,7 +474,7 @@ fn update_detected_intersection_pipeline(
         }
     }
 
-    if *last_update_delta > DETECTED_UPDATE_INTERVAL {
+    if *last_update_delta > DETECTED_UPDATE_INTERVAL as u32 {
         if let Some(mut old_snapshot) = intersection_pipeline.outdated.take() {
             // Update all colliders.
             old_snapshot.colliders.clear();

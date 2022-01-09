@@ -2,7 +2,7 @@ use std::ops::{Index, IndexMut};
 
 use serde::{Deserialize, Serialize};
 
-use crate::system::System;
+use crate::world_data::{System, Faction};
 
 /// Never recycled.
 /// 0 is reserved and means invalid.
@@ -48,7 +48,19 @@ fn fleet_client_id() {
 
 /// Never recycled.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct FactionId(pub u32);
+pub struct FactionId(pub u16);
+impl Index<FactionId> for [Faction] {
+    type Output = Faction;
+
+    fn index(&self, index: FactionId) -> &Self::Output {
+        &self[usize::from(index.0)]
+    }
+}
+impl IndexMut<FactionId> for [Faction] {
+    fn index_mut(&mut self, index: FactionId) -> &mut Self::Output {
+        &mut self[usize::from(index.0)]
+    }
+}
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SystemId(pub u16);
@@ -68,5 +80,5 @@ impl IndexMut<SystemId> for Vec<System> {
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CelestialBodyId {
     pub system_id: SystemId,
-    pub body_offset: u16,
+    pub body_offset: u8,
 }

@@ -1,10 +1,9 @@
 use ahash::AHashMap;
 use bevy_ecs::prelude::*;
-use common::{idx::*, orbit::Orbit};
+use common::{idx::*, orbit::Orbit, reputation::Reputation, world_data::{WorldData, Faction}};
 use glam::Vec2;
 use std::{
     collections::VecDeque,
-    ops::{Add, Sub},
 };
 
 //* bundle
@@ -27,7 +26,7 @@ pub struct FleetBundle {
     pub velocity: Velocity,
     pub idle_counter: IdleCounter,
     pub derived_fleet_stats: DerivedFleetStats,
-    pub reputation: Reputation,
+    pub reputations: Reputations,
     pub detected_radius: DetectedRadius,
     pub detector_radius: DetectorRadius,
     pub entity_detected: EntityDetected,
@@ -61,8 +60,38 @@ pub struct Name(pub String);
 #[derive(Debug, Clone, Copy, Component)]
 pub struct InSystem(pub Option<SystemId>);
 
-#[derive(Debug, Clone, Copy, Component)]
-pub struct RemoveTimer(());
+#[derive(Debug, Clone, Component, Default)]
+pub struct Reputations {
+    pub faction: Option<FactionId>,
+    pub faction_reputation: AHashMap<FactionId, Reputation>,
+    pub common_reputation: Reputation,
+}
+impl Reputations {
+    /// Return the relative reputation between two reputations.
+    pub fn get_relative_reputation(&self, other: &Reputations, factions: &[Faction]) -> Reputation {
+        if let Some(fac_self) = self.faction {
+            if let Some(fac_orther) = other.faction {
+                if fac_self > fac_orther {
+                    factions[fac_self].faction_relation[usize::from(fac_orther.0)]
+                } else if fac_orther > fac_self {
+                    factions[fac_orther].faction_relation[usize::from(fac_self.0)]
+                } else {
+                    self.common_reputation.min(other.common_reputation)
+                }
+            } else {
+                other.faction_reputation.get(&fac_self).copied().unwrap_or_else( ||
+                    factions[fac_self].default_common_reputation
+                )
+            }
+        } else {
+            if let Some(fac_other) = other.faction {
+                self.faction_reputation.get(&fac_other).copied().unwrap_or_else(|| factions[fac_other].default_common_reputation)
+            } else {
+                self.common_reputation.min(other.common_reputation)
+            }
+        }
+    }
+}
 
 //* Fleet
 
@@ -96,41 +125,6 @@ pub struct Velocity(pub Vec2);
 pub struct DerivedFleetStats {
     /// How much velocity this entity can gain each update.
     pub acceleration: f32,
-}
-
-/// Good boy points.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Component)]
-pub struct Reputation(pub i8);
-impl Reputation {
-    const ALLIED_THRESHOLD: i8 = 30;
-    const ENEMY_THRESHOLD: i8 = -30;
-
-    pub fn is_ally(self) -> bool {
-        self.0 > Reputation::ALLIED_THRESHOLD
-    }
-
-    pub fn is_enemy(self) -> bool {
-        self.0 < Reputation::ENEMY_THRESHOLD
-    }
-}
-impl Default for Reputation {
-    fn default() -> Self {
-        Self(0)
-    }
-}
-impl Add for Reputation {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0.saturating_add(rhs.0))
-    }
-}
-impl Sub for Reputation {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self(self.0.saturating_sub(rhs.0))
-    }
 }
 
 //* AI

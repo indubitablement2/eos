@@ -1,15 +1,9 @@
-use crate::orbit::Orbit;
+use crate::{orbit::Orbit, idx::*, reputation::Reputation};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 /// Extra radius added after the edge of the outtermost body of a system.
 pub const SYSTEM_PADDING: f32 = 20.0;
-
-/// Infos that do not affect the simulation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CelestialBodyInfo {
-    pub name: String,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash)]
 pub enum CelestialBodyType {
@@ -26,6 +20,19 @@ pub struct CelestialBody {
     pub orbit: Orbit,
 }
 
+/// Infos that do not affect the simulation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CelestialBodyInfo {
+    pub name: String,
+}
+
+/// Infos that do not affect the simulation.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ColonyInfo {
+    pub faction: Option<FactionId>,
+    pub population: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct System {
     /// Edge of the outtermost `CelestialBody` + `SYSTEM_PADDING`.
@@ -36,21 +43,34 @@ pub struct System {
     pub bodies: Vec<CelestialBody>,
     /// Some infos like name and looks that do not affect the simulation.
     pub infos: Vec<CelestialBodyInfo>,
+    pub colony: Vec<ColonyInfo>,
 }
 
-/// Since this vec should never be modified at runtime, `SystemId` are index.
-/// Systems can change from version to version however.
-///
-/// Systems are sorted on the y axis from the top.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct Systems{
-    pub systems: Vec<System>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Faction {
+    pub display_name: String,
+    pub capital: Option<CelestialBodyId>,
+    pub colonies: Vec<CelestialBodyId>,
+    /// Reputation between factions.
+    /// The highest FactionId is used.
+    pub faction_relation: Vec<Reputation>,
+    /// Fallback to this reputation for factionless fleet.
+    pub default_common_reputation: Reputation,
 }
-impl Systems {
+
+/// Since these vec should never be modified at runtime, idx are index.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorldData{
+    /// sorted on the y axis from the top.
+    pub systems: Vec<System>,
+    pub factions: Vec<Faction>,
+}
+impl WorldData {
     /// The furthest system bound from the world origin.
-    ///
+    /// # Warning
     /// Don't use this at runtime as it is very expensive.
-    pub fn get_bound(&self) -> f32 {
+    /// It is there for tools and debugs.
+    pub fn get_systems_bound(&self) -> f32 {
         self.systems
             .iter()
             .fold(0.0f32, |acc, system| acc.max(system.position.length() + system.bound))

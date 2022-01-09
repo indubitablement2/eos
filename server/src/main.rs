@@ -12,10 +12,9 @@ use bevy_tasks::TaskPool;
 use common::intersection::*;
 use common::parameters::MetascapeParameters;
 use common::res_time::TimeRes;
-use common::system::Systems;
+use common::world_data::WorldData;
 use data_manager::DataManager;
 use res_clients::ClientsRes;
-use res_factions::FactionsRes;
 use res_fleets::FleetsRes;
 use std::{fs::File, io::prelude::*, thread::sleep, time::Instant};
 
@@ -27,7 +26,6 @@ mod ecs_components;
 mod ecs_events;
 mod ecs_systems;
 mod res_clients;
-mod res_factions;
 mod res_fleets;
 mod terminal;
 
@@ -57,7 +55,6 @@ impl Metascape {
         world.insert_resource(metascape_parameters);
         world.insert_resource(DetectedIntersectionPipeline(IntersectionPipeline::new()));
         world.insert_resource(ClientsRes::new(local)?);
-        world.insert_resource(FactionsRes::new());
         world.insert_resource(FleetsRes::new());
 
         let mut schedule = Schedule::default();
@@ -67,16 +64,16 @@ impl Metascape {
     }
 
     fn load(&mut self) {
-        // Load systems.
-        let mut file = File::open("systems.bin").unwrap();
-        let mut system_buffer = Vec::with_capacity(file.metadata().unwrap().len() as usize);
-        file.read_to_end(&mut system_buffer).unwrap();
-        let systems = bincode::deserialize::<Systems>(&system_buffer).expect("Could not deserialize systems.bin");
+        // Load world data.
+        let mut file = File::open("world_data.bin").unwrap();
+        let mut buffer = Vec::with_capacity(file.metadata().unwrap().len() as usize);
+        file.read_to_end(&mut buffer).unwrap();
+        let wd = bincode::deserialize::<WorldData>(&buffer).expect("Could not deserialize world_data.bin");
 
-        // Create an acceleration structure.
+        // Create an acceleration structure for systems.
         let mut acc = AccelerationStructure::new();
         acc.colliders.extend(
-            systems
+            wd
                 .systems
                 .iter()
                 .zip(0u32..)
@@ -85,10 +82,8 @@ impl Metascape {
         acc.update();
 
         // Add systems and systems_acceleration_structure resource.
-        self.world.insert_resource(systems);
+        self.world.insert_resource(wd);
         self.world.insert_resource(SystemsAccelerationStructure(acc));
-
-        // TODO: Factions.
     }
 
     fn update(&mut self) {

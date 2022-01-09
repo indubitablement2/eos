@@ -16,9 +16,10 @@ pub mod orbit;
 pub mod packets;
 pub mod parameters;
 pub mod res_time;
-pub mod system;
+pub mod world_data;
 pub mod tcp_loops;
 pub mod udp_loops;
+pub mod reputation;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Version {
