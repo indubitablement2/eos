@@ -1,5 +1,5 @@
 use ahash::AHashMap;
-use bevy::ecs::prelude::*;
+use bevy_ecs::prelude::*;
 use common::{idx::*, orbit::Orbit};
 use glam::Vec2;
 use std::{

@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use rand::random;
 
 #[derive(Debug, Component)]

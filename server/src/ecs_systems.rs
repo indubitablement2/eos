@@ -5,8 +5,8 @@ use crate::ecs_components::*;
 use crate::ecs_events::*;
 use crate::res_clients::*;
 use crate::res_fleets::*;
-use bevy::ecs::prelude::*;
-use bevy::tasks::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_tasks::TaskPool;
 // use bevy_tasks::TaskPool;
 use common::idx::*;
 use common::intersection::*;
@@ -130,7 +130,7 @@ fn get_new_clients(
 fn fleet_sensor(
     mut query: Query<(&FleetIdComp, &Position, &DetectorRadius, &mut EntityDetected)>,
     detected_intersection_pipeline: Res<DetectedIntersectionPipeline>,
-    compute_task_pool: Res<ComputeTaskPool>,
+    task_pool: Res<TaskPool>,
     time_res: Res<TimeRes>,
 ) {
     // We will only update one part every tick.
@@ -138,7 +138,7 @@ fn fleet_sensor(
     let num_turn = DETECTED_UPDATE_INTERVAL as u64;
 
     query.par_for_each_mut(
-        &compute_task_pool,
+        &task_pool,
         1024 * num_turn as usize,
         |(fleet_id_comp, position, detector_radius, mut entity_detected)| {
             if fleet_id_comp.0.0 % num_turn == turn {
@@ -158,9 +158,9 @@ fn handle_client_inputs(
     mut query: Query<(&ClientIdComp, &mut WishPosition), Without<ClientFleetAI>>,
     clients_res: Res<ClientsRes>,
     client_disconnected: Res<EventRes<ClientDisconnected>>,
-    compute_task_pool: Res<ComputeTaskPool>,
+    task_pool: Res<TaskPool>,
 ) {
-    query.par_for_each_mut(&compute_task_pool, 512, |(client_id_comp, mut wish_position)| {
+    query.par_for_each_mut(&task_pool, 512, |(client_id_comp, mut wish_position)| {
         if let Some(connection) = clients_res.connected_clients.get(&client_id_comp.0) {
             loop {
                 match connection.inbound_receiver.try_recv() {
@@ -204,10 +204,10 @@ fn handle_client_inputs(
 //* pre_update
 
 /// Change the position of entities that have an orbit.
-fn handle_orbit(mut query: Query<(&OrbitComp, &mut Position)>, time_res: Res<TimeRes>, compute_task_pool: Res<ComputeTaskPool>,) {
+fn handle_orbit(mut query: Query<(&OrbitComp, &mut Position)>, time_res: Res<TimeRes>, task_pool: Res<TaskPool>,) {
     let time = time_res.tick as f32;
 
-    query.par_for_each_mut(&compute_task_pool, 4096, |(orbit_comp, mut position)| {
+    query.par_for_each_mut(&task_pool, 4096, |(orbit_comp, mut position)| {
         position.0 = orbit_comp.0.to_position(time);
     })
 }
@@ -263,10 +263,10 @@ fn add_orbit(
 /// Ai that control the client's fleet while he is not connected.
 fn client_fleet_ai(
     mut query: Query<(&ClientFleetAI, &Position, &mut WishPosition), With<ClientIdComp>>,
-    compute_task_pool: Res<ComputeTaskPool>,
+    task_pool: Res<TaskPool>,
 ) {
     query.par_for_each_mut(
-        &compute_task_pool,
+        &task_pool,
         2048,
         |(client_fleet_ai, position, mut wish_position)| match client_fleet_ai.goal {
             ClientFleetAIGoal::Idle => {
@@ -280,8 +280,8 @@ fn client_fleet_ai(
 }
 
 /// TODO: Ai that control fleet owned by a colony.
-fn colony_fleet_ai(mut query: Query<(&mut ColonyFleetAI, &Position, &mut WishPosition)>, compute_task_pool: Res<ComputeTaskPool>,) {
-    query.par_for_each_mut(&compute_task_pool, 2048, |(mut colony_fleet_ai, position, mut wish_position)| {
+fn colony_fleet_ai(mut query: Query<(&mut ColonyFleetAI, &Position, &mut WishPosition)>, task_pool: Res<TaskPool>,) {
+    query.par_for_each_mut(&task_pool, 2048, |(mut colony_fleet_ai, position, mut wish_position)| {
         match &mut colony_fleet_ai.goal {
             ColonyFleetAIGoal::Trade { colony } => todo!(),
             ColonyFleetAIGoal::Guard { duration } => todo!(),
@@ -300,12 +300,12 @@ fn apply_fleet_movement(
     mut query: Query<(Entity, &mut Position, &mut WishPosition, &mut Velocity, &DerivedFleetStats, &mut IdleCounter)>,
     metascape_parameters: Res<MetascapeParameters>,
     fleet_idle: Res<EventRes<FleetIdle>>,
-    compute_task_pool: Res<ComputeTaskPool>,
+    task_pool: Res<TaskPool>,
 ) {
     let bound_squared = metascape_parameters.bound.powi(2);
 
     query.par_for_each_mut(
-        &compute_task_pool,
+        &task_pool,
         2048,
         |(entity, mut position, mut wish_position, mut velocity, derived_fleet_stats, mut idle_counter)| {
             if let Some(target) = wish_position.0 {
@@ -415,12 +415,12 @@ fn update_in_system(
     mut query: Query<(&FleetIdComp, &Position, &mut InSystem)>,
     systems: Res<Systems>,
     systems_acceleration_structure: Res<SystemsAccelerationStructure>,
-    compute_task_pool: Res<ComputeTaskPool>,
+    task_pool: Res<TaskPool>,
     mut turn: Local<u64>,
 ) {
     *turn = (*turn + 1) % 10;
 
-    query.par_for_each_mut(&compute_task_pool, 4096, |(fleet_id_comp, position, mut in_system)| {
+    query.par_for_each_mut(&task_pool, 4096, |(fleet_id_comp, position, mut in_system)| {
         if fleet_id_comp.0.0 % 10 == *turn {
             match in_system.0 {
                 Some(system_id) => {
@@ -497,10 +497,10 @@ fn send_detected_entity(
     query_entity_state: Query<&Position, Without<OrbitComp>>,
     time_res: Res<TimeRes>,
     clients_res: Res<ClientsRes>,
-    compute_task_pool: Res<ComputeTaskPool>,
+    task_pool: Res<TaskPool>,
 ) {
     query_client.par_for_each_mut(
-        &compute_task_pool,
+        &task_pool,
         256,
         |(entity, client_id_comp, position, entity_detected, mut know_entities)| {
             if let Some(connection) = clients_res.connected_clients.get(&client_id_comp.0) {

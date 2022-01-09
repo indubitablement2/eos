@@ -7,7 +7,8 @@
 #![feature(derive_default_enum)]
 #![feature(map_try_insert)]
 
-use bevy::{prelude::*, tasks::ComputeTaskPool};
+use bevy_ecs::prelude::*;
+use bevy_tasks::TaskPool;
 use common::intersection::*;
 use common::parameters::MetascapeParameters;
 use common::res_time::TimeRes;
@@ -50,7 +51,7 @@ impl Metascape {
     fn new(local: bool, metascape_parameters: MetascapeParameters) -> std::io::Result<Self> {
         let mut world = World::new();
         ecs_events::add_event_res(&mut world);
-        // world.insert_resource(TaskPool::new());
+        world.insert_resource(TaskPool::new());
         world.insert_resource(TimeRes::default());
         world.insert_resource(DataManager::new());
         world.insert_resource(metascape_parameters);
@@ -96,7 +97,6 @@ impl Metascape {
 }
 
 fn main() {
-    
     tui_logger::init_logger(log::LevelFilter::Trace).expect("Could not init logger.");
     tui_logger::set_default_level(log::LevelFilter::Trace);
 

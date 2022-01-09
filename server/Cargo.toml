@@ -13,9 +13,8 @@ tui = { version = "0.16", default-features = false, features = ['termion'] }
 
 common = { path = "../common" }
 
-bevy = { version = "0.6", default-features = false, features = [] }
-# bevy_ecs = "0.5.0"
-# bevy_tasks = "0.5.0"
+bevy_ecs = "0.6.0"
+bevy_tasks = "0.6.0"
 
 ahash = "0.7.6"
 indexmap = {version = "1.8.0", features = ["serde"] }
