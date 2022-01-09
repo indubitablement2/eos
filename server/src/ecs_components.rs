@@ -61,6 +61,9 @@ pub struct Name(pub String);
 #[derive(Debug, Clone, Copy, Component)]
 pub struct InSystem(pub Option<SystemId>);
 
+#[derive(Debug, Clone, Copy, Component)]
+pub struct RemoveTimer(());
+
 //* Fleet
 
 /// How long this entity has been without velocity.
@@ -68,7 +71,7 @@ pub struct InSystem(pub Option<SystemId>);
 pub struct IdleCounter(pub u32);
 impl IdleCounter {
     /// Delay before a fleet without velocity is considered idle in tick.
-    pub const IDLE_DELAY: u32 = 50;
+    pub const IDLE_DELAY: u32 = 200;
 
     pub fn is_idle(self) -> bool {
         self.0 >= Self::IDLE_DELAY
@@ -93,8 +96,6 @@ pub struct Velocity(pub Vec2);
 pub struct DerivedFleetStats {
     /// How much velocity this entity can gain each update.
     pub acceleration: f32,
-    /// Velocity beyong which it can not accelerate itself anymore (it can still be pushed).
-    pub max_speed: f32,
 }
 
 /// Good boy points.
@@ -145,18 +146,6 @@ pub struct ColonyFleetAI {
     pub goal: ColonyFleetAIGoal,
     /// The colony that own this fleet.
     pub colony: Entity,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub enum ClientFleetAIGoal {
-    #[default]
-    Idle,
-    Flee,
-}
-/// Ai that takes over a client's fleet when it is not connected.
-#[derive(Debug, Clone, Copy, Default, Component)]
-pub struct ClientFleetAI {
-    pub goal: ClientFleetAIGoal,
 }
 
 //* Detection

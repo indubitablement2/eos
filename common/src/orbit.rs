@@ -23,7 +23,11 @@ impl Orbit {
     ///
     /// Time is an f32 to allow more granularity than tick. Otherwise `u32 as f32` will work just fine.
     pub fn to_position(self, time: f32) -> Vec2 {
-        let rot = (time / self.orbit_time).mul_add(TAU, self.orbit_start_angle);
-        Vec2::new(rot.cos(), rot.sin()) * self.orbit_radius + self.origin
+        if self.orbit_radius < 0.01 {
+            self.origin
+        } else {
+            let rot = (time / self.orbit_time).mul_add(TAU, self.orbit_start_angle);
+            Vec2::new(rot.cos(), rot.sin()) * self.orbit_radius + self.origin
+        }
     }
 }

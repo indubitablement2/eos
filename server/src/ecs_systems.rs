@@ -1,10 +1,11 @@
-use crate::DetectedIntersectionPipeline;
-use crate::SystemsAccelerationStructure;
+use crate::data_manager::ClientData;
 use crate::data_manager::DataManager;
 use crate::ecs_components::*;
 use crate::ecs_events::*;
 use crate::res_clients::*;
 use crate::res_fleets::*;
+use crate::DetectedIntersectionPipeline;
+use crate::SystemsAccelerationStructure;
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
 // use bevy_tasks::TaskPool;
@@ -31,8 +32,7 @@ pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
     schedule.add_system_to_stage(current_stage, handle_orbit.system());
     schedule.add_system_to_stage(current_stage, remove_orbit.system());
-    schedule.add_system_to_stage(current_stage, add_orbit.system());
-    schedule.add_system_to_stage(current_stage, client_fleet_ai.system());
+    schedule.add_system_to_stage(current_stage, handle_idle.system());
     schedule.add_system_to_stage(current_stage, colony_fleet_ai.system());
 
     let previous_stage = current_stage;
@@ -55,9 +55,10 @@ pub fn add_systems(schedule: &mut Schedule) {
 /// Get new connection and insert client.
 fn get_new_clients(
     mut commands: Commands,
+    mut query_client_fleet: Query<(&ClientIdComp, &mut KnowEntities)>,
     mut clients_res: ResMut<ClientsRes>,
     mut fleets_res: ResMut<FleetsRes>,
-    data_manager: Res<DataManager>,
+    mut data_manager: ResMut<DataManager>,
 ) {
     while let Ok(connection) = clients_res.connection_manager.new_connection_receiver.try_recv() {
         let client_id = connection.client_id;
@@ -73,25 +74,38 @@ fn get_new_clients(
             old_connection.flush_tcp_stream();
         }
 
-        // Check if it has data.
-        if clients_res
-            .clients_data
-            .try_insert(client_id, ClientData::default())
-            .is_ok()
-        {
-            // This is this client's first login.
+        // Check if client has data.
+        match data_manager.clients_data.try_insert(client_id, ClientData::default()) {
+            Ok(client_data) => {
+                // This is this client's first login.
+            }
+            Err(client_data) => {
+                // Old client.
+            }
         }
 
         // Check if fleet is already spawned.
         if let Some(old_fleet_entity) = fleets_res.spawned_fleets.get(&fleet_id) {
-            // Update old fleet components.
-            commands
-                .entity(*old_fleet_entity)
-                .insert(KnowEntities::default())
-                .insert(EntityDetected::default())
-                .remove::<ClientFleetAI>();
+            if let Ok((client_id_comp, mut know_entities)) = query_client_fleet.get_mut(*old_fleet_entity) {
+                // Update old fleet components.
+                let know_entities = &mut *know_entities;
+                *know_entities = KnowEntities::default();
 
-            debug!("{:?} has taken back control of his fleet.", client_id);
+                if client_id_comp.0 != client_id {
+                    error!(
+                        "{:?} was asigned {:?}'s fleet. Fleets res and world do not match.",
+                        client_id, client_id_comp.0
+                    );
+                } else {
+                    debug!("{:?} has taken back control of his fleet.", client_id);
+                }
+            } else {
+                fleets_res.spawned_fleets.remove(&fleet_id);
+                error!(
+                    "{:?}'s fleet is in fleets res, but is not found in world. Removing from spawned fleets...",
+                    client_id
+                );
+            }
         } else {
             // Create default client fleet.
             let entity = commands
@@ -106,10 +120,7 @@ fn get_new_clients(
                         wish_position: WishPosition::default(),
                         velocity: Velocity::default(),
                         idle_counter: IdleCounter(0),
-                        derived_fleet_stats: DerivedFleetStats {
-                            acceleration: 0.1,
-                            max_speed: 2.0,
-                        },
+                        derived_fleet_stats: DerivedFleetStats { acceleration: 0.1 },
                         reputation: Reputation(0),
                         detected_radius: DetectedRadius(10.0),
                         detector_radius: DetectorRadius(50.0),
@@ -141,11 +152,12 @@ fn fleet_sensor(
         &task_pool,
         1024 * num_turn as usize,
         |(fleet_id_comp, position, detector_radius, mut entity_detected)| {
-            if fleet_id_comp.0.0 % num_turn == turn {
+            if fleet_id_comp.0 .0 % num_turn == turn {
                 let detector_collider = Collider::new_idless(detector_radius.0, position.0);
 
                 entity_detected.0.clear();
-                detected_intersection_pipeline.0
+                detected_intersection_pipeline
+                    .0
                     .snapshot
                     .intersect_collider_into(detector_collider, &mut entity_detected.0);
             }
@@ -155,7 +167,7 @@ fn fleet_sensor(
 
 /// Consume and apply the client's packets.
 fn handle_client_inputs(
-    mut query: Query<(&ClientIdComp, &mut WishPosition), Without<ClientFleetAI>>,
+    mut query: Query<(&ClientIdComp, &mut WishPosition)>,
     clients_res: Res<ClientsRes>,
     client_disconnected: Res<EventRes<ClientDisconnected>>,
     task_pool: Res<TaskPool>,
@@ -204,7 +216,7 @@ fn handle_client_inputs(
 //* pre_update
 
 /// Change the position of entities that have an orbit.
-fn handle_orbit(mut query: Query<(&OrbitComp, &mut Position)>, time_res: Res<TimeRes>, task_pool: Res<TaskPool>,) {
+fn handle_orbit(mut query: Query<(&OrbitComp, &mut Position)>, time_res: Res<TimeRes>, task_pool: Res<TaskPool>) {
     let time = time_res.tick as f32;
 
     query.par_for_each_mut(&task_pool, 4096, |(orbit_comp, mut position)| {
@@ -222,21 +234,31 @@ fn remove_orbit(mut commands: Commands, query: Query<(Entity, &Velocity), (Chang
     });
 }
 
-/// Add orbit to idle entity within a system.
-fn add_orbit(
+/// Add orbit to idle entity within a system and remove fleet from disconnected client.
+fn handle_idle(
     mut commands: Commands,
-    query: Query<(&Position, &InSystem), Without<OrbitComp>>,
+    query: Query<(&Position, &InSystem, &FleetIdComp)>,
     systems: Res<Systems>,
+    mut data_manager: ResMut<DataManager>,
+    mut fleets_res: ResMut<FleetsRes>,
     fleet_idle: Res<EventRes<FleetIdle>>,
 ) {
     while let Some(event) = fleet_idle.events.pop() {
-        if let Ok((position, in_system)) = query.get(event.entity) {
-            if let Some(system_id) = in_system.0 {
+        if let Ok((position, in_system, fleet_id_comp)) = query.get(event.entity) {
+            let client_id = ClientId::from(fleet_id_comp.0);
+            if client_id.is_valid() {
+                // Remove client's fleet.
+                fleets_res.spawned_fleets.remove(&fleet_id_comp.0);
+                commands.entity(event.entity).despawn();
+                // Save fleet.
+                data_manager.client_fleets.insert(client_id, ());
+            } else if let Some(system_id) = in_system.0 {
+                // Add orbit.
                 let system = &systems.systems[system_id];
 
                 let relative_pos = position.0 - system.position;
                 let orbit_radius = relative_pos.length();
-                
+
                 let mut orbit_time = Orbit::DEFAULT_ORBIT_TIME;
                 // Check if there is a body nearby we should copy its orbit time.
                 system.bodies.iter().fold(999.0f32, |closest, body| {
@@ -255,38 +277,29 @@ fn add_orbit(
                     orbit_start_angle: relative_pos.y.atan2(relative_pos.x),
                     orbit_time,
                 }));
+            } else {
+                // Add a stationary orbit.
+                commands.entity(event.entity).insert(OrbitComp(Orbit {
+                    origin: position.0,
+                    orbit_radius: 0.0,
+                    orbit_start_angle: 0.0,
+                    orbit_time: 1.0,
+                }));
             }
         }
     }
 }
 
-/// Ai that control the client's fleet while he is not connected.
-fn client_fleet_ai(
-    mut query: Query<(&ClientFleetAI, &Position, &mut WishPosition), With<ClientIdComp>>,
-    task_pool: Res<TaskPool>,
-) {
+/// TODO: Ai that control fleet owned by a colony.
+fn colony_fleet_ai(mut query: Query<(&mut ColonyFleetAI, &Position, &mut WishPosition)>, task_pool: Res<TaskPool>) {
     query.par_for_each_mut(
         &task_pool,
         2048,
-        |(client_fleet_ai, position, mut wish_position)| match client_fleet_ai.goal {
-            ClientFleetAIGoal::Idle => {
-                if wish_position.0.is_some() {
-                    wish_position.0 = None;
-                }
-            }
-            ClientFleetAIGoal::Flee => todo!(),
-        },
-    )
-}
-
-/// TODO: Ai that control fleet owned by a colony.
-fn colony_fleet_ai(mut query: Query<(&mut ColonyFleetAI, &Position, &mut WishPosition)>, task_pool: Res<TaskPool>,) {
-    query.par_for_each_mut(&task_pool, 2048, |(mut colony_fleet_ai, position, mut wish_position)| {
-        match &mut colony_fleet_ai.goal {
+        |(mut colony_fleet_ai, position, mut wish_position)| match &mut colony_fleet_ai.goal {
             ColonyFleetAIGoal::Trade { colony } => todo!(),
             ColonyFleetAIGoal::Guard { duration } => todo!(),
-        }
-    });
+        },
+    );
 }
 
 //* update
@@ -297,7 +310,14 @@ fn colony_fleet_ai(mut query: Query<(&mut ColonyFleetAI, &Position, &mut WishPos
 ///
 /// TODO: Fleets engaged in the same Battlescape should aggregate.
 fn apply_fleet_movement(
-    mut query: Query<(Entity, &mut Position, &mut WishPosition, &mut Velocity, &DerivedFleetStats, &mut IdleCounter)>,
+    mut query: Query<(
+        Entity,
+        &mut Position,
+        &mut WishPosition,
+        &mut Velocity,
+        &DerivedFleetStats,
+        &mut IdleCounter,
+    )>,
     metascape_parameters: Res<MetascapeParameters>,
     fleet_idle: Res<EventRes<FleetIdle>>,
     task_pool: Res<TaskPool>,
@@ -359,12 +379,11 @@ fn apply_fleet_movement(
     );
 }
 
-/// Remove a client from connected client map and change its components.
+/// Remove a client from connected client map and trigger idle event again if to remove the fleet.
 fn disconnect_client(
-    mut commands: Commands,
     mut clients_res: ResMut<ClientsRes>,
-    fleets_res: Res<FleetsRes>,
     client_disconnected: Res<EventRes<ClientDisconnected>>,
+    fleet_idle: Res<EventRes<FleetIdle>>,
 ) {
     while let Some(client_disconnected) = client_disconnected.events.pop() {
         let client_id = client_disconnected.client_id;
@@ -380,23 +399,6 @@ fn disconnect_client(
         } else {
             warn!(
                 "Got ClientDisconnected event, but {:?} can not be found. Ignoring...",
-                client_id
-            );
-        }
-
-        // Add fleet ai and remove components that are not needed for unconnected client.
-        if let Some(client_data) = clients_res.clients_data.get(&client_id) {
-            if let Some(entity) = fleets_res.spawned_fleets.get(&FleetId::from(client_id)) {
-                let mut entity_cmd = commands.entity(*entity);
-                entity_cmd.insert(client_data.client_fleet_ai)
-                    .remove::<KnowEntities>();
-                if let ClientFleetAIGoal::Idle = client_data.client_fleet_ai.goal {
-                    entity_cmd.remove::<EntityDetected>();
-                }
-            }
-        } else {
-            warn!(
-                "Got ClientDisconnected event, but {:?}'s data can not be found. Ignoring...",
                 client_id
             );
         }
@@ -421,7 +423,7 @@ fn update_in_system(
     *turn = (*turn + 1) % 10;
 
     query.par_for_each_mut(&task_pool, 4096, |(fleet_id_comp, position, mut in_system)| {
-        if fleet_id_comp.0.0 % 10 == *turn {
+        if fleet_id_comp.0 .0 % 10 == *turn {
             match in_system.0 {
                 Some(system_id) => {
                     let system = &systems.systems[system_id];

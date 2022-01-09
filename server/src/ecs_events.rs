@@ -18,7 +18,7 @@ pub struct ClientDisconnected {
 
 /// A fleet has been without velocity for some time and does not have an orbit.
 pub struct FleetIdle {
-    pub entity: Entity
+    pub entity: Entity,
 }
 
 pub struct EventRes<T> {

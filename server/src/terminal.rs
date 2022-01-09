@@ -202,7 +202,7 @@ impl Terminal {
                 .constraints([Constraint::Length(3), Constraint::Percentage(60), Constraint::Min(10)].as_ref())
                 .split(size);
 
-            // Tabs titles.
+            // Draw tabs titles.
             let tab_titles = TerminalTab::TITLES.into_iter().map(|s| Spans::from(s)).collect();
             let mut tabs = Tabs::new(tab_titles)
                 .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
@@ -215,10 +215,10 @@ impl Terminal {
             }
             frame.render_widget(tabs, chunks[0]);
 
-            // Current tab.
             if self.help {
                 self.need_redraw = false;
 
+                // Draw current tab in help mode.
                 let text = match self.current_tab {
                     TerminalTab::Performance => vec![
                         Spans::from("Time is mesured in ms (milliseconds)."),
@@ -254,6 +254,7 @@ impl Terminal {
                     .block(Block::default().borders(Borders::ALL));
                 frame.render_widget(paragraph, chunks[1]);
             } else {
+                // Draw current tab.
                 match self.current_tab {
                     TerminalTab::Performance => {
                         let inner_chunks = Layout::default()
@@ -339,7 +340,7 @@ impl Terminal {
                 };
             }
 
-            // Logs.
+            // Draw logs.
             let mut log = TuiLoggerWidget::default()
                 .style_error(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
                 .style_warn(Style::default().fg(Color::Yellow))

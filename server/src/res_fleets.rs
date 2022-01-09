@@ -1,15 +1,15 @@
+use ahash::AHashMap;
 use bevy_ecs::prelude::Entity;
 use common::idx::*;
-use indexmap::IndexMap;
 
 pub struct FleetsRes {
-    pub spawned_fleets: IndexMap<FleetId, Entity>,
+    pub spawned_fleets: AHashMap<FleetId, Entity>,
     last_used_id: u64,
 }
 impl FleetsRes {
     pub fn new() -> Self {
         Self {
-            spawned_fleets: IndexMap::new(),
+            spawned_fleets: AHashMap::new(),
             last_used_id: u32::MAX as u64,
         }
     }
