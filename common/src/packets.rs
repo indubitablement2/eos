@@ -156,7 +156,7 @@ pub enum Packet {
     /// 
     /// This is used when there are 32 or less entities.
     EntitiesStateSmall {
-        tick: u32,
+        tick: u16,
         client_entity_position: Vec2,
         /// Entity's id and position compressed and relative to client's position. 
         ///
@@ -167,7 +167,7 @@ pub enum Packet {
     /// 
     /// This is used when there are more than 32 entities.
     EntitiesStateLarge {
-        tick: u32,
+        tick: u16,
         client_entity_position: Vec2,
         /// Entity idx that are updated `1` or not `0`.
         bitfield: [u8; 32],
@@ -181,7 +181,7 @@ pub enum Packet {
         /// This is useful with orbit.
         /// Any state before this tick can be discarded and apply the orbit instead.
         /// Any state after this tick will remove the orbit.
-        tick: u32,
+        tick: u16,
         /// The client's fleet info, if it has changed.
         client_fleet_info: Option<FleetInfo>,
         infos: Vec<(u8, EntityInfo)>,
