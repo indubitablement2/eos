@@ -1,10 +1,13 @@
 use ahash::AHashMap;
 use bevy_ecs::prelude::*;
-use common::{idx::*, orbit::Orbit, reputation::Reputation, world_data::{WorldData, Faction}};
-use glam::Vec2;
-use std::{
-    collections::VecDeque,
+use common::{
+    idx::*,
+    orbit::Orbit,
+    reputation::Reputation,
+    world_data::{Faction, WorldData},
 };
+use glam::Vec2;
+use std::collections::VecDeque;
 
 //* bundle
 
@@ -79,13 +82,18 @@ impl Reputations {
                     self.common_reputation.min(other.common_reputation)
                 }
             } else {
-                other.faction_reputation.get(&fac_self).copied().unwrap_or_else( ||
-                    factions[fac_self].default_common_reputation
-                )
+                other
+                    .faction_reputation
+                    .get(&fac_self)
+                    .copied()
+                    .unwrap_or_else(|| factions[fac_self].default_reputation)
             }
         } else {
             if let Some(fac_other) = other.faction {
-                self.faction_reputation.get(&fac_other).copied().unwrap_or_else(|| factions[fac_other].default_common_reputation)
+                self.faction_reputation
+                    .get(&fac_other)
+                    .copied()
+                    .unwrap_or_else(|| factions[fac_other].default_reputation)
             } else {
                 self.common_reputation.min(other.common_reputation)
             }

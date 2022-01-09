@@ -15,11 +15,11 @@ pub mod intersection;
 pub mod orbit;
 pub mod packets;
 pub mod parameters;
+pub mod reputation;
 pub mod res_time;
-pub mod world_data;
 pub mod tcp_loops;
 pub mod udp_loops;
-pub mod reputation;
+pub mod world_data;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Version {

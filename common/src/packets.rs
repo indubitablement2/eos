@@ -1,4 +1,4 @@
-use crate::{idx::*, Version, orbit::Orbit};
+use crate::{idx::*, orbit::Orbit, Version};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
@@ -153,18 +153,18 @@ pub enum Packet {
         commands: Vec<BattlescapeCommand>,
     },
     /// Server send some entities's position.
-    /// 
+    ///
     /// This is used when there are 32 or less entities.
     EntitiesStateSmall {
         tick: u64,
         client_entity_position: Vec2,
-        /// Entity's id and position compressed and relative to client's position. 
+        /// Entity's id and position compressed and relative to client's position.
         ///
         /// TODO: Compressed to 8 + 24 bits
         relative_entities_position: Vec<(u8, Vec2)>,
     },
     /// Server send some entities's position.
-    /// 
+    ///
     /// This is used when there are more than 32 entities.
     EntitiesStateLarge {
         tick: u64,

@@ -73,8 +73,7 @@ impl Metascape {
         // Create an acceleration structure for systems.
         let mut acc = AccelerationStructure::new();
         acc.colliders.extend(
-            wd
-                .systems
+            wd.systems
                 .iter()
                 .zip(0u32..)
                 .map(|(system, id)| Collider::new(id, system.bound, system.position)),

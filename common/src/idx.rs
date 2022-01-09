@@ -2,7 +2,7 @@ use std::ops::{Index, IndexMut};
 
 use serde::{Deserialize, Serialize};
 
-use crate::world_data::{System, Faction};
+use crate::world_data::{Faction, System};
 
 /// Never recycled.
 /// 0 is reserved and means invalid.

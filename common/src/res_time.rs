@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clone, Copy)]
 pub struct TimeRes {
     pub tick: u64,

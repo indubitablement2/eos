@@ -1,4 +1,4 @@
-use crate::{orbit::Orbit, idx::*, reputation::Reputation};
+use crate::{idx::*, orbit::Orbit, reputation::Reputation};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
@@ -54,13 +54,13 @@ pub struct Faction {
     /// Reputation between factions.
     /// The highest FactionId is used.
     pub faction_relation: Vec<Reputation>,
-    /// Fallback to this reputation for factionless fleet.
-    pub default_common_reputation: Reputation,
+    /// Fallback reputation.
+    pub default_reputation: Reputation,
 }
 
 /// Since these vec should never be modified at runtime, idx are index.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct WorldData{
+pub struct WorldData {
     /// sorted on the y axis from the top.
     pub systems: Vec<System>,
     pub factions: Vec<Faction>,

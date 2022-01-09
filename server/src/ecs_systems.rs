@@ -150,7 +150,7 @@ fn fleet_sensor(
         &task_pool,
         1024 * DETECTED_UPDATE_INTERVAL as usize,
         |(fleet_id_comp, position, detector_radius, mut entity_detected)| {
-            if fleet_id_comp.0.0 % DETECTED_UPDATE_INTERVAL == turn {
+            if fleet_id_comp.0 .0 % DETECTED_UPDATE_INTERVAL == turn {
                 let detector_collider = Collider::new_idless(detector_radius.0, position.0);
 
                 entity_detected.0.clear();
