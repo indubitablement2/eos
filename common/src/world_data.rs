@@ -52,7 +52,10 @@ pub struct Faction {
     pub capital: Option<CelestialBodyId>,
     pub colonies: Vec<CelestialBodyId>,
     /// Reputation between factions.
-    /// The highest FactionId is used.
+    /// The lower FactionId is used here.
+    /// 
+    /// eg: fleet `a` is in faction `2` and fleet `b` has faction `4`.
+    /// Relation = faction index `4` -> reputation index `2`.
     pub faction_relation: Vec<Reputation>,
     /// Fallback reputation.
     pub default_reputation: Reputation,

@@ -4,7 +4,7 @@ use common::{
     idx::*,
     orbit::Orbit,
     reputation::Reputation,
-    world_data::{Faction, WorldData},
+    world_data::Faction,
 };
 use glam::Vec2;
 use std::collections::VecDeque;
@@ -79,7 +79,7 @@ impl Reputations {
                 } else if fac_orther > fac_self {
                     factions[fac_orther].faction_relation[usize::from(fac_self.0)]
                 } else {
-                    self.common_reputation.min(other.common_reputation)
+                    Reputation::MAX
                 }
             } else {
                 other
