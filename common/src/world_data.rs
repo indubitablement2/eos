@@ -1,4 +1,5 @@
 use crate::{idx::*, orbit::Orbit, reputation::Reputation};
+use ahash::AHashMap;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
@@ -52,30 +53,29 @@ pub struct Faction {
     pub capital: Option<CelestialBodyId>,
     pub colonies: Vec<CelestialBodyId>,
     /// Reputation between factions.
-    /// The lower FactionId is used here.
-    /// 
-    /// eg: fleet `a` is in faction `2` and fleet `b` has faction `4`.
-    /// Relation = faction index `4` -> reputation index `2`.
-    pub faction_relation: Vec<Reputation>,
+    /// The highest `FactionId` has the reputation of all lower `FactionId`.
+    ///
+    /// eg: fleet a has faction `2` and fleet b has faction `4`.
+    ///
+    /// Relation = `faction[4].reputation[2]`.
+    pub faction_relation: AHashMap<FactionId, Reputation>,
     /// Fallback reputation.
     pub default_reputation: Reputation,
 }
 
-/// Since these vec should never be modified at runtime, idx are index.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WorldData {
-    /// sorted on the y axis from the top.
-    pub systems: Vec<System>,
-    pub factions: Vec<Faction>,
+    pub systems: AHashMap<SystemId, System>,
+    pub factions: AHashMap<FactionId, Faction>,
+    /// The furthest system bound from the world origin.
+    pub bound: f32,
+    pub next_system_id: u32,
 }
 impl WorldData {
-    /// The furthest system bound from the world origin.
-    /// # Warning
-    /// Don't use this at runtime as it is very expensive.
-    /// It is there for tools and debugs.
-    pub fn get_systems_bound(&self) -> f32 {
-        self.systems
-            .iter()
-            .fold(0.0f32, |acc, system| acc.max(system.position.length() + system.bound))
+    /// Result is saved in `bound`.
+    pub fn update_bound(&mut self) {
+        self.bound = self.systems.iter().fold(0.0f32, |acc, (_, system)| {
+            acc.max(system.position.length() + system.bound)
+        });
     }
 }

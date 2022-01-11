@@ -7,9 +7,9 @@ pub struct Orbit {
     /// Origin in world space this orbit is orbiting aound.
     pub origin: Vec2,
     /// The distance it is orbiting from the origin.
-    pub orbit_radius: f32,
+    pub distance: f32,
     /// The initial angle.
-    pub orbit_start_angle: f32,
+    pub start_angle: f32,
     /// How long it takes to make a full orbit in tick.
     /// Negative value result in counter clockwise rotation.
     ///
@@ -23,11 +23,11 @@ impl Orbit {
     ///
     /// Time is an f32 to allow more granularity than tick. Otherwise `u32 as f32` will work just fine.
     pub fn to_position(self, time: f32) -> Vec2 {
-        if self.orbit_radius < 0.01 {
+        if self.distance < 0.01 {
             self.origin
         } else {
-            let rot = (time / self.orbit_time).mul_add(TAU, self.orbit_start_angle);
-            Vec2::new(rot.cos(), rot.sin()) * self.orbit_radius + self.origin
+            let rot = (time / self.orbit_time).mul_add(TAU, self.start_angle);
+            Vec2::new(rot.cos(), rot.sin()) * self.distance + self.origin
         }
     }
 }

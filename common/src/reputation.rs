@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-use std::{ops::{Add, Sub}, fmt::Display};
+use std::{
+    fmt::Display,
+    ops::{Add, Sub},
+};
 
 pub enum ReputationState {
     Allied,
@@ -53,16 +56,4 @@ impl Display for Reputation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
-}
-
-#[test]
-fn asd() {
-    println!("{}", Reputation::MIN);
-    println!("{}", Reputation::MAX);
-    println!("{}", Reputation::from_raw(1));
-    println!("{}", Reputation::from_raw(-1));
-    println!("{}", Reputation::from_raw(0));
-    println!("{}", Reputation::from_raw(64));
-    println!("{}", Reputation::from_raw(63));
-    println!("{}", Reputation::from_raw(65));
 }

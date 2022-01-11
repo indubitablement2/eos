@@ -330,16 +330,28 @@ impl AccelerationStructure {
     }
 
     /// Return all colliders that intersect the provided collider.
-    /// `buffer` will containt the result.
-    ///
-    /// Provided `buffer` should be clear.
     pub fn intersect_collider_into(&self, collider: Collider, buffer: &mut Vec<u32>) {
+        buffer.clear();
         for i in self.get_colliders_to_test(collider).into_iter() {
             let other = self.colliders[i as usize];
             if collider.intersection_test(other) {
                 buffer.push(other.id);
             }
         }
+    }
+
+    /// Return all colliders that intersect the provided collider.
+    ///
+    /// See `intersect_collider_into()` if you want to reuse the buffer to store the result.
+    pub fn intersect_collider(&self, collider: Collider) -> Vec<u32> {
+        let mut buffer = Vec::new();
+        for i in self.get_colliders_to_test(collider).into_iter() {
+            let other = self.colliders[i as usize];
+            if collider.intersection_test(other) {
+                buffer.push(other.id);
+            }
+        }
+        buffer
     }
 
     /// Test if any collider intersect with the provided point.

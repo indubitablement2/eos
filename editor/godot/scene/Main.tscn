@@ -1,15 +1,27 @@
-[gd_scene load_steps=4 format=2]
+[gd_scene load_steps=8 format=2]
 
-[ext_resource path="res://native/SystemEditor.gdns" type="Script" id=1]
+[ext_resource path="res://native/Editor.gdns" type="Script" id=1]
 [ext_resource path="res://scene/Main.gd" type="Script" id=2]
 [ext_resource path="res://component/Camera.tscn" type="PackedScene" id=3]
+
+[sub_resource type="InputEventAction" id=1]
+action = "select_mode"
+
+[sub_resource type="ShortCut" id=2]
+shortcut = SubResource( 1 )
+
+[sub_resource type="InputEventAction" id=3]
+action = "generate_mode"
+
+[sub_resource type="ShortCut" id=4]
+shortcut = SubResource( 3 )
 
 [node name="Main" type="Node2D"]
 script = ExtResource( 2 )
 
 [node name="Camera2D" parent="." instance=ExtResource( 3 )]
 
-[node name="SystemEditor" type="Node2D" parent="."]
+[node name="Editor" type="Node2D" parent="."]
 script = ExtResource( 1 )
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
@@ -45,139 +57,85 @@ __meta__ = {
 "_edit_use_anchors_": false
 }
 
-[node name="Generate" type="Button" parent="CanvasLayer/Control/VBoxContainer"]
-margin_right = 213.0
+[node name="Export" type="Button" parent="CanvasLayer/Control/VBoxContainer"]
+margin_right = 174.0
 margin_bottom = 20.0
-text = "Generate Systems"
-__meta__ = {
-"_edit_use_anchors_": false
-}
-
-[node name="Merge" type="Button" parent="CanvasLayer/Control/VBoxContainer"]
-margin_top = 24.0
-margin_right = 213.0
-margin_bottom = 44.0
-text = "Merge Systems & Save Old Idx"
-__meta__ = {
-"_edit_use_anchors_": false
-}
+text = "Export"
 
 [node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
-margin_top = 48.0
-margin_right = 213.0
-margin_bottom = 68.0
+margin_top = 24.0
+margin_right = 174.0
+margin_bottom = 44.0
 __meta__ = {
 "_edit_use_anchors_": false
 }
 
-[node name="SaveEditor" type="Button" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer"]
-margin_right = 104.0
+[node name="Import" type="Button" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer"]
+margin_right = 56.0
 margin_bottom = 20.0
 size_flags_horizontal = 3
 size_flags_vertical = 3
-text = "Save Editor"
+text = "Import"
 __meta__ = {
 "_edit_use_anchors_": false
 }
 
-[node name="LoadEditor" type="Button" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer"]
-margin_left = 108.0
-margin_right = 213.0
+[node name="ImportSystems" type="Button" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer"]
+margin_left = 60.0
+margin_right = 174.0
 margin_bottom = 20.0
 size_flags_horizontal = 3
-text = "Load Editor"
+text = "Import Systems"
+
+[node name="HSeparator2" type="HSeparator" parent="CanvasLayer/Control/VBoxContainer"]
+margin_top = 48.0
+margin_right = 174.0
+margin_bottom = 52.0
 
 [node name="HBoxContainer2" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
-margin_top = 72.0
-margin_right = 213.0
-margin_bottom = 92.0
-
-[node name="SaveFinal" type="Button" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer2"]
-margin_right = 104.0
-margin_bottom = 20.0
-size_flags_horizontal = 3
-size_flags_vertical = 3
-text = "Save Final"
+margin_top = 56.0
+margin_right = 174.0
+margin_bottom = 76.0
 __meta__ = {
 "_edit_use_anchors_": false
 }
 
-[node name="LoadOriginal" type="Button" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer2"]
-margin_left = 108.0
-margin_right = 213.0
+[node name="Select" type="Button" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer2"]
+margin_right = 74.0
 margin_bottom = 20.0
-size_flags_horizontal = 3
-text = "Load Original"
-__meta__ = {
-"_edit_use_anchors_": false
-}
+toggle_mode = true
+pressed = true
+shortcut = SubResource( 2 )
+text = "Select (Q)"
+
+[node name="Generate" type="Button" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer2"]
+margin_left = 78.0
+margin_right = 168.0
+margin_bottom = 20.0
+toggle_mode = true
+shortcut = SubResource( 4 )
+text = "Generate (E)"
 
 [node name="HSeparator" type="HSeparator" parent="CanvasLayer/Control/VBoxContainer"]
-margin_top = 96.0
-margin_right = 213.0
-margin_bottom = 100.0
-
-[node name="Seed" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
-margin_top = 104.0
-margin_right = 213.0
-margin_bottom = 128.0
-
-[node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/Seed"]
-margin_top = 5.0
-margin_right = 151.0
-margin_bottom = 19.0
-size_flags_horizontal = 3
-text = "Seed:"
-
-[node name="Seed" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/Seed"]
-margin_left = 155.0
-margin_right = 213.0
-margin_bottom = 24.0
-text = "-1"
-caret_blink = true
-caret_blink_speed = 0.5
-__meta__ = {
-"_edit_use_anchors_": false
-}
-
-[node name="Bound" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
-margin_top = 132.0
-margin_right = 213.0
-margin_bottom = 156.0
-
-[node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/Bound"]
-margin_top = 5.0
-margin_right = 151.0
-margin_bottom = 19.0
-size_flags_horizontal = 3
-text = "Bound:"
-
-[node name="Bound" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/Bound"]
-margin_left = 155.0
-margin_right = 213.0
-margin_bottom = 24.0
-text = "1024"
-caret_blink = true
-caret_blink_speed = 0.5
-__meta__ = {
-"_edit_use_anchors_": false
-}
+margin_top = 80.0
+margin_right = 174.0
+margin_bottom = 84.0
 
 [node name="RadiusMin" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
-margin_top = 160.0
-margin_right = 213.0
-margin_bottom = 184.0
+margin_top = 88.0
+margin_right = 174.0
+margin_bottom = 112.0
 
 [node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/RadiusMin"]
 margin_top = 5.0
-margin_right = 151.0
+margin_right = 112.0
 margin_bottom = 19.0
 size_flags_horizontal = 3
 text = "Radius min:"
 
 [node name="RadiusMin" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/RadiusMin"]
-margin_left = 155.0
-margin_right = 213.0
+margin_left = 116.0
+margin_right = 174.0
 margin_bottom = 24.0
 text = "32"
 caret_blink = true
@@ -187,20 +145,20 @@ __meta__ = {
 }
 
 [node name="RadiusMax" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
-margin_top = 188.0
-margin_right = 213.0
-margin_bottom = 212.0
+margin_top = 116.0
+margin_right = 174.0
+margin_bottom = 140.0
 
 [node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/RadiusMax"]
 margin_top = 5.0
-margin_right = 151.0
+margin_right = 112.0
 margin_bottom = 19.0
 size_flags_horizontal = 3
 text = "Radius max:"
 
 [node name="RadiusMax" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/RadiusMax"]
-margin_left = 155.0
-margin_right = 213.0
+margin_left = 116.0
+margin_right = 174.0
 margin_bottom = 24.0
 text = "128"
 caret_blink = true
@@ -209,44 +167,21 @@ __meta__ = {
 "_edit_use_anchors_": false
 }
 
-[node name="DistanceMin" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
-margin_top = 216.0
-margin_right = 213.0
-margin_bottom = 240.0
+[node name="Try" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
+margin_top = 144.0
+margin_right = 174.0
+margin_bottom = 168.0
 
-[node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/DistanceMin"]
+[node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/Try"]
 margin_top = 5.0
-margin_right = 151.0
+margin_right = 112.0
 margin_bottom = 19.0
 size_flags_horizontal = 3
-text = "Distance min:"
+text = "Num gen try:"
 
-[node name="DistanceMin" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/DistanceMin"]
-margin_left = 155.0
-margin_right = 213.0
-margin_bottom = 24.0
-text = "16"
-caret_blink = true
-caret_blink_speed = 0.5
-__meta__ = {
-"_edit_use_anchors_": false
-}
-
-[node name="Density" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
-margin_top = 244.0
-margin_right = 213.0
-margin_bottom = 268.0
-
-[node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/Density"]
-margin_top = 5.0
-margin_right = 151.0
-margin_bottom = 19.0
-size_flags_horizontal = 3
-text = "Density Multiplier:"
-
-[node name="Density" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/Density"]
-margin_left = 155.0
-margin_right = 213.0
+[node name="Try" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/Try"]
+margin_left = 116.0
+margin_right = 174.0
 margin_bottom = 24.0
 text = "1"
 caret_blink = true
@@ -256,22 +191,22 @@ __meta__ = {
 }
 
 [node name="Size" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
-margin_top = 272.0
-margin_right = 213.0
-margin_bottom = 296.0
+margin_top = 172.0
+margin_right = 174.0
+margin_bottom = 196.0
 
 [node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/Size"]
 margin_top = 5.0
-margin_right = 151.0
+margin_right = 112.0
 margin_bottom = 19.0
 size_flags_horizontal = 3
-text = "Size multiplier (weight):"
+text = "Brush Size:"
 
 [node name="Size" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/Size"]
-margin_left = 155.0
-margin_right = 213.0
+margin_left = 116.0
+margin_right = 174.0
 margin_bottom = 24.0
-text = "1"
+text = "256"
 caret_blink = true
 caret_blink_speed = 0.5
 __meta__ = {
@@ -320,6 +255,20 @@ margin_right = 272.0
 margin_bottom = 40.0
 placeholder_text = "set tick"
 
+[node name="VSeparator2" type="VSeparator" parent="CanvasLayer/Control/HBoxContainer"]
+margin_left = 276.0
+margin_right = 280.0
+margin_bottom = 40.0
+
+[node name="NumSystem" type="Label" parent="CanvasLayer/Control/HBoxContainer"]
+margin_left = 284.0
+margin_top = 13.0
+margin_right = 284.0
+margin_bottom = 27.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
 [node name="Save" type="FileDialog" parent="CanvasLayer/Control"]
 anchor_left = 0.5
 anchor_top = 0.5
@@ -335,14 +284,13 @@ size_flags_vertical = 3
 popup_exclusive = true
 dialog_hide_on_ok = true
 access = 2
-current_dir = "/home/username/dev/eos/system-editor/godot"
-current_path = "/home/username/dev/eos/system-editor/godot/"
+current_dir = "/home/username/dev/eos/editor/godot"
+current_path = "/home/username/dev/eos/editor/godot/"
 __meta__ = {
 "_edit_use_anchors_": false
 }
 
 [node name="Load" type="FileDialog" parent="CanvasLayer/Control"]
-visible = true
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
@@ -360,25 +308,21 @@ dialog_hide_on_ok = true
 mode = 0
 access = 2
 filters = PoolStringArray( "*.bin" )
-current_dir = "/home/username/dev/eos/system-editor/godot"
-current_path = "/home/username/dev/eos/system-editor/godot/"
+current_dir = "/home/username/dev/eos/editor/godot"
+current_path = "/home/username/dev/eos/editor/godot/"
 __meta__ = {
 "_edit_use_anchors_": false
 }
 
 [connection signal="pressed" from="CanvasLayer/Control/Hide" to="." method="_on_Hide_pressed"]
-[connection signal="pressed" from="CanvasLayer/Control/VBoxContainer/Generate" to="." method="_on_Generate_pressed"]
-[connection signal="pressed" from="CanvasLayer/Control/VBoxContainer/Merge" to="." method="_on_Merge_pressed"]
-[connection signal="pressed" from="CanvasLayer/Control/VBoxContainer/HBoxContainer/SaveEditor" to="." method="_on_SaveEditor_pressed"]
-[connection signal="pressed" from="CanvasLayer/Control/VBoxContainer/HBoxContainer/LoadEditor" to="." method="_on_LoadEditor_pressed"]
-[connection signal="pressed" from="CanvasLayer/Control/VBoxContainer/HBoxContainer2/SaveFinal" to="." method="_on_SaveFinal_pressed"]
-[connection signal="pressed" from="CanvasLayer/Control/VBoxContainer/HBoxContainer2/LoadOriginal" to="." method="_on_LoadOriginal_pressed"]
-[connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/Seed/Seed" to="." method="_on_Seed_text_changed"]
-[connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/Bound/Bound" to="." method="_on_bound_text_changed"]
+[connection signal="pressed" from="CanvasLayer/Control/VBoxContainer/Export" to="." method="_on_Export_pressed"]
+[connection signal="pressed" from="CanvasLayer/Control/VBoxContainer/HBoxContainer/Import" to="." method="_on_Import_pressed"]
+[connection signal="pressed" from="CanvasLayer/Control/VBoxContainer/HBoxContainer/ImportSystems" to="." method="_on_ImportSystems_pressed"]
+[connection signal="pressed" from="CanvasLayer/Control/VBoxContainer/HBoxContainer2/Select" to="." method="_on_Select_pressed"]
+[connection signal="pressed" from="CanvasLayer/Control/VBoxContainer/HBoxContainer2/Generate" to="." method="_on_Generate_pressed"]
 [connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/RadiusMin/RadiusMin" to="." method="_on_RadiusMin_text_changed"]
 [connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/RadiusMax/RadiusMax" to="." method="_on_RadiusMax_text_changed"]
-[connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/DistanceMin/DistanceMin" to="." method="_on_DistanceMin_text_changed"]
-[connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/Density/Density" to="." method="_on_Density_text_changed"]
+[connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/Try/Try" to="." method="_on_Try_text_changed"]
 [connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/Size/Size" to="." method="_on_Size_text_changed"]
 [connection signal="text_changed" from="CanvasLayer/Control/HBoxContainer/TimeMultiplier" to="." method="_on_TimeMultiplier_text_changed"]
 [connection signal="text_changed" from="CanvasLayer/Control/HBoxContainer/SetTick" to="." method="_on_SetTick_text_changed"]

@@ -1,0 +1,38 @@
+[general]
+
+singleton=false
+load_once=true
+symbol_prefix="godot_"
+reloadable=false
+
+[entry]
+
+Android.arm64-v8a="res://../lib/aarch64-linux-android/libeditor.so"
+Android.armeabi-v7a="res://../lib/armv7-linux-androideabi/libeditor.so"
+Android.x86="res://../lib/i686-linux-android/libeditor.so"
+Android.x86_64="res://../lib/x86_64-linux-android/libeditor.so"
+iOS.arm64="res://../lib/aarch64-apple-ios/libeditor.a"
+OSX.64="res://../lib/x86_64-apple-darwin/libeditor.dylib"
+Server.32="res://../lib/i686-unknown-linux-gnu/libeditor.so"
+Server.64="res://../lib/x86_64-unknown-linux-gnu/libeditor.so"
+#Windows.32="res://../lib/i686-pc-windows-gnu/editor.dll"
+Windows.32="res://../lib/i686-pc-windows-msvc/editor.dll"
+#Windows.64="res://../lib/x86_64-pc-windows-gnu/editor.dll"
+Windows.64="res://../lib/x86_64-pc-windows-msvc/editor.dll"
+X11.32="res://../lib/i686-unknown-linux-gnu/libeditor.so"
+X11.64="res://../lib/x86_64-unknown-linux-gnu/libeditor.so"
+
+[dependencies]
+
+Android.arm64-v8a=[  ]
+Android.armeabi-v7a=[  ]
+Android.x86=[  ]
+Android.x86_64=[  ]
+iOS.arm64=[  ]
+OSX.64=[  ]
+Server.32=[  ]
+Server.64=[  ]
+Windows.32=[  ]
+Windows.64=[  ]
+X11.32=[  ]
+X11.64=[  ]
