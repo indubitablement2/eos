@@ -144,7 +144,7 @@ fn fleet_sensor(
     time_res: Res<TimeRes>,
 ) {
     // We will only update one part every tick.
-    let turn = time_res.tick % DETECTED_UPDATE_INTERVAL;
+    let turn = time_res.tick as u64 % DETECTED_UPDATE_INTERVAL;
 
     query.par_for_each_mut(
         &task_pool,
@@ -521,54 +521,61 @@ fn send_detected_entity(
         |(entity, client_id_comp, position, entity_detected, mut know_entities)| {
             if let Some(connection) = clients_res.connected_clients.get(&client_id_comp.0) {
                 let know_entities = &mut *know_entities;
-                
+
                 let mut updated = Vec::with_capacity(entity_detected.0.len());
                 let mut infos = Vec::new();
 
-                entity_detected.0.iter().map(|id| Entity::from_raw(*id)).filter_map(|detected_entity| {
-                    if let Some(temp_id) = know_entities.known.remove(&detected_entity) {
-                        // Client already know about this entity.
-                        updated.push((detected_entity, temp_id));
-                        // Check if the entity infos changed. Otherwise do nothing.
-                        if query_changed_entity.get(detected_entity).is_ok() {
-                            Some((temp_id, detected_entity))
-                        } else {
-                            None
-                        }
-                    } else {
-                        // This is a new entity for the client.
-                        let temp_id = know_entities.get_new_id();
-                        updated.push((detected_entity, temp_id));
-                        Some((temp_id, detected_entity))
-                    }
-                }).for_each(|(temp_id, entity)| {
-                    // TODO: This should be a function that write directly into a buffer.
-                    if let Ok((fleet_id_comp, name, orbit_comp)) = query_fleet_info.get(entity) {
-                        infos.push((
-                            temp_id,
-                            EntityInfo {
-                                info_type: EntityInfoType::Fleet(FleetInfo {
-                                    fleet_id: fleet_id_comp.0,
-                                    composition: Vec::new(),
-                                }),
-                                name: name.0.clone(),
-                                orbit: orbit_comp.map(|orbit_comp| orbit_comp.0),
+                entity_detected
+                    .0
+                    .iter()
+                    .map(|id| Entity::from_raw(*id))
+                    .filter_map(|detected_entity| {
+                        if let Some(temp_id) = know_entities.known.remove(&detected_entity) {
+                            // Client already know about this entity.
+                            updated.push((detected_entity, temp_id));
+                            // Check if the entity infos changed. Otherwise do nothing.
+                            if query_changed_entity.get(detected_entity).is_ok() {
+                                Some((temp_id, detected_entity))
+                            } else {
+                                None
                             }
-                        ));
-                    } else {
-                        debug!("Unknow entity type. Ignoring...");
-                    }
-                    // TODO: Try to query other type of entity.
-                });
+                        } else {
+                            // This is a new entity for the client.
+                            let temp_id = know_entities.get_new_id();
+                            updated.push((detected_entity, temp_id));
+                            Some((temp_id, detected_entity))
+                        }
+                    })
+                    .for_each(|(temp_id, entity)| {
+                        // TODO: This should be a function that write directly into a buffer.
+                        if let Ok((fleet_id_comp, name, orbit_comp)) = query_fleet_info.get(entity) {
+                            infos.push((
+                                temp_id,
+                                EntityInfo {
+                                    info_type: EntityInfoType::Fleet(FleetInfo {
+                                        fleet_id: fleet_id_comp.0,
+                                        composition: Vec::new(),
+                                    }),
+                                    name: name.0.clone(),
+                                    orbit: orbit_comp.map(|orbit_comp| orbit_comp.0),
+                                },
+                            ));
+                        } else {
+                            debug!("Unknow entity type. Ignoring...");
+                        }
+                        // TODO: Try to query other type of entity.
+                    });
 
-                // Ask the client to remove uneeded entities.
+                // Recycle temp idx.
+                let to_remove: Vec<u16> = know_entities.known.drain().map(|(_, temp_id)| temp_id).collect();
+                for temp_id in to_remove.iter() {
+                    know_entities.recycle_id(temp_id.to_owned());
+                }
                 let packet = Packet::EntitiesRemove(EntitiesRemove {
                     tick: time_res.tick,
-                    to_remove: know_entities.known.drain().map(|(_, temp_id)| {
-                        know_entities.recycle_id(temp_id);
-                        temp_id
-                    }).collect(),
-                }).serialize();
+                    to_remove,
+                })
+                .serialize();
                 connection.send_packet_reliable(packet);
 
                 // Update known map.
@@ -577,7 +584,7 @@ fn send_detected_entity(
                 // Check if we should update the client's fleet.
                 let client_info = if query_changed_entity.get(entity).is_ok() {
                     if let Ok((fleet_id_comp, name, orbit_comp)) = query_fleet_info.get(entity) {
-Some(                        EntityInfo {
+                        Some(EntityInfo {
                             info_type: EntityInfoType::Fleet(FleetInfo {
                                 fleet_id: fleet_id_comp.0,
                                 composition: Vec::new(),
@@ -601,7 +608,8 @@ Some(                        EntityInfo {
                     tick: time_res.tick,
                     client_info,
                     infos,
-                }).serialize();
+                })
+                .serialize();
                 connection.send_packet_reliable(packet);
 
                 // Send entities state.
@@ -610,17 +618,18 @@ Some(                        EntityInfo {
                     tick: time_res.tick,
                     client_entity_position: position.0,
                     relative_entities_position: know_entities
-                    .known
-                    .iter()
-                    .filter_map(|(entity, temp_id)| {
-                        if let Ok(entity_position) = query_entity_state.get(*entity) {
-                            Some((*temp_id, entity_position.0 - position.0))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect(),
-                }).serialize();
+                        .known
+                        .iter()
+                        .filter_map(|(entity, temp_id)| {
+                            if let Ok(entity_position) = query_entity_state.get(*entity) {
+                                Some((*temp_id, entity_position.0 - position.0))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect(),
+                })
+                .serialize();
                 // TODO: Reuse this buffer to write entities infos.
                 connection.send_packet_unreliable(&packet);
 

@@ -1,11 +1,6 @@
 use ahash::AHashMap;
 use bevy_ecs::prelude::*;
-use common::{
-    idx::*,
-    orbit::Orbit,
-    reputation::Reputation,
-    world_data::Faction,
-};
+use common::{idx::*, orbit::Orbit, reputation::Reputation, world_data::Faction};
 use glam::Vec2;
 
 //* bundle
@@ -111,7 +106,10 @@ impl Reputations {
                     if let Some(reputation) = faction.faction_relation.get(&lowest) {
                         reputation.to_owned()
                     } else {
-                        warn!("Can not find reputation {:?} in {:?}. Returning neutral reputation...", lowest, highest);
+                        warn!(
+                            "Can not find reputation {:?} in {:?}. Returning neutral reputation...",
+                            lowest, highest
+                        );
                         Reputation::NEUTRAL
                     }
                 } else {

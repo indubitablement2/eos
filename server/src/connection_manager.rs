@@ -33,12 +33,7 @@ impl ConnectionsManager {
         // Start login loop.
         let listener = rt.block_on(async { TcpListener::bind(addr).await })?;
         let (new_connection_sender, new_connection_receiver) = crossbeam::channel::unbounded();
-        rt.spawn(login_loop(
-            local,
-            listener,
-            new_connection_sender,
-            socket,
-        ));
+        rt.spawn(login_loop(local, listener, new_connection_sender, socket));
 
         info!("Connection manager ready. Accepting login on {}.", SERVER_PORT);
 
@@ -89,12 +84,7 @@ pub async fn login_loop(
                     continue;
                 }
 
-                tokio::spawn(try_login(
-                    local,
-                    new_stream,
-                    client_addr,
-                    login_result_sender.clone(),
-                ));
+                tokio::spawn(try_login(local, new_stream, client_addr, login_result_sender.clone()));
             }
             Err(err) => {
                 debug!("{:?} while listening for new tcp connection. Ignoring...", err);
@@ -172,10 +162,9 @@ async fn handle_first_packet(
             "{} attempted to login with {} which does not match server. Aborting login...",
             client_addr, login_packet.client_version
         );
-        return
-            LoginResponsePacket::WrongVersion {
-                server_version: Version::CURRENT,
-            };
+        return LoginResponsePacket::WrongVersion {
+            server_version: Version::CURRENT,
+        };
     }
 
     // Check credential.
@@ -226,11 +215,7 @@ async fn handle_successful_login(
                 buf_write,
                 login_result.client_id,
             ));
-            tokio::spawn(tcp_in_loop(
-                inbound_sender,
-                buf_read,
-                login_result.client_id,
-            ));
+            tokio::spawn(tcp_in_loop(inbound_sender, buf_read, login_result.client_id));
 
             if new_connection_sender
                 .send(Connection::new(
