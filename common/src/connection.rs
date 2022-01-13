@@ -6,8 +6,7 @@ use std::{
 
 pub struct Connection {
     pub client_id: ClientId,
-    pub peer_tcp_addr: SocketAddrV6,
-    pub peer_udp_addr: SocketAddrV6,
+    pub peer_addr: SocketAddrV6,
     /// Receive packet from the connected peer.
     pub inbound_receiver: crossbeam_channel::Receiver<Vec<u8>>,
     /// Send udp packet to connected peer.
@@ -18,16 +17,14 @@ pub struct Connection {
 impl Connection {
     pub fn new(
         client_id: ClientId,
-        peer_tcp_addr: SocketAddrV6,
-        peer_udp_addr: SocketAddrV6,
+        peer_addr: SocketAddrV6,
         inbound_receiver: crossbeam_channel::Receiver<Vec<u8>>,
         socket: Arc<UdpSocket>,
         tcp_outbound_event_sender: tokio::sync::mpsc::Sender<TcpOutboundEvent>,
     ) -> Self {
         Self {
             client_id,
-            peer_tcp_addr,
-            peer_udp_addr,
+            peer_addr,
             inbound_receiver,
             socket,
             tcp_outbound_event_sender,
@@ -38,7 +35,7 @@ impl Connection {
     ///
     /// Return if the packet could be sent.
     pub fn send_packet_unreliable(&self, packet: &[u8]) -> bool {
-        self.socket.send_to(packet, self.peer_udp_addr).is_err()
+        self.socket.send_to(packet, self.peer_addr).is_err()
     }
 
     /// Send a packet to the connected peer over tcp.
