@@ -1,13 +1,7 @@
 use crate::idx::*;
-use ahash::AHashMap;
-use std::{
-    net::SocketAddrV6,
-    sync::{Arc, RwLock},
-};
 use tokio::{
     io::*,
     net::tcp::{OwnedReadHalf, OwnedWriteHalf},
-    task::spawn_blocking,
 };
 
 pub enum TcpOutboundEvent {
@@ -38,7 +32,7 @@ pub async fn tcp_out_loop(
                             }
                         }
                         Err(err) => {
-                            warn!(
+                            debug!(
                                 "{:?} while getting payload size for {:?}. Ignoring packet and disconnecting...",
                                 err, client_id
                             );
@@ -76,8 +70,6 @@ pub async fn tcp_in_loop(
     inbound_sender: crossbeam_channel::Sender<Vec<u8>>,
     mut buf_read: BufReader<OwnedReadHalf>,
     client_id: ClientId,
-    udp_connections: Arc<RwLock<AHashMap<SocketAddrV6, crossbeam_channel::Sender<Vec<u8>>>>>,
-    client_udp_address: SocketAddrV6,
 ) {
     let mut payload_buffer: Vec<u8> = Vec::new();
     loop {
@@ -89,7 +81,7 @@ pub async fn tcp_in_loop(
                     continue;
                 }
 
-                let next_payload_size = next_payload_size as usize;
+                let next_payload_size = usize::from(next_payload_size);
 
                 // Increase buffer if needed.
                 if next_payload_size > payload_buffer.len() {
@@ -137,13 +129,5 @@ pub async fn tcp_in_loop(
         }
     }
 
-    // Also remove udp connection.
-    spawn_blocking(move || {
-        udp_connections.write().unwrap().remove(&client_udp_address);
-    });
-
-    debug!(
-        "Tcp in loop for {:?} shutdown. Also queued udp connection removal.",
-        client_id,
-    );
+    debug!("Tcp in loop for {:?} shutdown.", client_id,);
 }

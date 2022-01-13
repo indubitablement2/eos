@@ -95,6 +95,11 @@ pub async fn login_loop(
                     std::net::SocketAddr::V6(v6) => v6,
                 };
 
+                if let Err(err) = new_stream.set_nodelay(true) {
+                    debug!("{:?} while setting stream nodelay. Aboring login...", err);
+                    continue;
+                }
+
                 tokio::spawn(try_login(
                     local,
                     new_stream,

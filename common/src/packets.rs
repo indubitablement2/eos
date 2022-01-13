@@ -1,18 +1,23 @@
+use std::fmt::Display;
+
 use crate::{idx::*, orbit::Orbit, Version};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
+
+/// Udp packet above this size will be truncated.
+pub const MAX_UDP_PACKET_SIZE: usize = 1024;
+/// Tcp packet above this size will cause the stream to be corrupted.
+pub const MAX_TCP_PAYLOAD_SIZE: usize = u16::MAX as usize;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct LoginPacket {
     pub is_steam: bool,
     pub token: u64,
-    /// The port the client will be using to send/recv packet over udp.
-    pub client_udp_port: u16,
     /// Server/client version should match.
     pub client_version: Version,
 }
 impl LoginPacket {
-    pub const FIXED_SIZE: usize = 17;
+    pub const FIXED_SIZE: usize = 15;
 
     pub fn serialize(&self) -> Vec<u8> {
         bincode::serialize(self).expect("could not serialize LoginPacket")
@@ -34,7 +39,6 @@ fn test_login_packet() {
     let og = LoginPacket {
         is_steam: false,
         token: 255,
-        client_udp_port: 747,
         client_version: Version::CURRENT,
     };
     assert_eq!(og, LoginPacket::deserialize(&og.serialize()).unwrap());
@@ -52,12 +56,8 @@ pub enum LoginResponsePacket {
     },
     /// Login without steam is not implemented.
     NotSteam,
-    /// Provided udp port is not valid.
-    BadUDPPort {
-        provided_port: u16,
-    },
     OtherError,
-    /// Could not deserialize login response received from the server.
+    /// Could not deserialize login response.
     DeserializeError,
 }
 impl LoginResponsePacket {
@@ -141,6 +141,14 @@ pub enum DisconnectedReasonEnum {
     /// Someone else connected on the same account.
     ConnectionFromOther,
 }
+impl Display for DisconnectedReasonEnum {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DisconnectedReasonEnum::InvalidPacket => write!(f, "Server received an invalid packet."),
+            DisconnectedReasonEnum::ConnectionFromOther => write!(f, "Someone else connected on the same account."),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum Packet {
@@ -153,35 +161,20 @@ pub enum Packet {
         commands: Vec<BattlescapeCommand>,
     },
     /// Server send some entities's position.
-    ///
-    /// This is used when there are 32 or less entities.
-    EntitiesStateSmall {
-        tick: u64,
+    EntitiesState {
+        tick: u32,
         client_entity_position: Vec2,
         /// Entity's id and position compressed and relative to client's position.
         ///
-        /// TODO: Compressed to 8 + 24 bits
-        relative_entities_position: Vec<(u8, Vec2)>,
-    },
-    /// Server send some entities's position.
-    ///
-    /// This is used when there are more than 32 entities.
-    EntitiesStateLarge {
-        tick: u64,
-        client_entity_position: Vec2,
-        /// Entity idx that are updated `1` or not `0`.
-        bitfield: [u8; 32],
-        /// Compressed and relative to client's position.
-        ///
-        /// TODO: Compressed to 24 bits
-        relative_entities_position: Vec<Vec2>,
+        /// TODO: Compressed to 16 + 32 bits
+        relative_entities_position: Vec<(u16, Vec2)>,
     },
     /// Server send some entities's infos.
     EntitiesInfo {
         /// This is useful with orbit.
         /// Any state before this tick can be discarded and apply the orbit instead.
         /// Any state after this tick will remove the orbit.
-        tick: u64,
+        tick: u32,
         /// The client's fleet info, if it has changed.
         client_fleet_info: Option<FleetInfo>,
         infos: Vec<(u8, EntityInfo)>,

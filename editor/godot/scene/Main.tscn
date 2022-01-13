@@ -263,11 +263,24 @@ margin_bottom = 40.0
 [node name="NumSystem" type="Label" parent="CanvasLayer/Control/HBoxContainer"]
 margin_left = 284.0
 margin_top = 13.0
-margin_right = 284.0
+margin_right = 292.0
 margin_bottom = 27.0
+text = ":)"
 __meta__ = {
 "_edit_use_anchors_": false
 }
+
+[node name="VSeparator3" type="VSeparator" parent="CanvasLayer/Control/HBoxContainer"]
+margin_left = 296.0
+margin_right = 300.0
+margin_bottom = 40.0
+
+[node name="Bound" type="Label" parent="CanvasLayer/Control/HBoxContainer"]
+margin_left = 304.0
+margin_top = 13.0
+margin_right = 344.0
+margin_bottom = 27.0
+text = "bound"
 
 [node name="Save" type="FileDialog" parent="CanvasLayer/Control"]
 anchor_left = 0.5

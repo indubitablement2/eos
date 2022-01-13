@@ -16,11 +16,6 @@ pub struct Connection {
     tcp_outbound_event_sender: tokio::sync::mpsc::Sender<TcpOutboundEvent>,
 }
 impl Connection {
-    /// Udp packet above this size will be truncated.
-    pub const MAX_UDP_PACKET_SIZE: usize = 1024;
-    /// Tcp packet above this size will cause the stream to be corrupted.
-    pub const MAX_TCP_PAYLOAD_SIZE: usize = u16::MAX as usize;
-
     pub fn new(
         client_id: ClientId,
         peer_tcp_addr: SocketAddrV6,

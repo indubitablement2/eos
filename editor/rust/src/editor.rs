@@ -120,6 +120,11 @@ impl Editor {
     }
 
     #[export]
+    unsafe fn get_bound(&mut self, _owner: &Node2D) -> f32 {
+        self.data.bound
+    }
+
+    #[export]
     unsafe fn set_time_multiplier(&mut self, _owner: &Node2D, time_multiplier: f32) {
         self.time_multiplier = time_multiplier;
     }

@@ -2,41 +2,28 @@
 #![feature(hash_drain_filter)]
 #[macro_use]
 extern crate log;
+extern crate nalgebra as na;
 
-pub mod constants;
-pub mod def;
-
-pub mod ecs;
-pub mod ecs_components;
-pub mod ecs_input;
-pub mod ecs_resources;
-pub mod ecs_systems;
-
-pub mod ecs_render_pipeline;
-pub mod yaml_components;
-
-// mod _client;
+mod client;
 mod client_metascape;
+pub mod configs;
 mod connection_manager;
-mod game;
+mod constants;
 mod godot_logger;
 mod input_handler;
 mod util;
 
-use gdnative::prelude::{godot_init, InitHandle};
-use godot_logger::GodotLogger;
-
-static LOGGER: GodotLogger = GodotLogger;
+static LOGGER: godot_logger::GodotLogger = godot_logger::GodotLogger;
 
 // Function that registers all exposed classes to Godot
-fn init(handle: InitHandle) {
+fn init(handle: gdnative::prelude::InitHandle) {
     // Init GodotLogger.
     log::set_logger(&LOGGER)
         .map(|()| log::set_max_level(log::LevelFilter::Trace))
         .expect("can not start logger");
 
-    handle.add_class::<game::Game>();
+    handle.add_class::<client::Client>();
 }
 
 // Macros that create the entry-points of the dynamic library.
-godot_init!(init);
+gdnative::prelude::godot_init!(init);

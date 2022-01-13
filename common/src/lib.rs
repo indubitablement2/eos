@@ -18,7 +18,6 @@ pub mod parameters;
 pub mod reputation;
 pub mod res_time;
 pub mod tcp_loops;
-pub mod udp_loops;
 pub mod world_data;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -43,5 +42,5 @@ impl Version {
 
 /// How long between each Battlescape/Metascape tick.
 pub const UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
-/// The server's tcp/udp port.
+/// The server's tcp port.
 pub const SERVER_PORT: u16 = 31415;

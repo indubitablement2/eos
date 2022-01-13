@@ -1,15 +1,6 @@
-/// Global Metascape parameters.
-pub struct MetascapeParameters {
-    /// The maximum distance to the center.
-    pub bound: f32,
-    /// Multiply velocity every tick.
-    pub friction: f32,
-}
-impl Default for MetascapeParameters {
-    fn default() -> Self {
-        Self {
-            bound: 1024.0,
-            friction: 0.95,
-        }
-    }
-}
+/// The maximum distance to the center.
+pub const WORLD_BOUND: f32 = 16384.0;
+
+/// Multiply velocity every tick.
+pub const FRICTION: f32 = 0.95;
+

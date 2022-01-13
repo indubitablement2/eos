@@ -27,12 +27,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("primary"):
-		match current_click_mode:
-			click_mode.SELECT:
-				editor.select()
-			click_mode.GENERATE:
-				editor.generate(radius_min, radius_max, num_try, brush_size)
-		hold_start_point = get_global_mouse_position()
+		if current_click_mode == click_mode.SELECT:
+			editor.select()
+			hold_start_point = get_global_mouse_position()
 	elif event.is_action_released("primary"):
 		editor.toggle_moving_selected(false)
 	elif event.is_action_pressed("secondary"):
@@ -54,6 +51,7 @@ func _draw() -> void:
 func _process(_delta: float) -> void:
 	$CanvasLayer/Control/HBoxContainer/Tick.set_text("tick: " + str(editor.get_tick())) 
 	$CanvasLayer/Control/HBoxContainer/NumSystem.set_text(str(editor.get_num_system()) + " systems")
+	$CanvasLayer/Control/HBoxContainer/Bound.set_text("Systems bound: " + str(editor.get_bound()))
 	update()
 
 func _on_RadiusMin_text_changed(new_text: String) -> void:

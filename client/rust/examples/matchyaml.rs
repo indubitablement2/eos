@@ -2,6 +2,7 @@
 extern crate test;
 use std::mem::size_of;
 
+use bevy_ecs::prelude::Component;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -96,19 +97,19 @@ enum EnumOfComponents {
     ComponentC(ComponentC),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, Component)]
 struct ComponentA {
     f0: i32,
     f1: u8,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Component)]
 struct ComponentB {
     f0: String,
     f1: [u8; 2],
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, Component)]
 struct ComponentC(f32);
 
 fn main() {
