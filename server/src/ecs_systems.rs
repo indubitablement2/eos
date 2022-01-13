@@ -437,14 +437,17 @@ fn update_in_system(
         if fleet_id_comp.0 .0 % 10 == *turn {
             match in_system.0 {
                 Some(system_id) => {
-                    let system = &world_data.systems[system_id];
-                    if system.position.distance_squared(position.0) > system.bound.powi(2) {
+                    if let Some(system) = world_data.systems.get(&system_id) {
+                        if system.position.distance_squared(position.0) > system.bound.powi(2) {
+                            in_system.0 = None;
+                        }
+                    } else {
                         in_system.0 = None;
                     }
                 }
                 None => {
                     if let Some(id) = systems_acceleration_structure.0.intersect_point_single(position.0) {
-                        in_system.0 = Some(SystemId(id as u16));
+                        in_system.0 = Some(SystemId(id as u32));
                     }
                 }
             }
