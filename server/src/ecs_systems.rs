@@ -520,69 +520,69 @@ fn send_detected_entity(
         256,
         |(entity, client_id_comp, position, entity_detected, mut know_entities)| {
             if let Some(connection) = clients_res.connected_clients.get(&client_id_comp.0) {
-                let mut updated = Vec::with_capacity(entity_detected.0.len());
-                let mut entities_info = Vec::new();
                 let know_entities = &mut *know_entities;
+                
+                let mut updated = Vec::with_capacity(entity_detected.0.len());
+                let mut infos = Vec::new();
 
-                for detected_entity in entity_detected.0.iter().map(|id| Entity::from_raw(*id)) {
+                entity_detected.0.iter().map(|id| Entity::from_raw(*id)).filter_map(|detected_entity| {
                     if let Some(temp_id) = know_entities.known.remove(&detected_entity) {
                         // Client already know about this entity.
+                        updated.push((detected_entity, temp_id));
                         // Check if the entity infos changed. Otherwise do nothing.
                         if query_changed_entity.get(detected_entity).is_ok() {
-                            // TODO: This should be a function that write directly into a buffer. (1)
-                            if let Ok((fleet_id_comp, name, orbit_comp)) = query_fleet_info.get(detected_entity) {
-                                entities_info.push((
-                                    temp_id,
-                                    EntityInfo::Fleet(FleetInfo {
-                                        name: name.0.clone(),
-                                        fleet_id: fleet_id_comp.0,
-                                        composition: Vec::new(),
-                                        orbit: orbit_comp.map(|orbit_comp| orbit_comp.0),
-                                    }),
-                                ));
-                            }
-                            // TODO: Try to query other type of entity.
+                            Some((temp_id, detected_entity))
+                        } else {
+                            None
                         }
-
-                        updated.push((detected_entity, temp_id));
                     } else {
-                        // Send a new entity.
-                        if let Some(temp_id) = know_entities.free_idx.pop_front() {
-                            // TODO: This should be a function that write directly into a buffer. (2)
-                            if let Ok((fleet_id_comp, name, orbit_comp)) = query_fleet_info.get(detected_entity) {
-                                entities_info.push((
-                                    temp_id,
-                                    EntityInfo::Fleet(FleetInfo {
-                                        name: name.0.clone(),
-                                        fleet_id: fleet_id_comp.0,
-                                        composition: Vec::new(),
-                                        orbit: orbit_comp.map(|orbit_comp| orbit_comp.0),
-                                    }),
-                                ));
-                            }
-
-                            updated.push((detected_entity, temp_id));
-                        }
+                        // This is a new entity for the client.
+                        let temp_id = know_entities.get_new_id();
+                        updated.push((detected_entity, temp_id));
+                        Some((temp_id, detected_entity))
                     }
-                }
+                }).for_each(|(temp_id, entity)| {
+                    // TODO: This should be a function that write directly into a buffer.
+                    if let Ok((fleet_id_comp, name, orbit_comp)) = query_fleet_info.get(entity) {
+                        infos.push((
+                            temp_id,
+                            EntityInfo {
+                                info_type: EntityInfoType::Fleet(FleetInfo {
+                                    fleet_id: fleet_id_comp.0,
+                                    composition: Vec::new(),
+                                }),
+                                name: name.0.clone(),
+                                orbit: orbit_comp.map(|orbit_comp| orbit_comp.0),
+                            }
+                        ));
+                    } else {
+                        debug!("Unknow entity type. Ignoring...");
+                    }
+                    // TODO: Try to query other type of entity.
+                });
 
                 // Ask the client to remove uneeded entities.
-                for (_, temp_id) in know_entities.known.drain() {
-                    entities_info.push((temp_id, EntityInfo::Remove));
-                    know_entities.free_idx.push_back(temp_id);
-                }
+                let packet = Packet::EntitiesRemove(EntitiesRemove {
+                    tick: time_res.tick,
+                    to_remove: know_entities.known.drain().map(|(_, temp_id)| {
+                        know_entities.recycle_id(temp_id);
+                        temp_id
+                    }).collect(),
+                }).serialize();
+                connection.send_packet_reliable(packet);
 
                 // Update known map.
                 know_entities.known.extend(updated.into_iter());
 
                 // Check if we should update the client's fleet.
-                let client_fleet_info = if query_changed_entity.get(entity).is_ok() {
-                    // TODO: This should be a function that write directly into a buffer. (3)
+                let client_info = if query_changed_entity.get(entity).is_ok() {
                     if let Ok((fleet_id_comp, name, orbit_comp)) = query_fleet_info.get(entity) {
-                        Some(FleetInfo {
+Some(                        EntityInfo {
+                            info_type: EntityInfoType::Fleet(FleetInfo {
+                                fleet_id: fleet_id_comp.0,
+                                composition: Vec::new(),
+                            }),
                             name: name.0.clone(),
-                            fleet_id: fleet_id_comp.0,
-                            composition: Vec::new(),
                             orbit: orbit_comp.map(|orbit_comp| orbit_comp.0),
                         })
                     } else {
@@ -596,70 +596,41 @@ fn send_detected_entity(
                     None
                 };
 
-                // Send new entities info.
-                let packet = Packet::EntitiesInfo {
+                // Send entities info.
+                let packet = Packet::EntitiesInfo(EntitiesInfo {
                     tick: time_res.tick,
-                    client_fleet_info,
-                    infos: entities_info,
-                }
-                .serialize();
+                    client_info,
+                    infos,
+                }).serialize();
                 connection.send_packet_reliable(packet);
 
                 // Send entities state.
-                let packet = if know_entities.known.len() > 32 {
-                    // Large state.
-                    let mut bitfield = [0u8; 32];
-                    let relative_entities_position = know_entities
-                        .known
-                        .iter()
-                        .filter_map(|(entity, temp_id)| {
-                            if let Ok(entity_position) = query_entity_state.get(*entity) {
-                                // Set updated bit.
-                                let byte = temp_id / 8;
-                                let bit = temp_id % 8 + 1;
-                                bitfield[byte as usize] |= bit;
-
-                                Some(entity_position.0)
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-
-                    Packet::EntitiesStateLarge {
-                        tick: time_res.tick,
-                        client_entity_position: position.0,
-                        bitfield,
-                        relative_entities_position,
-                    }
-                    .serialize()
-                } else {
-                    // Small state.
-                    let relative_entities_position = know_entities
-                        .known
-                        .iter()
-                        .filter_map(|(entity, temp_id)| {
-                            if let Ok(entity_position) = query_entity_state.get(*entity) {
-                                Some((*temp_id, entity_position.0))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-
-                    Packet::EntitiesStateSmall {
-                        tick: time_res.tick,
-                        client_entity_position: position.0,
-                        relative_entities_position,
-                    }
-                    .serialize()
-                };
-
+                // TODO: Limit the number of entity to not go over packet size limit.
+                let packet = Packet::EntitiesState(EntitiesState {
+                    tick: time_res.tick,
+                    client_entity_position: position.0,
+                    relative_entities_position: know_entities
+                    .known
+                    .iter()
+                    .filter_map(|(entity, temp_id)| {
+                        if let Ok(entity_position) = query_entity_state.get(*entity) {
+                            Some((*temp_id, entity_position.0 - position.0))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect(),
+                }).serialize();
                 // TODO: Reuse this buffer to write entities infos.
                 connection.send_packet_unreliable(&packet);
 
                 // Flush tcp buffer.
                 connection.flush_tcp_stream();
+
+                // Maybe recycle temp idx.
+                if time_res.tick % 10 == 0 {
+                    know_entities.recycle_pending_idx();
+                }
             }
         },
     );

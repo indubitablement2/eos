@@ -7,7 +7,6 @@ use common::{
     world_data::Faction,
 };
 use glam::Vec2;
-use std::collections::VecDeque;
 
 //* bundle
 
@@ -42,8 +41,34 @@ pub struct FleetBundle {
 /// Instead of sending the whole entity id, we identify entities with a temporary 8bits id.
 #[derive(Debug, Default, Component)]
 pub struct KnowEntities {
-    pub free_idx: VecDeque<u8>,
-    pub known: AHashMap<Entity, u8>,
+    /// The next id we should create, if there are no id to reuse.
+    pub next_new_id: u16,
+    /// Idx that are safe to reuse.
+    pub free_idx: Vec<u16>,
+    /// Idx that are pending some duration before being recycled.
+    pub pending_idx: (Vec<u16>, Vec<u16>),
+    /// Entity that the client has info about and their id.
+    pub known: AHashMap<Entity, u16>,
+}
+impl KnowEntities {
+    /// This will break if there are more than 65535 know entities,
+    /// but that should not happen.
+    pub fn get_new_id(&mut self) -> u16 {
+        self.free_idx.pop().unwrap_or_else(|| {
+            let id = self.next_new_id;
+            self.next_new_id += 1;
+            id
+        })
+    }
+
+    pub fn recycle_pending_idx(&mut self) {
+        self.free_idx.extend(self.pending_idx.0.drain(..));
+        std::mem::swap(&mut self.pending_idx.0, &mut self.pending_idx.1);
+    }
+
+    pub fn recycle_id(&mut self, temp_id: u16) {
+        self.pending_idx.1.push(temp_id);
+    }
 }
 
 // * Generic
