@@ -65,7 +65,7 @@ impl Metascape {
 
     fn load(&mut self) {
         // Load world data.
-        let mut file = File::open("world_data.bin").unwrap();
+        let mut file = File::open("world_data.bin").expect("Could not find world_data.bin");
         let mut buffer = Vec::with_capacity(file.metadata().unwrap().len() as usize);
         file.read_to_end(&mut buffer).unwrap();
         let wd = bincode::deserialize::<WorldData>(&buffer).expect("Could not deserialize world_data.bin");
