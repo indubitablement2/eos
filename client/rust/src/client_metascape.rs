@@ -220,7 +220,10 @@ impl Metascape {
         let current_tick = self.tick;
 
         // Remove obselete entities.
-        for remove_update in self.entities_remove_buffer.drain_filter(|update| update.tick <= current_tick) {
+        for remove_update in self
+            .entities_remove_buffer
+            .drain_filter(|update| update.tick <= current_tick)
+        {
             for id in remove_update.to_remove.into_iter() {
                 if self.entities_info.remove(&id).is_none() || self.entities_state.remove(&id).is_none() {
                     warn!("Got order to remove {}, but it is not added. Ignoring...", id);
@@ -279,9 +282,11 @@ impl Metascape {
         if self.send_timer <= 0.0 {
             // TODO: Maybe send more often?
             self.send_timer = UPDATE_INTERVAL.as_secs_f32();
-            quit |= self.connection_manager
+            quit |= self
+                .connection_manager
                 .tcp_outbound_event_sender
-                .blocking_send(TcpOutboundEvent::FlushEvent).is_err();
+                .blocking_send(TcpOutboundEvent::FlushEvent)
+                .is_err();
         }
 
         quit
