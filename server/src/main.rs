@@ -10,7 +10,7 @@
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
 use common::intersection::*;
-use common::parameters::MetascapeParameters;
+use common::parameters::Parameters;
 use common::res_time::TimeRes;
 use common::world_data::WorldData;
 use data_manager::DataManager;
@@ -46,13 +46,13 @@ pub struct Metascape {
     schedule: Schedule,
 }
 impl Metascape {
-    fn new(local: bool, metascape_parameters: MetascapeParameters) -> std::io::Result<Self> {
+    fn new(local: bool, parameters: Parameters) -> std::io::Result<Self> {
         let mut world = World::new();
         ecs_events::add_event_res(&mut world);
         world.insert_resource(TaskPool::new());
         world.insert_resource(TimeRes::default());
         world.insert_resource(DataManager::new());
-        world.insert_resource(metascape_parameters);
+        world.insert_resource(parameters);
         world.insert_resource(DetectedIntersectionPipeline(IntersectionPipeline::new()));
         world.insert_resource(ClientsRes::new(local)?);
         world.insert_resource(FleetsRes::new());
@@ -171,7 +171,7 @@ fn startup() -> std::io::Result<Metascape> {
 
     // Init Metascape.
     if default_values {
-        return Ok(Metascape::new(local, MetascapeParameters::default())?);
+        return Ok(Metascape::new(local, Parameters::default())?);
     } else {
         return Err(std::io::Error::new(
             std::io::ErrorKind::Other,

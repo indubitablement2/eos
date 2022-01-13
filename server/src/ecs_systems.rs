@@ -12,7 +12,7 @@ use common::idx::*;
 use common::intersection::*;
 use common::orbit::Orbit;
 use common::packets::*;
-use common::parameters::MetascapeParameters;
+use common::parameters::Parameters;
 use common::res_time::TimeRes;
 use common::world_data::WorldData;
 use glam::Vec2;
@@ -317,11 +317,11 @@ fn apply_fleet_movement(
         &DerivedFleetStats,
         &mut IdleCounter,
     )>,
-    metascape_parameters: Res<MetascapeParameters>,
+    parameters: Res<Parameters>,
     fleet_idle: Res<EventRes<FleetIdle>>,
     task_pool: Res<TaskPool>,
 ) {
-    let bound_squared = metascape_parameters.bound.powi(2);
+    let bound_squared = parameters.world_bound.powi(2);
 
     query.par_for_each_mut(
         &task_pool,
@@ -370,7 +370,7 @@ fn apply_fleet_movement(
             }
 
             // Apply friction.
-            velocity.0 *= metascape_parameters.friction;
+            velocity.0 *= parameters.friction;
 
             // Apply velocity.
             position.0 += velocity.0;

@@ -1,6 +1,11 @@
-/// The maximum distance to the center.
-pub const WORLD_BOUND: f32 = 16384.0;
-
-/// Multiply velocity every tick.
-pub const FRICTION: f32 = 0.95;
-
+pub struct Parameters {
+    /// The maximum distance to the center.
+    pub world_bound: f32,
+    /// Multiply velocity every tick.
+    pub friction: f32,
+}
+impl Default for Parameters {
+    fn default() -> Self {
+        Self { world_bound: u16::MAX as f32, friction: 0.9 }
+    }
+}
