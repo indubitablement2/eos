@@ -71,29 +71,52 @@ pub struct Reputations {
 }
 impl Reputations {
     /// Return the relative reputation between two reputations.
-    pub fn get_relative_reputation(&self, other: &Reputations, factions: &[Faction]) -> Reputation {
+    pub fn get_relative_reputation(&self, other: &Reputations, factions: &AHashMap<FactionId, Faction>) -> Reputation {
         if let Some(fac_self) = self.faction {
-            if let Some(fac_orther) = other.faction {
-                if fac_self > fac_orther {
-                    factions[fac_self].faction_relation[usize::from(fac_orther.0)]
-                } else if fac_orther > fac_self {
-                    factions[fac_orther].faction_relation[usize::from(fac_self.0)]
+            if let Some(fac_other) = other.faction {
+                let (highest, lowest) = if fac_self > fac_other {
+                    (fac_self, fac_other)
+                } else if fac_other > fac_self {
+                    (fac_other, fac_self)
                 } else {
-                    Reputation::MAX
+                    return Reputation::MAX;
+                };
+
+                if let Some(faction) = factions.get(&highest) {
+                    if let Some(reputation) = faction.faction_relation.get(&lowest) {
+                        reputation.to_owned()
+                    } else {
+                        warn!("Can not find reputation {:?} in {:?}. Returning neutral reputation...", lowest, highest);
+                        Reputation::NEUTRAL
+                    }
+                } else {
+                    warn!("Can not find {:?}. Returning neutral reputation...", highest);
+                    Reputation::NEUTRAL
                 }
             } else {
-                other
-                    .faction_reputation
-                    .get(&fac_self)
-                    .copied()
-                    .unwrap_or_else(|| factions[fac_self].default_reputation)
+                if let Some(reputation) = other.faction_reputation.get(&fac_self) {
+                    reputation.to_owned()
+                } else {
+                    if let Some(faction) = factions.get(&fac_self) {
+                        faction.default_reputation
+                    } else {
+                        warn!("Can not find {:?}. Returning neutral reputation...", fac_self);
+                        Reputation::NEUTRAL
+                    }
+                }
             }
         } else {
             if let Some(fac_other) = other.faction {
-                self.faction_reputation
-                    .get(&fac_other)
-                    .copied()
-                    .unwrap_or_else(|| factions[fac_other].default_reputation)
+                if let Some(reputation) = self.faction_reputation.get(&fac_other) {
+                    reputation.to_owned()
+                } else {
+                    if let Some(faction) = factions.get(&fac_other) {
+                        faction.default_reputation
+                    } else {
+                        warn!("Can not find {:?}. Returning neutral reputation...", fac_other);
+                        Reputation::NEUTRAL
+                    }
+                }
             } else {
                 self.common_reputation.min(other.common_reputation)
             }
