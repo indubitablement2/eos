@@ -253,17 +253,22 @@ fn handle_idle(
                 data_manager.client_fleets.insert(client_id, ());
             } else if let Some(system_id) = in_system.0 {
                 // Add orbit.
-                let system = &world_data.systems[system_id];
+                let system = if let Some(system) = world_data.systems.get(&system_id) {
+                    system
+                } else {
+                    warn!("Can not find {:?}. Ignoring...", system_id);
+                    continue;
+                };
 
                 let relative_pos = position.0 - system.position;
-                let orbit_radius = relative_pos.length();
+                let distance = relative_pos.length();
 
                 let mut orbit_time = Orbit::DEFAULT_ORBIT_TIME;
                 // Check if there is a body nearby we should copy its orbit time.
                 system.bodies.iter().fold(999.0f32, |closest, body| {
-                    if (body.orbit.orbit_radius - orbit_radius).abs() < closest {
+                    if (body.orbit.distance - distance).abs() < closest {
                         orbit_time = body.orbit.orbit_time;
-                        body.orbit.orbit_radius
+                        body.orbit.distance
                     } else {
                         closest
                     }
@@ -272,16 +277,16 @@ fn handle_idle(
                 // Add orbit as this entity has no velocity.
                 commands.entity(event.entity).insert(OrbitComp(Orbit {
                     origin: system.position,
-                    orbit_radius,
-                    orbit_start_angle: relative_pos.y.atan2(relative_pos.x),
+                    distance,
+                    start_angle: relative_pos.y.atan2(relative_pos.x),
                     orbit_time,
                 }));
             } else {
                 // Add a stationary orbit.
                 commands.entity(event.entity).insert(OrbitComp(Orbit {
                     origin: position.0,
-                    orbit_radius: 0.0,
-                    orbit_start_angle: 0.0,
+                    distance: 0.0,
+                    start_angle: 0.0,
                     orbit_time: 1.0,
                 }));
             }

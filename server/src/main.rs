@@ -75,8 +75,7 @@ impl Metascape {
         acc.colliders.extend(
             wd.systems
                 .iter()
-                .zip(0u32..)
-                .map(|(system, id)| Collider::new(id, system.bound, system.position)),
+                .map(|(system_id, system)| Collider::new(system_id.0, system.bound, system.position)),
         );
         acc.update();
 
