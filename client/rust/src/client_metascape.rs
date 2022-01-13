@@ -54,23 +54,6 @@ impl EntityState {
     }
 }
 
-struct MetascapeFleet {
-    fleet_id: FleetId,
-}
-
-pub struct EntitiesInfoUpdate {
-    tick: u32,
-    /// The client's fleet info, if it has changed.
-    client_fleet_info: Option<FleetInfo>,
-    infos: Vec<(u8, EntityInfo)>,
-}
-
-pub struct EntityStateUpdate {
-    tick: u32,
-    client_entity_position: Vec2,
-    entities_position: Vec<(u16, Vec2)>,
-}
-
 pub struct Metascape {
     configs: Configs,
 
@@ -92,11 +75,12 @@ pub struct Metascape {
 
     client_state: EntityState,
     entities_state: AHashMap<u16, EntityState>,
-    entities_state_buffer: Vec<EntityStateUpdate>,
+    entities_state_buffer: Vec<EntitiesState>,
 
-    client_fleet_info: FleetInfo,
+    client_info: EntityInfo,
     entities_info: AHashMap<u16, EntityInfo>,
-    entities_info_buffer: Vec<EntitiesInfoUpdate>,
+    entities_info_buffer: Vec<EntitiesInfo>,
+    entities_remove_buffer: Vec<EntitiesRemove>,
 }
 impl Metascape {
     pub fn new(connection_manager: ConnectionManager, configs: Configs) -> std::io::Result<Self> {
@@ -144,13 +128,16 @@ impl Metascape {
             entities_info_buffer: Vec::new(),
             entities_state_buffer: Vec::new(),
             max_tick: 0,
-            client_fleet_info: FleetInfo {
+            client_info: EntityInfo {
+                info_type: EntityInfoType::Fleet(FleetInfo {
+                    fleet_id: FleetId::from(client_id),
+                    composition: Vec::new(),
+                }),
                 name: String::new(),
-                fleet_id: FleetId::from(client_id),
-                composition: Vec::new(),
                 orbit: None,
             },
             entities_info: AHashMap::new(),
+            entities_remove_buffer: Vec::new(),
         })
     }
 
@@ -162,41 +149,23 @@ impl Metascape {
         loop {
             match self.connection_manager.inbound_receiver.try_recv() {
                 Ok(packet) => match Packet::deserialize(&packet) {
-                    Packet::BattlescapeCommands { commands } => todo!(),
-                    Packet::EntitiesState {
-                        tick,
-                        client_entity_position,
-                        mut relative_entities_position,
-                    } => {
-                        self.max_tick = self.max_tick.max(tick);
+                    Packet::BattlescapeCommands(new_commands) => todo!(),
+                    Packet::EntitiesState(new_states) => {
+                        self.max_tick = self.max_tick.max(new_states.tick);
 
-                        // Convert relative position to world position.
-                        relative_entities_position
-                            .iter_mut()
-                            .for_each(|(_, position)| *position += client_entity_position);
-
-                        self.entities_state_buffer.push(EntityStateUpdate {
-                            tick,
-                            client_entity_position,
-                            entities_position: relative_entities_position,
-                        });
+                        self.entities_state_buffer.push(new_states);
                     }
-                    Packet::EntitiesInfo {
-                        tick,
-                        client_fleet_info,
-                        infos,
-                    } => {
-                        self.entities_info_buffer.push(EntitiesInfoUpdate {
-                            tick,
-                            client_fleet_info,
-                            infos,
-                        });
+                    Packet::EntitiesInfo(new_infos) => {
+                        self.entities_info_buffer.push(new_infos);
                     }
                     Packet::DisconnectedReason(reason) => {
                         debug!("Disconnected from the server. {}", reason);
                         // TODO: Send message to console.
                         quit = true;
                         break;
+                    }
+                    Packet::EntitiesRemove(new_remove) => {
+                        self.entities_remove_buffer.push(new_remove);
                     }
                     Packet::Message { origin, content } => todo!(),
                     _ => {
@@ -250,10 +219,26 @@ impl Metascape {
 
         let current_tick = self.tick;
 
-        // TODO: Remove obselete entities.
+        // Remove obselete entities.
+        for remove_update in self.entities_remove_buffer.drain_filter(|update| update.tick <= current_tick) {
+            for id in remove_update.to_remove.into_iter() {
+                if self.entities_info.remove(&id).is_none() || self.entities_state.remove(&id).is_none() {
+                    warn!("Got order to remove {}, but it is not added. Ignoring...", id);
+                }
+            }
+        }
 
         // Consume infos.
-        for info in self.entities_info_buffer.drain_filter(|info| info.tick <= current_tick) {}
+        for infos_update in self.entities_info_buffer.drain_filter(|info| info.tick <= current_tick) {
+            // Handle client info update.
+            if let Some(info) = infos_update.client_info {
+                self.client_info = info;
+            }
+
+            for (id, info) in infos_update.infos.into_iter() {
+                self.entities_info.insert(id, info);
+            }
+        }
 
         // Consume states.
         for state in self
@@ -264,8 +249,10 @@ impl Metascape {
             self.client_state.update(state.tick, state.client_entity_position);
 
             // Update each entities position.
-            for (id, position) in state.entities_position.into_iter() {
+            for (id, mut position) in state.relative_entities_position.into_iter() {
                 if let Some(entity) = self.entities_state.get_mut(&id) {
+                    // Convert to world position.
+                    position += state.client_entity_position;
                     entity.update(state.tick, position);
                 } else {
                     // Create new entity.
@@ -292,9 +279,9 @@ impl Metascape {
         if self.send_timer <= 0.0 {
             // TODO: Maybe send more often?
             self.send_timer = UPDATE_INTERVAL.as_secs_f32();
-            self.connection_manager
+            quit |= self.connection_manager
                 .tcp_outbound_event_sender
-                .blocking_send(TcpOutboundEvent::FlushEvent);
+                .blocking_send(TcpOutboundEvent::FlushEvent).is_err();
         }
 
         quit
