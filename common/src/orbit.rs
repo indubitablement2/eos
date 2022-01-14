@@ -11,7 +11,7 @@ pub struct Orbit {
     /// The initial angle.
     pub start_angle: f32,
     /// How many rad rotation does this orbit gain each time unit.
-    /// 
+    ///
     /// This is also the inverse of how long it takes to make 1 rad rotation in tick.
     /// Negative value result in counter clockwise rotation.
     pub orbit_speed: f32,
@@ -30,7 +30,13 @@ impl Orbit {
         }
     }
 
-    pub fn from_relative_position(relative_position: Vec2, time: f32, origin: Vec2, distance: f32, orbit_speed: f32) -> Self {
+    pub fn from_relative_position(
+        relative_position: Vec2,
+        time: f32,
+        origin: Vec2,
+        distance: f32,
+        orbit_speed: f32,
+    ) -> Self {
         Self {
             origin,
             distance,
@@ -72,8 +78,18 @@ fn test_orbit() {
     for _ in 0..10 {
         let relative_position = random::<Vec2>() * 200.0 - 100.0;
         let time = random::<f32>() * 1000000.0;
-        let o = Orbit::from_relative_position(relative_position, time, Vec2::ZERO, relative_position.length(), random::<f32>() * 0.01);
-        println!("relative pos: {:.1?}, orbit pos: {:.1?}", relative_position, o.to_position(time));
+        let o = Orbit::from_relative_position(
+            relative_position,
+            time,
+            Vec2::ZERO,
+            relative_position.length(),
+            random::<f32>() * 0.01,
+        );
+        println!(
+            "relative pos: {:.1?}, orbit pos: {:.1?}",
+            relative_position,
+            o.to_position(time)
+        );
         assert!(relative_position.abs_diff_eq(o.to_position(time), 0.2));
     }
 }
