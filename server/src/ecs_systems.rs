@@ -411,7 +411,7 @@ fn apply_fleet_movement(
 }
 
 fn increment_time(mut time_res: ResMut<TimeRes>) {
-    time_res.tick += 1;
+    time_res.increment();
 }
 
 //* post_update
