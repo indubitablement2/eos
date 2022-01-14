@@ -268,7 +268,9 @@ fn handle_idle(
     clients_res: Res<ClientsRes>,
     mut fleets_res: ResMut<FleetsRes>,
     fleet_idle: Res<EventRes<FleetIdle>>,
+    time_res: Res<TimeRes>,
 ) {
+    let time = time_res.as_time();
     while let Some(event) = fleet_idle.events.pop() {
         if let Ok((position, in_system, fleet_id_comp)) = query.get(event.entity) {
             let client_id = ClientId::from(fleet_id_comp.0);
@@ -290,15 +292,15 @@ fn handle_idle(
                     continue;
                 };
 
-                let relative_pos = position.0 - system.position;
-                let distance = relative_pos.length();
+                let relative_position = position.0 - system.position;
+                let distance = relative_position.length();
 
-                let mut orbit_time = Orbit::DEFAULT_ORBIT_TIME;
+                let mut orbit_speed = Orbit::DEFAULT_ORBIT_SPEED;
                 // Check if there is a body nearby we should copy its orbit time.
                 system.bodies.iter().fold(999.0f32, |closest, body| {
                     let dif = (body.orbit.distance - distance).abs();
                     if dif < closest {
-                        orbit_time = body.orbit.orbit_time;
+                        orbit_speed = body.orbit.orbit_speed;
                         dif
                     } else {
                         closest
@@ -306,12 +308,7 @@ fn handle_idle(
                 });
 
                 // Add orbit as this entity has no velocity.
-                commands.entity(event.entity).insert(OrbitComp(Orbit {
-                    origin: system.position,
-                    distance,
-                    start_angle: relative_pos.y.atan2(relative_pos.x),
-                    orbit_time,
-                }));
+                commands.entity(event.entity).insert(OrbitComp(Orbit::from_relative_position(relative_position, time, system.position, distance, orbit_speed)));
             } else {
                 // Add a stationary orbit.
                 commands.entity(event.entity).insert(OrbitComp(Orbit::stationary(position.0)));

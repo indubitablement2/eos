@@ -69,7 +69,7 @@ impl Editor {
         if self.delta >= 1.0 {
             let more = self.delta.floor();
             self.delta -= more;
-            self.time.tick += more as u64;
+            self.time.tick += more as u32;
         }
 
         if self.moving_selected.0 {
@@ -105,7 +105,7 @@ impl Editor {
     }
 
     #[export]
-    unsafe fn set_tick(&mut self, _owner: &Node2D, tick: u64) {
+    unsafe fn set_tick(&mut self, _owner: &Node2D, tick: u32) {
         self.time.tick = tick;
     }
 

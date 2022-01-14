@@ -4,8 +4,6 @@ use glam::Vec2;
 use rand::Rng;
 use std::f32::consts::TAU;
 
-const ORBIT_TIME_MIN_PER_RADIUS: f32 = 200.0;
-
 // /// Prevalence: 0.01,
 // /// Radius: 2.5..10
 // BlueStar,
@@ -59,12 +57,7 @@ pub fn generate_system(position: Vec2, max_radius: f32) -> System {
     let center_body = CelestialBody {
         body_type: CelestialBodyType::Star,
         radius: rng.gen_range(4.0..16.0),
-        orbit: Orbit {
-            origin,
-            distance: 0.0,
-            start_angle: 0.0,
-            orbit_time: 1.0,
-        },
+        orbit: Orbit::stationary(origin),
     };
     let mut used_radius = center_body.radius;
     bodies.push(center_body);
@@ -72,11 +65,11 @@ pub fn generate_system(position: Vec2, max_radius: f32) -> System {
     // Add bodies.
     loop {
         let radius = rng.gen_range(0.6..4.0);
-        let orbit_radius = radius + used_radius + rng.gen_range(1.0..32.0);
-        let orbit_time =
-            ORBIT_TIME_MIN_PER_RADIUS * orbit_radius * rng.gen_range(0.5..2.0) * (rng.gen::<f32>() - 0.5).signum();
+        let distance = radius + used_radius + rng.gen_range(1.0..32.0);
+        let orbit_speed =
+            Orbit::DEFAULT_ORBIT_SPEED / distance * rng.gen_range(0.5..2.0) * (rng.gen::<f32>() - 0.5).signum();
 
-        let new_used_radius = orbit_radius + radius;
+        let new_used_radius = radius.mul_add(2.0, distance);
         if new_used_radius > max_radius {
             break;
         }
@@ -87,9 +80,9 @@ pub fn generate_system(position: Vec2, max_radius: f32) -> System {
             radius,
             orbit: Orbit {
                 origin,
-                distance: orbit_radius,
+                distance,
                 start_angle: rng.gen::<f32>() * TAU,
-                orbit_time,
+                orbit_speed,
             },
         });
     }

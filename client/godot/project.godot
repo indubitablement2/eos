@@ -14,7 +14,7 @@ _global_script_class_icons={
 
 [application]
 
-config/name="eos"
+config/name="Eos"
 run/main_scene="res://scene/entry.tscn"
 config/project_settings_override="user://settings.cfg"
 config/icon="res://assets/icon/godot-ferris-32x32.png"
