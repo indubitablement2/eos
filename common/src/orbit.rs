@@ -17,7 +17,7 @@ pub struct Orbit {
     pub orbit_time: f32,
 }
 impl Orbit {
-    pub const DEFAULT_ORBIT_TIME: f32 = 300.0;
+    pub const DEFAULT_ORBIT_TIME: f32 = 600.0;
 
     /// Return a stationary orbit at position.
     pub fn stationary(position: Vec2) -> Self {

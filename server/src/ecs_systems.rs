@@ -296,9 +296,10 @@ fn handle_idle(
                 let mut orbit_time = Orbit::DEFAULT_ORBIT_TIME;
                 // Check if there is a body nearby we should copy its orbit time.
                 system.bodies.iter().fold(999.0f32, |closest, body| {
-                    if (body.orbit.distance - distance).abs() < closest {
+                    let dif = (body.orbit.distance - distance).abs();
+                    if dif < closest {
                         orbit_time = body.orbit.orbit_time;
-                        body.orbit.distance
+                        dif
                     } else {
                         closest
                     }
@@ -608,6 +609,8 @@ fn send_detected_entity(
 
                 // Check if we should update the client's fleet.
                 let client_info = if know_entities.force_update_client_info || query_changed_entity.get(entity).is_ok() {
+                    know_entities.force_update_client_info = false;
+
                     if let Ok((fleet_id_comp, name, orbit_comp)) = query_fleet_info.get(entity) {
                         Some(EntityInfo {
                             info_type: EntityInfoType::Fleet(FleetInfo {
@@ -627,6 +630,10 @@ fn send_detected_entity(
                 } else {
                     None
                 };
+
+                if let Some(info) = &client_info {
+                    debug!("{:?}", info);
+                }
 
                 // Send entities info.
                 let packet = Packet::EntitiesInfo(EntitiesInfo {
