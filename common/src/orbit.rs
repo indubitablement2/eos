@@ -17,7 +17,7 @@ pub struct Orbit {
     pub orbit_time: f32,
 }
 impl Orbit {
-    pub const DEFAULT_ORBIT_TIME: f32 = 600.0;
+    pub const DEFAULT_ORBIT_TIME: f32 = 2400.0;
 
     /// Return a stationary orbit at position.
     pub fn stationary(position: Vec2) -> Self {
@@ -43,6 +43,35 @@ impl Orbit {
 }
 impl Default for Orbit {
     fn default() -> Self {
-        Self { origin: Vec2::ZERO, distance: 0.0, start_angle: 0.0, orbit_time: Self::DEFAULT_ORBIT_TIME }
+        Self {
+            origin: Vec2::ZERO,
+            distance: 0.0,
+            start_angle: 0.0,
+            orbit_time: Self::DEFAULT_ORBIT_TIME,
+        }
     }
+}
+
+#[test]
+fn test_orbit() {
+    let t = 15.0;
+    let o = Orbit {
+        origin: Vec2::ZERO,
+        distance: 10.0,
+        start_angle: 0.0,
+        orbit_time: 60.0,
+    };
+    let r = (-10.0f32).atan2(0.0);
+    let or = Orbit {
+        origin: Vec2::ZERO,
+        distance: 10.0,
+        start_angle: r,
+        orbit_time: 60.0,
+    };
+
+    println!("{:.1?}", o.to_position(0.0));
+    println!("{:.1?}", o.to_position(t));
+
+    println!("{:.1?}", or.to_position(0.0));
+    println!("{:.1?}", or.to_position(t));
 }

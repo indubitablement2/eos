@@ -29,7 +29,8 @@ impl From<ClientId> for FleetId {
     fn from(client_id: ClientId) -> Self {
         Self(client_id.0 as u64)
     }
-}impl FleetId {
+}
+impl FleetId {
     pub fn is_client(self) -> bool {
         self.0 <= u64::from(u32::MAX)
     }
