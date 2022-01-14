@@ -3,14 +3,15 @@ use ahash::AHashMap;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
-/// Extra radius added after the edge of the outtermost body of a system.
-pub const SYSTEM_PADDING: f32 = 20.0;
-
 #[derive(Debug, Clone, Serialize, Deserialize, Hash)]
 pub enum CelestialBodyType {
+    BlackHole,
     Star,
     Planet,
-    BlackHole,
+    Asteroid,
+}
+impl CelestialBodyType {
+    pub const BLACK_HOLE_FORCE: f32 = 10.0;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,17 +20,8 @@ pub struct CelestialBody {
     /// The body's radius.
     pub radius: f32,
     pub orbit: Orbit,
-}
-
-/// Infos that do not affect the simulation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CelestialBodyInfo {
     pub name: String,
-}
-
-/// Infos that do not affect the simulation.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct ColonyInfo {
+    pub temperature: f32,
     pub faction: Option<FactionId>,
     pub population: u64,
 }
@@ -42,9 +34,15 @@ pub struct System {
     pub position: Vec2,
     /// Bodies are ordered by inner -> outter.
     pub bodies: Vec<CelestialBody>,
-    /// Some infos like name and looks that do not affect the simulation.
-    pub infos: Vec<CelestialBodyInfo>,
-    pub colony: Vec<ColonyInfo>,
+}
+impl System {
+    /// Extra radius added after the edge of the outtermost body of a system.
+    pub const PADDING: f32 = 16.0;
+
+    /// Compute the temperature of bodies in this system.
+    pub fn compute_temperature(&mut self) {
+
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -4,94 +4,106 @@ use glam::Vec2;
 use rand::Rng;
 use std::f32::consts::TAU;
 
-// /// Prevalence: 0.01,
-// /// Radius: 2.5..10
-// BlueStar,
-// /// Prevalence: 0.01,
-// /// Radius: 0.95..1,5
-// YellowDwarf,
-// /// Prevalence: 0.01,
-// /// Radius: 0.7..0.95
-// OrangeDwarf,
-// /// Prevalence: 0.73,
-// /// Radius: 0.6..0.8
-// RedDwarf,
-// /// Prevalence: 0.01,
-// /// Radius: 5..10
-// BlueGiant,
-// /// Prevalence: 0.01,
-// /// Radius: 18..25
-// BlueSuperGiant,
-// /// Prevalence: 0.01,
-// /// Radius: 20..100
-// RedGiant,
-// /// Prevalence: 0.01,
-// /// Radius: 100..1700
-// RedSuperGiant,
-// /// Prevalence: 0.4,
-// /// Radius: 0.1..0.2
-// WhiteDwarf,
-// /// Prevalence: 0.1,
-// /// Radius: 5..15
-// NeutronStar,
-// /// Prevalence: 0.001,
-// /// Radius: 0.1..0.2
-// BlackDwarf,
-// BlackHole,
-// /// Prevalence: 0.1,
-// /// Radius: 0.05..0.1
-// BrownDwarf,
-
-// Planet,
-// GasGiant,
-// Moon,
-
 /// Return a randomly generated System with its radius.
-pub fn generate_system(position: Vec2, max_radius: f32) -> System {
-    let origin = position;
+pub fn generate_system(position: Vec2, target_radius: f32) -> System {
     let mut rng = rand::thread_rng();
 
     let mut bodies = Vec::new();
 
-    // Create System center body.
-    let center_body = CelestialBody {
-        body_type: CelestialBodyType::Star,
-        radius: rng.gen_range(4.0..16.0),
-        orbit: Orbit::stationary(origin),
+    // Determine how many central body we will add.
+    let num_star = if rng.gen_bool(1.0 / 64.0) {
+        // No central body.
+        0
+    } else {
+        let mut num = 1;
+        while rng.gen_bool(target_radius.min(1000.0) as f64 / 4000.0) {
+            // Multiple central body.
+            num += 1;
+        }
+        num
     };
-    let mut used_radius = center_body.radius;
-    bodies.push(center_body);
+
+    // Determine if we will place star or black hole as central body.
+    let bh = rng.gen_bool(1.0 / 128.0);
+
+    // Create central body.
+    let distance = if num_star > 1 {
+        64.0 * num_star as f32 / TAU
+    } else {
+        0.0
+    };
+    let mut orbit = Orbit {
+        origin: position,
+        distance,
+        start_angle: 0.0,
+        orbit_speed: if num_star > 1 {
+            Orbit::DEFAULT_ORBIT_SPEED / distance
+        } else {
+            0.0
+        },
+    };
+    for i in 0..num_star {
+        orbit.start_angle = TAU * i as f32 / num_star as f32;
+
+        let body = if bh {
+            CelestialBody {
+                body_type: CelestialBodyType::BlackHole,
+                radius: 16.0,
+                orbit,
+                name: rng.gen::<u32>().to_string(),
+                temperature: 0.0,
+                faction: None,
+                population: 0,
+            }
+        } else {
+            CelestialBody {
+                body_type: CelestialBodyType::Star,
+                radius: 16.0,
+                orbit,
+                name: rng.gen::<u32>().to_string(),
+                temperature: rng.gen_range(0.1..1.0),
+                faction: None,
+                population: 0,
+            }
+        };
+
+        bodies.push(body);
+    }
+
+    let mut used_radius = 16.0 + distance;
 
     // Add bodies.
-    loop {
-        let radius = rng.gen_range(0.6..4.0);
-        let distance = radius + used_radius + rng.gen_range(1.0..32.0);
+    while used_radius < target_radius {
+        let radius = rng.gen_range(0.8..1.25);
+        let distance = radius + used_radius + rng.gen_range(1.0..16.0);
         let orbit_speed =
             Orbit::DEFAULT_ORBIT_SPEED / distance * rng.gen_range(0.5..2.0) * (rng.gen::<f32>() - 0.5).signum();
 
-        let new_used_radius = radius.mul_add(2.0, distance);
-        if new_used_radius > max_radius {
-            break;
-        }
-        used_radius = new_used_radius;
-
         bodies.push(CelestialBody {
             body_type: CelestialBodyType::Planet,
-            radius,
+            radius: 1.0,
             orbit: Orbit {
-                origin,
+                origin: position,
                 distance,
                 start_angle: rng.gen::<f32>() * TAU,
                 orbit_speed,
             },
+            name: rng.gen::<u32>().to_string(),
+            temperature: 0.0,
+            faction: None,
+            population: 0,
         });
+
+        used_radius = radius.mul_add(2.0, distance);
     }
 
-    System {
-        bound: used_radius,
+    let mut system = System {
+        bound: used_radius + System::PADDING,
         position,
         bodies,
-        infos: Vec::new(),
-        colony: Vec::new(),
-    }
+    };
+
+    system.compute_temperature();
+
+    system
 }

@@ -2,7 +2,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::TAU;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct Orbit {
     /// Origin in world space this orbit is orbiting aound.
     pub origin: Vec2,
@@ -17,8 +17,9 @@ pub struct Orbit {
     pub orbit_speed: f32,
 }
 impl Orbit {
-    /// 5 min for a full rotation if 1 time unit == 0.1 sec.
-    pub const DEFAULT_ORBIT_SPEED: f32 = 1.0 / (3000.0 * TAU);
+    /// 30 sec for a full rotation if 1 time unit == 0.1 sec.
+    pub const DEFAULT_ORBIT_SPEED: f32 = 1.0 / (300.0 * TAU);
+
 
     /// Return a stationary orbit at position.
     pub fn stationary(position: Vec2) -> Self {
@@ -26,7 +27,7 @@ impl Orbit {
             origin: position,
             distance: 0.0,
             start_angle: 0.0,
-            orbit_speed: Self::DEFAULT_ORBIT_SPEED,
+            orbit_speed: 0.0,
         }
     }
 
@@ -58,16 +59,6 @@ impl Orbit {
         } else {
             let rot = self.rotation(time);
             Vec2::new(rot.cos(), rot.sin()) * self.distance + self.origin
-        }
-    }
-}
-impl Default for Orbit {
-    fn default() -> Self {
-        Self {
-            origin: Vec2::ZERO,
-            distance: 0.0,
-            start_angle: 0.0,
-            orbit_speed: Self::DEFAULT_ORBIT_SPEED,
         }
     }
 }
