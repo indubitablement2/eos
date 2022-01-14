@@ -20,7 +20,7 @@ use std::{fs::File, io::prelude::*, thread::sleep, time::Instant};
 
 use crate::terminal::Terminal;
 
-pub mod connection_manager;
+mod connection_manager;
 mod data_manager;
 mod ecs_components;
 mod ecs_events;

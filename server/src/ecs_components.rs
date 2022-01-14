@@ -106,14 +106,14 @@ impl Reputations {
                     if let Some(reputation) = faction.faction_relation.get(&lowest) {
                         reputation.to_owned()
                     } else {
-                        warn!(
+                        debug!(
                             "Can not find reputation {:?} in {:?}. Returning neutral reputation...",
                             lowest, highest
                         );
                         Reputation::NEUTRAL
                     }
                 } else {
-                    warn!("Can not find {:?}. Returning neutral reputation...", highest);
+                    debug!("Can not find {:?}. Returning neutral reputation...", highest);
                     Reputation::NEUTRAL
                 }
             } else {
@@ -123,7 +123,7 @@ impl Reputations {
                     if let Some(faction) = factions.get(&fac_self) {
                         faction.default_reputation
                     } else {
-                        warn!("Can not find {:?}. Returning neutral reputation...", fac_self);
+                        debug!("Can not find {:?}. Returning neutral reputation...", fac_self);
                         Reputation::NEUTRAL
                     }
                 }
@@ -136,7 +136,7 @@ impl Reputations {
                     if let Some(faction) = factions.get(&fac_other) {
                         faction.default_reputation
                     } else {
-                        warn!("Can not find {:?}. Returning neutral reputation...", fac_other);
+                        debug!("Can not find {:?}. Returning neutral reputation...", fac_other);
                         Reputation::NEUTRAL
                     }
                 }
