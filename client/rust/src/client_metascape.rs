@@ -24,12 +24,15 @@ struct EntityState {
     current_tick: u32,
     previous_position: Vec2,
     current_position: Vec2,
-    orbit: Option<Orbit>,
+    /// The tick the orbit was added.
+    /// The entity currently has an orbit if this is more than `current_tick`.
+    orbit_added_tick: u32,
+    orbit: Orbit,
 }
 impl EntityState {
     pub fn get_interpolated_pos(&self, time: f32) -> Vec2 {
-        if let Some(orbit) = self.orbit {
-            orbit.to_position(time)
+        if self.orbit_added_tick >= self.current_tick {
+            self.orbit.to_position(time)
         } else {
             let interpolation = time - 1.0 - self.previous_tick as f32;
             self.previous_position.lerp(self.current_position, interpolation)
@@ -235,10 +238,23 @@ impl Metascape {
         for infos_update in self.entities_info_buffer.drain_filter(|info| info.tick <= current_tick) {
             // Handle client info update.
             if let Some(info) = infos_update.client_info {
+                if let Some(orbit) = info.orbit {
+                    self.client_state.orbit = orbit;
+                    self.client_state.orbit_added_tick = infos_update.tick;
+                }
                 self.client_info = info;
             }
-
+            // Handle entities info update.
             for (id, info) in infos_update.infos.into_iter() {
+                if !self.entities_state.contains_key(&id) {
+                    self.entities_state.insert(id, EntityState::default());
+                }
+                if let Some(orbit) = info.orbit {
+                    if let Some(state) = self.entities_state.get_mut(&id) {
+                        state.orbit = orbit;
+                        state.orbit_added_tick = infos_update.tick;
+                    }
+                }
                 self.entities_info.insert(id, info);
             }
         }
@@ -297,6 +313,7 @@ impl Metascape {
 
         // Debug draw entities.
         for (id, entity) in self.entities_state.iter() {
+            error!("there should be none!");
             let fade = ((self.tick as f32 - entity.discovered_tick as f32) * 0.1).clamp(0.1, 1.0);
 
             // Interpolate position.
@@ -315,19 +332,22 @@ impl Metascape {
             }
 
             // Draw entity.
-            owner.draw_circle(pos.to_godot_scaled(), 16.0, Color { r, g, b, a });
+            owner.draw_circle(pos.to_godot_scaled(), 8.0, Color { r, g, b, a });
         }
 
-        // Debug draw our entity
+        // Debug draw our entity.
         let pos = self.client_state.get_interpolated_pos(time);
+        if self.tick % 5 == 0 {
+            debug!("{:?}", self.client_state.orbit);
+        }
         owner.draw_circle(
             pos.to_godot_scaled(),
-            16.0,
+            8.0,
             Color {
                 r: 1.0,
                 g: 1.0,
                 b: 1.0,
-                a: 0.9,
+                a: 0.8,
             },
         );
 

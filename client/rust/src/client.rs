@@ -96,6 +96,7 @@ impl Client {
 
     /// Try to connect to the server.
     /// Return true if already connected.
+    /// TODO: We may have to split token into two godot "int".
     #[export]
     unsafe fn connect_to_server(&mut self, _owner: &Node2D, addr: String, token: u64) -> bool {
         if self.metascape.is_some() {

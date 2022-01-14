@@ -31,3 +31,8 @@ impl Orbit {
         }
     }
 }
+impl Default for Orbit {
+    fn default() -> Self {
+        Self { origin: Vec2::ZERO, distance: 0.0, start_angle: 0.0, orbit_time: Self::DEFAULT_ORBIT_TIME }
+    }
+}

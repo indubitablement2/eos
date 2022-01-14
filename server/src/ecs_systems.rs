@@ -274,6 +274,8 @@ fn handle_idle(
                     }
                 });
 
+                debug!("orbit time: {:?}", orbit_time);
+
                 // Add orbit as this entity has no velocity.
                 commands.entity(event.entity).insert(OrbitComp(Orbit {
                     origin: system.position,

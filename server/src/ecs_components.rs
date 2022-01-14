@@ -154,7 +154,7 @@ impl Reputations {
 pub struct IdleCounter(pub u32);
 impl IdleCounter {
     /// Delay before a fleet without velocity is considered idle in tick.
-    pub const IDLE_DELAY: u32 = 200;
+    pub const IDLE_DELAY: u32 = 50;
 
     pub fn is_idle(self) -> bool {
         self.0 >= Self::IDLE_DELAY
