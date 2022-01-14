@@ -276,8 +276,11 @@ fn handle_idle(
                 // Remove client's fleet.
                 fleets_res.spawned_fleets.remove(&fleet_id_comp.0);
                 commands.entity(event.entity).despawn();
-                // Save fleet.
+
+                // TODO: Save fleet.
                 data_manager.client_fleets.insert(client_id, ());
+
+                debug!("Removed and saved {:?}'s fleet.", client_id);
             } else if let Some(system_id) = in_system.0 {
                 // Add orbit.
                 let system = if let Some(system) = world_data.systems.get(&system_id) {
@@ -310,12 +313,7 @@ fn handle_idle(
                 }));
             } else {
                 // Add a stationary orbit.
-                commands.entity(event.entity).insert(OrbitComp(Orbit {
-                    origin: position.0,
-                    distance: 0.0,
-                    start_angle: 0.0,
-                    orbit_time: 1.0,
-                }));
+                commands.entity(event.entity).insert(OrbitComp(Orbit::stationary(position.0)));
             }
         }
     }
@@ -458,10 +456,10 @@ fn update_in_system(
     task_pool: Res<TaskPool>,
     mut turn: Local<u64>,
 ) {
-    *turn = (*turn + 1) % 10;
+    *turn = (*turn + 1) % 20;
 
     query.par_for_each_mut(&task_pool, 4096, |(fleet_id_comp, position, mut in_system)| {
-        if fleet_id_comp.0 .0 % 10 == *turn {
+        if fleet_id_comp.0 .0 % 20 == *turn {
             match in_system.0 {
                 Some(system_id) => {
                     if let Some(system) = world_data.systems.get(&system_id) {
@@ -609,7 +607,7 @@ fn send_detected_entity(
                 know_entities.known.extend(updated.into_iter());
 
                 // Check if we should update the client's fleet.
-                let client_info = if query_changed_entity.get(entity).is_ok() {
+                let client_info = if know_entities.force_update_client_info || query_changed_entity.get(entity).is_ok() {
                     if let Ok((fleet_id_comp, name, orbit_comp)) = query_fleet_info.get(entity) {
                         Some(EntityInfo {
                             info_type: EntityInfoType::Fleet(FleetInfo {

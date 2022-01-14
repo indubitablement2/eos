@@ -19,6 +19,16 @@ pub struct Orbit {
 impl Orbit {
     pub const DEFAULT_ORBIT_TIME: f32 = 300.0;
 
+    /// Return a stationary orbit at position.
+    pub fn stationary(position: Vec2) -> Self {
+        Self {
+            origin: position,
+            distance: 0.0,
+            start_angle: 0.0,
+            orbit_time: Self::DEFAULT_ORBIT_TIME,
+        }
+    }
+
     /// Return the world position of this orbit.
     ///
     /// Time is an f32 to allow more granularity than tick. Otherwise `u32 as f32` will work just fine.

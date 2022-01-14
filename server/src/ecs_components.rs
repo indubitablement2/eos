@@ -34,7 +34,7 @@ pub struct FleetBundle {
 /// Entity we have sent informations to the client.
 ///
 /// Instead of sending the whole entity id, we identify entities with a temporary 8bits id.
-#[derive(Debug, Default, Component)]
+#[derive(Debug, Component)]
 pub struct KnowEntities {
     /// The next id we should create, if there are no id to reuse.
     pub next_new_id: u16,
@@ -44,6 +44,7 @@ pub struct KnowEntities {
     pub pending_idx: (Vec<u16>, Vec<u16>),
     /// Entity that the client has info about and their id.
     pub known: AHashMap<Entity, u16>,
+    pub force_update_client_info: bool,
 }
 impl KnowEntities {
     /// This will break if there are more than 65535 know entities,
@@ -63,6 +64,11 @@ impl KnowEntities {
 
     pub fn recycle_id(&mut self, temp_id: u16) {
         self.pending_idx.1.push(temp_id);
+    }
+}
+impl Default for KnowEntities {
+    fn default() -> Self {
+        Self { next_new_id: 0, free_idx: Vec::new(), pending_idx: (Vec::new(), Vec::new()), known: AHashMap::new(), force_update_client_info: true }
     }
 }
 
