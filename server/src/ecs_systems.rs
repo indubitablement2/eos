@@ -138,10 +138,12 @@ fn get_new_clients(
 
 /// Determine what each fleet can see.
 fn fleet_sensor(
-    mut query: Query<(&FleetIdComp, &Position, &DetectorRadius, &mut EntityDetected)>,
+    mut query: Query<(Entity, &FleetIdComp, &Position, &DetectorRadius, &mut EntityDetected)>,
+    query_reputation: Query<&Reputations>,
     detected_intersection_pipeline: Res<DetectedIntersectionPipeline>,
     task_pool: Res<TaskPool>,
     time_res: Res<TimeRes>,
+    world_data: Res<WorldData>,
 ) {
     // We will only update one part every tick.
     let turn = time_res.tick as u64 % DETECTED_UPDATE_INTERVAL;
@@ -149,15 +151,40 @@ fn fleet_sensor(
     query.par_for_each_mut(
         &task_pool,
         1024 * DETECTED_UPDATE_INTERVAL as usize,
-        |(fleet_id_comp, position, detector_radius, mut entity_detected)| {
+        |(entity, fleet_id_comp, position, detector_radius, mut entity_detected)| {
             if fleet_id_comp.0 .0 % DETECTED_UPDATE_INTERVAL == turn {
                 let detector_collider = Collider::new_idless(detector_radius.0, position.0);
 
-                entity_detected.0.clear();
                 detected_intersection_pipeline
                     .0
                     .snapshot
                     .intersect_collider_into(detector_collider, &mut entity_detected.0);
+
+                // Filter the result.
+                if fleet_id_comp.0.is_client() {
+                    // Client fleet filter out themself.
+                    for i in 0..entity_detected.0.len() {
+                        if entity_detected.0[i] == entity.id() {
+                            entity_detected.0.swap_remove(i);
+                            break;
+                        }
+                    }
+                } else {
+                    if let Ok(rep) = query_reputation.get(entity) {
+                        // AI fleet filter out allied.
+                        entity_detected.0.drain_filter(|id| {
+                            if let Ok(other_rep) = query_reputation.get(Entity::from_raw(*id)) {
+                                !rep.get_relative_reputation(other_rep, &world_data.factions).is_enemy()
+                            } else {
+                                debug!("An entity has a Detector, but no Reputations. Ignoring...");
+                                true
+                            }
+                        });
+                    } else {
+                        debug!("An entity has a Detector, but no Reputations. Ignoring...");
+                    }
+
+                }
             }
         },
     );
@@ -273,8 +300,6 @@ fn handle_idle(
                         closest
                     }
                 });
-
-                debug!("orbit time: {:?}", orbit_time);
 
                 // Add orbit as this entity has no velocity.
                 commands.entity(event.entity).insert(OrbitComp(Orbit {

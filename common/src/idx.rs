@@ -24,9 +24,14 @@ impl From<FleetId> for ClientId {
 /// First 2^32 - 1 idx are reserved for clients.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FleetId(pub u64);
+
 impl From<ClientId> for FleetId {
     fn from(client_id: ClientId) -> Self {
         Self(client_id.0 as u64)
+    }
+}impl FleetId {
+    pub fn is_client(self) -> bool {
+        self.0 <= u64::from(u32::MAX)
     }
 }
 #[test]

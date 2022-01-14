@@ -24,10 +24,18 @@ impl Reputation {
         Self(reputation)
     }
 
+    pub fn is_allied(self) -> bool {
+        self > Self::ALLIED_THRESHOLD
+    }
+
+    pub fn is_enemy(self) -> bool {
+        self < Self::ENEMY_THRESHOLD
+    }
+
     pub fn get_reputation_state(self) -> ReputationState {
-        if self > Reputation::ALLIED_THRESHOLD {
+        if self.is_allied() {
             ReputationState::Allied
-        } else if self < Reputation::ENEMY_THRESHOLD {
+        } else if self.is_enemy() {
             ReputationState::Enemy
         } else {
             ReputationState::Neutral
