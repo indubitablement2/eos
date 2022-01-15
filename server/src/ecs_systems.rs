@@ -294,7 +294,7 @@ fn handle_idle(
                 let relative_position = position.0 - system.position;
                 let distance = relative_position.length();
 
-                let mut orbit_speed = RelativeOrbit::DEFAULT_ORBIT_SPEED;
+                let mut orbit_speed = 0.0;
                 // Check if there is a body nearby we should copy its orbit time.
                 system.planets.iter().fold(999.0f32, |closest, planet| {
                     let dif = (planet.relative_orbit.distance - distance).abs();
