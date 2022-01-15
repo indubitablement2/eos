@@ -204,7 +204,7 @@ impl Metascape {
                 tick_delta, previous_tick, self.tick
             );
         } else if tick_delta < -1 {
-            let previous_tick =  self.tick;
+            let previous_tick = self.tick;
             self.tick = self.max_tick;
             self.delta = 0.0;
             debug!(
@@ -372,7 +372,21 @@ impl Metascape {
         {
             if let Some(system) = self.world_data.systems.get(&system_id) {
                 // Draw system bound.
-                owner.draw_arc(system.position.to_godot_scaled(), (system.bound * GAME_TO_GODOT_RATIO).into(), 0.0, std::f64::consts::TAU, 32, Color { r: 0.95, g: 0.95, b: 1.0, a: 0.5 }, 4.0, false);
+                owner.draw_arc(
+                    system.position.to_godot_scaled(),
+                    (system.bound * GAME_TO_GODOT_RATIO).into(),
+                    0.0,
+                    std::f64::consts::TAU,
+                    32,
+                    Color {
+                        r: 0.95,
+                        g: 0.95,
+                        b: 1.0,
+                        a: 0.5,
+                    },
+                    4.0,
+                    false,
+                );
 
                 // Draw star.
                 let (r, g, b) = match system.star.star_type {
@@ -380,19 +394,26 @@ impl Metascape {
                     common::world_data::StarType::BlackHole => (0.0, 0.0, 0.0),
                     common::world_data::StarType::Nebula => (0.0, 0.0, 0.0),
                 };
-                owner.draw_circle(system.position.to_godot_scaled(), (system.star.radius * GAME_TO_GODOT_RATIO).into(), Color {
-                    r,
-                    g,
-                    b,
-                    a: 0.5,
-                });
+                owner.draw_circle(
+                    system.position.to_godot_scaled(),
+                    (system.star.radius * GAME_TO_GODOT_RATIO).into(),
+                    Color { r, g, b, a: 0.5 },
+                );
 
                 // Draw planets.
                 for planet in system.planets.iter() {
                     owner.draw_circle(
-                        planet.relative_orbit.to_position(time, system.position).to_godot_scaled(),
+                        planet
+                            .relative_orbit
+                            .to_position(time, system.position)
+                            .to_godot_scaled(),
                         (planet.radius * GAME_TO_GODOT_RATIO).into(),
-                        Color { r: 0.0, g: 0.5, b: 1.0, a: 0.5 },
+                        Color {
+                            r: 0.0,
+                            g: 0.5,
+                            b: 1.0,
+                            a: 0.5,
+                        },
                     );
                 }
             } else {

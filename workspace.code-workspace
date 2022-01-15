@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "server"
+		},
+		{
+			"path": "common"
+		},
+		{
+			"path": "client/rust"
+		}
+	],
+	"settings": {}
+}
