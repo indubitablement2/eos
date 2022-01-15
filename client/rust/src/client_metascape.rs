@@ -32,17 +32,16 @@ struct EntityState {
 }
 impl EntityState {
     pub fn get_interpolated_pos(&mut self, time: f32) -> Vec2 {
-        if self.orbit_added_tick >= self.current_tick {
-            // TODO: Add interpolation.
+        let real_position = if self.orbit_added_tick >= self.current_tick {
             self.orbit.to_position(time)
         } else {
             let interpolation = time - 1.0 - self.previous_tick as f32;
-            let real_position = self.previous_position.lerp(self.current_position, interpolation);
+            self.previous_position.lerp(self.current_position, interpolation)
+        };
 
-            self.local_position = self.local_position.lerp(real_position, 0.5);
+        self.local_position = self.local_position.lerp(real_position, 0.5);
 
-            self.local_position
-        }
+        self.local_position
     }
 
     fn update(&mut self, new_tick: u32, new_position: Vec2) {
