@@ -160,7 +160,7 @@ text = "Radius max:"
 margin_left = 116.0
 margin_right = 174.0
 margin_bottom = 24.0
-text = "128"
+text = "64"
 caret_blink = true
 caret_blink_speed = 0.5
 __meta__ = {
@@ -206,7 +206,30 @@ text = "Brush Size:"
 margin_left = 116.0
 margin_right = 174.0
 margin_bottom = 24.0
-text = "256"
+text = "512"
+caret_blink = true
+caret_blink_speed = 0.5
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="MinDistance" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
+margin_top = 200.0
+margin_right = 174.0
+margin_bottom = 224.0
+
+[node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/MinDistance"]
+margin_top = 5.0
+margin_right = 112.0
+margin_bottom = 19.0
+size_flags_horizontal = 3
+text = "Min distance:"
+
+[node name="MinDistance" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/MinDistance"]
+margin_left = 116.0
+margin_right = 174.0
+margin_bottom = 24.0
+text = "512"
 caret_blink = true
 caret_blink_speed = 0.5
 __meta__ = {
@@ -337,6 +360,7 @@ __meta__ = {
 [connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/RadiusMax/RadiusMax" to="." method="_on_RadiusMax_text_changed"]
 [connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/Try/Try" to="." method="_on_Try_text_changed"]
 [connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/Size/Size" to="." method="_on_Size_text_changed"]
+[connection signal="text_changed" from="CanvasLayer/Control/VBoxContainer/MinDistance/MinDistance" to="." method="_on_MinDistance_text_changed"]
 [connection signal="text_changed" from="CanvasLayer/Control/HBoxContainer/TimeMultiplier" to="." method="_on_TimeMultiplier_text_changed"]
 [connection signal="text_changed" from="CanvasLayer/Control/HBoxContainer/SetTick" to="." method="_on_SetTick_text_changed"]
 [connection signal="confirmed" from="CanvasLayer/Control/Save" to="." method="_on_Save_confirmed"]

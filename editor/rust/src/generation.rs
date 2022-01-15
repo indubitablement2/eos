@@ -11,12 +11,12 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
     let mut bodies = Vec::new();
 
     // Determine how many central body we will add.
-    let num_star = if rng.gen_bool(1.0 / 64.0) {
+    let num_star = if rng.gen_bool(1.0 / 40.0) {
         // No central body.
         0
     } else {
         let mut num = 1;
-        while rng.gen_bool(target_radius.min(1000.0) as f64 / 4000.0) {
+        while rng.gen_bool(1.0 / 40.0) {
             // Multiple central body.
             num += 1;
         }
@@ -28,7 +28,7 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
 
     // Create central body.
     let distance = if num_star > 1 {
-        64.0 * num_star as f32 / TAU
+        80.0 * num_star as f32 / TAU
     } else {
         0.0
     };
@@ -42,13 +42,14 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
             0.0
         },
     };
+    let radius = rng.gen_range(12.0..16.0);
     for i in 0..num_star {
         orbit.start_angle = TAU * i as f32 / num_star as f32;
 
         let body = if bh {
             CelestialBody {
                 body_type: CelestialBodyType::BlackHole,
-                radius: 16.0,
+                radius,
                 orbit,
                 name: rng.gen::<u32>().to_string(),
                 temperature: 0.0,
@@ -58,10 +59,10 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
         } else {
             CelestialBody {
                 body_type: CelestialBodyType::Star,
-                radius: 16.0,
+                radius,
                 orbit,
                 name: rng.gen::<u32>().to_string(),
-                temperature: rng.gen_range(0.1..1.0),
+                temperature: rng.gen::<f32>().max(rng.gen()),
                 faction: None,
                 population: 0,
             }
@@ -74,27 +75,45 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
 
     // Add bodies.
     while used_radius < target_radius {
-        let radius = rng.gen_range(0.8..1.25);
-        let distance = radius + used_radius + rng.gen_range(1.0..16.0);
+        let distance = radius + used_radius + rng.gen_range(4.0..8.0);
         let orbit_speed =
             Orbit::DEFAULT_ORBIT_SPEED / distance * rng.gen_range(0.5..2.0) * (rng.gen::<f32>() - 0.5).signum();
+        let start_angle_rand = rng.gen::<f32>() * TAU;
 
-        bodies.push(CelestialBody {
-            body_type: CelestialBodyType::Planet,
-            radius: 1.0,
-            orbit: Orbit {
-                origin: position,
-                distance,
-                start_angle: rng.gen::<f32>() * TAU,
-                orbit_speed,
-            },
-            name: rng.gen::<u32>().to_string(),
-            temperature: 0.0,
-            faction: None,
-            population: 0,
-        });
+        let num_body = rng.gen_range(1..5);
+        for i in 0..num_body {
+            let asteroid = rng.gen_bool(3.0 / 4.0);
+            let radius = if asteroid {
+                rng.gen_range(0.8..1.25) * 0.5
+            } else {
+                rng.gen_range(0.8..1.25)
+            };
 
-        used_radius = radius.mul_add(2.0, distance);
+            bodies.push(CelestialBody {
+                body_type: if asteroid {
+                    CelestialBodyType::Asteroid
+                } else {
+                    CelestialBodyType::Planet
+                },
+                radius: if asteroid {
+                    radius * 0.5
+                } else {
+                    radius
+                },
+                orbit: Orbit {
+                    origin: position,
+                    distance,
+                    start_angle: TAU * i as f32 / num_body as f32 + start_angle_rand,
+                    orbit_speed,
+                },
+                name: rng.gen::<u32>().to_string(),
+                temperature: 0.0,
+                faction: None,
+                population: 0,
+            });
+    
+            used_radius = radius.mul_add(2.0, distance).max(used_radius);
+        }
     }
 
     let mut system = System {

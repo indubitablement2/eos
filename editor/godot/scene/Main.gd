@@ -1,9 +1,11 @@
 extends Node2D
 
 var radius_min := 32.0
-var radius_max := 128.0
+var radius_max := 64.0
 var num_try := 1
-var brush_size := 256.0 
+var brush_size := 512.0 
+var wait := 4
+var min_distance := 20.0
 
 var hold_start_point := Vector2.ZERO
 
@@ -27,6 +29,7 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("primary"):
+		wait = 0;
 		if current_click_mode == click_mode.SELECT:
 			editor.select()
 			hold_start_point = get_global_mouse_position()
@@ -42,7 +45,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				if hold_start_point.distance_squared_to(get_global_mouse_position()) > 1.0 * $Camera2D.zoom.x:
 					editor.toggle_moving_selected(true)
 			click_mode.GENERATE:
-				editor.generate(radius_min, radius_max, num_try, brush_size)
+				if wait == 0:
+					editor.generate(radius_min, radius_max, num_try, brush_size, min_distance)
+				wait = (wait + 1) % 20
 
 func _draw() -> void:
 	if current_click_mode == click_mode.GENERATE:
@@ -142,3 +147,5 @@ func set_click_mode(m) -> void:
 		click_mode.GENERATE:
 				$CanvasLayer/Control/VBoxContainer/HBoxContainer2/Select.set_pressed(false)
 
+func _on_MinDistance_text_changed(new_text: String) -> void:
+	min_distance = max(float(new_text), 0.0 )

@@ -37,7 +37,7 @@ pub struct System {
 }
 impl System {
     /// Extra radius added after the edge of the outtermost body of a system.
-    pub const PADDING: f32 = 16.0;
+    pub const PADDING: f32 = 20.0;
 
     /// Compute the temperature of bodies in this system.
     pub fn compute_temperature(&mut self) {
