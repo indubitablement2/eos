@@ -10,7 +10,7 @@ use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
 use common::idx::*;
 use common::intersection::*;
-use common::orbit::Orbit;
+use common::orbit::*;
 use common::packets::*;
 use common::parameters::Parameters;
 use common::res_time::TimeRes;
@@ -183,7 +183,6 @@ fn fleet_sensor(
                     } else {
                         debug!("An entity has a Detector, but no Reputations. Ignoring...");
                     }
-
                 }
             }
         },
@@ -295,12 +294,12 @@ fn handle_idle(
                 let relative_position = position.0 - system.position;
                 let distance = relative_position.length();
 
-                let mut orbit_speed = Orbit::DEFAULT_ORBIT_SPEED;
+                let mut orbit_speed = RelativeOrbit::DEFAULT_ORBIT_SPEED;
                 // Check if there is a body nearby we should copy its orbit time.
-                system.bodies.iter().fold(999.0f32, |closest, body| {
-                    let dif = (body.orbit.distance - distance).abs();
+                system.planets.iter().fold(999.0f32, |closest, planet| {
+                    let dif = (planet.relative_orbit.distance - distance).abs();
                     if dif < closest {
-                        orbit_speed = body.orbit.orbit_speed;
+                        orbit_speed = planet.relative_orbit.orbit_speed;
                         dif
                     } else {
                         closest
@@ -308,10 +307,20 @@ fn handle_idle(
                 });
 
                 // Add orbit as this entity has no velocity.
-                commands.entity(event.entity).insert(OrbitComp(Orbit::from_relative_position(relative_position, time, system.position, distance, orbit_speed)));
+                commands
+                    .entity(event.entity)
+                    .insert(OrbitComp(Orbit::from_relative_position(
+                        relative_position,
+                        time,
+                        system.position,
+                        distance,
+                        orbit_speed,
+                    )));
             } else {
                 // Add a stationary orbit.
-                commands.entity(event.entity).insert(OrbitComp(Orbit::stationary(position.0)));
+                commands
+                    .entity(event.entity)
+                    .insert(OrbitComp(Orbit::stationary(position.0)));
             }
         }
     }
@@ -605,7 +614,8 @@ fn send_detected_entity(
                 know_entities.known.extend(updated.into_iter());
 
                 // Check if we should update the client's fleet.
-                let client_info = if know_entities.force_update_client_info || query_changed_entity.get(entity).is_ok() {
+                let client_info = if know_entities.force_update_client_info || query_changed_entity.get(entity).is_ok()
+                {
                     know_entities.force_update_client_info = false;
 
                     if let Ok((fleet_id_comp, name, orbit_comp)) = query_fleet_info.get(entity) {

@@ -360,18 +360,28 @@ impl Metascape {
             .map(|id| SystemId(id))
         {
             if let Some(system) = self.world_data.systems.get(&system_id) {
-                for body in system.bodies.iter() {
-                    let (r, g, b) = match body.body_type {
-                        common::world_data::CelestialBodyType::Star => (1.0, 0.2, 0.0),
-                        common::world_data::CelestialBodyType::Planet => (0.0, 0.5, 1.0),
-                        common::world_data::CelestialBodyType::BlackHole => (0.0, 0.0, 0.0),
-                        common::world_data::CelestialBodyType::Asteroid => (0.5, 0.1, 0.0),
-                    };
+                // Draw system bound.
+                owner.draw_arc(system.position.to_godot_scaled(), (system.bound * GAME_TO_GODOT_RATIO).into(), 0.0, std::f64::consts::TAU, 32, Color { r: 0.95, g: 0.95, b: 1.0, a: 0.5 }, 4.0, false);
 
+                // Draw star.
+                let (r, g, b) = match system.star.star_type {
+                    common::world_data::StarType::Star => (1.0, 0.2, 0.0),
+                    common::world_data::StarType::BlackHole => (0.0, 0.0, 0.0),
+                    common::world_data::StarType::Nebula => (0.0, 0.0, 0.0),
+                };
+                owner.draw_circle(system.position.to_godot_scaled(), (system.star.radius * GAME_TO_GODOT_RATIO).into(), Color {
+                    r,
+                    g,
+                    b,
+                    a: 0.5,
+                });
+
+                // Draw planets.
+                for planet in system.planets.iter() {
                     owner.draw_circle(
-                        body.orbit.to_position(time).to_godot_scaled(),
-                        (body.radius * GAME_TO_GODOT_RATIO).into(),
-                        Color { r, g, b, a: 0.8 },
+                        planet.relative_orbit.to_position(time, system.position).to_godot_scaled(),
+                        (planet.radius * GAME_TO_GODOT_RATIO).into(),
+                        Color { r: 0.0, g: 0.5, b: 1.0, a: 0.5 },
                     );
                 }
             } else {

@@ -68,7 +68,13 @@ impl KnowEntities {
 }
 impl Default for KnowEntities {
     fn default() -> Self {
-        Self { next_new_id: 0, free_idx: Vec::new(), pending_idx: (Vec::new(), Vec::new()), known: AHashMap::new(), force_update_client_info: true }
+        Self {
+            next_new_id: 0,
+            free_idx: Vec::new(),
+            pending_idx: (Vec::new(), Vec::new()),
+            known: AHashMap::new(),
+            force_update_client_info: true,
+        }
     }
 }
 
