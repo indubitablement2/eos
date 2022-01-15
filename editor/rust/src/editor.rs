@@ -125,6 +125,11 @@ impl Editor {
     }
 
     #[export]
+    unsafe fn get_total_num_planet(&mut self, _owner: &Node2D) -> i64 {
+        self.data.total_num_planet as i64
+    }
+
+    #[export]
     unsafe fn set_time_multiplier(&mut self, _owner: &Node2D, time_multiplier: f32) {
         self.time_multiplier = time_multiplier;
     }
@@ -294,6 +299,7 @@ impl Editor {
 fn update_internals(editor: &mut Editor) {
     // Update systems bound.
     editor.data.update_bound();
+    editor.data.update_total_num_planet();
 
     // Update systems acceleration structure.
     editor.systems_acc.colliders.clear();

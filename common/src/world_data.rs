@@ -80,6 +80,7 @@ pub struct WorldData {
     pub factions: AHashMap<FactionId, Faction>,
     /// The furthest system bound from the world origin.
     pub bound: f32,
+    pub total_num_planet: usize,
     pub next_system_id: u32,
 }
 impl WorldData {
@@ -88,5 +89,10 @@ impl WorldData {
         self.bound = self.systems.iter().fold(0.0f32, |acc, (_, system)| {
             acc.max(system.position.length() + system.bound)
         });
+    }
+
+    /// Result is saved in `total_num_planet`.
+    pub fn update_total_num_planet(&mut self) {
+        self.total_num_planet = self.systems.values().fold(0, |acc, system| acc + system.planets.len())
     }
 }

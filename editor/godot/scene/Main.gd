@@ -55,7 +55,7 @@ func _draw() -> void:
 
 func _process(_delta: float) -> void:
 	$CanvasLayer/Control/HBoxContainer/Tick.set_text("tick: " + str(editor.get_tick())) 
-	$CanvasLayer/Control/HBoxContainer/NumSystem.set_text(str(editor.get_num_system()) + " systems")
+	$CanvasLayer/Control/HBoxContainer/NumSystem.set_text(str(editor.get_num_system()) + " systems, " + str(editor.get_total_num_planet()) + " planets")
 	$CanvasLayer/Control/HBoxContainer/Bound.set_text("Systems bound: " + str(editor.get_bound()))
 	update()
 
