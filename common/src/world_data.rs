@@ -1,5 +1,5 @@
 use crate::{idx::*, orbit::RelativeOrbit, reputation::Reputation};
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
@@ -61,8 +61,8 @@ impl System {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Faction {
     pub display_name: String,
-    pub capital: Option<CelestialBodyId>,
-    pub colonies: Vec<CelestialBodyId>,
+    pub capital: Option<PlanetId>,
+    pub colonies: AHashSet<PlanetId>,
     /// Reputation between factions.
     /// The highest `FactionId` has the reputation of all lower `FactionId`.
     ///

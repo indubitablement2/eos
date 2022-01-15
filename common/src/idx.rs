@@ -56,7 +56,7 @@ pub struct FactionId(pub u32);
 pub struct SystemId(pub u32);
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct CelestialBodyId {
+pub struct PlanetId {
     pub system_id: SystemId,
-    pub body_offset: u8,
+    pub planets_offset: u8,
 }
