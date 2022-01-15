@@ -207,7 +207,7 @@ impl Editor {
     }
 
     #[export]
-    unsafe fn generate(&mut self, owner: &Node2D, min_size: f32, max_size: f32, num_try: u32, brush_radius: f32) {
+    unsafe fn generate(&mut self, owner: &Node2D, min_size: f32, max_size: f32, num_try: u32, brush_radius: f32, min_distance: f32) {
         let mut rng = rand::thread_rng();
         let center_position = godot_to_glam(owner.get_global_mouse_position());
 
@@ -215,8 +215,12 @@ impl Editor {
         'outter: for _ in 0..num_try {
             let position =
                 center_position + rng.gen::<Vec2>() * brush_radius * 2.0 - Vec2::new(brush_radius, brush_radius);
+            if position.distance(center_position) > brush_radius {
+                // We are outside the brush.
+                continue;
+            }
             let new_system = generate_system(position, rng.gen_range(min_size..max_size) * 1.20);
-            let collider = Collider::new_idless(new_system.bound, new_system.position);
+            let collider = Collider::new_idless(new_system.bound + min_distance, new_system.position);
 
             for other in new_systems
                 .iter()
@@ -231,7 +235,7 @@ impl Editor {
         }
 
         for new_system in new_systems.into_iter() {
-            let collider = Collider::new_idless(new_system.bound, new_system.position);
+            let collider = Collider::new_idless(new_system.bound + min_distance, new_system.position);
             if !self.systems_acc.test_collider(collider) {
                 self.data.systems.insert(SystemId(self.data.next_system_id), new_system);
                 self.data.next_system_id += 1;

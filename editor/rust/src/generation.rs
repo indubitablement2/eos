@@ -42,7 +42,7 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
             0.0
         },
     };
-    let radius = rng.gen_range(12.0..16.0);
+    let radius = rng.gen_range(8.0..12.0);
     for i in 0..num_star {
         orbit.start_angle = TAU * i as f32 / num_star as f32;
 
@@ -84,9 +84,9 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
         for i in 0..num_body {
             let asteroid = rng.gen_bool(3.0 / 4.0);
             let radius = if asteroid {
-                rng.gen_range(0.8..1.25) * 0.5
+                rng.gen_range(0.67..1.5) * 0.5
             } else {
-                rng.gen_range(0.8..1.25)
+                rng.gen_range(0.67..1.5)
             };
 
             bodies.push(CelestialBody {
