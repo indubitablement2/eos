@@ -119,7 +119,7 @@ fn get_new_clients(
                         wish_position: WishPosition::default(),
                         velocity: Velocity::default(),
                         idle_counter: IdleCounter(0),
-                        derived_fleet_stats: DerivedFleetStats { acceleration: 0.1 },
+                        derived_fleet_stats: DerivedFleetStats { acceleration: 0.04 },
                         reputations: Reputations::default(),
                         detected_radius: DetectedRadius(10.0),
                         detector_radius: DetectorRadius(50.0),

@@ -8,7 +8,7 @@ impl Default for Parameters {
     fn default() -> Self {
         Self {
             world_bound: u16::MAX as f32,
-            friction: 0.9,
+            friction: 0.95,
         }
     }
 }
