@@ -24,18 +24,24 @@ struct EntityState {
     current_tick: u32,
     previous_position: Vec2,
     current_position: Vec2,
+    local_position: Vec2,
     /// The tick the orbit was added.
     /// The entity currently has an orbit if this is more than `current_tick`.
     orbit_added_tick: u32,
     orbit: Orbit,
 }
 impl EntityState {
-    pub fn get_interpolated_pos(&self, time: f32) -> Vec2 {
+    pub fn get_interpolated_pos(&mut self, time: f32) -> Vec2 {
         if self.orbit_added_tick >= self.current_tick {
+            // TODO: Add interpolation.
             self.orbit.to_position(time)
         } else {
             let interpolation = time - 1.0 - self.previous_tick as f32;
-            self.previous_position.lerp(self.current_position, interpolation)
+            let real_position = self.previous_position.lerp(self.current_position, interpolation);
+
+            self.local_position = self.local_position.lerp(real_position, 0.5);
+
+            self.local_position
         }
     }
 
@@ -188,7 +194,7 @@ impl Metascape {
         }
 
         // Hard catch up if we are too beind in tick.
-        let tick_delta = self.max_tick.saturating_sub(self.tick);
+        let tick_delta = self.max_tick as i64 - self.tick as i64;
         if tick_delta > 10 {
             let previous_tick = self.tick;
             self.tick = self.max_tick.saturating_sub(5);
@@ -197,18 +203,27 @@ impl Metascape {
                 "Client metascape state is behind by {}. Catching up from tick {} to {}...",
                 tick_delta, previous_tick, self.tick
             );
+        } else if tick_delta < -1 {
+            let previous_tick =  self.tick;
+            self.tick = self.max_tick;
+            self.delta = 0.0;
+            debug!(
+                "Client metascape state is forward by {}. Catching up from tick {} to {}...",
+                tick_delta, previous_tick, self.tick
+            );
         }
 
         // Speedup/slowdown time to get to target tick.
-        let current_delta = tick_delta as f32 + self.delta;
-        let mut target_time_multiplier = (current_delta / self.configs.target_delta).clamp(0.66, 1.5);
-        if (current_delta - self.configs.target_delta).abs() < 1.5 {
-            // When we are close to the target, try not to fluctuate much.
-            target_time_multiplier = target_time_multiplier.mul_add(0.1, 0.9);
-        }
-        self.time_multiplier *= 0.50;
-        self.time_multiplier += target_time_multiplier * 0.2;
-        self.time_multiplier += 0.30;
+        let target_time_multiplier = if tick_delta < 1 {
+            0.67
+        } else if tick_delta > 2 {
+            1.5
+        } else {
+            1.0
+        } * 0.1;
+        self.time_multiplier *= 0.40;
+        self.time_multiplier += target_time_multiplier;
+        self.time_multiplier += 0.50;
         self.delta += (delta / UPDATE_INTERVAL.as_secs_f32()) * self.time_multiplier;
         if self.time_multiplier > 1.1 || self.time_multiplier < 0.95 {
             debug!("time_multiplier: {}", self.time_multiplier);
@@ -296,8 +311,7 @@ impl Metascape {
         // Send client packets to server.
         self.send_timer -= delta;
         if self.send_timer <= 0.0 {
-            // TODO: Maybe send more often?
-            self.send_timer = UPDATE_INTERVAL.as_secs_f32();
+            self.send_timer = 0.010;
             quit |= self
                 .connection_manager
                 .tcp_outbound_event_sender
@@ -312,7 +326,7 @@ impl Metascape {
         let time = self.tick as f32 + self.delta;
 
         // Debug draw entities.
-        for (id, entity) in self.entities_state.iter() {
+        for (id, entity) in self.entities_state.iter_mut() {
             error!("there should be none!");
             let fade = ((self.tick as f32 - entity.discovered_tick as f32) * 0.1).clamp(0.1, 1.0);
 
@@ -337,9 +351,6 @@ impl Metascape {
 
         // Debug draw our entity.
         let pos = self.client_state.get_interpolated_pos(time);
-        if self.tick % 5 == 0 {
-            debug!("{:?}", self.client_state.orbit);
-        }
         owner.draw_circle(
             pos.to_godot_scaled(),
             8.0,
