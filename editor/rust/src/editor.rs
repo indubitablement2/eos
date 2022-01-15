@@ -207,7 +207,15 @@ impl Editor {
     }
 
     #[export]
-    unsafe fn generate(&mut self, owner: &Node2D, min_size: f32, max_size: f32, num_try: u32, brush_radius: f32, min_distance: f32) {
+    unsafe fn generate(
+        &mut self,
+        owner: &Node2D,
+        min_size: f32,
+        max_size: f32,
+        num_try: u32,
+        brush_radius: f32,
+        min_distance: f32,
+    ) {
         let mut rng = rand::thread_rng();
         let center_position = godot_to_glam(owner.get_global_mouse_position());
 

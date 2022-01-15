@@ -1,5 +1,6 @@
 use common::orbit::Orbit;
 use common::world_data::*;
+use gdnative::prelude::godot_print;
 use glam::Vec2;
 use rand::Rng;
 use std::f32::consts::TAU;
@@ -75,7 +76,7 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
 
     // Add bodies.
     while used_radius < target_radius {
-        let distance = radius + used_radius + rng.gen_range(4.0..8.0);
+        let distance = radius + used_radius + rng.gen_range(2.0..4.0);
         let orbit_speed =
             Orbit::DEFAULT_ORBIT_SPEED / distance * rng.gen_range(0.5..2.0) * (rng.gen::<f32>() - 0.5).signum();
         let start_angle_rand = rng.gen::<f32>() * TAU;
@@ -95,11 +96,7 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
                 } else {
                     CelestialBodyType::Planet
                 },
-                radius: if asteroid {
-                    radius * 0.5
-                } else {
-                    radius
-                },
+                radius: if asteroid { radius * 0.5 } else { radius },
                 orbit: Orbit {
                     origin: position,
                     distance,
@@ -111,7 +108,7 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
                 faction: None,
                 population: 0,
             });
-    
+
             used_radius = radius.mul_add(2.0, distance).max(used_radius);
         }
     }
@@ -123,6 +120,7 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
     };
 
     system.compute_temperature();
+    godot_print!("generated system with {} bodies.", system.bodies.len());
 
     system
 }
