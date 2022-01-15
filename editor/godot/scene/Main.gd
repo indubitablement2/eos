@@ -1,12 +1,12 @@
 extends Node2D
 
-var radius_min := 32.0
-var radius_max := 64.0
+var radius_min := 30.0
+var radius_max := 50.0
 var num_try := 1
 var brush_size := 256.0 
-var wait := 4
-var min_distance := 20.0
+var min_distance := 10.0
 
+var wait := 20
 var hold_start_point := Vector2.ZERO
 
 var current_load_state = load_state.NONE

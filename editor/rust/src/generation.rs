@@ -1,4 +1,4 @@
-use common::orbit::Orbit;
+use common::orbit::RelativeOrbit;
 use common::world_data::*;
 use gdnative::prelude::godot_print;
 use glam::Vec2;
@@ -9,101 +9,47 @@ use std::f32::consts::TAU;
 pub fn generate_system(position: Vec2, target_radius: f32) -> System {
     let mut rng = rand::thread_rng();
 
-    let mut bodies = Vec::new();
-
-    // Determine how many central body we will add.
-    let num_star = if rng.gen_bool(1.0 / 40.0) {
-        // No central body.
-        0
-    } else {
-        let mut num = 1;
-        while rng.gen_bool(1.0 / 40.0) {
-            // Multiple central body.
-            num += 1;
-        }
-        num
-    };
-
-    // Determine if we will place star or black hole as central body.
-    let bh = rng.gen_bool(1.0 / 128.0);
-
     // Create central body.
-    let distance = if num_star > 1 {
-        80.0 * num_star as f32 / TAU
+    let star = if rng.gen_bool(1.0 / 32.0) {
+        Star {
+            star_type: StarType::BlackHole,
+            radius: rng.gen_range(5.0..7.0),
+            temperature: 0.0,
+        }
+    } else if rng.gen_bool(1.0 / 32.0) {
+        Star {
+            star_type: StarType::Nebula,
+            radius: 0.0,
+            temperature: 0.1,
+        }
     } else {
-        0.0
+        Star {
+            star_type: StarType::Star,
+            radius: rng.gen_range(6.0..12.0),
+            temperature: rng.gen_range(0.1..1.0),
+        }
     };
-    let mut orbit = Orbit {
-        origin: position,
-        distance,
-        start_angle: 0.0,
-        orbit_speed: if num_star > 1 {
-            Orbit::DEFAULT_ORBIT_SPEED / distance
-        } else {
-            0.0
-        },
-    };
-    let radius = rng.gen_range(8.0..12.0);
-    for i in 0..num_star {
-        orbit.start_angle = TAU * i as f32 / num_star as f32;
 
-        let body = if bh {
-            CelestialBody {
-                body_type: CelestialBodyType::BlackHole,
-                radius,
-                orbit,
-                name: rng.gen::<u32>().to_string(),
-                temperature: 0.0,
-                faction: None,
-                population: 0,
-            }
-        } else {
-            CelestialBody {
-                body_type: CelestialBodyType::Star,
-                radius,
-                orbit,
-                name: rng.gen::<u32>().to_string(),
-                temperature: rng.gen::<f32>().max(rng.gen()),
-                faction: None,
-                population: 0,
-            }
-        };
+    let mut used_radius = star.radius;
+    let mut planets = Vec::new();
 
-        bodies.push(body);
-    }
-
-    let mut used_radius = 16.0 + distance;
-
-    // Add bodies.
-    while used_radius < target_radius {
-        let distance = radius + used_radius + rng.gen_range(2.0..4.0);
+    // Add planets.
+    while used_radius < target_radius || planets.len() < 2 {
+        let radius = rng.gen_range(1.0..2.0);
+        let distance = radius + used_radius + rng.gen_range(6.0..12.0);
         let orbit_speed =
-            Orbit::DEFAULT_ORBIT_SPEED / distance * rng.gen_range(0.5..2.0) * (rng.gen::<f32>() - 0.5).signum();
+            RelativeOrbit::DEFAULT_ORBIT_SPEED / distance * rng.gen_range(0.5..2.0) * (rng.gen::<f32>() - 0.5).signum();
         let start_angle_rand = rng.gen::<f32>() * TAU;
 
-        let num_body = rng.gen_range(1..5);
-        for i in 0..num_body {
-            let asteroid = rng.gen_bool(3.0 / 4.0);
-            let radius = if asteroid {
-                rng.gen_range(0.67..1.5) * 0.5
-            } else {
-                rng.gen_range(0.67..1.5)
-            };
-
-            bodies.push(CelestialBody {
-                body_type: if asteroid {
-                    CelestialBodyType::Asteroid
-                } else {
-                    CelestialBodyType::Planet
-                },
-                radius: if asteroid { radius * 0.5 } else { radius },
-                orbit: Orbit {
-                    origin: position,
+        let num_planet: i32 = rng.gen_range(1..3);
+        for i in 0..num_planet {
+            planets.push(Planet {
+                radius,
+                relative_orbit: common::orbit::RelativeOrbit {
                     distance,
-                    start_angle: TAU * i as f32 / num_body as f32 + start_angle_rand,
+                    start_angle: TAU * i as f32 / num_planet as f32 + start_angle_rand,
                     orbit_speed,
                 },
-                name: rng.gen::<u32>().to_string(),
                 temperature: 0.0,
                 faction: None,
                 population: 0,
@@ -116,11 +62,16 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
     let mut system = System {
         bound: used_radius + System::PADDING,
         position,
-        bodies,
+        star,
+        planets,
     };
 
     system.compute_temperature();
-    godot_print!("generated system with {} bodies.", system.bodies.len());
+    godot_print!(
+        "Generated {} system with {} planets.",
+        system.star.star_type.to_str(),
+        system.planets.len()
+    );
 
     system
 }

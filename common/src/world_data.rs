@@ -1,26 +1,38 @@
-use crate::{idx::*, orbit::Orbit, reputation::Reputation};
+use crate::{idx::*, orbit::RelativeOrbit, reputation::Reputation};
 use ahash::AHashMap;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Hash)]
-pub enum CelestialBodyType {
-    BlackHole,
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
+pub enum StarType {
     Star,
-    Planet,
-    Asteroid,
+    BlackHole,
+    Nebula,
 }
-impl CelestialBodyType {
+impl StarType {
     pub const BLACK_HOLE_FORCE: f32 = 10.0;
+    
+    pub fn to_str(self) -> &'static str {
+        match self {
+            StarType::Star => "star",
+            StarType::BlackHole => "black hole",
+            StarType::Nebula => "nebula",
+        }
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CelestialBody {
-    pub body_type: CelestialBodyType,
-    /// The body's radius.
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct Star {
+    pub star_type: StarType,
     pub radius: f32,
-    pub orbit: Orbit,
-    pub name: String,
+    pub temperature: f32,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct Planet {
+    pub radius: f32,
+    pub relative_orbit: RelativeOrbit,
     pub temperature: f32,
     pub faction: Option<FactionId>,
     pub population: u64,
@@ -32,12 +44,13 @@ pub struct System {
     pub bound: f32,
     /// The center of this `System` in world space.
     pub position: Vec2,
+    pub star: Star,
     /// Bodies are ordered by inner -> outter.
-    pub bodies: Vec<CelestialBody>,
+    pub planets: Vec<Planet>,
 }
 impl System {
     /// Extra radius added after the edge of the outtermost body of a system.
-    pub const PADDING: f32 = 20.0;
+    pub const PADDING: f32 = 18.0;
 
     /// Compute the temperature of bodies in this system.
     pub fn compute_temperature(&mut self) {

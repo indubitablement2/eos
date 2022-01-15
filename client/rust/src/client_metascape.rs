@@ -365,6 +365,7 @@ impl Metascape {
                         common::world_data::CelestialBodyType::Star => (1.0, 0.2, 0.0),
                         common::world_data::CelestialBodyType::Planet => (0.0, 0.5, 1.0),
                         common::world_data::CelestialBodyType::BlackHole => (0.0, 0.0, 0.0),
+                        common::world_data::CelestialBodyType::Asteroid => (0.5, 0.1, 0.0),
                     };
 
                     owner.draw_circle(

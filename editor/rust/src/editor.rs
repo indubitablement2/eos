@@ -188,11 +188,6 @@ impl Editor {
                         // Update selected system position.
                         system.position = mouse_pos;
 
-                        // Update its bodies origins.
-                        for body in system.bodies.iter_mut() {
-                            body.orbit.origin = system.position;
-                        }
-
                         update_internals(self);
                     }
                 }
@@ -392,20 +387,35 @@ fn render(editor: &Editor, owner: &Node2D) {
             },
         );
 
-        // Draw system's bodies.
-        for body in system.bodies.iter() {
-            if body.radius < draw_threshold {
+        if system.star.star_type != StarType::Nebula {
+            // Draw system's star.
+            let (r, g, b) = match system.star.star_type {
+                StarType::Star => (1.0, 0.2, 0.0),
+                StarType::BlackHole => (0.0, 0.0, 0.0),
+                StarType::Nebula => (0.0, 0.0, 0.0),
+            };
+
+            owner.draw_circle(
+                glam_to_godot(system.position),
+                system.star.radius.into(),
+                Color { r, g, b, a: 1.0 },
+            )
+        }
+
+        // Draw system's planet.
+        for planet in system.planets.iter() {
+            if planet.radius < draw_threshold {
                 continue;
             }
             // Draw bodies.
             owner.draw_circle(
-                glam_to_godot(body.orbit.to_position(time)),
-                body.radius.into(),
+                glam_to_godot(planet.relative_orbit.to_position(time, system.position)),
+                planet.radius.into(),
                 Color {
                     r: 1.0,
                     g: 1.0,
                     b: 0.0,
-                    a: 0.5,
+                    a: 1.0,
                 },
             );
         }

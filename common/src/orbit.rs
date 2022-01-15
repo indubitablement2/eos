@@ -3,9 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::f32::consts::TAU;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-pub struct Orbit {
-    /// Origin in world space this orbit is orbiting aound.
-    pub origin: Vec2,
+pub struct RelativeOrbit {
     /// The distance it is orbiting from the origin.
     pub distance: f32,
     /// The initial angle.
@@ -16,18 +14,52 @@ pub struct Orbit {
     /// Negative value result in counter clockwise rotation.
     pub orbit_speed: f32,
 }
+impl RelativeOrbit {
+    /// 8 sec for a full rotation if 1 time unit == 0.1 sec.
+    pub const DEFAULT_ORBIT_SPEED: f32 = 1.0 / (80.0 * TAU);
+
+    pub fn rotation(self, time: f32) -> f32 {
+        time.mul_add(self.orbit_speed, self.start_angle)
+    }
+
+    /// Return the relative position of this orbit.
+    ///
+    /// Time is an f32 to allow more granularity than tick. Otherwise `u32 as f32` will work just fine.
+    pub fn to_relative_position(self, time: f32) -> Vec2 {
+        let rot = self.rotation(time);
+        Vec2::new(rot.cos(), rot.sin()) * self.distance
+    }
+
+    pub fn to_position(self, time: f32, origin: Vec2) -> Vec2 {
+        self.to_relative_position(time) + origin
+    }
+
+    pub fn from_relative_position(
+        relative_position: Vec2,
+        time: f32,
+        distance: f32,
+        orbit_speed: f32,
+    ) -> Self {
+        Self {
+            distance,
+            start_angle: time.mul_add(-orbit_speed, relative_position.y.atan2(relative_position.x)),
+            orbit_speed,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+pub struct Orbit {
+    /// Origin in world space this orbit is orbiting aound.
+    pub origin: Vec2,
+    pub relative_orbit: RelativeOrbit,
+}
 impl Orbit {
-    /// 30 sec for a full rotation if 1 time unit == 0.1 sec.
-    pub const DEFAULT_ORBIT_SPEED: f32 = 1.0 / (300.0 * TAU);
-
-
     /// Return a stationary orbit at position.
     pub fn stationary(position: Vec2) -> Self {
         Self {
             origin: position,
-            distance: 0.0,
-            start_angle: 0.0,
-            orbit_speed: 0.0,
+            relative_orbit: RelativeOrbit::default(),
         }
     }
 
@@ -40,26 +72,15 @@ impl Orbit {
     ) -> Self {
         Self {
             origin,
-            distance,
-            start_angle: time.mul_add(-orbit_speed, relative_position.y.atan2(relative_position.x)),
-            orbit_speed,
+            relative_orbit: RelativeOrbit::from_relative_position(relative_position, time, distance, orbit_speed),
         }
-    }
-
-    pub fn rotation(self, time: f32) -> f32 {
-        time.mul_add(self.orbit_speed, self.start_angle)
     }
 
     /// Return the world position of this orbit.
     ///
     /// Time is an f32 to allow more granularity than tick. Otherwise `u32 as f32` will work just fine.
     pub fn to_position(self, time: f32) -> Vec2 {
-        if self.distance < 0.01 {
-            self.origin
-        } else {
-            let rot = self.rotation(time);
-            Vec2::new(rot.cos(), rot.sin()) * self.distance + self.origin
-        }
+        self.relative_orbit.to_position(time, self.origin)
     }
 }
 
