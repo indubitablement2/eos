@@ -86,6 +86,7 @@ impl Metascape {
 
     fn update(&mut self) {
         self.schedule.run_once(&mut self.world);
+        self.world.clear_trackers();
     }
 }
 
