@@ -518,7 +518,11 @@ fn update_detected_intersection_pipeline(
         if let Some(mut old_snapshot) = intersection_pipeline.outdated.take() {
             // Update all colliders.
             old_snapshot.clear();
-            old_snapshot.extend(query.iter().map(|(entity, position, detected_radius)| (Collider::new(detected_radius.0, position.0), entity)));
+            old_snapshot.extend(
+                query
+                    .iter()
+                    .map(|(entity, position, detected_radius)| (Collider::new(detected_radius.0, position.0), entity)),
+            );
 
             // Send snapshot to be updated.
             if let Err(err) = intersection_pipeline.update_request_sender.send(old_snapshot) {

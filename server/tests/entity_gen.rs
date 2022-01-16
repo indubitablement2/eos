@@ -13,7 +13,7 @@ fn test_entity_id() {
 
     let id2 = w.spawn().id();
     println!("{:?}, {:?}", id, id2);
-    
+
     assert_eq!(id.id(), id2.id());
     assert!(w.get_entity(id).is_none());
     assert!(w.get_entity(id2).is_some());
