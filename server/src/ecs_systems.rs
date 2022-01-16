@@ -13,7 +13,7 @@ use common::intersection::*;
 use common::orbit::*;
 use common::packets::*;
 use common::parameters::Parameters;
-use common::res_time::TimeRes;
+use common::time::Time;
 use common::world_data::WorldData;
 use glam::Vec2;
 
@@ -141,11 +141,11 @@ fn fleet_sensor(
     query_reputation: Query<&Reputations>,
     detected_intersection_pipeline: Res<DetectedIntersectionPipeline>,
     task_pool: Res<TaskPool>,
-    time_res: Res<TimeRes>,
+    time: Res<Time>,
     world_data: Res<WorldData>,
 ) {
     // We will only update one part every tick.
-    let turn = time_res.tick as u64 % DETECTED_UPDATE_INTERVAL;
+    let turn = time.tick as u64 % DETECTED_UPDATE_INTERVAL;
 
     query.par_for_each_mut(
         &task_pool,
@@ -239,8 +239,8 @@ fn handle_client_inputs(
 //* pre_update
 
 /// Change the position of entities that have an orbit.
-fn handle_orbit(mut query: Query<(&OrbitComp, &mut Position)>, time_res: Res<TimeRes>, task_pool: Res<TaskPool>) {
-    let time = time_res.as_time();
+fn handle_orbit(mut query: Query<(&OrbitComp, &mut Position)>, time: Res<Time>, task_pool: Res<TaskPool>) {
+    let time = time.as_time();
 
     query.par_for_each_mut(&task_pool, 4096, |(orbit_comp, mut position)| {
         position.0 = orbit_comp.0.to_position(time);
@@ -266,9 +266,9 @@ fn handle_idle(
     clients_res: Res<ClientsRes>,
     mut fleets_res: ResMut<FleetsRes>,
     fleet_idle: Res<EventRes<FleetIdle>>,
-    time_res: Res<TimeRes>,
+    time: Res<Time>,
 ) {
-    let time = time_res.as_time();
+    let time = time.as_time();
     while let Some(event) = fleet_idle.events.pop() {
         if let Ok((position, in_system, fleet_id_comp)) = query.get(event.entity) {
             let client_id = ClientId::from(fleet_id_comp.0);
@@ -539,7 +539,7 @@ fn send_detected_entity(
     query_changed_entity: Query<Entity, Changed<OrbitComp>>,
     query_fleet_info: Query<(&FleetIdComp, &Name, Option<&OrbitComp>)>,
     query_entity_state: Query<&Position, Without<OrbitComp>>,
-    time_res: Res<TimeRes>,
+    time: Res<Time>,
     clients_res: Res<ClientsRes>,
     task_pool: Res<TaskPool>,
 ) {
@@ -599,7 +599,7 @@ fn send_detected_entity(
                     know_entities.recycle_id(temp_id.to_owned());
                 }
                 let packet = Packet::EntitiesRemove(EntitiesRemove {
-                    tick: time_res.tick,
+                    tick: time.tick,
                     to_remove,
                 })
                 .serialize();
@@ -639,7 +639,7 @@ fn send_detected_entity(
 
                 // Send entities info.
                 let packet = Packet::EntitiesInfo(EntitiesInfo {
-                    tick: time_res.tick,
+                    tick: time.tick,
                     client_info,
                     infos,
                 })
@@ -649,7 +649,7 @@ fn send_detected_entity(
                 // Send entities state.
                 // TODO: Limit the number of entity to not go over packet size limit.
                 let packet = Packet::EntitiesState(EntitiesState {
-                    tick: time_res.tick,
+                    tick: time.tick,
                     client_entity_position: position.0,
                     relative_entities_position: know_entities
                         .known
@@ -671,7 +671,7 @@ fn send_detected_entity(
                 connection.flush_tcp_stream();
 
                 // Maybe recycle temp idx.
-                if time_res.tick % 10 == 0 {
+                if time.tick % 10 == 0 {
                     know_entities.recycle_pending_idx();
                 }
             }

@@ -16,7 +16,7 @@ pub mod orbit;
 pub mod packets;
 pub mod parameters;
 pub mod reputation;
-pub mod res_time;
+pub mod time;
 pub mod tcp_loops;
 pub mod world_data;
 

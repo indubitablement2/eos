@@ -10,7 +10,7 @@
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
 use common::parameters::Parameters;
-use common::res_time::TimeRes;
+use common::time::Time;
 use common::world_data::WorldData;
 use common::{idx::SystemId, intersection::*};
 use data_manager::DataManager;
@@ -50,7 +50,7 @@ impl Metascape {
         let mut world = World::new();
         ecs_events::add_event_res(&mut world);
         world.insert_resource(TaskPool::new());
-        world.insert_resource(TimeRes::default());
+        world.insert_resource(Time::default());
         world.insert_resource(DataManager::new());
         world.insert_resource(parameters);
         world.insert_resource(DetectedIntersectionPipeline(IntersectionPipeline::new()));
@@ -87,7 +87,10 @@ impl Metascape {
     fn update(&mut self) {
         self.schedule.run_once(&mut self.world);
         unsafe {
-            self.world.get_resource_unchecked_mut::<TimeRes>().unwrap_unchecked().increment();
+            self.world
+                .get_resource_unchecked_mut::<Time>()
+                .unwrap_unchecked()
+                .increment();
         }
         self.world.clear_trackers();
     }

@@ -1,9 +1,9 @@
-#[derive(Debug, Clone, Copy)]
-pub struct TimeRes {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub struct Time {
     pub tick: u32,
     pub total_tick: u64,
 }
-impl TimeRes {
+impl Time {
     pub fn increment(&mut self) {
         self.tick += 1;
         self.total_tick += 1;
@@ -11,10 +11,5 @@ impl TimeRes {
 
     pub fn as_time(self) -> f32 {
         self.tick as f32
-    }
-}
-impl Default for TimeRes {
-    fn default() -> Self {
-        Self { tick: 0, total_tick: 0 }
     }
 }
