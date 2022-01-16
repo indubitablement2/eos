@@ -164,7 +164,7 @@ fn fleet_sensor(
                 if fleet_id_comp.0.is_client() {
                     // Client fleet filter out themself.
                     for i in 0..entity_detected.0.len() {
-                        if entity_detected.0[i] == entity.id() {
+                        if entity_detected.0[i] == entity {
                             entity_detected.0.swap_remove(i);
                             break;
                         }
@@ -173,7 +173,7 @@ fn fleet_sensor(
                     if let Ok(rep) = query_reputation.get(entity) {
                         // AI fleet filter out allied.
                         entity_detected.0.drain_filter(|id| {
-                            if let Ok(other_rep) = query_reputation.get(Entity::from_raw(*id)) {
+                            if let Ok(other_rep) = query_reputation.get(*id) {
                                 !rep.get_relative_reputation(other_rep, &world_data.factions).is_enemy()
                             } else {
                                 debug!("An entity has a Detector, but no Reputations. Ignoring...");
@@ -517,11 +517,8 @@ fn update_detected_intersection_pipeline(
     if *last_update_delta > DETECTED_UPDATE_INTERVAL as u32 {
         if let Some(mut old_snapshot) = intersection_pipeline.outdated.take() {
             // Update all colliders.
-            old_snapshot.colliders.clear();
-            query.for_each(|(entity, position, detected_radius)| {
-                let new_collider = Collider::new(entity.id(), detected_radius.0, position.0);
-                old_snapshot.colliders.push(new_collider);
-            });
+            old_snapshot.clear();
+            old_snapshot.extend(query.iter().map(|(entity, position, detected_radius)| (Collider::new(detected_radius.0, position.0), entity)));
 
             // Send snapshot to be updated.
             if let Err(err) = intersection_pipeline.update_request_sender.send(old_snapshot) {
@@ -560,13 +557,12 @@ fn send_detected_entity(
                 entity_detected
                     .0
                     .iter()
-                    .map(|id| Entity::from_raw(*id))
                     .filter_map(|detected_entity| {
-                        if let Some(temp_id) = know_entities.known.remove(&detected_entity) {
+                        if let Some(temp_id) = know_entities.known.remove(detected_entity) {
                             // Client already know about this entity.
-                            updated.push((detected_entity, temp_id));
+                            updated.push((*detected_entity, temp_id));
                             // Check if the entity infos changed. Otherwise do nothing.
-                            if query_changed_entity.get(detected_entity).is_ok() {
+                            if query_changed_entity.get(*detected_entity).is_ok() {
                                 Some((temp_id, detected_entity))
                             } else {
                                 None
@@ -574,13 +570,13 @@ fn send_detected_entity(
                         } else {
                             // This is a new entity for the client.
                             let temp_id = know_entities.get_new_id();
-                            updated.push((detected_entity, temp_id));
+                            updated.push((*detected_entity, temp_id));
                             Some((temp_id, detected_entity))
                         }
                     })
                     .for_each(|(temp_id, entity)| {
                         // TODO: This should be a function that write directly into a buffer.
-                        if let Ok((fleet_id_comp, name, orbit_comp)) = query_fleet_info.get(entity) {
+                        if let Ok((fleet_id_comp, name, orbit_comp)) = query_fleet_info.get(*entity) {
                             infos.push((
                                 temp_id,
                                 EntityInfo {

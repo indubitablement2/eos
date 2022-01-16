@@ -220,7 +220,7 @@ pub struct DetectorRadius(pub f32);
 
 /// Entity id that are detected by this entity.
 #[derive(Debug, Clone, Default, Component)]
-pub struct EntityDetected(pub Vec<u32>);
+pub struct EntityDetected(pub Vec<Entity>);
 
 //* Idx
 
