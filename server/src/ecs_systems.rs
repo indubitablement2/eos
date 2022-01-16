@@ -7,7 +7,7 @@ use crate::res_fleets::*;
 use crate::DetectedIntersectionPipeline;
 use crate::SystemsAccelerationStructure;
 use bevy_ecs::prelude::*;
-use bevy_tasks::TaskPool;
+use bevy_tasks::ComputeTaskPool;
 use common::idx::*;
 use common::intersection::*;
 use common::orbit::*;
@@ -147,16 +147,13 @@ fn fleet_sensor(
     mut query: Query<(Entity, &FleetIdComp, &Position, &DetectorRadius, &mut EntityDetected)>,
     query_reputation: Query<&Reputations>,
     detected_intersection_pipeline: Res<DetectedIntersectionPipeline>,
-    task_pool: Res<TaskPool>,
     time: Res<Time>,
     world_data: Res<WorldData>,
 ) {
     // We will only update one part every tick.
     let turn = time.tick as u64 % DETECTED_UPDATE_INTERVAL;
 
-    query.par_for_each_mut(
-        &task_pool,
-        1024 * DETECTED_UPDATE_INTERVAL as usize,
+    query.for_each_mut(
         |(entity, fleet_id_comp, position, detector_radius, mut entity_detected)| {
             if fleet_id_comp.0 .0 % DETECTED_UPDATE_INTERVAL == turn {
                 let detector_collider = Collider::new(detector_radius.0, position.0);
@@ -200,9 +197,8 @@ fn handle_client_inputs(
     mut query: Query<(&ClientIdComp, &mut WishPosition)>,
     clients_res: Res<ClientsRes>,
     client_disconnected: Res<EventRes<ClientDisconnected>>,
-    task_pool: Res<TaskPool>,
 ) {
-    query.par_for_each_mut(&task_pool, 512, |(client_id_comp, mut wish_position)| {
+    query.for_each_mut(|(client_id_comp, mut wish_position)| {
         if let Some(connection) = clients_res.connected_clients.get(&client_id_comp.0) {
             loop {
                 match connection.inbound_receiver.try_recv() {
@@ -246,10 +242,10 @@ fn handle_client_inputs(
 //* pre_update
 
 /// Change the position of entities that have an orbit.
-fn handle_orbit(mut query: Query<(&OrbitComp, &mut Position)>, time: Res<Time>, task_pool: Res<TaskPool>) {
+fn handle_orbit(mut query: Query<(&OrbitComp, &mut Position)>, time: Res<Time>) {
     let time = time.as_time();
 
-    query.par_for_each_mut(&task_pool, 4096, |(orbit_comp, mut position)| {
+    query.for_each_mut(|(orbit_comp, mut position)| {
         position.0 = orbit_comp.0.to_position(time);
     })
 }
@@ -333,10 +329,8 @@ fn handle_idle(
 }
 
 /// TODO: Ai that control fleet owned by a colony.
-fn colony_fleet_ai(mut query: Query<(&mut ColonyFleetAI, &Position, &mut WishPosition)>, task_pool: Res<TaskPool>) {
-    query.par_for_each_mut(
-        &task_pool,
-        2048,
+fn colony_fleet_ai(mut query: Query<(&mut ColonyFleetAI, &Position, &mut WishPosition)>) {
+    query.for_each_mut(
         |(mut colony_fleet_ai, position, mut wish_position)| match &mut colony_fleet_ai.goal {
             ColonyFleetAIGoal::Trade { colony } => todo!(),
             ColonyFleetAIGoal::Guard { duration } => todo!(),
@@ -362,13 +356,10 @@ fn apply_fleet_movement(
     )>,
     parameters: Res<Parameters>,
     fleet_idle: Res<EventRes<FleetIdle>>,
-    task_pool: Res<TaskPool>,
 ) {
     let bound_squared = parameters.world_bound.powi(2);
 
-    query.par_for_each_mut(
-        &task_pool,
-        2048,
+    query.for_each_mut(
         |(entity, mut position, mut wish_position, mut velocity, derived_fleet_stats, mut idle_counter)| {
             if let Some(target) = wish_position.0 {
                 // A vector equal to our current velocity toward our target.
@@ -463,12 +454,11 @@ fn update_in_system(
     mut query: Query<(&FleetIdComp, &Position, &mut InSystem)>,
     world_data: Res<WorldData>,
     systems_acceleration_structure: Res<SystemsAccelerationStructure>,
-    task_pool: Res<TaskPool>,
     time: Res<Time>,
 ) {
     let turn = time.total_tick % 20;
 
-    query.par_for_each_mut(&task_pool, 4096, |(fleet_id_comp, position, mut in_system)| {
+    query.for_each_mut(|(fleet_id_comp, position, mut in_system)| {
         if fleet_id_comp.0 .0 % 20 == turn {
             match in_system.0 {
                 Some(system_id) => {
@@ -549,11 +539,11 @@ fn send_detected_entity(
     query_entity_state: Query<&Position, Without<OrbitComp>>,
     time: Res<Time>,
     clients_res: Res<ClientsRes>,
-    task_pool: Res<TaskPool>,
+    task_pool: Res<ComputeTaskPool>,
 ) {
     query_client.par_for_each_mut(
         &task_pool,
-        256,
+        512,
         |(entity, client_id_comp, position, entity_detected, mut know_entities)| {
             if let Some(connection) = clients_res.connected_clients.get(&client_id_comp.0) {
                 let know_entities = &mut *know_entities;

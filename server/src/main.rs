@@ -8,7 +8,7 @@
 #![feature(map_try_insert)]
 
 use bevy_ecs::prelude::*;
-use bevy_tasks::TaskPool;
+use bevy_tasks::{ComputeTaskPool, TaskPool};
 use common::parameters::Parameters;
 use common::time::Time;
 use common::world_data::WorldData;
@@ -49,7 +49,7 @@ impl Metascape {
     fn new(local: bool, parameters: Parameters) -> std::io::Result<Self> {
         let mut world = World::new();
         ecs_events::add_event_res(&mut world);
-        world.insert_resource(TaskPool::new());
+        world.insert_resource(ComputeTaskPool(TaskPool::new()));
         world.insert_resource(Time::default());
         world.insert_resource(DataManager::new());
         world.insert_resource(parameters);
