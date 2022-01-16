@@ -294,6 +294,25 @@ impl Editor {
     unsafe fn export_data(&mut self, _owner: &Node2D) -> PoolArray<u8> {
         export_data(&self.data)
     }
+
+    /// Return a bin the data.
+    #[export]
+    unsafe fn get_factions(&mut self, _owner: &Node2D) -> Dictionary<Unique> {
+        let outter = Dictionary::new();
+
+        for (faction_id, faction) in self.data.factions.iter() {
+            let inner = Dictionary::new();
+
+            inner.insert("name", faction.name.clone());
+            inner.insert("capital", faction.capital.is_some());
+            inner.insert("colonies", faction.colonies.len());
+            
+
+            outter.insert(faction_id.0, inner);
+        }
+
+        outter
+    }
 }
 
 fn update_internals(editor: &mut Editor) {

@@ -243,6 +243,24 @@ __meta__ = {
 "_edit_use_anchors_": false
 }
 
+[node name="HSeparator3" type="HSeparator" parent="CanvasLayer/Control/VBoxContainer"]
+margin_top = 228.0
+margin_right = 174.0
+margin_bottom = 232.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="FactionList" type="ItemList" parent="CanvasLayer/Control/VBoxContainer"]
+margin_top = 236.0
+margin_right = 174.0
+margin_bottom = 263.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+items = [ "faction test", null, false ]
+max_text_lines = 7
+auto_height = true
+
 [node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/Control"]
 anchor_top = 0.9
 anchor_bottom = 0.9

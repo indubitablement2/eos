@@ -60,7 +60,7 @@ impl System {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Faction {
-    pub display_name: String,
+    pub name: String,
     pub capital: Option<PlanetId>,
     pub colonies: AHashSet<PlanetId>,
     /// Reputation between factions.
