@@ -86,6 +86,9 @@ impl Metascape {
 
     fn update(&mut self) {
         self.schedule.run_once(&mut self.world);
+        unsafe {
+            self.world.get_resource_unchecked_mut::<TimeRes>().unwrap_unchecked().increment();
+        }
         self.world.clear_trackers();
     }
 }

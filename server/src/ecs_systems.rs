@@ -38,7 +38,6 @@ pub fn add_systems(schedule: &mut Schedule) {
     let current_stage = "update";
     schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
     schedule.add_system_to_stage(current_stage, apply_fleet_movement.system());
-    schedule.add_system_to_stage(current_stage, increment_time.system());
 
     let previous_stage = current_stage;
     let current_stage = "post_update";
@@ -413,10 +412,6 @@ fn apply_fleet_movement(
             position.0 += velocity.0;
         },
     );
-}
-
-fn increment_time(mut time_res: ResMut<TimeRes>) {
-    time_res.increment();
 }
 
 //* post_update
