@@ -11,7 +11,7 @@ pub enum StarType {
 }
 impl StarType {
     pub const BLACK_HOLE_FORCE: f32 = 10.0;
-    
+
     pub fn to_str(self) -> &'static str {
         match self {
             StarType::Star => "star",
@@ -20,7 +20,6 @@ impl StarType {
         }
     }
 }
-
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Star {
@@ -53,9 +52,7 @@ impl System {
     pub const PADDING: f32 = 18.0;
 
     /// Compute the temperature of bodies in this system.
-    pub fn compute_temperature(&mut self) {
-
-    }
+    pub fn compute_temperature(&mut self) {}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

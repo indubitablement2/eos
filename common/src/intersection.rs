@@ -2,28 +2,17 @@ use ahash::AHashSet;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use glam::Vec2;
 use std::thread::spawn;
+use std::u32;
 extern crate test;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Collider {
-    /// Set by the user. It is not used for any computation.
-    /// It is simply what is returned after an intersection test.
-    pub id: u32,
     pub radius: f32,
     pub position: Vec2,
 }
 impl Collider {
-    pub fn new(id: u32, radius: f32, position: Vec2) -> Self {
-        Self { id, radius, position }
-    }
-
-    /// Create a new collider with an id of 0.
-    pub fn new_idless(radius: f32, position: Vec2) -> Self {
-        Self {
-            id: 0,
-            radius,
-            position,
-        }
+    pub fn new(radius: f32, position: Vec2) -> Self {
+        Self { radius, position }
     }
 
     pub fn top(self) -> f32 {
@@ -116,8 +105,12 @@ impl Default for SAPRow {
 /// After any modification, and until it is updated,
 /// any test result will at best be meaningless or at worst will cause a panic due to out of bound array index.
 #[derive(Debug)]
-pub struct AccelerationStructure {
-    pub colliders: Vec<Collider>,
+pub struct AccelerationStructure<T>
+where
+    T: Sized + Send + Copy + 'static,
+{
+    colliders: Vec<Collider>,
+    custom_data: Vec<T>,
     /// The top of the first row.
     rows_top: f32,
     /// The bot of the last row
@@ -128,15 +121,40 @@ pub struct AccelerationStructure {
     /// Rows are sorted on the y axis. From top to bottom.
     rows: Vec<SAPRow>,
 }
-impl AccelerationStructure {
+impl<T> Extend<(Collider, T)> for AccelerationStructure<T>
+where
+    T: Sized + Send + Copy + 'static,
+{
+    fn extend<I: IntoIterator<Item = (Collider, T)>>(&mut self, iter: I) {
+        for (collider, data) in iter {
+            self.colliders.push(collider);
+            self.custom_data.push(data);
+        }
+    }
+}
+impl<T> AccelerationStructure<T>
+where
+    T: Sized + Send + Copy + 'static,
+{
     pub fn new() -> Self {
         Self {
             colliders: Vec::new(),
+            custom_data: Vec::new(),
             rows_top: 0.0,
             rows_bot: 0.0,
             rows_lenght: 0.0,
             rows: vec![SAPRow::default()],
         }
+    }
+
+    pub fn push(&mut self, collider: Collider, data: T) {
+        self.colliders.push(collider);
+        self.custom_data.push(data);
+    }
+
+    pub fn clear(&mut self) {
+        self.colliders.clear();
+        self.custom_data.clear();
     }
 
     /// This function is expensive and warrant its own thread (see `IntersectionPipeline`).
@@ -234,15 +252,28 @@ impl AccelerationStructure {
         ((y_postion.min(self.rows_bot) - self.rows_top) / self.rows_lenght) as usize
     }
 
-    /// Get all colliders that should be tested.
-    fn get_colliders_to_test(&self, collider: Collider) -> AHashSet<u32> {
-        let mut to_test = AHashSet::new();
+    /// Brute test a collider against every collider until one return true.
+    /// Useful for debug.
+    pub fn test_collider_brute(&self, collider: Collider) -> bool {
+        for other in self.colliders.iter() {
+            if collider.intersection_test(*other) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Return all colliders that intersect the provided collider.
+    pub fn intersect_collider_into(&self, collider: Collider, buffer: &mut Vec<T>) {
+        buffer.clear();
 
         let first_overlapping_row = self.find_row_at_position(collider.top());
 
         if first_overlapping_row >= self.rows.len() {
-            return to_test;
+            return;
         }
+
+        let mut seen = AHashSet::new();
 
         let collider_bot = collider.bot();
         let mut row_top = self.rows_lenght.mul_add(first_overlapping_row as f32, self.rows_top);
@@ -264,8 +295,65 @@ impl AccelerationStructure {
                 let other = self.colliders[*i as usize];
                 if other.position.x > right_threshold {
                     break;
+                } else if seen.insert(*i) {
+                    if collider.intersection_test(other) {
+                        buffer.push(self.custom_data[*i as usize]);
+                    }
                 }
-                to_test.insert(*i);
+            }
+
+            if collider_bot < row_bot {
+                break;
+            }
+            row_bot += self.rows_lenght;
+            row_top += self.rows_lenght;
+        }
+    }
+
+    /// Return all colliders that intersect the provided collider.
+    ///
+    /// See `intersect_collider_into()` if you want to reuse the buffer to store the result.
+    pub fn intersect_collider(&self, collider: Collider) -> Vec<T> {
+        let mut buffer = Vec::new();
+        self.intersect_collider_into(collider, &mut buffer);
+        buffer
+    }
+
+    /// Return the first collider intersecting the provided collider if any.
+    pub fn intersect_collider_first(&self, collider: Collider) -> Option<T> {
+        let first_overlapping_row = self.find_row_at_position(collider.top());
+
+        if first_overlapping_row >= self.rows.len() {
+            return None;
+        }
+
+        let mut seen = AHashSet::new();
+
+        let collider_bot = collider.bot();
+        let mut row_top = self.rows_lenght.mul_add(first_overlapping_row as f32, self.rows_top);
+        let mut row_bot = row_top + self.rows_lenght;
+        for row in &self.rows[first_overlapping_row..] {
+            // This is used instead of the collider's radius as it is smaller.
+            let threshold = collider.biggest_slice_within_row(row_top, row_bot);
+
+            // The furthest we should look to the left and right.
+            let left_threshold = collider.position.x - row.threshold - threshold;
+            let right_threshold = collider.position.x + row.threshold + threshold;
+
+            let left_index = row
+                .data
+                .partition_point(|i| self.colliders[*i as usize].position.x < left_threshold);
+
+            // Look from left to right.
+            for i in &row.data[left_index..] {
+                let other = self.colliders[*i as usize];
+                if other.position.x > right_threshold {
+                    break;
+                } else if seen.insert(*i) {
+                    if collider.intersection_test(other) {
+                        return Some(self.custom_data[*i as usize]);
+                    }
+                }
             }
 
             if collider_bot < row_bot {
@@ -275,110 +363,53 @@ impl AccelerationStructure {
             row_top += self.rows_lenght;
         }
 
-        to_test
-    }
-
-    /// Get all colliders that should be tested.
-    ///
-    /// This version is for point and is a little faster.
-    fn get_colliders_to_test_point(&self, point: Vec2) -> AHashSet<u32> {
-        let mut to_test = AHashSet::new();
-
-        let overlapping_row = self.find_row_at_position(point.y);
-
-        if let Some(row) = self.rows.get(overlapping_row) {
-            // The furthest we should look to the left and right.
-            let left_threshold = point.x - row.threshold;
-            let right_threshold = point.x + row.threshold;
-
-            let left_index = row
-                .data
-                .partition_point(|i| self.colliders[*i as usize].position.x < left_threshold);
-
-            // Look from left to right.
-            for i in &row.data[left_index..] {
-                let other = self.colliders[*i as usize];
-                if other.position.x > right_threshold {
-                    break;
-                }
-                to_test.insert(*i);
-            }
-        }
-
-        to_test
-    }
-
-    /// Brute test a collider against every collider until one return true. Useful for debug.
-    pub fn test_collider_brute(&self, collider: Collider) -> bool {
-        for other in self.colliders.iter() {
-            if collider.intersection_test(*other) {
-                return true;
-            }
-        }
-        false
-    }
-
-    /// Test if a any collider intersect the provided collider.
-    pub fn test_collider(&self, collider: Collider) -> bool {
-        for i in self.get_colliders_to_test(collider).into_iter() {
-            if collider.intersection_test(self.colliders[i as usize]) {
-                return true;
-            }
-        }
-
-        false
-    }
-
-    /// Return all colliders that intersect the provided collider.
-    pub fn intersect_collider_into(&self, collider: Collider, buffer: &mut Vec<u32>) {
-        buffer.clear();
-        for i in self.get_colliders_to_test(collider).into_iter() {
-            let other = self.colliders[i as usize];
-            if collider.intersection_test(other) {
-                buffer.push(other.id);
-            }
-        }
-    }
-
-    /// Return all colliders that intersect the provided collider.
-    ///
-    /// See `intersect_collider_into()` if you want to reuse the buffer to store the result.
-    pub fn intersect_collider(&self, collider: Collider) -> Vec<u32> {
-        let mut buffer = Vec::new();
-        for i in self.get_colliders_to_test(collider).into_iter() {
-            let other = self.colliders[i as usize];
-            if collider.intersection_test(other) {
-                buffer.push(other.id);
-            }
-        }
-        buffer
-    }
-
-    /// Test if any collider intersect with the provided point.
-    pub fn test_point(&self, point: Vec2) -> bool {
-        for i in self.get_colliders_to_test_point(point).into_iter() {
-            if self.colliders[i as usize].intersection_test_point(point) {
-                return true;
-            }
-        }
-
-        false
+        None
     }
 
     /// Return all colliders that intersect the provided point.
     /// Buffer will containt the result.
-    pub fn intersect_point_into(&self, point: Vec2, buffer: &mut Vec<u32>) {
-        for i in self.get_colliders_to_test_point(point).into_iter() {
-            let other = self.colliders[i as usize];
-            if other.intersection_test_point(point) {
-                buffer.push(other.id);
+    pub fn intersect_point_into(&self, point: Vec2, buffer: &mut Vec<T>) {
+        buffer.clear();
+
+        let mut seen = AHashSet::new();
+
+        let overlapping_row = self.find_row_at_position(point.y);
+
+        if let Some(row) = self.rows.get(overlapping_row) {
+            // The furthest we should look to the left and right.
+            let left_threshold = point.x - row.threshold;
+            let right_threshold = point.x + row.threshold;
+
+            let left_index = row
+                .data
+                .partition_point(|i| self.colliders[*i as usize].position.x < left_threshold);
+
+            // Look from left to right.
+            for i in &row.data[left_index..] {
+                let other = self.colliders[*i as usize];
+                if other.position.x > right_threshold {
+                    break;
+                } else if seen.insert(*i) {
+                    if other.intersection_test_point(point) {
+                        buffer.push(self.custom_data[*i as usize]);
+                    }
+                }
             }
         }
     }
 
+    /// Return all colliders that intersect the provided point.
+    ///
+    /// See `intersect_point_into()` if you want to reuse the buffer to store the result.
+    pub fn intersect_point(&self, point: Vec2) -> Vec<T> {
+        let mut buffer = Vec::new();
+        self.intersect_point_into(point, &mut buffer);
+        buffer
+    }
+
     /// Return the first collider intersecting this point if any.
-    pub fn intersect_point_single(&self, point: Vec2) -> Option<u32> {
-        let mut to_test = AHashSet::new();
+    pub fn intersect_point_first(&self, point: Vec2) -> Option<T> {
+        let mut seen = AHashSet::new();
 
         let overlapping_row = self.find_row_at_position(point.y);
 
@@ -397,10 +428,9 @@ impl AccelerationStructure {
                 if other.position.x > right_threshold {
                     break;
                 }
-                if to_test.insert(*i) {
-                    let other = self.colliders[*i as usize];
+                if seen.insert(*i) {
                     if other.intersection_test_point(point) {
-                        return Some(other.id);
+                        return Some(self.custom_data[*i as usize]);
                     }
                 }
             }
@@ -429,20 +459,26 @@ impl AccelerationStructure {
 /// the other is being updated. Update are therefore fully async, but there is a delay before changes take effect.
 /// If you want no delay, use the `AccelerationStructure` directly.
 #[derive(Debug)]
-pub struct IntersectionPipeline {
-    pub update_request_sender: Sender<AccelerationStructure>,
-    pub update_result_receiver: Receiver<AccelerationStructure>,
-    pub snapshot: AccelerationStructure,
+pub struct IntersectionPipeline<T>
+where
+    T: Sized + Send + Copy + 'static,
+{
+    pub update_request_sender: Sender<AccelerationStructure<T>>,
+    pub update_result_receiver: Receiver<AccelerationStructure<T>>,
+    pub snapshot: AccelerationStructure<T>,
     /// A place to park another `AccelerationStructure`,
     /// if you want to wait before requesting another update.
-    pub outdated: Option<AccelerationStructure>,
+    pub outdated: Option<AccelerationStructure<T>>,
 }
-impl IntersectionPipeline {
+impl<T> IntersectionPipeline<T>
+where
+    T: Sized + Send + Copy + 'static,
+{
     pub fn new() -> Self {
         let (update_request_sender, update_request_receiver) = bounded(0);
         let (update_result_sender, update_result_receiver) = bounded(0);
 
-        spawn(move || runner_loop(update_request_receiver, update_result_sender));
+        spawn(move || Self::runner_loop(update_request_receiver, update_result_sender));
 
         Self {
             update_request_sender,
@@ -459,7 +495,7 @@ impl IntersectionPipeline {
         let (update_request_sender, update_request_receiver) = bounded(0);
         let (update_result_sender, update_result_receiver) = bounded(0);
 
-        spawn(move || runner_loop(update_request_receiver, update_result_sender));
+        spawn(move || Self::runner_loop(update_request_receiver, update_result_sender));
 
         if self.outdated.is_none() {
             self.outdated = Some(AccelerationStructure::new());
@@ -468,118 +504,18 @@ impl IntersectionPipeline {
         self.update_request_sender = update_request_sender;
         self.update_result_receiver = update_result_receiver;
     }
-}
 
-fn runner_loop(
-    update_request_receiver: Receiver<AccelerationStructure>,
-    update_result_sender: Sender<AccelerationStructure>,
-) {
-    while let Ok(mut acceleration_structure) = update_request_receiver.recv() {
-        acceleration_structure.update();
-        if update_result_sender.send(acceleration_structure).is_err() {
-            break;
+    fn runner_loop(
+        update_request_receiver: Receiver<AccelerationStructure<T>>,
+        update_result_sender: Sender<AccelerationStructure<T>>,
+    ) {
+        while let Ok(mut acceleration_structure) = update_request_receiver.recv() {
+            acceleration_structure.update();
+            if update_result_sender.send(acceleration_structure).is_err() {
+                break;
+            }
         }
     }
-}
-
-#[test]
-fn test_basic() {
-    use glam::vec2;
-
-    let mut intersection_pipeline = IntersectionPipeline::new();
-
-    // Empty.
-    assert!(!intersection_pipeline
-        .snapshot
-        .test_collider(Collider::new(0, 10.0, vec2(0.0, 0.0))));
-
-    // Basic test.
-    intersection_pipeline
-        .snapshot
-        .colliders
-        .push(Collider::new_idless(10.0, vec2(0.0, 0.0)));
-    intersection_pipeline.snapshot.update();
-    println!("{:?}\n", &intersection_pipeline.snapshot);
-    assert!(intersection_pipeline
-        .snapshot
-        .test_collider(Collider::new(0, 10.0, vec2(-4.0, 0.0))));
-    assert!(intersection_pipeline
-        .snapshot
-        .test_collider(Collider::new(0, 10.0, vec2(4.0, 0.0))));
-}
-
-#[test]
-fn test_random() {
-    use rand::random;
-
-    // Random test.
-    for _ in 0..1000 {
-        let mut intersection_pipeline = IntersectionPipeline::new();
-
-        intersection_pipeline.snapshot.colliders.push(Collider::new_idless(
-            random::<f32>() * 16.0,
-            random::<Vec2>() * 64.0 - 32.0,
-        ));
-        intersection_pipeline.snapshot.update();
-
-        let other = Collider::new_idless(random::<f32>() * 16.0, random::<Vec2>() * 64.0 - 32.0);
-
-        assert_eq!(
-            intersection_pipeline.snapshot.test_collider(other),
-            intersection_pipeline.snapshot.test_collider_brute(other),
-            "\n{:?}\n\n{:?}\n",
-            &intersection_pipeline.snapshot,
-            other
-        );
-    }
-}
-
-#[test]
-fn test_random_point() {
-    use rand::random;
-
-    // Random test.
-    for _ in 0..1000 {
-        let mut intersection_pipeline = IntersectionPipeline::new();
-
-        intersection_pipeline.snapshot.colliders.push(Collider::new_idless(
-            random::<f32>() * 16.0,
-            random::<Vec2>() * 64.0 - 32.0,
-        ));
-        intersection_pipeline.snapshot.update();
-
-        let point = random::<Vec2>() * 64.0 - 32.0;
-        let other = Collider::new_idless(0.0, point);
-
-        assert_eq!(
-            intersection_pipeline.snapshot.test_point(point),
-            intersection_pipeline.snapshot.test_collider_brute(other),
-            "\n{:?}\n\n{:?}\n",
-            &intersection_pipeline.snapshot,
-            other
-        );
-    }
-}
-
-#[test]
-fn test_overlap_colliders() {
-    let mut intersection_pipeline = IntersectionPipeline::new();
-
-    let collider = Collider::new_idless(10.0, Vec2::ZERO);
-
-    for i in 0..10 {
-        let collider_copy = Collider::new(i, collider.radius, collider.position);
-
-        intersection_pipeline.snapshot.colliders.push(collider_copy);
-    }
-
-    intersection_pipeline.snapshot.update();
-
-    let mut result = Vec::new();
-    intersection_pipeline
-        .snapshot
-        .intersect_collider_into(collider, &mut result);
-    assert_eq!(10, result.len(),);
 }
 
 #[test]
@@ -587,61 +523,55 @@ fn test_random_colliders() {
     use rand::random;
 
     // Random test.
-    for _ in 0..1000 {
-        let mut intersection_pipeline = IntersectionPipeline::new();
+    for _ in 0..10000 {
+        let mut acc: AccelerationStructure<u32> = AccelerationStructure::new();
 
-        let og_collider = Collider::new_idless(random::<f32>() * 16.0, random::<Vec2>() * 64.0 - 32.0);
+        let og_collider = Collider::new(random::<f32>() * 16.0, random::<Vec2>() * 64.0 - 32.0);
 
         let mut expected_result = Vec::new();
 
         // Add colliders.
-        for i in 0..32 {
-            let new_collider = Collider::new(i, random::<f32>() * 16.0, random::<Vec2>() * 64.0 - 32.0);
-            intersection_pipeline.snapshot.colliders.push(new_collider);
+        for i in 0..random::<u32>() % 64 {
+            let new_collider = Collider::new(random::<f32>() * 16.0, random::<Vec2>() * 64.0 - 32.0);
+            acc.push(new_collider, i);
 
             if og_collider.intersection_test(new_collider) {
-                expected_result.push(new_collider.id);
+                expected_result.push(i);
             }
         }
 
         expected_result.sort();
 
-        intersection_pipeline.snapshot.update();
+        acc.update();
 
-        let mut result = Vec::new();
-        intersection_pipeline
-            .snapshot
-            .intersect_collider_into(og_collider, &mut result);
+        let mut result = acc.intersect_collider(og_collider);
         result.sort();
 
         assert_eq!(result, expected_result, "\n{:?}\n\n{:?}\n", result, expected_result);
     }
 }
 
-/// 3200 ns
+/// v0.0.1 3200 ns
+/// v0.0.2 2450 ns
 #[bench]
-fn bench_intersect_collider_into(b: &mut test::Bencher) {
+fn bench_intersect_collider(b: &mut test::Bencher) {
     use rand::Rng;
     use test::black_box;
 
     // Create a large random intersection pipeline.
     let mut rng = rand::thread_rng();
-    let mut intersection_pipeline = IntersectionPipeline::new();
+    let mut acc: AccelerationStructure<u32> = AccelerationStructure::new();
     for i in 0..5000 {
-        intersection_pipeline.snapshot.colliders.push(Collider::new(
+        acc.push(
+            Collider::new(rng.gen::<f32>() * 32.0, rng.gen::<Vec2>() * 1024.0 - 512.0),
             i,
-            rng.gen::<f32>() * 32.0,
-            rng.gen::<Vec2>() * 1024.0 - 512.0,
-        ));
+        );
     }
-    intersection_pipeline.snapshot.update();
+    acc.update();
 
     b.iter(|| {
-        let collider = Collider::new_idless(rng.gen::<f32>() * 32.0, rng.gen::<Vec2>() * 1024.0 - 512.0);
-        let mut result = Vec::new();
-        intersection_pipeline
-            .snapshot
-            .intersect_collider_into(collider, &mut result);
+        let collider = Collider::new(rng.gen::<f32>() * 32.0, rng.gen::<Vec2>() * 1024.0 - 512.0);
+        let result = acc.intersect_collider(collider);
         black_box(result);
     });
 }

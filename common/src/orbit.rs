@@ -34,12 +34,7 @@ impl RelativeOrbit {
         self.to_relative_position(time) + origin
     }
 
-    pub fn from_relative_position(
-        relative_position: Vec2,
-        time: f32,
-        distance: f32,
-        orbit_speed: f32,
-    ) -> Self {
+    pub fn from_relative_position(relative_position: Vec2, time: f32, distance: f32, orbit_speed: f32) -> Self {
         Self {
             distance,
             start_angle: time.mul_add(-orbit_speed, relative_position.y.atan2(relative_position.x)),
