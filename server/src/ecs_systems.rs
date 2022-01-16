@@ -17,35 +17,40 @@ use common::time::Time;
 use common::world_data::WorldData;
 use glam::Vec2;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+enum Label {
+    Movement,
+    DetectedPipelineUpdate,
+}
+
 const DETECTED_UPDATE_INTERVAL: u64 = 5;
 
 pub fn add_systems(schedule: &mut Schedule) {
-    let current_stage = "first";
-    schedule.add_stage(current_stage, SystemStage::parallel());
-    schedule.add_system_to_stage(current_stage, get_new_clients.system());
-    schedule.add_system_to_stage(current_stage, fleet_sensor.system());
-    schedule.add_system_to_stage(current_stage, handle_client_inputs.system());
+    schedule.add_stage("", SystemStage::parallel());
+    schedule.add_system_to_stage("", get_new_clients);
 
-    let previous_stage = current_stage;
-    let current_stage = "pre_update";
-    schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
-    schedule.add_system_to_stage(current_stage, handle_orbit.system());
-    schedule.add_system_to_stage(current_stage, remove_orbit.system());
-    schedule.add_system_to_stage(current_stage, handle_idle.system());
-    schedule.add_system_to_stage(current_stage, colony_fleet_ai.system());
+    schedule.add_system_to_stage("", handle_orbit);
+    schedule.add_system_to_stage("", remove_orbit);
+    schedule.add_system_to_stage("", handle_idle);
 
-    let previous_stage = current_stage;
-    let current_stage = "update";
-    schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
-    schedule.add_system_to_stage(current_stage, apply_fleet_movement.system());
+    schedule.add_system_to_stage("", update_in_system);
 
-    let previous_stage = current_stage;
-    let current_stage = "post_update";
-    schedule.add_stage_after(previous_stage, current_stage, SystemStage::parallel());
-    schedule.add_system_to_stage(current_stage, disconnect_client.system());
-    schedule.add_system_to_stage(current_stage, update_in_system.system());
-    schedule.add_system_to_stage(current_stage, update_detected_intersection_pipeline.system());
-    schedule.add_system_to_stage(current_stage, send_detected_entity.system());
+    schedule.add_system_to_stage("", handle_client_inputs.before(Label::Movement));
+    schedule.add_system_to_stage("", colony_fleet_ai.before(Label::Movement));
+
+    schedule.add_system_to_stage("", apply_fleet_movement.label(Label::Movement));
+
+    schedule.add_system_to_stage("", fleet_sensor.before(Label::DetectedPipelineUpdate));
+    schedule.add_system_to_stage(
+        "",
+        update_detected_intersection_pipeline
+            .label(Label::DetectedPipelineUpdate)
+            .after(Label::Movement),
+    );
+
+    schedule.add_system_to_stage("", send_detected_entity.after(Label::Movement));
+
+    schedule.add_system_to_stage("", disconnect_client);
 }
 
 //* first
@@ -58,6 +63,8 @@ fn get_new_clients(
     mut fleets_res: ResMut<FleetsRes>,
     mut data_manager: ResMut<DataManager>,
 ) {
+    // TODO: Only do a few each tick.
+    // TODO: Send notice to the rest of the wait queue.
     while let Ok(connection) = clients_res.connection_manager.new_connection_receiver.try_recv() {
         let client_id = connection.client_id;
         let fleet_id = FleetId::from(client_id);
@@ -416,7 +423,8 @@ fn apply_fleet_movement(
 
 //* post_update
 
-/// Remove a client from connected client map and trigger idle event again if to remove the fleet.
+/// Remove a client from connected client map and trigger idle event again if already idle to remove the fleet.
+/// TODO: This is janky.
 fn disconnect_client(
     mut query: Query<&mut IdleCounter>,
     mut clients_res: ResMut<ClientsRes>,
@@ -456,12 +464,12 @@ fn update_in_system(
     world_data: Res<WorldData>,
     systems_acceleration_structure: Res<SystemsAccelerationStructure>,
     task_pool: Res<TaskPool>,
-    mut turn: Local<u64>,
+    time: Res<Time>,
 ) {
-    *turn = (*turn + 1) % 20;
+    let turn = time.total_tick % 20;
 
     query.par_for_each_mut(&task_pool, 4096, |(fleet_id_comp, position, mut in_system)| {
-        if fleet_id_comp.0 .0 % 20 == *turn {
+        if fleet_id_comp.0 .0 % 20 == turn {
             match in_system.0 {
                 Some(system_id) => {
                     if let Some(system) = world_data.systems.get(&system_id) {
