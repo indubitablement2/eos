@@ -9,7 +9,7 @@
 
 use bevy_ecs::prelude::*;
 use bevy_tasks::TaskPool;
-use common::intersection::*;
+use common::{intersection::*, idx::SystemId};
 use common::parameters::Parameters;
 use common::res_time::TimeRes;
 use common::world_data::WorldData;
@@ -36,10 +36,10 @@ extern crate log;
 
 /// An acceleration structure that contain the systems bounds.
 /// It is never updated at runtime.
-pub struct SystemsAccelerationStructure(pub AccelerationStructure);
+pub struct SystemsAccelerationStructure(pub AccelerationStructure<SystemId>);
 
 /// Acceleration structure with the `detected` colliders.
-pub struct DetectedIntersectionPipeline(pub IntersectionPipeline);
+pub struct DetectedIntersectionPipeline(pub IntersectionPipeline<Entity>);
 
 pub struct Metascape {
     world: World,
@@ -72,10 +72,10 @@ impl Metascape {
 
         // Create an acceleration structure for systems.
         let mut acc = AccelerationStructure::new();
-        acc.colliders.extend(
+        acc.extend(
             wd.systems
                 .iter()
-                .map(|(system_id, system)| Collider::new(system_id.0, system.bound, system.position)),
+                .map(|(system_id, system)| (Collider::new(system.bound, system.position), system_id.to_owned())),
         );
         acc.update();
 

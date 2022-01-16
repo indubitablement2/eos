@@ -66,7 +66,7 @@ pub struct Metascape {
     configs: Configs,
 
     world_data: WorldData,
-    systems_acceleration: AccelerationStructure,
+    systems_acceleration: AccelerationStructure<SystemId>,
 
     /// Send input to server. Receive command from server.
     connection_manager: ConnectionManager,
@@ -114,11 +114,11 @@ impl Metascape {
 
         // Create acceleration structure.
         let mut systems_acceleration = AccelerationStructure::new();
-        systems_acceleration.colliders.extend(
+        systems_acceleration.extend(
             world_data
                 .systems
                 .iter()
-                .map(|(id, system)| Collider::new(id.0, system.bound, system.position)),
+                .map(|(system_id, system)| (Collider::new(system.bound, system.position), system_id.to_owned())),
         );
         systems_acceleration.update();
 
@@ -362,12 +362,11 @@ impl Metascape {
         );
 
         // Debug draw systems.
-        let screen_collider = Collider::new_idless(self.configs.system_draw_distance, pos);
+        let screen_collider = Collider::new(self.configs.system_draw_distance, pos);
         for system_id in self
             .systems_acceleration
             .intersect_collider(screen_collider)
             .into_iter()
-            .map(|id| SystemId(id))
         {
             if let Some(system) = self.world_data.systems.get(&system_id) {
                 // Draw system bound.

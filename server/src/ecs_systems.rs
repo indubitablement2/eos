@@ -153,7 +153,7 @@ fn fleet_sensor(
         1024 * DETECTED_UPDATE_INTERVAL as usize,
         |(entity, fleet_id_comp, position, detector_radius, mut entity_detected)| {
             if fleet_id_comp.0 .0 % DETECTED_UPDATE_INTERVAL == turn {
-                let detector_collider = Collider::new_idless(detector_radius.0, position.0);
+                let detector_collider = Collider::new(detector_radius.0, position.0);
 
                 detected_intersection_pipeline
                     .0
@@ -478,8 +478,8 @@ fn update_in_system(
                     }
                 }
                 None => {
-                    if let Some(id) = systems_acceleration_structure.0.intersect_point_single(position.0) {
-                        in_system.0 = Some(SystemId(id as u32));
+                    if let Some(system_id) = systems_acceleration_structure.0.intersect_point_first(position.0) {
+                        in_system.0 = Some(system_id);
                     }
                 }
             }
