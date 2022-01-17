@@ -45,7 +45,6 @@ impl ConnectionAttempt {
 
         let task_handle = rt.spawn(login_task(server_address, token, result_sender));
 
-        info!("Connection manager connected to server.");
         Ok(Self {
             rt,
             result_receiver,
