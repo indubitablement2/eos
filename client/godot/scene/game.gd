@@ -13,7 +13,7 @@ onready var def_tex := ImageTexture.new()
 onready var tex_rid := SpritePacker.tex.get_rid()
 
 func _ready() -> void:
-	$Client.connect_to_server("::1", 2)
+	$Client.connect("ConnectionResult", self, "_on_connection_result")
 #	var gen_img = preload("res://assets/debug/target.png").get_data()
 #	var gen_img := Image.new()
 #	gen_img.load("res://assets/generation/galaxy_gen.png")
@@ -92,7 +92,11 @@ func _init_mat() -> void:
 
 
 func _on_Button_pressed() -> void:
-	var result = $Game.connect_to_server()
-	print("Connection result: " + str(result))
+	var result = $Client.connect_to_server("::1", 2)
+	print("Connection start result: " + str(result))
+	if result:
+		$Button.hide()
+
+func _on_connection_result(result: bool) -> void:
 	if result:
 		$Button.hide()

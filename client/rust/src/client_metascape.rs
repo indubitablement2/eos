@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::configs::Configs;
 use crate::connection_manager::ConnectionManager;
 use crate::constants::GAME_TO_GODOT_RATIO;
@@ -77,7 +79,7 @@ pub struct Metascape {
     /// How far are from current to next tick.
     delta: f32,
     /// Multiply how fast tick increment.
-    time_multiplier: f32,
+    pub time_multiplier: f32,
     /// The last tick received from the server.
     max_tick: u32,
 

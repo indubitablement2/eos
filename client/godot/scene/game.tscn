@@ -26,10 +26,10 @@ texture = ExtResource( 5 )
 script = ExtResource( 1 )
 
 [node name="Button" type="Button" parent="."]
-margin_left = -358.0
-margin_top = -261.0
-margin_right = -59.0
-margin_bottom = -41.0
+margin_left = -467.0
+margin_top = 26.0
+margin_right = -168.0
+margin_bottom = 246.0
 text = "try connect"
 __meta__ = {
 "_edit_use_anchors_": false

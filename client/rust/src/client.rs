@@ -1,6 +1,7 @@
 use crate::client_metascape::Metascape;
 use crate::configs::Configs;
 use crate::connection_manager::ConnectionAttempt;
+use crate::debug_infos::DebugInfos;
 use crate::input_handler::PlayerInputs;
 use gdnative::api::*;
 use gdnative::prelude::*;
@@ -13,6 +14,7 @@ pub struct Client {
     configs: Configs,
     metascape: Option<Metascape>,
     connection_attempt: Option<ConnectionAttempt>,
+    debug_infos: DebugInfos,
 }
 
 #[methods]
@@ -27,6 +29,7 @@ impl Client {
             configs: Configs::default(),
             metascape: None,
             connection_attempt: None,
+            debug_infos: DebugInfos::new(),
         }
     }
 
@@ -37,7 +40,9 @@ impl Client {
     }
 
     #[export]
-    unsafe fn _ready(&mut self, _owner: &Node2D) {}
+    unsafe fn _ready(&mut self, owner: &Node2D) {
+        owner.add_user_signal("ConnectionResult", VariantArray::new_shared());
+    }
 
     #[export]
     unsafe fn _exit_tree(&mut self, _owner: &Node2D) {}
@@ -52,10 +57,15 @@ impl Client {
                     match Metascape::new(connection, self.configs) {
                         Ok(new_metascape) => {
                             info!("Successfully created metascape.");
+
                             self.metascape = Some(new_metascape);
+
+                            owner.emit_signal("ConnectionResult", &[true.to_variant()]);
                         }
                         Err(err) => {
                             error!("{:?} while creating metascape. Aborting...", err);
+
+                            owner.emit_signal("ConnectionResult", &[false.to_variant()]);
                         }
                     }
                 }
@@ -65,6 +75,8 @@ impl Client {
                     }
                     Err(err) => {
                         warn!("Connection attempt failed with ({:?}).", err);
+
+                        owner.emit_signal("ConnectionResult", &[false.to_variant()]);
                     }
                 },
             }
@@ -77,6 +89,8 @@ impl Client {
         self.player_inputs.update(owner);
 
         if let Some(metascape) = &mut self.metascape {
+            self.debug_infos.update(metascape);
+
             if metascape.update(delta, &self.player_inputs) {
                 info!("Terminated metascape as signaled.");
                 self.metascape = None;
@@ -91,6 +105,25 @@ impl Client {
     unsafe fn _draw(&mut self, owner: &Node2D) {
         if let Some(metascape) = &mut self.metascape {
             metascape.render(owner);
+        }
+
+        let font = Control::new().get_font("font", "").unwrap();
+        self.debug_infos.render(
+            owner,
+            Rect2 {
+                position: Vector2::new(-100.0, -500.0),
+                size: Vector2::new(200.0, 200.0),
+            },
+            font.assume_safe(),
+        )
+    }
+
+    #[export]
+    unsafe fn get_time_multiplier(&mut self, _owner: &Node2D) -> f32 {
+        if let Some(metascape) = &mut self.metascape {
+            metascape.time_multiplier
+        } else {
+            1.0
         }
     }
 
@@ -119,3 +152,9 @@ impl Client {
         false
     }
 }
+
+// fn asd(owner: &Node2D) {
+//     let varargs = VariantArray::new();
+//     varargs.push(false);
+//     owner.emit_signal("ConnectionResult", &[true.to_variant()]);
+// }
