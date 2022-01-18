@@ -1,7 +1,6 @@
 use crate::configs::Configs;
 use crate::connection_manager::ConnectionManager;
-use crate::constants::GAME_TO_GODOT_RATIO;
-use crate::constants::WORLD_DATA_FILE_PATH;
+use crate::constants::*;
 use crate::input_handler::PlayerInputs;
 use crate::util::*;
 use ahash::AHashMap;
@@ -10,7 +9,8 @@ use common::intersection::*;
 use common::orbit::Orbit;
 use common::packets::*;
 use common::tcp_loops::TcpOutboundEvent;
-use common::world_data::WorldData;
+use common::systems::*;
+use common::factions::*;
 use common::UPDATE_INTERVAL;
 use gdnative::api::*;
 use gdnative::prelude::*;
@@ -59,8 +59,8 @@ impl EntityState {
 
 pub struct Metascape {
     configs: Configs,
-
-    world_data: WorldData,
+    factions: Factions,
+    systems: Systems,
     systems_acceleration: AccelerationStructure<SystemId>,
 
     /// Send input to server. Receive command from server.
@@ -89,28 +89,47 @@ impl Metascape {
     pub fn new(connection_manager: ConnectionManager, configs: Configs) -> std::io::Result<Self> {
         let client_id = connection_manager.client_id;
 
-        // Load world data from file.
+        // Load systems from file.
         let file = File::new();
-        if let Err(err) = file.open(WORLD_DATA_FILE_PATH, File::READ) {
-            error!("{:?} can not open ({})", err, WORLD_DATA_FILE_PATH);
+        if let Err(err) = file.open(SYSTEMS_FILE_PATH, File::READ) {
+            error!("{:?} can not open ({})", err, SYSTEMS_FILE_PATH);
             file.close();
             return Err(std::io::Error::new(std::io::ErrorKind::Other, "Can not open file."));
         }
         let buffer = file.get_buffer(file.get_len());
         file.close();
-        let world_data: WorldData = if let Ok(world_data) = bincode::deserialize(&buffer.read()) {
-            world_data
+        let mut systems = if let Ok(mut systems) = bincode::deserialize::<Systems>(&buffer.read()) {
+            systems.update_all();
+            systems
         } else {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                "Can not deserialize world data file.",
+                "Can not deserialize systems data file.",
             ));
         };
 
-        // Create acceleration structure.
+        // Load factions from file.
+        if let Err(err) = file.open(FACTIONS_FILE_PATH, File::READ) {
+            error!("{:?} can not open ({})", err, FACTIONS_FILE_PATH);
+            file.close();
+            return Err(std::io::Error::new(std::io::ErrorKind::Other, "Can not open file."));
+        }
+        let buffer = file.get_buffer(file.get_len());
+        file.close();
+        let factions = if let Ok(mut factions) = bincode::deserialize::<Factions>(&buffer.read()) {
+            factions.update_all(&mut systems);
+            factions
+        } else {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Can not deserialize factions data file.",
+            ));
+        };
+
+        // Create systems acceleration structure.
         let mut systems_acceleration = AccelerationStructure::new();
         systems_acceleration.extend(
-            world_data
+            systems
                 .systems
                 .iter()
                 .map(|(system_id, system)| (Collider::new(system.bound, system.position), system_id.to_owned())),
@@ -119,7 +138,8 @@ impl Metascape {
 
         Ok(Self {
             configs,
-            world_data,
+            systems,
+            factions,
             systems_acceleration,
             connection_manager,
             send_timer: 0.0,
@@ -354,7 +374,7 @@ impl Metascape {
             .intersect_collider(screen_collider)
             .into_iter()
         {
-            if let Some(system) = self.world_data.systems.get(&system_id) {
+            if let Some(system) = self.systems.systems.get(&system_id) {
                 // Draw system bound.
                 owner.draw_arc(
                     system.position.to_godot_scaled(),
@@ -374,9 +394,9 @@ impl Metascape {
 
                 // Draw star.
                 let (r, g, b) = match system.star.star_type {
-                    common::world_data::StarType::Star => (1.0, 0.2, 0.0),
-                    common::world_data::StarType::BlackHole => (0.0, 0.0, 0.0),
-                    common::world_data::StarType::Nebula => (0.0, 0.0, 0.0),
+                    common::systems::StarType::Star => (1.0, 0.2, 0.0),
+                    common::systems::StarType::BlackHole => (0.0, 0.0, 0.0),
+                    common::systems::StarType::Nebula => (0.0, 0.0, 0.0),
                 };
                 owner.draw_circle(
                     system.position.to_godot_scaled(),

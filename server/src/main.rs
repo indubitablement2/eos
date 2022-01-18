@@ -9,9 +9,10 @@
 
 use bevy_ecs::prelude::*;
 use bevy_tasks::{ComputeTaskPool, TaskPool};
+use common::factions::Factions;
 use common::parameters::Parameters;
+use common::systems::Systems;
 use common::time::Time;
-use common::world_data::WorldData;
 use common::{idx::SystemId, intersection::*};
 use data_manager::DataManager;
 use res_clients::ClientsRes;
@@ -64,23 +65,33 @@ impl Metascape {
     }
 
     fn load(&mut self) {
-        // Load world data.
-        let mut file = File::open("world_data.bin").expect("Could not find world_data.bin");
+        // Load systems.
+        let mut file = File::open("systems.bin").expect("Could not open systems.bin");
         let mut buffer = Vec::with_capacity(file.metadata().unwrap().len() as usize);
         file.read_to_end(&mut buffer).unwrap();
-        let wd = bincode::deserialize::<WorldData>(&buffer).expect("Could not deserialize world_data.bin");
+        let mut systems = bincode::deserialize::<Systems>(&buffer).expect("Could not deserialize systems.bin");
+        systems.update_all();
+
+        // Load factions.
+        let mut file = File::open("factions.bin").expect("Could not open factions.bin");
+        let mut buffer = Vec::with_capacity(file.metadata().unwrap().len() as usize);
+        file.read_to_end(&mut buffer).unwrap();
+        let mut factions = bincode::deserialize::<Factions>(&buffer).expect("Could not deserialize factions.bin");
+        factions.update_all(&mut systems);
 
         // Create an acceleration structure for systems.
         let mut acc = AccelerationStructure::new();
         acc.extend(
-            wd.systems
+            systems
+                .systems
                 .iter()
                 .map(|(system_id, system)| (Collider::new(system.bound, system.position), system_id.to_owned())),
         );
         acc.update();
 
         // Add systems and systems_acceleration_structure resource.
-        self.world.insert_resource(wd);
+        self.world.insert_resource(systems);
+        self.world.insert_resource(factions);
         self.world.insert_resource(SystemsAccelerationStructure(acc));
     }
 

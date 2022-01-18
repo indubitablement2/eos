@@ -1,6 +1,6 @@
 use ahash::AHashMap;
 use bevy_ecs::prelude::*;
-use common::{idx::*, orbit::Orbit, reputation::Reputation, world_data::Faction};
+use common::{factions::Faction, idx::*, orbit::Orbit, reputation::Reputation};
 use glam::Vec2;
 
 //* bundle

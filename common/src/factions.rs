@@ -24,7 +24,7 @@ pub struct Factions {
     pub factions: AHashMap<FactionId, Faction>,
 }
 impl Factions {
-    pub fn update(&mut self, systems: &mut Systems) {
+    pub fn update_all(&mut self, systems: &mut Systems) {
         // Add colonies.
         for (system_id, system) in systems.systems.iter_mut() {
             for (planet, planets_offset) in system.planets.iter_mut().zip(0u8..) {

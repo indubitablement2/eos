@@ -8,12 +8,13 @@ use crate::DetectedIntersectionPipeline;
 use crate::SystemsAccelerationStructure;
 use bevy_ecs::prelude::*;
 use bevy_tasks::ComputeTaskPool;
+use common::factions::Factions;
 use common::intersection::*;
 use common::orbit::*;
 use common::packets::*;
 use common::parameters::Parameters;
+use common::systems::Systems;
 use common::time::Time;
-use common::world_data::WorldData;
 use glam::Vec2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
@@ -152,7 +153,7 @@ fn fleet_sensor(
     query_reputation: Query<&Reputations>,
     detected_intersection_pipeline: Res<DetectedIntersectionPipeline>,
     time: Res<Time>,
-    world_data: Res<WorldData>,
+    factions: Res<Factions>,
 ) {
     // We will only update one part every tick.
     let turn = time.tick as u64 % DETECTED_UPDATE_INTERVAL;
@@ -181,7 +182,7 @@ fn fleet_sensor(
                         // AI fleet filter out allied.
                         entity_detected.0.drain_filter(|id| {
                             if let Ok(other_rep) = query_reputation.get(*id) {
-                                !rep.get_relative_reputation(other_rep, &world_data.factions).is_enemy()
+                                !rep.get_relative_reputation(other_rep, &factions.factions).is_enemy()
                             } else {
                                 debug!("An entity has a Detector, but no Reputations. Ignoring...");
                                 true
@@ -270,7 +271,7 @@ fn remove_orbit(mut commands: Commands, query: Query<(Entity, &Velocity), (Chang
 fn handle_idle(
     mut commands: Commands,
     query: Query<(&Position, &InSystem)>,
-    world_data: Res<WorldData>,
+    systems: Res<Systems>,
     fleet_idle: Res<EventRes<FleetIdle>>,
     time: Res<Time>,
 ) {
@@ -279,7 +280,7 @@ fn handle_idle(
         if let Ok((position, in_system)) = query.get(event.entity) {
             if let Some(system_id) = in_system.0 {
                 // Add orbit.
-                let system = if let Some(system) = world_data.systems.get(&system_id) {
+                let system = if let Some(system) = systems.systems.get(&system_id) {
                     system
                 } else {
                     warn!("Can not find {:?}. Ignoring...", system_id);
@@ -466,7 +467,7 @@ fn remove_fleet(
 /// Update the system each entity is currently in.
 fn update_in_system(
     mut query: Query<(&FleetIdComp, &Position, &mut InSystem)>,
-    world_data: Res<WorldData>,
+    systems: Res<Systems>,
     systems_acceleration_structure: Res<SystemsAccelerationStructure>,
     time: Res<Time>,
 ) {
@@ -476,7 +477,7 @@ fn update_in_system(
         if fleet_id_comp.0 .0 % 20 == turn {
             match in_system.0 {
                 Some(system_id) => {
-                    if let Some(system) = world_data.systems.get(&system_id) {
+                    if let Some(system) = systems.systems.get(&system_id) {
                         if system.position.distance_squared(position.0) > system.bound.powi(2) {
                             in_system.0 = None;
                         }
