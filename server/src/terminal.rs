@@ -1,4 +1,5 @@
-use common::*;
+use bevy_ecs::system::System;
+use common::{factions::Factions, *};
 use crossbeam::channel::*;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use std::{
@@ -16,7 +17,7 @@ use tui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin},
     style::{Color, Modifier, Style},
     text::Spans,
-    widgets::{Block, Borders, Paragraph, Sparkline, Tabs},
+    widgets::{Block, Borders, ListItem, Paragraph, Sparkline, Tabs},
 };
 use tui_logger::{TuiLoggerTargetWidget, TuiLoggerWidget, TuiWidgetEvent, TuiWidgetState};
 
@@ -27,12 +28,13 @@ use crate::Metascape;
 enum TerminalTab {
     Performance,
     Log,
+    Factions,
     #[default]
     Info,
 }
 impl TerminalTab {
     const LEN: usize = TerminalTab::Info as usize + 1;
-    const TITLES: [&'static str; TerminalTab::LEN + 1] = ["Performance", "Log", "Info", "?"];
+    const TITLES: [&'static str; TerminalTab::LEN + 1] = ["Performance", "Log", "Factions", "Info", "?"];
 }
 impl Default for TerminalTab {
     fn default() -> Self {
@@ -178,6 +180,7 @@ impl Terminal {
                     }
                     _ => (),
                 },
+                TerminalTab::Factions => {}
                 TerminalTab::Info => {}
             }
 
@@ -252,6 +255,15 @@ impl Terminal {
                         Spans::from("| PAGEDOWN | Only in page mode: scroll 10 events down in log history."),
                         Spans::from("| ESCAPE   | Exit page mode and go back to scrolling mode."),
                         Spans::from("| SPACE    | Toggles hiding of targets, which have logfilter set to off."),
+                    ],
+                    TerminalTab::Factions => vec![
+                        Spans::from("This is the help mode for the Info tab. Each tab has its own help mode."),
+                        Spans::from("You can leave by pressing any key."),
+                        Spans::from("In help mode, the terminal will not redraw to save cpu time."),
+                        Spans::from("Some keys apply to all tabs unless specifically prevented."),
+                        Spans::from("| ?        | Go into help mode for the current tab."),
+                        Spans::from("| tab      | Go to the next tab."),
+                        Spans::from("| esc      | Shutdown server."),
                     ],
                     TerminalTab::Info => vec![
                         Spans::from("This is the help mode for the Info tab. Each tab has its own help mode."),
@@ -340,6 +352,17 @@ impl Terminal {
                             .highlight_style(Style::default().fg(Color::Yellow))
                             .block(Block::default().borders(Borders::ALL));
                         frame.render_widget(log, chunks[1]);
+                    }
+                    TerminalTab::Factions => {
+                        if let Some(factions) = metascape.world.get_resource::<Factions>() {
+                            let items: Vec<ListItem> = factions
+                                .factions
+                                .iter()
+                                .map(|(faction_id, faction)| ListItem::new(format!("({}) {}", faction_id.0, faction.name)))
+                                .collect();
+                            let list = tui::widgets::List::new(items);
+                            frame.render_widget(list, chunks[1]);
+                        }
                     }
                     TerminalTab::Info => {
                         let text = vec![
