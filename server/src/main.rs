@@ -73,11 +73,12 @@ impl Metascape {
         systems.update_all();
 
         // Load factions.
-        let mut file = File::open("factions.bin").expect("Could not open factions.bin");
-        let mut buffer = Vec::with_capacity(file.metadata().unwrap().len() as usize);
-        file.read_to_end(&mut buffer).unwrap();
-        let mut factions = bincode::deserialize::<Factions>(&buffer).expect("Could not deserialize factions.bin");
-        factions.update_all(&mut systems);
+        let mut file = File::open("factions.yaml").expect("Could not open factions.bin");
+        let mut buffer = String::with_capacity(file.metadata().unwrap().len() as usize);
+        file.read_to_string(&mut buffer).unwrap();
+        // TODO: Deserialize yaml (need yaml....)
+        // let mut factions = bincode::deserialize::<Factions>(&buffer).expect("Could not deserialize factions.bin");
+        // factions.update_all(&mut systems);
 
         // Create an acceleration structure for systems.
         let mut acc = AccelerationStructure::new();
@@ -91,7 +92,7 @@ impl Metascape {
 
         // Add systems and systems_acceleration_structure resource.
         self.world.insert_resource(systems);
-        self.world.insert_resource(factions);
+        // self.world.insert_resource(factions);
         self.world.insert_resource(SystemsAccelerationStructure(acc));
     }
 
