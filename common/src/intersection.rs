@@ -551,8 +551,7 @@ fn test_random_colliders() {
     }
 }
 
-/// v0.0.1 3200 ns
-/// v0.0.2 2450 ns
+/// v0.0.2 20 ms
 #[bench]
 fn bench_intersect_collider(b: &mut test::Bencher) {
     use rand::Rng;
@@ -561,17 +560,19 @@ fn bench_intersect_collider(b: &mut test::Bencher) {
     // Create a large random intersection pipeline.
     let mut rng = rand::thread_rng();
     let mut acc: AccelerationStructure<u32> = AccelerationStructure::new();
-    for i in 0..5000 {
+    for i in 0..30000 {
         acc.push(
-            Collider::new(rng.gen::<f32>() * 32.0, rng.gen::<Vec2>() * 1024.0 - 512.0),
+            Collider::new(rng.gen::<f32>() * 32.0, rng.gen::<Vec2>() * 8192.0 - 4096.0),
             i,
         );
     }
     acc.update();
 
     b.iter(|| {
-        let collider = Collider::new(rng.gen::<f32>() * 32.0, rng.gen::<Vec2>() * 1024.0 - 512.0);
-        let result = acc.intersect_collider(collider);
-        black_box(result);
+        let mut result = Vec::new();
+        for collider in acc.colliders.iter() {
+            acc.intersect_collider_into(*collider, &mut result);
+            result = black_box(result);
+        }
     });
 }

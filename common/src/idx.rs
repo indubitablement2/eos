@@ -1,22 +1,11 @@
 use serde::{Deserialize, Serialize};
 
 /// Never recycled.
-/// 0 is reserved and means invalid.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ClientId(pub u32);
 impl ClientId {
-    /// Return if this is a valid ClientId, id != 0.
-    pub fn is_valid(self) -> bool {
-        self.0 != 0
-    }
-}
-impl From<FleetId> for ClientId {
-    fn from(fleet_id: FleetId) -> Self {
-        if fleet_id.0 > u32::MAX as u64 {
-            Self(0)
-        } else {
-            Self(fleet_id.0 as u32)
-        }
+    pub fn to_fleet_id(self) -> FleetId {
+        FleetId(self.0.into())
     }
 }
 
@@ -24,6 +13,15 @@ impl From<FleetId> for ClientId {
 /// First 2^32 - 1 idx are reserved for clients.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FleetId(pub u64);
+impl FleetId {
+    pub fn to_client_id(self) -> Option<ClientId> {
+        if let Ok(id) = u32::try_from(self.0) {
+            Some(ClientId(id))
+        } else {
+            None
+        }
+    }
+}
 
 impl From<ClientId> for FleetId {
     fn from(client_id: ClientId) -> Self {

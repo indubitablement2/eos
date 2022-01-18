@@ -3,7 +3,8 @@ use crossbeam::channel::*;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use std::{
     io::{self, stdin, Stdout},
-    thread::spawn, time::{Instant, Duration},
+    thread::spawn,
+    time::{Duration, Instant},
 };
 use termion::{
     event::Key,

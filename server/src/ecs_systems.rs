@@ -24,9 +24,12 @@ enum Label {
 }
 
 const DETECTED_UPDATE_INTERVAL: u64 = 5;
+/// Minimum delay before a disconnected client's fleet get removed.
+const DISCONNECT_REMOVE_FLEET_DELAY: u32 = 200;
 
 pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_stage("", SystemStage::parallel());
+
     schedule.add_system_to_stage("", get_new_clients);
 
     schedule.add_system_to_stage("", handle_orbit);
@@ -51,6 +54,7 @@ pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_system_to_stage("", send_detected_entity.after(Label::Movement));
 
     schedule.add_system_to_stage("", disconnect_client);
+    schedule.add_system_to_stage("", remove_fleet);
 }
 
 //* first
@@ -67,7 +71,7 @@ fn get_new_clients(
     // TODO: Send notice to the rest of the wait queue.
     while let Ok(connection) = clients_res.connection_manager.new_connection_receiver.try_recv() {
         let client_id = connection.client_id;
-        let fleet_id = FleetId::from(client_id);
+        let fleet_id = client_id.to_fleet_id();
 
         // Insert client.
         if let Some(old_connection) = clients_res.connected_clients.insert(client_id, connection) {
@@ -95,6 +99,7 @@ fn get_new_clients(
                 // Update old fleet components.
                 let know_entities = &mut *know_entities;
                 *know_entities = KnowEntities::default();
+                commands.entity(*old_fleet_entity).remove::<QueueRemove>();
 
                 if client_id_comp.0 != client_id {
                     error!(
@@ -194,11 +199,11 @@ fn fleet_sensor(
 
 /// Consume and apply the client's packets.
 fn handle_client_inputs(
-    mut query: Query<(&ClientIdComp, &mut WishPosition)>,
+    mut query: Query<(Entity, &ClientIdComp, &mut WishPosition)>,
     clients_res: Res<ClientsRes>,
     client_disconnected: Res<EventRes<ClientDisconnected>>,
 ) {
-    query.for_each_mut(|(client_id_comp, mut wish_position)| {
+    query.for_each_mut(|(entity, client_id_comp, mut wish_position)| {
         if let Some(connection) = clients_res.connected_clients.get(&client_id_comp.0) {
             loop {
                 match connection.inbound_receiver.try_recv() {
@@ -219,6 +224,7 @@ fn handle_client_inputs(
                             debug!("{:?} sent an invalid packet. Disconnecting...", client_id_comp.0);
                             client_disconnected.events.push(ClientDisconnected {
                                 client_id: client_id_comp.0,
+                                fleet_entity: entity,
                                 send_packet: Some(Packet::DisconnectedReason(DisconnectedReasonEnum::InvalidPacket)),
                             });
                             break;
@@ -228,6 +234,7 @@ fn handle_client_inputs(
                         if err.is_disconnected() {
                             client_disconnected.events.push(ClientDisconnected {
                                 client_id: client_id_comp.0,
+                                fleet_entity: entity,
                                 send_packet: None,
                             });
                         }
@@ -260,31 +267,18 @@ fn remove_orbit(mut commands: Commands, query: Query<(Entity, &Velocity), (Chang
     });
 }
 
-/// Add orbit to idle entity within a system and remove fleet from disconnected client.
+/// Add orbit to idle entity within a system..
 fn handle_idle(
     mut commands: Commands,
-    query: Query<(&Position, &InSystem, &FleetIdComp)>,
+    query: Query<(&Position, &InSystem)>,
     world_data: Res<WorldData>,
-    mut data_manager: ResMut<DataManager>,
-    clients_res: Res<ClientsRes>,
-    mut fleets_res: ResMut<FleetsRes>,
     fleet_idle: Res<EventRes<FleetIdle>>,
     time: Res<Time>,
 ) {
     let time = time.as_time();
     while let Some(event) = fleet_idle.events.pop() {
-        if let Ok((position, in_system, fleet_id_comp)) = query.get(event.entity) {
-            let client_id = ClientId::from(fleet_id_comp.0);
-            if client_id.is_valid() && clients_res.connected_clients.get(&client_id).is_none() {
-                // Remove client's fleet.
-                fleets_res.spawned_fleets.remove(&fleet_id_comp.0);
-                commands.entity(event.entity).despawn();
-
-                // TODO: Save fleet.
-                data_manager.client_fleets.insert(client_id, ());
-
-                debug!("Removed and saved {:?}'s fleet.", client_id);
-            } else if let Some(system_id) = in_system.0 {
+        if let Ok((position, in_system)) = query.get(event.entity) {
+            if let Some(system_id) = in_system.0 {
                 // Add orbit.
                 let system = if let Some(system) = world_data.systems.get(&system_id) {
                     system
@@ -417,10 +411,10 @@ fn apply_fleet_movement(
 /// Remove a client from connected client map and trigger idle event again if already idle to remove the fleet.
 /// TODO: This is janky.
 fn disconnect_client(
-    mut query: Query<&mut IdleCounter>,
+    mut commands: Commands,
     mut clients_res: ResMut<ClientsRes>,
     client_disconnected: Res<EventRes<ClientDisconnected>>,
-    fleets_res: Res<FleetsRes>,
+    time: Res<Time>,
 ) {
     while let Some(client_disconnected) = client_disconnected.events.pop() {
         let client_id = client_disconnected.client_id;
@@ -440,13 +434,34 @@ fn disconnect_client(
             );
         }
 
-        // Make sure the client's fleet is not already idle, so that idle detection pick it up.
-        if let Some(entity) = fleets_res.spawned_fleets.get(&FleetId::from(client_id)) {
-            if let Ok(mut idle_counter) = query.get_mut(*entity) {
-                idle_counter.0 = idle_counter.0.min(IdleCounter::IDLE_DELAY - 10);
-            }
-        }
+        // Queue his fleet to be removed after a delay.
+        commands.entity(client_disconnected.fleet_entity).insert(QueueRemove {
+            when: time.tick + DISCONNECT_REMOVE_FLEET_DELAY,
+        });
     }
+}
+
+/// Remove fleet that are queued for deletion.
+fn remove_fleet(
+    mut commands: Commands,
+    query: Query<(Entity, &FleetIdComp, &QueueRemove)>,
+    mut fleets_res: ResMut<FleetsRes>,
+    mut data_manager: ResMut<DataManager>,
+    time: Res<Time>,
+) {
+    query.for_each(|(entity, fleet_id_comp, queue_remove)| {
+        if queue_remove.when <= time.tick {
+            if let Some(client_id) = fleet_id_comp.0.to_client_id() {
+                // TODO: Save client's fleet.
+                data_manager.client_fleets.insert(client_id, ());
+
+                debug!("Removed and saved {:?}'s fleet.", client_id);
+            }
+
+            fleets_res.spawned_fleets.remove(&fleet_id_comp.0);
+            commands.entity(entity).despawn();
+        }
+    });
 }
 
 /// Update the system each entity is currently in.

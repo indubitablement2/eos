@@ -193,6 +193,13 @@ pub struct DerivedFleetStats {
     pub acceleration: f32,
 }
 
+/// Fleet that should be removed after a provided tick,
+/// if they are not in a battle.
+#[derive(Debug, Clone, Copy, Component)]
+pub struct QueueRemove {
+    pub when: u32,
+}
+
 //* AI
 
 #[derive(Debug, Clone, Copy)]
