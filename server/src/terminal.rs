@@ -3,7 +3,7 @@ use crossbeam::channel::*;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use std::{
     io::{self, stdin, Stdout},
-    thread::spawn,
+    thread::spawn, time::{Instant, Duration},
 };
 use termion::{
     event::Key,
@@ -99,6 +99,8 @@ pub struct Terminal {
     current_tab: TerminalTab,
     /// Display help for current tab and disable terminal to save cpu usage.
     help: bool,
+    /// If idle, automaticaly go to help mode.
+    last_input: Instant,
     need_redraw: bool,
     log_state: TuiWidgetState,
     performance_metascape: PerformanceMetrics,
@@ -121,6 +123,7 @@ impl Terminal {
             input_receiver,
             current_tab: TerminalTab::default(),
             help: false,
+            last_input: Instant::now(),
             need_redraw: true,
             log_state: TuiWidgetState::default(),
             performance_metascape: PerformanceMetrics::default(),
@@ -130,8 +133,11 @@ impl Terminal {
     }
 
     pub fn update(&mut self, stop_main: &mut bool, metascape: &mut Metascape) {
+        let mut received_input = false;
         // Handle inputs.
         while let Ok(key) = self.input_receiver.try_recv() {
+            received_input = true;
+
             self.need_redraw = true;
             // Check if we are in help mode.
             if self.help == true {
@@ -186,6 +192,13 @@ impl Terminal {
                 *stop_main = true;
                 break;
             }
+        }
+
+        // Detect idle.
+        if received_input {
+            self.last_input = Instant::now();
+        } else if self.last_input.elapsed() > Duration::from_secs(120) {
+            self.help = true;
         }
 
         // Don't redraw if we don't need to (idle in help mode).
