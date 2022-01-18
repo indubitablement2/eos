@@ -114,9 +114,9 @@ impl Metascape {
             file.close();
             return Err(std::io::Error::new(std::io::ErrorKind::Other, "Can not open file."));
         }
-        let buffer = file.get_buffer(file.get_len());
+        let buffer = file.get_as_text().to_string();
         file.close();
-        let factions = if let Ok(mut factions) = bincode::deserialize::<Factions>(&buffer.read()) {
+        let factions = if let Ok(mut factions) = serde_yaml::from_str::<Factions>(buffer.as_str()) {
             factions.update_all(&mut systems);
             factions
         } else {
