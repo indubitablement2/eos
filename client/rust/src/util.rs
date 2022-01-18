@@ -1,5 +1,8 @@
 use crate::constants::GAME_TO_GODOT_RATIO;
-use gdnative::{core_types::Transform2D, prelude::Vector2};
+use gdnative::{
+    core_types::{Color, Transform2D},
+    prelude::Vector2,
+};
 use glam::Vec2;
 use na::*;
 
@@ -87,6 +90,21 @@ impl PhysicToGodotTransform for Isometry<f32, Unit<Complex<f32>>, 2_usize> {
             a: Vector2::new(cos, sin),
             b: Vector2::new(-sin, cos),
             origin: Vector2::new(self.translation.x, self.translation.y) * GAME_TO_GODOT_RATIO,
+        }
+    }
+}
+
+pub trait SetAlpha {
+    /// Return the same color, but with the provided alpha.
+    fn with_alpha(self, a: f32) -> Self;
+}
+impl SetAlpha for Color {
+    fn with_alpha(self, a: f32) -> Self {
+        Self {
+            r: self.r,
+            g: self.g,
+            b: self.b,
+            a,
         }
     }
 }

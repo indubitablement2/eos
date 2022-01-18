@@ -12,39 +12,25 @@ onready var def_tex := ImageTexture.new()
 
 onready var tex_rid := SpritePacker.tex.get_rid()
 
+onready var client := $Client
+
 func _ready() -> void:
-	$Client.connect("ConnectionResult", self, "_on_connection_result")
+	$CanvasLayer/Debug/TimeDilation.connect("draw", client, "_on_draw_time_dilation", [$CanvasLayer/Debug/TimeDilation])	
+	
+	client.connect("ConnectionResult", self, "_on_connection_result")
 #	var gen_img = preload("res://assets/debug/target.png").get_data()
 #	var gen_img := Image.new()
 #	gen_img.load("res://assets/generation/galaxy_gen.png")
 #	$Game.generate_metascape("test world", 2000.0, preload("res://assets/debug/pixel.png").get_data())
-	var addr = PoolStringArray(IP.get_local_addresses())
-	print(addr)
-	
+	print(IP.get_local_addresses())
 	
 #	_init_mesh()
 #	_init_mat()
 #	allocate_mesh(100)
 
-func _draw() -> void:
-	# get data from currently displayed scape.
-	VisualServer.canvas_item_add_multimesh(canvas_rid, multimesh_rid, tex_rid)
-
 func _exit_tree() -> void:
 	VisualServer.free_rid(multimesh_rid)
 	VisualServer.free_rid(mesh_rid)
-
-#func _input(event: InputEvent) -> void:
-#	if event.is_action_pressed("ui_up"):
-#		$Game.manual_update()
-
-#func _process(delta: float) -> void:
-#	if Input.is_mouse_button_pressed(1):
-#		print("placing system at: " + str(get_global_mouse_position()))
-#		$Game.new_system(get_global_mouse_position())
-
-#func _physics_process(delta: float) -> void:
-#	$Game.manual_update()
 
 func allocate_mesh(num: int) -> void:
 	VisualServer.multimesh_allocate(multimesh_rid, num, VisualServer.MULTIMESH_TRANSFORM_2D, VisualServer.MULTIMESH_COLOR_NONE, VisualServer.MULTIMESH_CUSTOM_DATA_FLOAT)
@@ -92,7 +78,7 @@ func _init_mat() -> void:
 
 
 func _on_Button_pressed() -> void:
-	var result = $Client.connect_to_server("::1", 2)
+	var result = client.connect_to_server("::1", 2)
 	print("Connection start result: " + str(result))
 	if result:
 		$Button.hide()

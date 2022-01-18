@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use crate::configs::Configs;
 use crate::connection_manager::ConnectionManager;
 use crate::constants::GAME_TO_GODOT_RATIO;
@@ -26,24 +24,19 @@ struct EntityState {
     current_tick: u32,
     previous_position: Vec2,
     current_position: Vec2,
-    local_position: Vec2,
     /// The tick the orbit was added.
     /// The entity currently has an orbit if this is more than `current_tick`.
     orbit_added_tick: u32,
     orbit: Orbit,
 }
 impl EntityState {
-    pub fn get_interpolated_pos(&mut self, time: f32) -> Vec2 {
-        let real_position = if self.orbit_added_tick >= self.current_tick {
+    pub fn get_interpolated_pos(&self, time: f32) -> Vec2 {
+        if self.orbit_added_tick >= self.current_tick {
             self.orbit.to_position(time)
         } else {
             let interpolation = time - 1.0 - self.previous_tick as f32;
             self.previous_position.lerp(self.current_position, interpolation)
-        };
-
-        self.local_position = self.local_position.lerp(real_position, 0.5);
-
-        self.local_position
+        }
     }
 
     fn update(&mut self, new_tick: u32, new_position: Vec2) {
@@ -78,8 +71,8 @@ pub struct Metascape {
     tick: u32,
     /// How far are from current to next tick.
     delta: f32,
-    /// Multiply how fast tick increment.
-    pub time_multiplier: f32,
+    /// How much time dilation we have applied last update.
+    pub time_dilation: f32,
     /// The last tick received from the server.
     max_tick: u32,
 
@@ -132,7 +125,7 @@ impl Metascape {
             send_timer: 0.0,
             tick: 0,
             delta: 0.0,
-            time_multiplier: 1.0,
+            time_dilation: 1.0,
             client_state: EntityState::default(),
             entities_state: AHashMap::new(),
             entities_info_buffer: Vec::new(),
@@ -215,20 +208,11 @@ impl Metascape {
         }
 
         // Speedup/slowdown time to get to target tick.
-        let target_time_multiplier = if tick_delta < 1 {
-            0.67
-        } else if tick_delta > 2 {
-            1.5
-        } else {
-            1.0
-        } * 0.1;
-        self.time_multiplier *= 0.40;
-        self.time_multiplier += target_time_multiplier;
-        self.time_multiplier += 0.50;
-        self.delta += (delta / UPDATE_INTERVAL.as_secs_f32()) * self.time_multiplier;
-        if self.time_multiplier > 1.1 || self.time_multiplier < 0.95 {
-            debug!("time_multiplier: {}", self.time_multiplier);
-        }
+        // Target tick is max tick - 1.
+        let delta_target_tick = self.max_tick as i64 - self.tick as i64 - 1;
+        // For every tick above/below target tick we speedup/slowdown time by 1% (additif).
+        self.time_dilation = (delta_target_tick as f32).mul_add(0.01, 1.0);
+        self.delta += (delta / UPDATE_INTERVAL.as_secs_f32()) * self.time_dilation;
 
         // Increment tick.
         while self.delta >= 1.0 {

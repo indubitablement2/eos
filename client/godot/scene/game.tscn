@@ -1,6 +1,7 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=8 format=2]
 
 [ext_resource path="res://native/Client.gdns" type="Script" id=1]
+[ext_resource path="res://component/DebugUI.gd" type="Script" id=2]
 [ext_resource path="res://component/Camera.tscn" type="PackedScene" id=3]
 [ext_resource path="res://scene/game.gd" type="Script" id=4]
 [ext_resource path="res://assets/icon/godot-ferris-32x32.png" type="Texture" id=5]
@@ -14,11 +15,13 @@ script = ExtResource( 4 )
 [node name="Camera2D" parent="." instance=ExtResource( 3 )]
 
 [node name="pixel" type="Sprite" parent="."]
+visible = false
 position = Vector2( -42.0011, 19.9662 )
 scale = Vector2( 2, 2 )
 texture = ExtResource( 7 )
 
 [node name="Sprite" type="Sprite" parent="."]
+visible = false
 modulate = Color( 0, 0.866667, 0.137255, 1 )
 texture = ExtResource( 5 )
 
@@ -34,5 +37,28 @@ text = "try connect"
 __meta__ = {
 "_edit_use_anchors_": false
 }
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Debug" type="HBoxContainer" parent="CanvasLayer"]
+anchor_left = 0.5
+anchor_top = 0.05
+anchor_right = 0.5
+anchor_bottom = 0.05
+margin_left = -100.0
+margin_right = 100.0
+mouse_filter = 2
+script = ExtResource( 2 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="TimeDilation" type="Control" parent="CanvasLayer/Debug"]
+margin_right = 200.0
+margin_bottom = 80.0
+rect_min_size = Vector2( 200, 80 )
+mouse_filter = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 
 [connection signal="pressed" from="Button" to="." method="_on_Button_pressed"]

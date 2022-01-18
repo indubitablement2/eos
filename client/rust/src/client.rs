@@ -20,16 +20,23 @@ pub struct Client {
 #[methods]
 impl Client {
     // Register the builder for methods, properties and/or signals.
-    fn register_builder(_builder: &ClassBuilder<Self>) {}
+    fn register_builder(builder: &ClassBuilder<Self>) {
+        builder
+            .signal("ConnectionResult")
+            .with_param("Result", VariantType::Bool)
+            .done();
+    }
 
     /// The "constructor" of the class.
-    fn new(_owner: &Node2D) -> Self {
+    fn new(owner: &Node2D) -> Self {
+        let debug_infos = DebugInfos::new();
+
         Client {
             player_inputs: PlayerInputs::default(),
             configs: Configs::default(),
             metascape: None,
             connection_attempt: None,
-            debug_infos: DebugInfos::new(),
+            debug_infos,
         }
     }
 
@@ -106,25 +113,6 @@ impl Client {
         if let Some(metascape) = &mut self.metascape {
             metascape.render(owner);
         }
-
-        let font = Control::new().get_font("font", "").unwrap();
-        self.debug_infos.render(
-            owner,
-            Rect2 {
-                position: Vector2::new(-100.0, -500.0),
-                size: Vector2::new(200.0, 200.0),
-            },
-            font.assume_safe(),
-        )
-    }
-
-    #[export]
-    unsafe fn get_time_multiplier(&mut self, _owner: &Node2D) -> f32 {
-        if let Some(metascape) = &mut self.metascape {
-            metascape.time_multiplier
-        } else {
-            1.0
-        }
     }
 
     /// Try to connect to the server.
@@ -151,10 +139,9 @@ impl Client {
 
         false
     }
-}
 
-// fn asd(owner: &Node2D) {
-//     let varargs = VariantArray::new();
-//     varargs.push(false);
-//     owner.emit_signal("ConnectionResult", &[true.to_variant()]);
-// }
+    #[export]
+    unsafe fn _on_draw_time_dilation(&mut self, _owner: &Node2D, control: Ref<Control>) {
+        self.debug_infos.draw_time_dilation(control);
+    }
+}
