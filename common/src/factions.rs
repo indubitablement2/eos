@@ -15,7 +15,7 @@ pub struct Faction {
     ///
     /// Relation = `faction[4].reputation[2]`.
     pub faction_relation: AHashMap<FactionId, Reputation>,
-    /// Fallback reputation.
+    /// Fallback reputation and starting reputation for clients.
     pub default_reputation: Reputation,
 }
 

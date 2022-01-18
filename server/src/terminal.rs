@@ -358,7 +358,9 @@ impl Terminal {
                             let items: Vec<ListItem> = factions
                                 .factions
                                 .iter()
-                                .map(|(faction_id, faction)| ListItem::new(format!("({}) {}", faction_id.0, faction.name)))
+                                .map(|(faction_id, faction)| {
+                                    ListItem::new(format!("({}) {}", faction_id.0, faction.name))
+                                })
                                 .collect();
                             let list = tui::widgets::List::new(items);
                             frame.render_widget(list, chunks[1]);
