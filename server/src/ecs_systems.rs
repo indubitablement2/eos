@@ -8,7 +8,6 @@ use crate::DetectedIntersectionPipeline;
 use crate::SystemsAccelerationStructure;
 use bevy_ecs::prelude::*;
 use bevy_tasks::ComputeTaskPool;
-use common::idx::*;
 use common::intersection::*;
 use common::orbit::*;
 use common::packets::*;

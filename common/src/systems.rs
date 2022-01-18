@@ -55,32 +55,15 @@ impl System {
     pub fn compute_temperature(&mut self) {}
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Faction {
-    pub name: String,
-    pub capital: Option<PlanetId>,
-    pub colonies: AHashSet<PlanetId>,
-    /// Reputation between factions.
-    /// The highest `FactionId` has the reputation of all lower `FactionId`.
-    ///
-    /// eg: fleet a has faction `2` and fleet b has faction `4`.
-    ///
-    /// Relation = `faction[4].reputation[2]`.
-    pub faction_relation: AHashMap<FactionId, Reputation>,
-    /// Fallback reputation.
-    pub default_reputation: Reputation,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct WorldData {
+pub struct Systems {
     pub systems: AHashMap<SystemId, System>,
-    pub factions: AHashMap<FactionId, Faction>,
     /// The furthest system bound from the world origin.
     pub bound: f32,
     pub total_num_planet: usize,
     pub next_system_id: u32,
 }
-impl WorldData {
+impl Systems {
     /// Result is saved in `bound`.
     pub fn update_bound(&mut self) {
         self.bound = self.systems.iter().fold(0.0f32, |acc, (_, system)| {
@@ -91,5 +74,13 @@ impl WorldData {
     /// Result is saved in `total_num_planet`.
     pub fn update_total_num_planet(&mut self) {
         self.total_num_planet = self.systems.values().fold(0, |acc, system| acc + system.planets.len())
+    }
+
+    pub fn get_planet(&self, planet_id: PlanetId) -> Option<&Planet> {
+        if let Some(system) = self.systems.get(&planet_id.system_id) {
+            system.planets.get(planet_id.planets_offset as usize)
+        } else {
+            None
+        }
     }
 }

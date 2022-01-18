@@ -33,18 +33,6 @@ impl FleetId {
         self.0 <= u64::from(u32::MAX)
     }
 }
-#[test]
-fn fleet_client_id() {
-    let client_id = ClientId(123);
-    let to_fleet_id = FleetId::from(client_id);
-    println!("client: {:?}", to_fleet_id);
-
-    let ai_fleet_id = FleetId(u32::MAX as u64 + 1);
-    println!("ai: {:?}", ai_fleet_id);
-    let ai_client_id = ClientId::from(ai_fleet_id);
-    println!("ai: {:?}", ai_client_id);
-    assert!(!ai_client_id.is_valid());
-}
 
 /// Never recycled.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
