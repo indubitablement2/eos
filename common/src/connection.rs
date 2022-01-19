@@ -8,7 +8,7 @@ pub struct Connection {
     pub client_id: ClientId,
     pub peer_addr: SocketAddrV6,
     /// Receive packet from the connected peer.
-    pub inbound_receiver: crossbeam_channel::Receiver<Vec<u8>>,
+    pub inbound_receiver: crossbeam::channel::Receiver<Vec<u8>>,
     /// Send udp packet to connected peer.
     socket: Arc<UdpSocket>,
     /// Send tcp packet to the connected peer or request a flush.
@@ -18,7 +18,7 @@ impl Connection {
     pub fn new(
         client_id: ClientId,
         peer_addr: SocketAddrV6,
-        inbound_receiver: crossbeam_channel::Receiver<Vec<u8>>,
+        inbound_receiver: crossbeam::channel::Receiver<Vec<u8>>,
         socket: Arc<UdpSocket>,
         tcp_outbound_event_sender: tokio::sync::mpsc::Sender<TcpOutboundEvent>,
     ) -> Self {

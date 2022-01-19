@@ -1,5 +1,5 @@
 use ahash::AHashSet;
-use crossbeam_channel::{bounded, Receiver, Sender};
+use crossbeam::channel::{bounded, Receiver, Sender};
 use glam::Vec2;
 use std::thread::spawn;
 use std::u32;

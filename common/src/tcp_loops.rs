@@ -67,7 +67,7 @@ pub async fn tcp_out_loop(
 }
 
 pub async fn tcp_in_loop(
-    inbound_sender: crossbeam_channel::Sender<Vec<u8>>,
+    inbound_sender: crossbeam::channel::Sender<Vec<u8>>,
     mut buf_read: BufReader<OwnedReadHalf>,
     client_id: ClientId,
 ) {
