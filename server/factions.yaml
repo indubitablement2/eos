@@ -1,0 +1,10 @@
+factions:
+  0:
+    name: Pirate
+    faction_relation: {}
+    default_reputation: -100
+  1: 
+    name: Another Faction
+    faction_relation:
+      0: -100
+    default_reputation: 0

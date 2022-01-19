@@ -22,7 +22,8 @@ fn main() {
         .into_iter(),
     );
     let mut faction_relation = AHashMap::new();
-    faction_relation.insert(FactionId(2), Reputation::ENEMY_THRESHOLD);
+    // faction_relation.insert(FactionId(2), Reputation::ENEMY_THRESHOLD);
+    // faction_relation.insert(FactionId(4), Reputation::ENEMY_THRESHOLD);
 
     f.factions.insert(
         common::idx::FactionId(3),
