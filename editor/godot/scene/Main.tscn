@@ -65,19 +65,20 @@ __meta__ = {
 }
 
 [node name="Export" type="Button" parent="CanvasLayer/Control/VBoxContainer"]
-margin_right = 174.0
+margin_right = 168.0
 margin_bottom = 20.0
 text = "Export"
 
 [node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
 margin_top = 24.0
-margin_right = 174.0
+margin_right = 168.0
 margin_bottom = 44.0
 __meta__ = {
 "_edit_use_anchors_": false
 }
 
 [node name="Import" type="Button" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer"]
+visible = false
 margin_right = 56.0
 margin_bottom = 20.0
 size_flags_horizontal = 3
@@ -88,20 +89,19 @@ __meta__ = {
 }
 
 [node name="ImportSystems" type="Button" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer"]
-margin_left = 60.0
-margin_right = 174.0
+margin_right = 168.0
 margin_bottom = 20.0
 size_flags_horizontal = 3
-text = "Import Systems"
+text = "Import"
 
 [node name="HSeparator2" type="HSeparator" parent="CanvasLayer/Control/VBoxContainer"]
 margin_top = 48.0
-margin_right = 174.0
+margin_right = 168.0
 margin_bottom = 52.0
 
 [node name="HBoxContainer2" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
 margin_top = 56.0
-margin_right = 174.0
+margin_right = 168.0
 margin_bottom = 76.0
 __meta__ = {
 "_edit_use_anchors_": false
@@ -125,24 +125,24 @@ text = "Generate (E)"
 
 [node name="HSeparator" type="HSeparator" parent="CanvasLayer/Control/VBoxContainer"]
 margin_top = 80.0
-margin_right = 174.0
+margin_right = 168.0
 margin_bottom = 84.0
 
 [node name="RadiusMin" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
 margin_top = 88.0
-margin_right = 174.0
+margin_right = 168.0
 margin_bottom = 112.0
 
 [node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/RadiusMin"]
 margin_top = 5.0
-margin_right = 112.0
+margin_right = 106.0
 margin_bottom = 19.0
 size_flags_horizontal = 3
 text = "Radius min:"
 
 [node name="RadiusMin" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/RadiusMin"]
-margin_left = 116.0
-margin_right = 174.0
+margin_left = 110.0
+margin_right = 168.0
 margin_bottom = 24.0
 text = "32"
 caret_blink = true
@@ -153,19 +153,19 @@ __meta__ = {
 
 [node name="RadiusMax" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
 margin_top = 116.0
-margin_right = 174.0
+margin_right = 168.0
 margin_bottom = 140.0
 
 [node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/RadiusMax"]
 margin_top = 5.0
-margin_right = 112.0
+margin_right = 106.0
 margin_bottom = 19.0
 size_flags_horizontal = 3
 text = "Radius max:"
 
 [node name="RadiusMax" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/RadiusMax"]
-margin_left = 116.0
-margin_right = 174.0
+margin_left = 110.0
+margin_right = 168.0
 margin_bottom = 24.0
 text = "64"
 caret_blink = true
@@ -176,19 +176,19 @@ __meta__ = {
 
 [node name="Try" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
 margin_top = 144.0
-margin_right = 174.0
+margin_right = 168.0
 margin_bottom = 168.0
 
 [node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/Try"]
 margin_top = 5.0
-margin_right = 112.0
+margin_right = 106.0
 margin_bottom = 19.0
 size_flags_horizontal = 3
 text = "Num gen try:"
 
 [node name="Try" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/Try"]
-margin_left = 116.0
-margin_right = 174.0
+margin_left = 110.0
+margin_right = 168.0
 margin_bottom = 24.0
 text = "1"
 caret_blink = true
@@ -199,19 +199,19 @@ __meta__ = {
 
 [node name="Size" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
 margin_top = 172.0
-margin_right = 174.0
+margin_right = 168.0
 margin_bottom = 196.0
 
 [node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/Size"]
 margin_top = 5.0
-margin_right = 112.0
+margin_right = 106.0
 margin_bottom = 19.0
 size_flags_horizontal = 3
 text = "Brush Size:"
 
 [node name="Size" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/Size"]
-margin_left = 116.0
-margin_right = 174.0
+margin_left = 110.0
+margin_right = 168.0
 margin_bottom = 24.0
 text = "256"
 caret_blink = true
@@ -222,19 +222,19 @@ __meta__ = {
 
 [node name="MinDistance" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
 margin_top = 200.0
-margin_right = 174.0
+margin_right = 168.0
 margin_bottom = 224.0
 
 [node name="Label" type="Label" parent="CanvasLayer/Control/VBoxContainer/MinDistance"]
 margin_top = 5.0
-margin_right = 112.0
+margin_right = 106.0
 margin_bottom = 19.0
 size_flags_horizontal = 3
 text = "Min distance:"
 
 [node name="MinDistance" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer/MinDistance"]
-margin_left = 116.0
-margin_right = 174.0
+margin_left = 110.0
+margin_right = 168.0
 margin_bottom = 24.0
 text = "10"
 caret_blink = true
@@ -245,7 +245,7 @@ __meta__ = {
 
 [node name="HSeparator3" type="HSeparator" parent="CanvasLayer/Control/VBoxContainer"]
 margin_top = 228.0
-margin_right = 174.0
+margin_right = 168.0
 margin_bottom = 232.0
 __meta__ = {
 "_edit_use_anchors_": false
@@ -253,7 +253,7 @@ __meta__ = {
 
 [node name="FactionList" type="ItemList" parent="CanvasLayer/Control/VBoxContainer"]
 margin_top = 236.0
-margin_right = 174.0
+margin_right = 168.0
 margin_bottom = 263.0
 size_flags_horizontal = 3
 size_flags_vertical = 3

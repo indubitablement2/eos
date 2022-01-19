@@ -1,8 +1,8 @@
 use common::idx::SystemId;
 use common::intersection::AccelerationStructure;
 use common::intersection::Collider;
-use common::res_time::TimeRes;
-use common::world_data::*;
+use common::time::Time;
+use common::systems::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
 use glam::Vec2;
@@ -24,9 +24,9 @@ pub struct Editor {
     camera: Option<Ref<Camera2D>>,
     time_multiplier: f32,
     delta: f32,
-    time: TimeRes,
-    data: WorldData,
-    systems_acc: AccelerationStructure,
+    time: Time,
+    data: Systems,
+    systems_acc: AccelerationStructure<SystemId>,
     selected: Selected,
     /// is_moving, new_pos_valid
     moving_selected: (bool, bool),
@@ -37,8 +37,8 @@ impl Default for Editor {
             camera: None,
             time_multiplier: 1.0,
             delta: 0.0,
-            time: TimeRes::default(),
-            data: WorldData::default(),
+            time: Time::default(),
+            data: Systems::default(),
             systems_acc: AccelerationStructure::new(),
             selected: Selected::Nothing,
             moving_selected: (false, true),
@@ -77,7 +77,7 @@ impl Editor {
             match self.selected {
                 Selected::System { system_id } => {
                     let mouse_pos = godot_to_glam(owner.get_global_mouse_position());
-                    let collider = Collider::new_idless(self.data.systems[&system_id].bound, mouse_pos);
+                    let collider = Collider::new(self.data.systems[&system_id].bound, mouse_pos);
                     self.moving_selected.1 = true;
 
                     // Check that new system position does not intersect any other system.
@@ -85,7 +85,7 @@ impl Editor {
                         .systems_acc
                         .intersect_collider(collider)
                         .into_iter()
-                        .any(|id| id != system_id.0 as u32)
+                        .any(|id| id != system_id)
                     {
                         self.moving_selected.1 = false;
                     }
@@ -144,9 +144,9 @@ impl Editor {
     unsafe fn select(&mut self, owner: &Node2D) {
         let mouse_pos = godot_to_glam(owner.get_global_mouse_position());
 
-        if let Some(id) = self.systems_acc.intersect_point_single(mouse_pos) {
+        if let Some(system_id) = self.systems_acc.intersect_point_first(mouse_pos) {
             self.selected = Selected::System {
-                system_id: SystemId(id as u32),
+                system_id,
             };
             godot_print!("selected a system.");
         } else {
@@ -179,14 +179,14 @@ impl Editor {
             match self.selected {
                 Selected::System { system_id } => {
                     let mouse_pos = godot_to_glam(owner.get_global_mouse_position());
-                    let collider = Collider::new_idless(self.data.systems[&system_id].bound, mouse_pos);
+                    let collider = Collider::new(self.data.systems[&system_id].bound, mouse_pos);
 
                     // Check that new system position does not intersect any other system.
                     if !self
                         .systems_acc
                         .intersect_collider(collider)
                         .into_iter()
-                        .any(|id| id != system_id.0 as u32)
+                        .any(|id| id != system_id)
                     {
                         let system = self.data.systems.get_mut(&system_id).unwrap();
 
@@ -228,11 +228,11 @@ impl Editor {
                 continue;
             }
             let new_system = generate_system(position, rng.gen_range(min_size..max_size) * 1.20);
-            let collider = Collider::new_idless(new_system.bound + min_distance, new_system.position);
+            let collider = Collider::new(new_system.bound + min_distance, new_system.position);
 
             for other in new_systems
                 .iter()
-                .map(|system| Collider::new_idless(system.bound, system.position))
+                .map(|system| Collider::new(system.bound, system.position))
             {
                 if collider.intersection_test(other) {
                     continue 'outter;
@@ -243,31 +243,14 @@ impl Editor {
         }
 
         for new_system in new_systems.into_iter() {
-            let collider = Collider::new_idless(new_system.bound + min_distance, new_system.position);
-            if !self.systems_acc.test_collider(collider) {
+            let collider = Collider::new(new_system.bound + min_distance, new_system.position);
+            if !self.systems_acc.intersect_collider_first(collider).is_some() {
                 self.data.systems.insert(SystemId(self.data.next_system_id), new_system);
                 self.data.next_system_id += 1;
             }
         }
 
         update_internals(self);
-    }
-
-    /// Load a WorldData from file.
-    #[export]
-    unsafe fn load_data(&mut self, _owner: &Node2D, data: PoolArray<u8>) -> bool {
-        self.selected = Selected::Nothing;
-        match load_data(data) {
-            Ok(data) => {
-                self.data = data;
-                update_internals(self);
-                true
-            }
-            Err(err) => {
-                godot_warn!("{:?}", err);
-                false
-            }
-        }
     }
 
     /// Load only the systems from file.
@@ -291,48 +274,28 @@ impl Editor {
 
     /// Return a bin the data.
     #[export]
-    unsafe fn export_data(&mut self, _owner: &Node2D) -> PoolArray<u8> {
+    unsafe fn export_systems(&mut self, _owner: &Node2D) -> PoolArray<u8> {
         export_data(&self.data)
-    }
-
-    /// Return a bin the data.
-    #[export]
-    unsafe fn get_factions(&mut self, _owner: &Node2D) -> Dictionary<Unique> {
-        let outter = Dictionary::new();
-
-        for (faction_id, faction) in self.data.factions.iter() {
-            let inner = Dictionary::new();
-
-            inner.insert("name", faction.name.clone());
-            inner.insert("capital", faction.capital.is_some());
-            inner.insert("colonies", faction.colonies.len());
-            
-
-            outter.insert(faction_id.0, inner);
-        }
-
-        outter
     }
 }
 
 fn update_internals(editor: &mut Editor) {
-    // Update systems bound.
-    editor.data.update_bound();
-    editor.data.update_total_num_planet();
+    // Update systems.
+    editor.data.update_all();
 
     // Update systems acceleration structure.
-    editor.systems_acc.colliders.clear();
-    editor.systems_acc.colliders.extend(
+    editor.systems_acc.clear();
+    editor.systems_acc.extend(
         editor
             .data
             .systems
             .iter()
-            .map(|(system_id, system)| Collider::new(system_id.0, system.bound, system.position)),
+            .map(|(system_id, system)| (Collider::new(system.bound, system.position), system_id.to_owned())),
     );
     editor.systems_acc.update();
 }
 
-fn load_data(data: PoolArray<u8>) -> Result<WorldData, Box<bincode::ErrorKind>> {
+fn load_data(data: PoolArray<u8>) -> Result<Systems, Box<bincode::ErrorKind>> {
     let d = data.read();
     let r = bincode::deserialize(&d);
     if let Err(err) = &r {
@@ -342,7 +305,7 @@ fn load_data(data: PoolArray<u8>) -> Result<WorldData, Box<bincode::ErrorKind>> 
     r
 }
 
-fn export_data(data: &WorldData) -> PoolArray<u8> {
+fn export_data(data: &Systems) -> PoolArray<u8> {
     PoolArray::from_vec(bincode::serialize(data).unwrap())
 }
 
@@ -400,7 +363,7 @@ fn render(editor: &Editor, owner: &Node2D) {
             continue;
         }
 
-        // Draw system.
+        // Draw system bound.
         owner.draw_circle(
             glam_to_godot(system.position),
             system.bound.into(),

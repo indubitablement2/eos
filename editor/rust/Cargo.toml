@@ -10,7 +10,7 @@ crate-type = ["cdylib", "staticlib"]
 [dependencies]
 common = { path = "../../common" }
 
-gdnative = { git = "https://github.com/godot-rust/godot-rust.git", rev = "25603b047364cde1ab1267cb41579a2734ab01d5" }
+gdnative = { git = "https://github.com/godot-rust/godot-rust.git" }
 
 rand = { version = "0.8.4", features = ["nightly", "simd_support"] }
 rand_xoshiro = "0.6.0"

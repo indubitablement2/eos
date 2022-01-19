@@ -12,7 +12,6 @@ var hold_start_point := Vector2.ZERO
 var current_load_state = load_state.NONE
 enum load_state {
 	NONE,
-	FULL,
 	SYSTEMS
 	}
 
@@ -78,7 +77,7 @@ func _on_Export_pressed() -> void:
 	$CanvasLayer/Control/Save.popup()
 
 func _on_Save_confirmed() -> void:
-	var data : PoolByteArray = editor.export_data()
+	var data : PoolByteArray = editor.export_systems()
 	if data.empty():
 		push_warning("can not save. no data")
 		return
@@ -117,8 +116,6 @@ func _on_Load_confirmed() -> void:
 	
 	var result := false
 	match current_load_state:
-		load_state.FULL:
-			result = editor.load_data(data)
 		load_state.SYSTEMS:
 			result = editor.load_systems(data)
 	file.close()
