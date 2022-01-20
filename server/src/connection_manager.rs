@@ -1,4 +1,6 @@
-use common::{connection::Connection, idx::ClientId, packets::*, tcp_loops::*, Version, SERVER_PORT};
+use common::{
+    connection::Connection, idx::ClientId, packets::*, tcp_loops::*, Version, SERVER_PORT,
+};
 use std::io::Result;
 use std::{
     net::{Ipv6Addr, SocketAddrV6, UdpSocket},
@@ -28,14 +30,19 @@ impl ConnectionsManager {
         socket.set_nonblocking(true)?;
 
         // Create tokio runtime.
-        let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?;
 
         // Start login loop.
         let listener = rt.block_on(async { TcpListener::bind(addr).await })?;
         let (new_connection_sender, new_connection_receiver) = crossbeam::channel::unbounded();
         rt.spawn(login_loop(local, listener, new_connection_sender, socket));
 
-        info!("Connection manager ready. Accepting login on {}.", SERVER_PORT);
+        info!(
+            "Connection manager ready. Accepting login on {}.",
+            SERVER_PORT
+        );
 
         Ok(Self {
             new_connection_receiver,
@@ -73,7 +80,10 @@ pub async fn login_loop(
                 // Convert generic address to v6.
                 let client_addr = match generic_client_addr {
                     std::net::SocketAddr::V4(v4) => {
-                        debug!("{:?} attempted to connect with an ipv4 address. Ignoring...", v4);
+                        debug!(
+                            "{:?} attempted to connect with an ipv4 address. Ignoring...",
+                            v4
+                        );
                         continue;
                     }
                     std::net::SocketAddr::V6(v6) => v6,
@@ -84,10 +94,18 @@ pub async fn login_loop(
                     continue;
                 }
 
-                tokio::spawn(try_login(local, new_stream, client_addr, login_result_sender.clone()));
+                tokio::spawn(try_login(
+                    local,
+                    new_stream,
+                    client_addr,
+                    login_result_sender.clone(),
+                ));
             }
             Err(err) => {
-                debug!("{:?} while listening for new tcp connection. Ignoring...", err);
+                debug!(
+                    "{:?} while listening for new tcp connection. Ignoring...",
+                    err
+                );
             }
         }
     }
@@ -102,7 +120,10 @@ async fn try_login(
     // Get the first packet.
     let mut first_packet_buffer = [0u8; LoginPacket::FIXED_SIZE];
     if let Err(err) = stream.read_exact(&mut first_packet_buffer).await {
-        debug!("{:?} while attempting to login a client. Aborting login...", err);
+        debug!(
+            "{:?} while attempting to login a client. Aborting login...",
+            err
+        );
         return;
     }
 
@@ -111,7 +132,10 @@ async fn try_login(
 
     // Send login response.
     if let Err(err) = stream.write_all(&login_response.serialize()).await {
-        debug!("{:?} while writing login response to stream. Aborting login...", err);
+        debug!(
+            "{:?} while writing login response to stream. Aborting login...",
+            err
+        );
         return;
     }
 
@@ -190,7 +214,10 @@ async fn handle_first_packet(
         }
     };
 
-    debug!("{} successfully identified as {:?}.", client_addr, client_id);
+    debug!(
+        "{} successfully identified as {:?}.",
+        client_addr, client_id
+    );
     LoginResponsePacket::Accepted { client_id }
 }
 
@@ -209,13 +236,18 @@ async fn handle_successful_login(
             let buf_write = BufWriter::new(w);
 
             // Start tcp loops.
-            let (tcp_outbound_event_sender, tcp_outbound_event_receiver) = tokio::sync::mpsc::channel(8);
+            let (tcp_outbound_event_sender, tcp_outbound_event_receiver) =
+                tokio::sync::mpsc::channel(8);
             tokio::spawn(tcp_out_loop(
                 tcp_outbound_event_receiver,
                 buf_write,
                 login_result.client_id,
             ));
-            tokio::spawn(tcp_in_loop(inbound_sender, buf_read, login_result.client_id));
+            tokio::spawn(tcp_in_loop(
+                inbound_sender,
+                buf_read,
+                login_result.client_id,
+            ));
 
             if new_connection_sender
                 .send(Connection::new(

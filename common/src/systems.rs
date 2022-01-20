@@ -97,4 +97,16 @@ impl Systems {
             None
         }
     }
+
+    pub fn get_planet_position(&self, planet_id: PlanetId, time: f32) -> Option<Vec2> {
+        if let Some(system) = self.systems.get(&planet_id.system_id) {
+            if let Some(planet) = system.planets.get(planet_id.planets_offset as usize) {
+                Some(planet.relative_orbit.to_position(time, system.position))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
 }

@@ -15,7 +15,11 @@ async fn main() {
         .await
         .unwrap();
 
-    let mut client = BufStream::new(TcpStream::connect(server_listener.local_addr().unwrap()).await.unwrap());
+    let mut client = BufStream::new(
+        TcpStream::connect(server_listener.local_addr().unwrap())
+            .await
+            .unwrap(),
+    );
 
     let mut server = BufStream::new(server_listener.accept().await.unwrap().0);
 

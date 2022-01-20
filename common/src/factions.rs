@@ -1,7 +1,6 @@
+use crate::{idx::*, reputation::Reputation, systems::Systems};
 use ahash::{AHashMap, AHashSet};
 use serde::{Deserialize, Serialize};
-
-use crate::{idx::*, reputation::Reputation, systems::Systems};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Faction {
@@ -17,6 +16,8 @@ pub struct Faction {
     pub faction_relation: AHashMap<FactionId, Reputation>,
     /// Fallback reputation and starting reputation for clients.
     pub default_reputation: Reputation,
+
+    pub target_colonies: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

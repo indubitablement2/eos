@@ -69,30 +69,33 @@ impl Metascape {
         let mut file = File::open("systems.bin").expect("Could not open systems.bin");
         let mut buffer = Vec::with_capacity(file.metadata().unwrap().len() as usize);
         file.read_to_end(&mut buffer).unwrap();
-        let mut systems = bincode::deserialize::<Systems>(&buffer).expect("Could not deserialize systems.bin");
+        let mut systems =
+            bincode::deserialize::<Systems>(&buffer).expect("Could not deserialize systems.bin");
         systems.update_all();
 
         // Load factions.
         let mut file = File::open("factions.yaml").expect("Could not open factions.bin");
         let mut buffer = String::with_capacity(file.metadata().unwrap().len() as usize);
         file.read_to_string(&mut buffer).unwrap();
-        let mut factions = serde_yaml::from_str::<Factions>(buffer.as_str()).expect("Could not deserialize factions.yaml");
+        let mut factions = serde_yaml::from_str::<Factions>(buffer.as_str())
+            .expect("Could not deserialize factions.yaml");
         factions.update_all(&mut systems);
 
         // Create an acceleration structure for systems.
         let mut acc = AccelerationStructure::new();
-        acc.extend(
-            systems
-                .systems
-                .iter()
-                .map(|(system_id, system)| (Collider::new(system.bound, system.position), system_id.to_owned())),
-        );
+        acc.extend(systems.systems.iter().map(|(system_id, system)| {
+            (
+                Collider::new(system.bound, system.position),
+                system_id.to_owned(),
+            )
+        }));
         acc.update();
 
         // Add systems and systems_acceleration_structure resource.
         self.world.insert_resource(systems);
         self.world.insert_resource(factions);
-        self.world.insert_resource(SystemsAccelerationStructure(acc));
+        self.world
+            .insert_resource(SystemsAccelerationStructure(acc));
     }
 
     fn update(&mut self) {
@@ -136,7 +139,8 @@ fn main() {
         // Time since last update.
         let delta = loop_start.elapsed();
         // Time alocated for this update.
-        let update_duration = common::UPDATE_INTERVAL.saturating_sub(delta.saturating_sub(common::UPDATE_INTERVAL));
+        let update_duration =
+            common::UPDATE_INTERVAL.saturating_sub(delta.saturating_sub(common::UPDATE_INTERVAL));
         // Update start time.
         loop_start = Instant::now();
 

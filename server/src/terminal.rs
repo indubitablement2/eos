@@ -23,7 +23,9 @@ use tui_logger::{TuiLoggerTargetWidget, TuiLoggerWidget, TuiWidgetEvent, TuiWidg
 
 use crate::Metascape;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, IntoPrimitive, FromPrimitive)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, IntoPrimitive, FromPrimitive,
+)]
 #[repr(usize)]
 enum TerminalTab {
     Performance,
@@ -34,7 +36,8 @@ enum TerminalTab {
 }
 impl TerminalTab {
     const LEN: usize = TerminalTab::Info as usize + 1;
-    const TITLES: [&'static str; TerminalTab::LEN + 1] = ["Performance", "Log", "Factions", "Info", "?"];
+    const TITLES: [&'static str; TerminalTab::LEN + 1] =
+        ["Performance", "Log", "Factions", "Info", "?"];
 }
 impl Default for TerminalTab {
     fn default() -> Self {
@@ -187,7 +190,8 @@ impl Terminal {
             // Special keys need to be paired with continue or they will be handled here too.
             if let Key::Char(c) = key {
                 if c == '\t' {
-                    self.current_tab = TerminalTab::from((usize::from(self.current_tab) + 1) % TerminalTab::LEN);
+                    self.current_tab =
+                        TerminalTab::from((usize::from(self.current_tab) + 1) % TerminalTab::LEN);
                 } else if c == '?' {
                     self.help = true;
                 }

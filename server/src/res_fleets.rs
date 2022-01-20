@@ -4,7 +4,7 @@ use common::idx::*;
 
 pub struct FleetsRes {
     pub spawned_fleets: AHashMap<FleetId, Entity>,
-    last_used_id: u64,
+    pub last_used_id: u64,
 }
 impl FleetsRes {
     pub fn new() -> Self {

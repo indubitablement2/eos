@@ -14,6 +14,30 @@ pub struct ClientFleetBundle {
 }
 
 #[derive(Bundle)]
+pub struct ColonistAIFleetBundle {
+    pub colonist_ai: ColonistAI,
+    #[bundle]
+    pub fleet_bundle: FleetBundle,
+}
+impl ColonistAIFleetBundle {
+    pub fn new(
+        target: Option<PlanetId>,
+        travel_until: u32,
+        fleet_id: FleetId,
+        position: Vec2,
+        faction: Option<FactionId>,
+    ) -> Self {
+        Self {
+            colonist_ai: ColonistAI {
+                target_planet: target,
+                travel_until,
+            },
+            fleet_bundle: FleetBundle::new(fleet_id, position, faction),
+        }
+    }
+}
+
+#[derive(Bundle)]
 pub struct FleetBundle {
     pub name: Name,
     pub fleet_id_comp: FleetIdComp,
@@ -27,6 +51,28 @@ pub struct FleetBundle {
     pub detected_radius: DetectedRadius,
     pub detector_radius: DetectorRadius,
     pub entity_detected: EntityDetected,
+}
+impl FleetBundle {
+    pub fn new(fleet_id: FleetId, position: Vec2, faction: Option<FactionId>) -> Self {
+        Self {
+            name: Name(format!("{}", fleet_id.0)),
+            fleet_id_comp: FleetIdComp(fleet_id),
+            position: Position(position),
+            in_system: InSystem::default(),
+            wish_position: WishPosition::default(),
+            velocity: Velocity::default(),
+            idle_counter: IdleCounter::default(),
+            derived_fleet_stats: DerivedFleetStats { acceleration: 0.04 },
+            reputations: Reputations {
+                faction,
+                faction_reputation: Default::default(),
+                common_reputation: Default::default(),
+            },
+            detected_radius: DetectedRadius(10.0),
+            detector_radius: DetectorRadius(10.0),
+            entity_detected: EntityDetected::default(),
+        }
+    }
 }
 
 //* Client
@@ -92,7 +138,7 @@ pub struct OrbitComp(pub Orbit);
 pub struct Name(pub String);
 
 /// If this entity is within a system.
-#[derive(Debug, Clone, Copy, Component)]
+#[derive(Debug, Clone, Copy, Component, Default)]
 pub struct InSystem(pub Option<SystemId>);
 
 #[derive(Debug, Clone, Component, Default)]
@@ -103,7 +149,11 @@ pub struct Reputations {
 }
 impl Reputations {
     /// Return the relative reputation between two reputations.
-    pub fn get_relative_reputation(&self, other: &Reputations, factions: &AHashMap<FactionId, Faction>) -> Reputation {
+    pub fn get_relative_reputation(
+        &self,
+        other: &Reputations,
+        factions: &AHashMap<FactionId, Faction>,
+    ) -> Reputation {
         if let Some(fac_self) = self.faction {
             if let Some(fac_other) = other.faction {
                 let (highest, lowest) = if fac_self > fac_other {
@@ -125,7 +175,10 @@ impl Reputations {
                         Reputation::NEUTRAL
                     }
                 } else {
-                    debug!("Can not find {:?}. Returning neutral reputation...", highest);
+                    debug!(
+                        "Can not find {:?}. Returning neutral reputation...",
+                        highest
+                    );
                     Reputation::NEUTRAL
                 }
             } else {
@@ -135,7 +188,10 @@ impl Reputations {
                     if let Some(faction) = factions.get(&fac_self) {
                         faction.default_reputation
                     } else {
-                        debug!("Can not find {:?}. Returning neutral reputation...", fac_self);
+                        debug!(
+                            "Can not find {:?}. Returning neutral reputation...",
+                            fac_self
+                        );
                         Reputation::NEUTRAL
                     }
                 }
@@ -148,7 +204,10 @@ impl Reputations {
                     if let Some(faction) = factions.get(&fac_other) {
                         faction.default_reputation
                     } else {
-                        debug!("Can not find {:?}. Returning neutral reputation...", fac_other);
+                        debug!(
+                            "Can not find {:?}. Returning neutral reputation...",
+                            fac_other
+                        );
                         Reputation::NEUTRAL
                     }
                 }
@@ -162,7 +221,7 @@ impl Reputations {
 //* Fleet
 
 /// How long this entity has been without velocity.
-#[derive(Debug, Clone, Copy, Component)]
+#[derive(Debug, Clone, Copy, Component, Default)]
 pub struct IdleCounter(pub u32);
 impl IdleCounter {
     /// Delay before a fleet without velocity is considered idle in tick.
@@ -179,8 +238,19 @@ impl IdleCounter {
 }
 
 /// Where the fleet wish to move.
-#[derive(Debug, Clone, Copy, Default, Component)]
-pub struct WishPosition(pub Option<Vec2>);
+#[derive(Debug, Clone, Copy, Component)]
+pub struct WishPosition {
+    pub to: Option<Vec2>,
+    pub speed_multiplier: f32,
+}
+impl Default for WishPosition {
+    fn default() -> Self {
+        Self {
+            to: None,
+            speed_multiplier: 1.0,
+        }
+    }
+}
 
 /// The current velocity of the entity.
 #[derive(Debug, Clone, Copy, Default, Component)]
@@ -201,6 +271,14 @@ pub struct QueueRemove {
 }
 
 //* AI
+
+/// AI that want to colonize a planet.
+#[derive(Debug, Clone, Copy, Component)]
+pub struct ColonistAI {
+    pub target_planet: Option<PlanetId>,
+    /// Fleet will travel at least until this tick before attempting to find a planet. 
+    pub travel_until: u32,
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum ColonyFleetAIGoal {

@@ -9,6 +9,8 @@ use crate::SystemsAccelerationStructure;
 use bevy_ecs::prelude::*;
 use bevy_tasks::ComputeTaskPool;
 use common::factions::Factions;
+use common::idx::FleetId;
+use common::idx::PlanetId;
 use common::intersection::*;
 use common::orbit::*;
 use common::packets::*;
@@ -16,6 +18,8 @@ use common::parameters::Parameters;
 use common::systems::Systems;
 use common::time::Time;
 use glam::Vec2;
+use rand::thread_rng;
+use rand::Rng;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
 enum Label {
@@ -32,6 +36,8 @@ pub fn add_systems(schedule: &mut Schedule) {
 
     schedule.add_system_to_stage("", get_new_clients);
 
+    schedule.add_system_to_stage("", spawn_colonist);
+
     schedule.add_system_to_stage("", handle_orbit);
     schedule.add_system_to_stage("", remove_orbit);
     schedule.add_system_to_stage("", handle_idle);
@@ -40,6 +46,7 @@ pub fn add_systems(schedule: &mut Schedule) {
 
     schedule.add_system_to_stage("", handle_client_inputs.before(Label::Movement));
     schedule.add_system_to_stage("", colony_fleet_ai.before(Label::Movement));
+    schedule.add_system_to_stage("", colonist_ai.before(Label::Movement));
 
     schedule.add_system_to_stage("", apply_fleet_movement.label(Label::Movement));
 
@@ -57,8 +64,6 @@ pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_system_to_stage("", remove_fleet);
 }
 
-//* first
-
 /// Get new connection and insert client.
 fn get_new_clients(
     mut commands: Commands,
@@ -69,13 +74,20 @@ fn get_new_clients(
 ) {
     // TODO: Only do a few each tick.
     // TODO: Send notice to the rest of the wait queue.
-    while let Ok(connection) = clients_res.connection_manager.new_connection_receiver.try_recv() {
+    while let Ok(connection) = clients_res
+        .connection_manager
+        .new_connection_receiver
+        .try_recv()
+    {
         let client_id = connection.client_id;
         let fleet_id = client_id.to_fleet_id();
 
         // Insert client.
         if let Some(old_connection) = clients_res.connected_clients.insert(client_id, connection) {
-            debug!("{:?} was disconnected as a new connection took this client.", client_id);
+            debug!(
+                "{:?} was disconnected as a new connection took this client.",
+                client_id
+            );
             // Send message to old client explaining why he got disconnected.
             old_connection.send_packet_reliable(
                 Packet::DisconnectedReason(DisconnectedReasonEnum::ConnectionFromOther).serialize(),
@@ -84,7 +96,10 @@ fn get_new_clients(
         }
 
         // Check if client has data.
-        match data_manager.clients_data.try_insert(client_id, ClientData::default()) {
+        match data_manager
+            .clients_data
+            .try_insert(client_id, ClientData::default())
+        {
             Ok(client_data) => {
                 // This is this client's first login.
             }
@@ -95,7 +110,9 @@ fn get_new_clients(
 
         // Check if fleet is already spawned.
         if let Some(old_fleet_entity) = fleets_res.spawned_fleets.get(&fleet_id) {
-            if let Ok((client_id_comp, mut know_entities)) = query_client_fleet.get_mut(*old_fleet_entity) {
+            if let Ok((client_id_comp, mut know_entities)) =
+                query_client_fleet.get_mut(*old_fleet_entity)
+            {
                 // Update old fleet components.
                 let know_entities = &mut *know_entities;
                 *know_entities = KnowEntities::default();
@@ -142,14 +159,47 @@ fn get_new_clients(
             // Insert fleet.
             let _ = fleets_res.spawned_fleets.insert(fleet_id, entity);
 
-            debug!("Created a new fleet for {:?} which he now control.", client_id);
+            debug!(
+                "Created a new fleet for {:?} which he now control.",
+                client_id
+            );
+        }
+    }
+}
+
+/// Spawn colonist fleet to reach faction's target colony.
+fn spawn_colonist(
+    mut commands: Commands,
+    factions: Res<Factions>,
+    mut fleets_res: ResMut<FleetsRes>,
+    time: Res<Time>,
+) {
+    // TODO: Use run criteria.
+    if time.tick % 10 != 0 {
+        return;
+    }
+
+    for (faction_id, faction) in factions.factions.iter() {
+        if faction.colonies.len() < faction.target_colonies {
+            let faction_id = *faction_id;
+            let fleet_id = fleets_res.get_new_fleet_id();
+            let entity = commands.spawn().insert_bundle(ColonistAIFleetBundle::new(None, time.tick + 3000, fleet_id, Vec2::ZERO, Some(faction_id))).id();
+            fleets_res.spawned_fleets.insert(fleet_id, entity);
+
         }
     }
 }
 
 /// Determine what each fleet can see.
 fn fleet_sensor(
-    mut query: Query<(Entity, &FleetIdComp, &Position, &DetectorRadius, &mut EntityDetected)>,
+    mut query: Query<(
+        Entity,
+        &FleetIdComp,
+        &Position,
+        &DetectorRadius,
+        &mut EntityDetected,
+        &Reputations,
+    )>,
     query_reputation: Query<&Reputations>,
     detected_intersection_pipeline: Res<DetectedIntersectionPipeline>,
     time: Res<Time>,
@@ -159,7 +209,7 @@ fn fleet_sensor(
     let turn = time.tick as u64 % DETECTED_UPDATE_INTERVAL;
 
     query.for_each_mut(
-        |(entity, fleet_id_comp, position, detector_radius, mut entity_detected)| {
+        |(entity, fleet_id_comp, position, detector_radius, mut entity_detected, reputations)| {
             if fleet_id_comp.0 .0 % DETECTED_UPDATE_INTERVAL == turn {
                 let detector_collider = Collider::new(detector_radius.0, position.0);
 
@@ -178,19 +228,16 @@ fn fleet_sensor(
                         }
                     }
                 } else {
-                    if let Ok(rep) = query_reputation.get(entity) {
                         // AI fleet filter out allied.
                         entity_detected.0.drain_filter(|id| {
                             if let Ok(other_rep) = query_reputation.get(*id) {
-                                !rep.get_relative_reputation(other_rep, &factions.factions).is_enemy()
+                                !reputations.get_relative_reputation(other_rep, &factions.factions)
+                                    .is_enemy()
                             } else {
                                 debug!("An entity has a Detector, but no Reputations. Ignoring...");
                                 true
                             }
                         });
-                    } else {
-                        debug!("An entity has a Detector, but no Reputations. Ignoring...");
-                    }
                 }
             }
         },
@@ -212,7 +259,7 @@ fn handle_client_inputs(
                             // TODO: Broadcast the message.
                         }
                         Packet::MetascapeWishPos { wish_pos } => {
-                            wish_position.0 = Some(wish_pos);
+                            wish_position.to = Some(wish_pos);
                         }
                         Packet::BattlescapeInput {
                             wish_input,
@@ -221,11 +268,16 @@ fn handle_client_inputs(
                             // TODO: Handle battlescape inputs.
                         }
                         _ => {
-                            debug!("{:?} sent an invalid packet. Disconnecting...", client_id_comp.0);
+                            debug!(
+                                "{:?} sent an invalid packet. Disconnecting...",
+                                client_id_comp.0
+                            );
                             client_disconnected.events.push(ClientDisconnected {
                                 client_id: client_id_comp.0,
                                 fleet_entity: entity,
-                                send_packet: Some(Packet::DisconnectedReason(DisconnectedReasonEnum::InvalidPacket)),
+                                send_packet: Some(Packet::DisconnectedReason(
+                                    DisconnectedReasonEnum::InvalidPacket,
+                                )),
                             });
                             break;
                         }
@@ -246,8 +298,6 @@ fn handle_client_inputs(
     });
 }
 
-//* pre_update
-
 /// Change the position of entities that have an orbit.
 fn handle_orbit(mut query: Query<(&OrbitComp, &mut Position)>, time: Res<Time>) {
     let time = time.as_time();
@@ -258,7 +308,10 @@ fn handle_orbit(mut query: Query<(&OrbitComp, &mut Position)>, time: Res<Time>) 
 }
 
 /// Remove the orbit component from entities with velocity.
-fn remove_orbit(mut commands: Commands, query: Query<(Entity, &Velocity), (Changed<Velocity>, With<OrbitComp>)>) {
+fn remove_orbit(
+    mut commands: Commands,
+    query: Query<(Entity, &Velocity), (Changed<Velocity>, With<OrbitComp>)>,
+) {
     query.for_each(|(entity, velocity)| {
         if velocity.0.x != 0.0 || velocity.0.x != 0.0 {
             // Remove orbit as this entity has velocity.
@@ -324,15 +377,106 @@ fn handle_idle(
 
 /// TODO: Ai that control fleet owned by a colony.
 fn colony_fleet_ai(mut query: Query<(&mut ColonyFleetAI, &Position, &mut WishPosition)>) {
-    query.for_each_mut(
-        |(mut colony_fleet_ai, position, mut wish_position)| match &mut colony_fleet_ai.goal {
+    query.for_each_mut(|(mut colony_fleet_ai, position, mut wish_position)| {
+        match &mut colony_fleet_ai.goal {
             ColonyFleetAIGoal::Trade { colony } => todo!(),
             ColonyFleetAIGoal::Guard { duration } => todo!(),
+        }
+    });
+}
+
+fn colonist_ai(
+    mut commands: Commands,
+    mut query: Query<(
+        Entity,
+        &Position,
+        &InSystem,
+        &mut ColonistAI,
+        &mut WishPosition,
+        &Reputations,
+    )>,
+    mut systems: ResMut<Systems>,
+    mut factions: ResMut<Factions>,
+    time: Res<Time>,
+    parameters: Res<Parameters>,
+) {
+    let timef = time.as_time();
+    let mut rng = thread_rng();
+
+    query.for_each_mut(
+        |(entity, position, in_system, mut colonist_ai, mut wish_position, reputations)| {
+            if let Some(planet_id) = colonist_ai.target_planet {
+                if let Some(system) = systems.systems.get_mut(&planet_id.system_id) {
+                    if let Some(planet) = system.planets.get_mut(planet_id.planets_offset as usize)
+                    {
+                        // Check that planet has not been colonized already.
+                        if planet.faction.is_some() {
+                            colonist_ai.target_planet = None;
+                        }
+
+                        let planet_position =
+                            planet.relative_orbit.to_position(timef, system.position);
+                        wish_position.to = Some(planet_position);
+                        wish_position.speed_multiplier = 0.3;
+
+                        // Are we close enough to the planet to take it?
+                        if planet_position.distance_squared(position.0) < 1.0 {
+                            if let Some(faction_id) = reputations.faction {
+                                if let Some(faction) = factions.factions.get_mut(&faction_id) {
+                                    // Take control of the planet.
+                                    // TODO: This should take time.
+                                    planet.faction = Some(faction_id);
+                                    faction.colonies.insert(planet_id);
+
+                                    // TODO: Change AI to guard the planet.
+                                } else {
+                                    // Faction does not exist.
+                                    commands.entity(entity).insert(QueueRemove { when: 0 });
+                                }
+                            } else {
+                                // Fleet is factionless and can not colonize.
+                                commands.entity(entity).insert(QueueRemove { when: 0 });
+                            }
+                        }
+                    } else {
+                        colonist_ai.target_planet = None;
+                    }
+                } else {
+                    colonist_ai.target_planet = None;
+                }
+            } else if colonist_ai.travel_until < time.tick {
+                if let Some(system_id) = in_system.0 {
+                    if let Some(system) = systems.systems.get(&system_id) {
+                        // Randomly chose a planet to colonize.
+                        let planets_offset = (rng.gen::<u32>() % system.planets.len() as u32) as u8;
+                        let planet_id = PlanetId {
+                            system_id,
+                            planets_offset,
+                        };
+                        let planet = &system.planets[planets_offset as usize];
+                        if planet.faction.is_none() {
+                            colonist_ai.target_planet = Some(planet_id);
+                        } else {
+                            // TODO: Go to a random system.
+                            colonist_ai.travel_until = time.tick + 1200
+                        }
+                    }
+                }
+            } else {
+                if wish_position.to.is_none() {
+                    // TODO: Go to a random system.
+                    // Go to a random position.
+                    let v = (rng.gen::<Vec2>() * 2.0 - Vec2::ONE) * parameters.world_bound;
+                    if v.length_squared() > parameters.world_bound * parameters.world_bound {
+                        return;
+                    }
+                    wish_position.to = Some(v);
+                    wish_position.speed_multiplier = 0.6;
+                }
+            }
         },
     );
 }
-
-//* update
 
 /// Update velocity based on wish position and acceleration.
 ///
@@ -354,24 +498,35 @@ fn apply_fleet_movement(
     let bound_squared = parameters.world_bound.powi(2);
 
     query.for_each_mut(
-        |(entity, mut position, mut wish_position, mut velocity, derived_fleet_stats, mut idle_counter)| {
-            if let Some(target) = wish_position.0 {
+        |(
+            entity,
+            mut position,
+            mut wish_position,
+            mut velocity,
+            derived_fleet_stats,
+            mut idle_counter,
+        )| {
+            if let Some(target) = wish_position.to {
                 // A vector equal to our current velocity toward our target.
                 let wish_vel = target - position.0 - velocity.0;
 
                 // Seek target.
-                velocity.0 += wish_vel.clamp_length_max(derived_fleet_stats.acceleration);
+                velocity.0 += wish_vel.clamp_length_max(
+                    derived_fleet_stats.acceleration * wish_position.speed_multiplier,
+                );
 
                 // Stop if we are near the target.
                 if wish_vel.length_squared() < 0.5 {
-                    wish_position.0 = None;
+                    wish_position.to = None;
                 }
 
                 // Fleet is not idle.
                 idle_counter.0 = 0;
             } else if velocity.0.x != 0.0 || velocity.0.y != 0.0 {
                 // Go against current velocity.
-                let vel_change = -velocity.0.clamp_length_max(derived_fleet_stats.acceleration);
+                let vel_change = -velocity
+                    .0
+                    .clamp_length_max(derived_fleet_stats.acceleration);
                 velocity.0 += vel_change;
 
                 // Set velocity to zero if we have nearly no velocity.
@@ -406,8 +561,6 @@ fn apply_fleet_movement(
     );
 }
 
-//* post_update
-
 /// Remove a client from connected client map and trigger idle event again if already idle to remove the fleet.
 /// TODO: This is janky.
 fn disconnect_client(
@@ -435,9 +588,11 @@ fn disconnect_client(
         }
 
         // Queue his fleet to be removed after a delay.
-        commands.entity(client_disconnected.fleet_entity).insert(QueueRemove {
-            when: time.tick + DISCONNECT_REMOVE_FLEET_DELAY,
-        });
+        commands
+            .entity(client_disconnected.fleet_entity)
+            .insert(QueueRemove {
+                when: time.tick + DISCONNECT_REMOVE_FLEET_DELAY,
+            });
     }
 }
 
@@ -486,7 +641,10 @@ fn update_in_system(
                     }
                 }
                 None => {
-                    if let Some(system_id) = systems_acceleration_structure.0.intersect_point_first(position.0) {
+                    if let Some(system_id) = systems_acceleration_structure
+                        .0
+                        .intersect_point_first(position.0)
+                    {
                         in_system.0 = Some(system_id);
                     }
                 }
@@ -526,14 +684,15 @@ fn update_detected_intersection_pipeline(
         if let Some(mut old_snapshot) = intersection_pipeline.outdated.take() {
             // Update all colliders.
             old_snapshot.clear();
-            old_snapshot.extend(
-                query
-                    .iter()
-                    .map(|(entity, position, detected_radius)| (Collider::new(detected_radius.0, position.0), entity)),
-            );
+            old_snapshot.extend(query.iter().map(|(entity, position, detected_radius)| {
+                (Collider::new(detected_radius.0, position.0), entity)
+            }));
 
             // Send snapshot to be updated.
-            if let Err(err) = intersection_pipeline.update_request_sender.send(old_snapshot) {
+            if let Err(err) = intersection_pipeline
+                .update_request_sender
+                .send(old_snapshot)
+            {
                 warn!("Detected intersection pipeline update runner thread dropped. Creating a new runner...");
                 intersection_pipeline.outdated = Some(err.0);
                 intersection_pipeline.start_new_runner_thread();
@@ -548,7 +707,13 @@ fn update_detected_intersection_pipeline(
 
 /// Send detected fleet to clients.
 fn send_detected_entity(
-    mut query_client: Query<(Entity, &ClientIdComp, &Position, &EntityDetected, &mut KnowEntities)>,
+    mut query_client: Query<(
+        Entity,
+        &ClientIdComp,
+        &Position,
+        &EntityDetected,
+        &mut KnowEntities,
+    )>,
     query_changed_entity: Query<Entity, Changed<OrbitComp>>,
     query_fleet_info: Query<(&FleetIdComp, &Name, Option<&OrbitComp>)>,
     query_entity_state: Query<&Position, Without<OrbitComp>>,

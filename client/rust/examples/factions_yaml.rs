@@ -21,7 +21,7 @@ fn main() {
         ]
         .into_iter(),
     );
-    let mut faction_relation = AHashMap::new();
+    let faction_relation = AHashMap::new();
     // faction_relation.insert(FactionId(2), Reputation::ENEMY_THRESHOLD);
     // faction_relation.insert(FactionId(4), Reputation::ENEMY_THRESHOLD);
 
@@ -32,6 +32,7 @@ fn main() {
             colonies,
             faction_relation,
             default_reputation: Reputation::NEUTRAL,
+            target_colonies: 76,
         },
     );
 
