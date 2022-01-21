@@ -11,7 +11,7 @@ pub enum ReputationState {
 }
 
 /// Good boy points.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub struct Reputation(i8);
 impl Reputation {
     pub const NEUTRAL: Reputation = Reputation(0);
@@ -40,11 +40,6 @@ impl Reputation {
         } else {
             ReputationState::Neutral
         }
-    }
-}
-impl Default for Reputation {
-    fn default() -> Self {
-        Self(0)
     }
 }
 impl Add for Reputation {

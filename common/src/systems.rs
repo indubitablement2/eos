@@ -1,5 +1,4 @@
 use crate::{idx::*, orbit::RelativeOrbit};
-use ahash::AHashMap;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
@@ -50,7 +49,7 @@ pub struct System {
 }
 impl System {
     /// Extra radius added after the edge of the outtermost body of a system.
-    pub const PADDING: f32 = 18.0;
+    pub const PADDING: f32 = 20.0;
 
     /// Compute the temperature of bodies in this system.
     pub fn compute_temperature(&mut self) {}
@@ -58,11 +57,10 @@ impl System {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Systems {
-    pub systems: AHashMap<SystemId, System>,
+    pub systems: Vec<System>,
     /// The furthest system bound from the world origin.
     pub bound: f32,
     pub total_num_planet: usize,
-    pub next_system_id: u32,
 }
 impl Systems {
     pub fn update_all(&mut self) {
@@ -73,40 +71,31 @@ impl Systems {
 
     /// Result is saved in `bound`.
     pub fn update_bound(&mut self) {
-        self.bound = self.systems.iter().fold(0.0f32, |acc, (_, system)| {
-            acc.max(system.position.length() + system.bound)
-        });
+        self.bound = self
+            .systems
+            .iter()
+            .fold(0.0f32, |acc, system| acc.max(system.position.length() + system.bound));
     }
 
     /// Result is saved in `total_num_planet`.
     pub fn update_total_num_planet(&mut self) {
-        self.total_num_planet = self.systems.values().fold(0, |acc, system| acc + system.planets.len())
+        self.total_num_planet = self.systems.iter().fold(0, |acc, system| acc + system.planets.len())
     }
 
     // Update planets computed temperature.
     pub fn update_all_temperature(&mut self) {
-        for system in self.systems.values_mut() {
+        for system in self.systems.iter_mut() {
             system.compute_temperature()
         }
     }
 
-    pub fn get_planet(&self, planet_id: PlanetId) -> Option<&Planet> {
-        if let Some(system) = self.systems.get(&planet_id.system_id) {
-            system.planets.get(planet_id.planets_offset as usize)
-        } else {
-            None
-        }
+    pub fn get_system_and_planet(&self, planet_id: PlanetId) -> (&System, &Planet) {
+        let system = &self.systems[planet_id.system_id];
+        let planet = &system.planets[planet_id.planets_offset as usize];
+        (system, planet)
     }
 
-    pub fn get_planet_position(&self, planet_id: PlanetId, time: f32) -> Option<Vec2> {
-        if let Some(system) = self.systems.get(&planet_id.system_id) {
-            if let Some(planet) = system.planets.get(planet_id.planets_offset as usize) {
-                Some(planet.relative_orbit.to_position(time, system.position))
-            } else {
-                None
-            }
-        } else {
-            None
-        }
+    pub fn get_system(&self, system_id: SystemId) -> &System {
+        &self.systems[system_id]
     }
 }
