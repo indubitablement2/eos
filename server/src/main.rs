@@ -84,10 +84,11 @@ impl Metascape {
         factions.update_all(&mut systems);
 
         // Add systems and systems_acceleration_structure resource.
-        self.world.insert_resource(SystemsAccelerationStructure(systems.create_acceleration_structure()));
+        self.world.insert_resource(SystemsAccelerationStructure(
+            systems.create_acceleration_structure(),
+        ));
         self.world.insert_resource(systems);
         self.world.insert_resource(factions);
-
     }
 
     fn update(&mut self) {

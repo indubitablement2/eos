@@ -63,7 +63,10 @@ impl FleetBundle {
             velocity: Velocity::default(),
             idle_counter: IdleCounter::default(),
             derived_fleet_stats: DerivedFleetStats { acceleration: 0.04 },
-            reputations: Reputations { faction, common_reputation: Default::default() },
+            reputations: Reputations {
+                faction,
+                common_reputation: Default::default(),
+            },
             detected_radius: DetectedRadius(10.0),
             detector_radius: DetectorRadius(10.0),
             entity_detected: EntityDetected::default(),

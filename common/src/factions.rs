@@ -1,5 +1,5 @@
 use crate::{idx::*, reputation::Reputation, systems::Systems};
-use ahash::{AHashSet, AHashMap};
+use ahash::{AHashMap, AHashSet};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,7 +75,7 @@ impl Factions {
 
         for (i, faction) in self.factions.iter().enumerate() {
             let current = &mut masks[i];
-            
+
             // Add relation from lower faction.
             for (j, rep) in faction.relations.iter().enumerate() {
                 *current += (rep.is_enemy() as u32) << j;

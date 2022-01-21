@@ -4,13 +4,13 @@ use crate::constants::*;
 use crate::input_handler::PlayerInputs;
 use crate::util::*;
 use ahash::AHashMap;
+use common::factions::*;
 use common::idx::*;
 use common::intersection::*;
 use common::orbit::Orbit;
 use common::packets::*;
-use common::tcp_loops::TcpOutboundEvent;
 use common::systems::*;
-use common::factions::*;
+use common::tcp_loops::TcpOutboundEvent;
 use common::UPDATE_INTERVAL;
 use gdnative::api::*;
 use gdnative::prelude::*;
@@ -126,14 +126,11 @@ impl Metascape {
             ));
         };
 
-        // Create systems acceleration structure.
-        let mut systems_acceleration = systems.create_acceleration_structure();
-
         Ok(Self {
             configs,
+            systems_acceleration: systems.create_acceleration_structure(),
             systems,
             factions,
-            systems_acceleration,
             connection_manager,
             send_timer: 0.0,
             tick: 0,
@@ -368,7 +365,7 @@ impl Metascape {
             .into_iter()
         {
             let system = &self.systems.systems[system_id];
-            
+
             // Draw system bound.
             owner.draw_arc(
                 system.position.to_godot_scaled(),

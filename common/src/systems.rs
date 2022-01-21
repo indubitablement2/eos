@@ -1,4 +1,8 @@
-use crate::{idx::*, orbit::RelativeOrbit, intersection::{AccelerationStructure, NoFilter, Collider}};
+use crate::{
+    idx::*,
+    intersection::{AccelerationStructure, Collider, NoFilter},
+    orbit::RelativeOrbit,
+};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
@@ -65,7 +69,13 @@ pub struct Systems {
 impl Systems {
     pub fn create_acceleration_structure(&self) -> AccelerationStructure<SystemId, NoFilter> {
         let mut acc = AccelerationStructure::new();
-        acc.extend(self.systems.iter().zip(0u16..).map(|(system, id)| (Collider::new(system.bound, system.position), SystemId(id), NoFilter::default())));
+        acc.extend(self.systems.iter().zip(0u16..).map(|(system, id)| {
+            (
+                Collider::new(system.bound, system.position),
+                SystemId(id),
+                NoFilter::default(),
+            )
+        }));
         acc.update();
         acc
     }

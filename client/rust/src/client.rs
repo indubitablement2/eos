@@ -28,7 +28,7 @@ impl Client {
     }
 
     /// The "constructor" of the class.
-    fn new(owner: &Node2D) -> Self {
+    fn new(_owner: &Node2D) -> Self {
         let debug_infos = DebugInfos::new();
 
         Client {

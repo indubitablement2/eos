@@ -1,7 +1,4 @@
-
-use common::{
-    factions::Factions, systems::Systems,
-};
+use common::{factions::Factions, systems::Systems};
 
 fn main() {
     let mut f = Factions::default();
