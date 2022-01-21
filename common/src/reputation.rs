@@ -12,7 +12,7 @@ pub enum ReputationState {
 
 /// Good boy points.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
-pub struct Reputation(i8);
+pub struct Reputation(pub i8);
 impl Reputation {
     pub const NEUTRAL: Reputation = Reputation(0);
     pub const ENEMY_THRESHOLD: Reputation = Reputation(-25);
@@ -25,11 +25,11 @@ impl Reputation {
     }
 
     pub fn is_allied(self) -> bool {
-        self > Self::ALLIED_THRESHOLD
+        self >= Self::ALLIED_THRESHOLD
     }
 
     pub fn is_enemy(self) -> bool {
-        self < Self::ENEMY_THRESHOLD
+        self <= Self::ENEMY_THRESHOLD
     }
 
     pub fn get_reputation_state(self) -> ReputationState {

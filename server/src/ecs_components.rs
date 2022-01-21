@@ -63,11 +63,7 @@ impl FleetBundle {
             velocity: Velocity::default(),
             idle_counter: IdleCounter::default(),
             derived_fleet_stats: DerivedFleetStats { acceleration: 0.04 },
-            reputations: Reputations {
-                faction,
-                faction_reputation: Default::default(),
-                common_reputation: Default::default(),
-            },
+            reputations: Reputations { faction, common_reputation: Default::default() },
             detected_radius: DetectedRadius(10.0),
             detector_radius: DetectorRadius(10.0),
             entity_detected: EntityDetected::default(),
@@ -144,7 +140,6 @@ pub struct InSystem(pub Option<SystemId>);
 #[derive(Debug, Clone, Component, Default)]
 pub struct Reputations {
     pub faction: Option<FactionId>,
-    pub faction_reputation: AHashMap<FactionId, Reputation>,
     pub common_reputation: Reputation,
 }
 impl Reputations {
@@ -152,7 +147,9 @@ impl Reputations {
     pub fn get_relative_reputation(
         &self,
         other: &Reputations,
-        factions: &AHashMap<FactionId, Faction>,
+        self_fleet_id: FleetId,
+        other_fleet_id: FleetId,
+        factions: &[Faction; 32],
     ) -> Reputation {
         if let Some(fac_self) = self.faction {
             if let Some(fac_other) = other.faction {
@@ -164,52 +161,22 @@ impl Reputations {
                     return Reputation::MAX;
                 };
 
-                if let Some(faction) = factions.get(&highest) {
-                    if let Some(reputation) = faction.faction_relation.get(&lowest) {
-                        reputation.to_owned()
-                    } else {
-                        debug!(
-                            "Can not find reputation {:?} in {:?}. Returning neutral reputation...",
-                            lowest, highest
-                        );
-                        Reputation::NEUTRAL
-                    }
-                } else {
-                    debug!(
-                        "Can not find {:?}. Returning neutral reputation...",
-                        highest
-                    );
-                    Reputation::NEUTRAL
-                }
+                factions[highest].relations[lowest.0 as usize]
             } else {
-                if let Some(reputation) = other.faction_reputation.get(&fac_self) {
+                let faction = &factions[fac_self];
+                if let Some(reputation) = faction.reputations.get(&other_fleet_id) {
                     reputation.to_owned()
                 } else {
-                    if let Some(faction) = factions.get(&fac_self) {
-                        faction.default_reputation
-                    } else {
-                        debug!(
-                            "Can not find {:?}. Returning neutral reputation...",
-                            fac_self
-                        );
-                        Reputation::NEUTRAL
-                    }
+                    faction.default_reputation
                 }
             }
         } else {
             if let Some(fac_other) = other.faction {
-                if let Some(reputation) = self.faction_reputation.get(&fac_other) {
+                let faction = &factions[fac_other];
+                if let Some(reputation) = faction.reputations.get(&self_fleet_id) {
                     reputation.to_owned()
                 } else {
-                    if let Some(faction) = factions.get(&fac_other) {
-                        faction.default_reputation
-                    } else {
-                        debug!(
-                            "Can not find {:?}. Returning neutral reputation...",
-                            fac_other
-                        );
-                        Reputation::NEUTRAL
-                    }
+                    faction.default_reputation
                 }
             } else {
                 self.common_reputation.min(other.common_reputation)
@@ -225,7 +192,7 @@ impl Reputations {
 pub struct IdleCounter(pub u32);
 impl IdleCounter {
     /// Delay before a fleet without velocity is considered idle in tick.
-    pub const IDLE_DELAY: u32 = 50;
+    pub const IDLE_DELAY: u32 = 60;
 
     pub fn is_idle(self) -> bool {
         self.0 >= Self::IDLE_DELAY
@@ -276,7 +243,7 @@ pub struct QueueRemove {
 #[derive(Debug, Clone, Copy, Component)]
 pub struct ColonistAI {
     pub target_planet: Option<PlanetId>,
-    /// Fleet will travel at least until this tick before attempting to find a planet. 
+    /// Fleet will travel at least until this tick before attempting to find a planet.
     pub travel_until: u32,
 }
 

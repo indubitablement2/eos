@@ -1,4 +1,3 @@
-use bevy_ecs::system::System;
 use common::{factions::Factions, *};
 use crossbeam::channel::*;
 use num_enum::{FromPrimitive, IntoPrimitive};
@@ -358,17 +357,17 @@ impl Terminal {
                         frame.render_widget(log, chunks[1]);
                     }
                     TerminalTab::Factions => {
-                        if let Some(factions) = metascape.world.get_resource::<Factions>() {
-                            let items: Vec<ListItem> = factions
-                                .factions
-                                .iter()
-                                .map(|(faction_id, faction)| {
-                                    ListItem::new(format!("({}) {}", faction_id.0, faction.name))
-                                })
-                                .collect();
-                            let list = tui::widgets::List::new(items);
-                            frame.render_widget(list, chunks[1]);
-                        }
+                        let factions = metascape.world.get_resource::<Factions>().unwrap();
+                        let items: Vec<ListItem> = factions
+                            .factions
+                            .iter()
+                            .zip(0u8..)
+                            .map(|(faction, id)| {
+                                ListItem::new(format!("({}) {}", id, faction.name)).style(Style::default().add_modifier(Modifier::DIM))
+                            })
+                            .collect();
+                        let list = tui::widgets::List::new(items);
+                        frame.render_widget(list, chunks[1]);
                     }
                     TerminalTab::Info => {
                         let text = vec![

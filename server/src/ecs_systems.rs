@@ -1,3 +1,5 @@
+use std::f32::consts::TAU;
+
 use crate::data_manager::ClientData;
 use crate::data_manager::DataManager;
 use crate::ecs_components::*;
@@ -9,6 +11,7 @@ use crate::SystemsAccelerationStructure;
 use bevy_ecs::prelude::*;
 use bevy_tasks::ComputeTaskPool;
 use common::factions::Factions;
+use common::idx::FactionId;
 use common::idx::FleetId;
 use common::idx::PlanetId;
 use common::intersection::*;
@@ -30,6 +33,7 @@ enum Label {
 const DETECTED_UPDATE_INTERVAL: u64 = 5;
 /// Minimum delay before a disconnected client's fleet get removed.
 const DISCONNECT_REMOVE_FLEET_DELAY: u32 = 200;
+const UPDATE_IN_SYSTEM_INTERVAL: u64 = 20;
 
 pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_stage("", SystemStage::parallel());
@@ -179,13 +183,25 @@ fn spawn_colonist(
         return;
     }
 
-    for (faction_id, faction) in factions.factions.iter() {
-        if faction.colonies.len() < faction.target_colonies {
-            let faction_id = *faction_id;
-            let fleet_id = fleets_res.get_new_fleet_id();
-            let entity = commands.spawn().insert_bundle(ColonistAIFleetBundle::new(None, time.tick + 3000, fleet_id, Vec2::ZERO, Some(faction_id))).id();
-            fleets_res.spawned_fleets.insert(fleet_id, entity);
+    for (faction, faction_id) in factions.factions.iter().zip(0u8..) {
+        if faction.disabled {
+            continue;
+        }
 
+        if faction.colonies.len() < faction.target_colonies {
+            let faction_id = FactionId(faction_id);
+            let fleet_id = fleets_res.get_new_fleet_id();
+            let entity = commands
+                .spawn()
+                .insert_bundle(ColonistAIFleetBundle::new(
+                    None,
+                    time.tick + 3000,
+                    fleet_id,
+                    Vec2::ZERO,
+                    Some(faction_id),
+                ))
+                .id();
+            fleets_res.spawned_fleets.insert(fleet_id, entity);
         }
     }
 }
@@ -200,7 +216,7 @@ fn fleet_sensor(
         &mut EntityDetected,
         &Reputations,
     )>,
-    query_reputation: Query<&Reputations>,
+    query_reputation: Query<(&FleetIdComp, &Reputations)>,
     detected_intersection_pipeline: Res<DetectedIntersectionPipeline>,
     time: Res<Time>,
     factions: Res<Factions>,
@@ -213,13 +229,13 @@ fn fleet_sensor(
             if fleet_id_comp.0 .0 % DETECTED_UPDATE_INTERVAL == turn {
                 let detector_collider = Collider::new(detector_radius.0, position.0);
 
-                detected_intersection_pipeline
-                    .0
-                    .snapshot
-                    .intersect_collider_into(detector_collider, &mut entity_detected.0);
-
                 // Filter the result.
                 if fleet_id_comp.0.is_client() {
+                    detected_intersection_pipeline
+                        .0
+                        .snapshot
+                        .intersect_collider_into(detector_collider, &mut entity_detected.0);
+
                     // Client fleet filter out themself.
                     for i in 0..entity_detected.0.len() {
                         if entity_detected.0[i] == entity {
@@ -228,16 +244,38 @@ fn fleet_sensor(
                         }
                     }
                 } else {
-                        // AI fleet filter out allied.
-                        entity_detected.0.drain_filter(|id| {
-                            if let Ok(other_rep) = query_reputation.get(*id) {
-                                !reputations.get_relative_reputation(other_rep, &factions.factions)
-                                    .is_enemy()
-                            } else {
-                                debug!("An entity has a Detector, but no Reputations. Ignoring...");
-                                true
-                            }
-                        });
+                    // AI fleet filter out non enemy faction fleet.
+                    let filter = if let Some(faction_id) = reputations.faction {
+                        faction_id.to_bit_flag()
+                    } else {
+                        u32::MAX
+                    };
+                    detected_intersection_pipeline
+                        .0
+                        .snapshot
+                        .intersect_collider_into_filtered(
+                            detector_collider,
+                            &mut entity_detected.0,
+                            filter,
+                        );
+
+                    // AI fleet filter out the remaining non enemy factionless fleet.
+                    entity_detected.0.drain_filter(|id| {
+                        if let Ok((other_fleet_id_comp, other_rep)) = query_reputation.get(*id) {
+                            // TODO: Unroll and remove uneeded logic.
+                            !reputations
+                                .get_relative_reputation(
+                                    other_rep,
+                                    fleet_id_comp.0,
+                                    other_fleet_id_comp.0,
+                                    &factions.factions,
+                                )
+                                .is_enemy()
+                        } else {
+                            warn!("An entity has a Detector, but no Reputations. Ignoring...");
+                            true
+                        }
+                    });
                 }
             }
         },
@@ -320,7 +358,7 @@ fn remove_orbit(
     });
 }
 
-/// Add orbit to idle entity within a system..
+/// Add orbit to idle fleet.
 fn handle_idle(
     mut commands: Commands,
     query: Query<(&Position, &InSystem)>,
@@ -329,22 +367,17 @@ fn handle_idle(
     time: Res<Time>,
 ) {
     let time = time.as_time();
+
     while let Some(event) = fleet_idle.events.pop() {
         if let Ok((position, in_system)) = query.get(event.entity) {
             if let Some(system_id) = in_system.0 {
-                // Add orbit.
-                let system = if let Some(system) = systems.systems.get(&system_id) {
-                    system
-                } else {
-                    warn!("Can not find {:?}. Ignoring...", system_id);
-                    continue;
-                };
+                let system = &systems.systems[system_id];
 
                 let relative_position = position.0 - system.position;
                 let distance = relative_position.length();
 
                 let mut orbit_speed = 0.0;
-                // Check if there is a body nearby we should copy its orbit time.
+                // Check if there is a body nearby we should copy its orbit speed.
                 system.planets.iter().fold(999.0f32, |closest, planet| {
                     let dif = (planet.relative_orbit.distance - distance).abs();
                     if dif < closest {
@@ -398,7 +431,6 @@ fn colonist_ai(
     mut systems: ResMut<Systems>,
     mut factions: ResMut<Factions>,
     time: Res<Time>,
-    parameters: Res<Parameters>,
 ) {
     let timef = time.as_time();
     let mut rng = thread_rng();
@@ -406,72 +438,62 @@ fn colonist_ai(
     query.for_each_mut(
         |(entity, position, in_system, mut colonist_ai, mut wish_position, reputations)| {
             if let Some(planet_id) = colonist_ai.target_planet {
-                if let Some(system) = systems.systems.get_mut(&planet_id.system_id) {
-                    if let Some(planet) = system.planets.get_mut(planet_id.planets_offset as usize)
-                    {
-                        // Check that planet has not been colonized already.
-                        if planet.faction.is_some() {
-                            colonist_ai.target_planet = None;
-                        }
+                let system = &mut systems.systems[planet_id.system_id];
+                let planet = &mut system.planets[planet_id.planets_offset as usize];
 
-                        let planet_position =
-                            planet.relative_orbit.to_position(timef, system.position);
-                        wish_position.to = Some(planet_position);
-                        wish_position.speed_multiplier = 0.3;
+                // Go torward planet.
+                let planet_position = planet.relative_orbit.to_position(timef, system.position);
+                wish_position.to = Some(planet_position);
+                wish_position.speed_multiplier = 0.3;
 
-                        // Are we close enough to the planet to take it?
-                        if planet_position.distance_squared(position.0) < 1.0 {
-                            if let Some(faction_id) = reputations.faction {
-                                if let Some(faction) = factions.factions.get_mut(&faction_id) {
-                                    // Take control of the planet.
-                                    // TODO: This should take time.
-                                    planet.faction = Some(faction_id);
-                                    faction.colonies.insert(planet_id);
-
-                                    // TODO: Change AI to guard the planet.
-                                } else {
-                                    // Faction does not exist.
-                                    commands.entity(entity).insert(QueueRemove { when: 0 });
-                                }
-                            } else {
-                                // Fleet is factionless and can not colonize.
-                                commands.entity(entity).insert(QueueRemove { when: 0 });
-                            }
-                        }
-                    } else {
-                        colonist_ai.target_planet = None;
-                    }
-                } else {
+                if planet.faction.is_some() {
+                    // Planet has already been colonized.
                     colonist_ai.target_planet = None;
-                }
-            } else if colonist_ai.travel_until < time.tick {
-                if let Some(system_id) = in_system.0 {
-                    if let Some(system) = systems.systems.get(&system_id) {
-                        // Randomly chose a planet to colonize.
-                        let planets_offset = (rng.gen::<u32>() % system.planets.len() as u32) as u8;
-                        let planet_id = PlanetId {
-                            system_id,
-                            planets_offset,
-                        };
-                        let planet = &system.planets[planets_offset as usize];
-                        if planet.faction.is_none() {
-                            colonist_ai.target_planet = Some(planet_id);
+                } else {
+                    // Are we close enough to the planet to take it?
+                    if planet_position.distance_squared(position.0) < 1.0 {
+                        if let Some(faction_id) = reputations.faction {
+                            // Faction take control of the planet.
+                            let faction = &mut factions.factions[faction_id];
+
+                            // TODO: This should take time.
+                            planet.faction = Some(faction_id);
+                            faction.colonies.insert(planet_id);
+
+                            // TODO: Change AI to guard the planet.
                         } else {
-                            // TODO: Go to a random system.
-                            colonist_ai.travel_until = time.tick + 1200
+                            // Fleet is factionless and can not colonize.
+                            commands.entity(entity).insert(QueueRemove { when: 0 });
                         }
                     }
                 }
-            } else {
-                if wish_position.to.is_none() {
-                    // TODO: Go to a random system.
-                    // Go to a random position.
-                    let v = (rng.gen::<Vec2>() * 2.0 - Vec2::ONE) * parameters.world_bound;
-                    if v.length_squared() > parameters.world_bound * parameters.world_bound {
-                        return;
+            } else if wish_position.to.is_none() {
+                // Go to a random system's bound.
+                let system = &systems.systems[rng.gen::<usize>() % systems.systems.len()];
+                let rot = rng.gen::<f32>() * TAU;
+                wish_position.to =
+                    Some(system.position + Vec2::new(rot.cos(), rot.sin()) * system.bound);
+                wish_position.speed_multiplier = 0.6;
+            } else if colonist_ai.travel_until < time.tick {
+                // We are done travelling. Start searching for a planet.
+                if let Some(system_id) = in_system.0 {
+                    let system = &systems.systems[system_id];
+
+                    // Randomly chose a planet to colonize in this system.
+                    let planets_offset = (rng.gen::<u32>() % system.planets.len() as u32) as u8;
+                    let planet_id = PlanetId {
+                        system_id,
+                        planets_offset,
+                    };
+
+                    let planet = &system.planets[planets_offset as usize];
+                    if planet.faction.is_none() {
+                        colonist_ai.target_planet = Some(planet_id);
+                    } else {
+                        // Start travelling again.
+                        colonist_ai.travel_until = time.tick + 1200;
+                        wish_position.to = None;
                     }
-                    wish_position.to = Some(v);
-                    wish_position.speed_multiplier = 0.6;
                 }
             }
         },
@@ -561,8 +583,7 @@ fn apply_fleet_movement(
     );
 }
 
-/// Remove a client from connected client map and trigger idle event again if already idle to remove the fleet.
-/// TODO: This is janky.
+/// Remove a client from connected client map queue his fleet to be removed.
 fn disconnect_client(
     mut commands: Commands,
     mut clients_res: ResMut<ClientsRes>,
@@ -626,17 +647,14 @@ fn update_in_system(
     systems_acceleration_structure: Res<SystemsAccelerationStructure>,
     time: Res<Time>,
 ) {
-    let turn = time.total_tick % 20;
+    let turn = time.total_tick % UPDATE_IN_SYSTEM_INTERVAL;
 
     query.for_each_mut(|(fleet_id_comp, position, mut in_system)| {
-        if fleet_id_comp.0 .0 % 20 == turn {
+        if fleet_id_comp.0 .0 % UPDATE_IN_SYSTEM_INTERVAL == turn {
             match in_system.0 {
                 Some(system_id) => {
-                    if let Some(system) = systems.systems.get(&system_id) {
-                        if system.position.distance_squared(position.0) > system.bound.powi(2) {
-                            in_system.0 = None;
-                        }
-                    } else {
+                    let system = &systems.systems[system_id];
+                    if system.position.distance_squared(position.0) > system.bound.powi(2) {
                         in_system.0 = None;
                     }
                 }
@@ -657,7 +675,8 @@ fn update_in_system(
 ///
 /// This effectively just swap the snapshots between the runner thread and this IntersectionPipeline.
 fn update_detected_intersection_pipeline(
-    query: Query<(Entity, &Position, &DetectedRadius)>,
+    query: Query<(Entity, &Position, &DetectedRadius, &Reputations)>,
+    mut factions: ResMut<Factions>,
     mut detected_intersection_pipeline: ResMut<DetectedIntersectionPipeline>,
     mut last_update_delta: Local<u32>,
 ) {
@@ -682,11 +701,28 @@ fn update_detected_intersection_pipeline(
 
     if *last_update_delta > DETECTED_UPDATE_INTERVAL as u32 {
         if let Some(mut old_snapshot) = intersection_pipeline.outdated.take() {
+            // Update enemy masks.
+            factions.update_factions_enemy_mask();
+
             // Update all colliders.
             old_snapshot.clear();
-            old_snapshot.extend(query.iter().map(|(entity, position, detected_radius)| {
-                (Collider::new(detected_radius.0, position.0), entity)
-            }));
+            old_snapshot.extend(query.iter().map(
+                |(entity, position, detected_radius, reputations)| {
+                    if let Some(faction_id) = reputations.faction {
+                        (
+                            Collider::new(detected_radius.0, position.0),
+                            entity,
+                            factions.enemy_masks[faction_id.0 as usize],
+                        )
+                    } else {
+                        (
+                            Collider::new(detected_radius.0, position.0),
+                            entity,
+                            u32::MAX,
+                        )
+                    }
+                },
+            ));
 
             // Send snapshot to be updated.
             if let Err(err) = intersection_pipeline

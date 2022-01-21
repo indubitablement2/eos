@@ -37,10 +37,12 @@ extern crate log;
 
 /// An acceleration structure that contain the systems bounds.
 /// It is never updated at runtime.
-pub struct SystemsAccelerationStructure(pub AccelerationStructure<SystemId>);
+pub struct SystemsAccelerationStructure(pub AccelerationStructure<SystemId, NoFilter>);
 
 /// Acceleration structure with the `detected` colliders.
-pub struct DetectedIntersectionPipeline(pub IntersectionPipeline<Entity>);
+///
+/// Filter are faction bitflags to which the entity is enemy or all 1s if the entity is neutral.
+pub struct DetectedIntersectionPipeline(pub IntersectionPipeline<Entity, u32>);
 
 pub struct Metascape {
     world: World,
@@ -81,21 +83,11 @@ impl Metascape {
             .expect("Could not deserialize factions.yaml");
         factions.update_all(&mut systems);
 
-        // Create an acceleration structure for systems.
-        let mut acc = AccelerationStructure::new();
-        acc.extend(systems.systems.iter().map(|(system_id, system)| {
-            (
-                Collider::new(system.bound, system.position),
-                system_id.to_owned(),
-            )
-        }));
-        acc.update();
-
         // Add systems and systems_acceleration_structure resource.
+        self.world.insert_resource(SystemsAccelerationStructure(systems.create_acceleration_structure()));
         self.world.insert_resource(systems);
         self.world.insert_resource(factions);
-        self.world
-            .insert_resource(SystemsAccelerationStructure(acc));
+
     }
 
     fn update(&mut self) {
