@@ -1,8 +1,7 @@
 use common::idx::SystemId;
-use common::intersection::AccelerationStructure;
-use common::intersection::Collider;
-use common::time::Time;
+use common::intersection::*;
 use common::systems::*;
+use common::time::Time;
 use gdnative::api::*;
 use gdnative::prelude::*;
 use glam::Vec2;
@@ -26,7 +25,7 @@ pub struct Editor {
     delta: f32,
     time: Time,
     data: Systems,
-    systems_acc: AccelerationStructure<SystemId>,
+    systems_acc: AccelerationStructure<SystemId, NoFilter>,
     selected: Selected,
     /// is_moving, new_pos_valid
     moving_selected: (bool, bool),
@@ -77,7 +76,7 @@ impl Editor {
             match self.selected {
                 Selected::System { system_id } => {
                     let mouse_pos = godot_to_glam(owner.get_global_mouse_position());
-                    let collider = Collider::new(self.data.systems[&system_id].bound, mouse_pos);
+                    let collider = Collider::new(self.data.systems[system_id].bound, mouse_pos);
                     self.moving_selected.1 = true;
 
                     // Check that new system position does not intersect any other system.
@@ -145,9 +144,7 @@ impl Editor {
         let mouse_pos = godot_to_glam(owner.get_global_mouse_position());
 
         if let Some(system_id) = self.systems_acc.intersect_point_first(mouse_pos) {
-            self.selected = Selected::System {
-                system_id,
-            };
+            self.selected = Selected::System { system_id };
             godot_print!("selected a system.");
         } else {
             // We select nothing.
@@ -160,7 +157,7 @@ impl Editor {
     unsafe fn delete_selected(&mut self, _owner: &Node2D) {
         match self.selected {
             Selected::System { system_id } => {
-                self.data.systems.remove(&system_id);
+                self.data.systems.swap_remove(system_id.0 as usize);
 
                 update_internals(self);
             }
@@ -179,7 +176,7 @@ impl Editor {
             match self.selected {
                 Selected::System { system_id } => {
                     let mouse_pos = godot_to_glam(owner.get_global_mouse_position());
-                    let collider = Collider::new(self.data.systems[&system_id].bound, mouse_pos);
+                    let collider = Collider::new(self.data.systems[system_id].bound, mouse_pos);
 
                     // Check that new system position does not intersect any other system.
                     if !self
@@ -188,7 +185,7 @@ impl Editor {
                         .into_iter()
                         .any(|id| id != system_id)
                     {
-                        let system = self.data.systems.get_mut(&system_id).unwrap();
+                        let system = &mut self.data.systems[system_id];
 
                         // Update selected system position.
                         system.position = mouse_pos;
@@ -244,9 +241,8 @@ impl Editor {
 
         for new_system in new_systems.into_iter() {
             let collider = Collider::new(new_system.bound + min_distance, new_system.position);
-            if !self.systems_acc.intersect_collider_first(collider).is_some() {
-                self.data.systems.insert(SystemId(self.data.next_system_id), new_system);
-                self.data.next_system_id += 1;
+            if self.systems_acc.intersect_collider_first(collider).is_none() {
+                self.data.systems.push(new_system);
             }
         }
 
@@ -261,7 +257,6 @@ impl Editor {
             Ok(data) => {
                 self.data.systems = data.systems;
                 self.data.bound = data.bound;
-                self.data.next_system_id = data.next_system_id;
                 update_internals(self);
                 true
             }
@@ -280,18 +275,22 @@ impl Editor {
 }
 
 fn update_internals(editor: &mut Editor) {
+    editor.selected = Selected::Nothing;
+
     // Update systems.
     editor.data.update_all();
 
     // Update systems acceleration structure.
     editor.systems_acc.clear();
-    editor.systems_acc.extend(
-        editor
-            .data
-            .systems
-            .iter()
-            .map(|(system_id, system)| (Collider::new(system.bound, system.position), system_id.to_owned())),
-    );
+    editor
+        .systems_acc
+        .extend(editor.data.systems.iter().zip(0u16..).map(|(system, system_id)| {
+            (
+                Collider::new(system.bound, system.position),
+                SystemId(system_id),
+                NoFilter::default(),
+            )
+        }));
     editor.systems_acc.update();
 }
 
@@ -353,7 +352,7 @@ fn render(editor: &Editor, owner: &Node2D) {
         );
     }
 
-    for system in editor.data.systems.values() {
+    for system in editor.data.systems.iter() {
         // Do not draw system that are not on screen.
         if system.position.x + system.bound < rect.position.x
             || system.position.x - system.bound > rect.position.x + rect.size.x
@@ -412,7 +411,7 @@ fn render(editor: &Editor, owner: &Node2D) {
     // Draw selected.
     let (pos, radius) = match editor.selected {
         Selected::System { system_id } => {
-            let system = &editor.data.systems[&system_id];
+            let system = &editor.data.systems[system_id];
             (system.position, system.bound)
         }
         Selected::Nothing => {

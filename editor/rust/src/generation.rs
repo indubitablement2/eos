@@ -1,9 +1,11 @@
-use common::orbit::RelativeOrbit;
 use common::systems::*;
 use gdnative::prelude::godot_print;
 use glam::Vec2;
 use rand::Rng;
 use std::f32::consts::TAU;
+
+/// 6 sec for a full rotation if 1 time unit == 0.1 sec.
+const DEFAULT_ORBIT_SPEED: f32 = 1.0 / (60.0 * TAU);
 
 /// Return a randomly generated System with its radius.
 pub fn generate_system(position: Vec2, target_radius: f32) -> System {
@@ -37,8 +39,7 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
     while used_radius < target_radius || planets.len() < 2 {
         let radius = rng.gen_range(1.0..2.0);
         let distance = radius + used_radius + rng.gen_range(6.0..12.0);
-        let orbit_speed =
-            RelativeOrbit::DEFAULT_ORBIT_SPEED / distance * rng.gen_range(0.5..2.0) * (rng.gen::<f32>() - 0.5).signum();
+        let orbit_speed = DEFAULT_ORBIT_SPEED / distance * rng.gen_range(0.5..2.0) * (rng.gen::<f32>() - 0.5).signum();
         let start_angle_rand = rng.gen::<f32>() * TAU;
 
         let num_planet: i32 = rng.gen_range(1..3);
@@ -59,14 +60,13 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
         }
     }
 
-    let mut system = System {
+    let system = System {
         bound: used_radius + System::PADDING,
         position,
         star,
         planets,
     };
 
-    system.compute_temperature();
     godot_print!(
         "Generated {} system with {} planets.",
         system.star.star_type.to_str(),

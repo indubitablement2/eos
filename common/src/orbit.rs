@@ -1,6 +1,5 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
-use std::f32::consts::TAU;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct RelativeOrbit {
@@ -15,9 +14,6 @@ pub struct RelativeOrbit {
     pub orbit_speed: f32,
 }
 impl RelativeOrbit {
-    /// 8 sec for a full rotation if 1 time unit == 0.1 sec.
-    pub const DEFAULT_ORBIT_SPEED: f32 = 1.0 / (80.0 * TAU);
-
     pub fn rotation(self, time: f32) -> f32 {
         time.mul_add(self.orbit_speed, self.start_angle)
     }
