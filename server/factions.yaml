@@ -1,12 +1,689 @@
 factions:
-  0:
-    name: Pirate
-    faction_relation: {}
+  - disabled: false
+    name: "Pirate"
+    relations: []
+    reputations: {}
     default_reputation: -100
     target_colonies: 100
-  1: 
-    name: Another Faction
-    faction_relation:
-      0: -100
+  - disabled: false
+    name: "UEF"
+    relations:
+      - -100
+    reputations: {}
     default_reputation: 0
-    target_colonies: 10
+    target_colonies: 30
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0
+  - disabled: true
+    name: ""
+    relations:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+    reputations: {}
+    default_reputation: 0
+    target_colonies: 0

@@ -39,7 +39,8 @@ impl Default for Faction {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Factions {
     pub factions: [Faction; 32],
-    /// The enemy mask of each faction.
+    /// The enemy mask of each factions.
+    #[serde(skip)]
     pub enemy_masks: [u32; 32],
 }
 impl Factions {
