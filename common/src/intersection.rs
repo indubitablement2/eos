@@ -100,6 +100,17 @@ impl Default for SAPRow {
     }
 }
 
+/// Type that can be used as filter if you don't want to use filter.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct NoFilter(());
+impl BitAnd for NoFilter {
+    type Output = NoFilter;
+
+    fn bitand(self, _rhs: Self) -> Self::Output {
+        self
+    }
+}
+
 /// Allow fast circle-circle and circle-point test.
 ///
 /// # Safety
@@ -647,7 +658,7 @@ fn test_random_colliders() {
 
     // Random test.
     for _ in 0..10000 {
-        let mut acc: AccelerationStructure<u32, u8> = AccelerationStructure::new();
+        let mut acc: AccelerationStructure<u32, NoFilter> = AccelerationStructure::new();
 
         let og_collider = Collider::new(random::<f32>() * 16.0, random::<Vec2>() * 64.0 - 32.0);
 
@@ -656,7 +667,7 @@ fn test_random_colliders() {
         // Add colliders.
         for i in 0..random::<u32>() % 64 {
             let new_collider = Collider::new(random::<f32>() * 16.0, random::<Vec2>() * 64.0 - 32.0);
-            acc.push(new_collider, i, 0);
+            acc.push(new_collider, i, NoFilter(()));
 
             if og_collider.intersection_test(new_collider) {
                 expected_result.push(i);

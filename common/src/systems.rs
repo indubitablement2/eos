@@ -1,4 +1,4 @@
-use crate::{idx::*, orbit::RelativeOrbit};
+use crate::{idx::*, orbit::RelativeOrbit, intersection::{AccelerationStructure, NoFilter, Collider}};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
@@ -63,6 +63,13 @@ pub struct Systems {
     pub total_num_planet: usize,
 }
 impl Systems {
+    pub fn create_acceleration_structure(&self) -> AccelerationStructure<SystemId, NoFilter> {
+        let mut acc = AccelerationStructure::new();
+        acc.extend(self.systems.iter().zip(0u16..).map(|(system, id)| (Collider::new(system.bound, system.position), SystemId(id), NoFilter::default())));
+        acc.update();
+        acc
+    }
+
     pub fn update_all(&mut self) {
         self.update_bound();
         self.update_total_num_planet();
