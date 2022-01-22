@@ -277,7 +277,10 @@ impl Metascape {
             // Handle entities info update.
             for (id, info) in infos_update.infos.into_iter() {
                 if !self.entities_state.contains_key(&id) {
-                    self.entities_state.insert(id, EntityState::default());
+                    self.entities_state.insert(id, EntityState {
+                        discovered_tick: current_tick,
+                        ..Default::default()
+                    });
                 }
                 if let Some(orbit) = info.orbit {
                     if let Some(state) = self.entities_state.get_mut(&id) {
@@ -342,7 +345,7 @@ impl Metascape {
 
         // Debug draw entities.
         for (id, entity) in self.entities_state.iter_mut() {
-            let fade = ((self.tick as f32 - entity.discovered_tick as f32) * 0.025).min(1.0);
+            let fade = ((self.tick as f32 - entity.discovered_tick as f32) * 0.1).min(1.0);
 
             // Interpolate position.
             let pos = entity.get_interpolated_pos(time);
