@@ -73,8 +73,14 @@ pub struct Metascape {
     delta: f32,
     /// How much time dilation we have applied last update.
     pub time_dilation: f32,
+    /// Last frame target buffer.
+    pub target_tick_buffer: u32,
+    /// Last frame tick buffer.
+    pub current_tick_buffer: i64,
     /// The last tick received from the server.
     max_tick: u32,
+    min_buffer_short: [i64; 10],
+    min_buffer_long: [i64; 30],
 
     client_state: EntityState,
     entities_state: AHashMap<u16, EntityState>,
@@ -151,6 +157,10 @@ impl Metascape {
             },
             entities_info: AHashMap::new(),
             entities_remove_buffer: Vec::new(),
+            target_tick_buffer: 1,
+            min_buffer_short: [1; 10],
+            min_buffer_long: [1; 30],
+            current_tick_buffer: 1,
         })
     }
 
@@ -217,11 +227,21 @@ impl Metascape {
             );
         }
 
-        // Speedup/slowdown time to get to target tick.
-        // Target tick is max tick - 1.
-        let delta_target_tick = self.max_tick as i64 - self.tick as i64 - 1;
+        // Compute target tick buffer.
+        self.current_tick_buffer = self.max_tick as i64 - self.tick as i64;
+        let i = self.tick as usize % self.min_buffer_short.len();
+        self.min_buffer_short[i] = self.min_buffer_short[i].min(self.current_tick_buffer);
+        let short_reduce = *self.min_buffer_short.iter().reduce(|acc, x| acc.min(x)).unwrap();
+        let j = (self.tick as usize / self.min_buffer_short.len()) % self.min_buffer_long.len();
+        self.min_buffer_long[j] = short_reduce;
+        let long_reduce = *self.min_buffer_long.iter().reduce(|acc, x| acc.min(x)).unwrap();
+        self.target_tick_buffer = long_reduce.min(0).abs() as u32 + 1; // The negative part + 1.
+
+        let delta_target_tick_buffer = self.current_tick_buffer - self.target_tick_buffer as i64;
+
+        // Speedup/slowdown time to get to target tick buffer.
         // For every tick above/below target tick we speedup/slowdown time by 1% (additif).
-        self.time_dilation = (delta_target_tick as f32).mul_add(0.01, 1.0);
+        self.time_dilation = (delta_target_tick_buffer as f32).mul_add(0.01, 1.0);
         self.delta += (delta / UPDATE_INTERVAL.as_secs_f32()) * self.time_dilation;
 
         // Increment tick.

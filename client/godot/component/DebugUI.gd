@@ -1,6 +1,11 @@
 extends HBoxContainer
 
-func _process(_delta: float) -> void:
+var d := 0.0
+
+func _process(delta: float) -> void:
 	if is_visible():
-		for c in get_children():
-			c.update()
+		d += delta
+		if d > 0.1:
+			d = 0.0
+			for c in get_children():
+				c.update()

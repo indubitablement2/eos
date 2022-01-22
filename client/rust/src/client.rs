@@ -144,4 +144,9 @@ impl Client {
     unsafe fn _on_draw_time_dilation(&mut self, _owner: &Node2D, control: Ref<Control>) {
         self.debug_infos.draw_time_dilation(control);
     }
+
+    #[export]
+    unsafe fn _on_draw_tick_buffer(&mut self, _owner: &Node2D, control: Ref<Control>) {
+        self.debug_infos.draw_tick_buffer(control);
+    }
 }

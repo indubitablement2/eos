@@ -15,7 +15,8 @@ onready var tex_rid := SpritePacker.tex.get_rid()
 onready var client := $Client
 
 func _ready() -> void:
-	$CanvasLayer/Debug/TimeDilation.connect("draw", client, "_on_draw_time_dilation", [$CanvasLayer/Debug/TimeDilation])	
+	$CanvasLayer/Debug/TimeDilation.connect("draw", client, "_on_draw_time_dilation", [$CanvasLayer/Debug/TimeDilation])
+	$CanvasLayer/Debug/TickBuffer.connect("draw", client, "_on_draw_tick_buffer", [$CanvasLayer/Debug/TickBuffer])
 	
 	client.connect("ConnectionResult", self, "_on_connection_result")
 #	var gen_img = preload("res://assets/debug/target.png").get_data()
