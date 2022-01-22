@@ -241,7 +241,7 @@ impl Metascape {
 
         // Speedup/slowdown time to get to target tick buffer.
         // For every tick above/below target tick we speedup/slowdown time by 1% (additif).
-        self.time_dilation = (delta_target_tick_buffer as f32).mul_add(0.01, 1.0);
+        self.time_dilation = (delta_target_tick_buffer as f32).mul_add(0.02, 1.0);
         self.delta += (delta / UPDATE_INTERVAL.as_secs_f32()) * self.time_dilation;
 
         // Increment tick.

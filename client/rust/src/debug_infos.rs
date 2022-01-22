@@ -57,13 +57,21 @@ impl DebugInfos {
         let max_point_y = (graph_max - graph_min) as f32;
 
         // Draw graph bound.
-        control.draw_polyline(PoolArray::from_slice(&[
-            graph_rect.position,
-            Vector2::new(graph_rect.position.x + graph_rect.size.x, graph_rect.position.y),
-            Vector2::new(graph_rect.position.x + graph_rect.size.x, graph_rect.position.y + graph_rect.size.y),
-            Vector2::new(graph_rect.position.x, graph_rect.position.y + graph_rect.size.y),
-            graph_rect.position
-        ]), COLOR_ALICE_BLUE.with_alpha(0.3), 1.0, false);
+        control.draw_polyline(
+            PoolArray::from_slice(&[
+                graph_rect.position,
+                Vector2::new(graph_rect.position.x + graph_rect.size.x, graph_rect.position.y),
+                Vector2::new(
+                    graph_rect.position.x + graph_rect.size.x,
+                    graph_rect.position.y + graph_rect.size.y,
+                ),
+                Vector2::new(graph_rect.position.x, graph_rect.position.y + graph_rect.size.y),
+                graph_rect.position,
+            ]),
+            COLOR_ALICE_BLUE.with_alpha(0.3),
+            1.0,
+            false,
+        );
 
         // Draw current buffer.
         let uy = (self.current_tick_buffer - graph_min) as f32 / max_point_y;
@@ -104,20 +112,14 @@ impl DebugInfos {
         control.draw_string(
             font,
             Vector2::new(0.0, font_height),
-            format!(
-                "target buffer: {:2}",
-                self.target_tick_buffer
-            ),
+            format!("target buffer: {:2}", self.target_tick_buffer),
             COLOR_ALICE_BLUE.with_alpha(0.8),
             -1,
         );
         control.draw_string(
             font,
             Vector2::new(0.0, font_height * 2.0 + 2.0),
-            format!(
-                "current buffer: {:2}",
-                self.current_tick_buffer
-            ),
+            format!("current buffer: {:2}", self.current_tick_buffer),
             COLOR_ALICE_BLUE.with_alpha(0.8),
             -1,
         );
