@@ -342,8 +342,7 @@ impl Metascape {
 
         // Debug draw entities.
         for (id, entity) in self.entities_state.iter_mut() {
-            error!("there should be none!");
-            let fade = ((self.tick as f32 - entity.discovered_tick as f32) * 0.1).clamp(0.1, 1.0);
+            let fade = ((self.tick as f32 - entity.discovered_tick as f32) * 0.025).min(1.0);
 
             // Interpolate position.
             let pos = entity.get_interpolated_pos(time);
