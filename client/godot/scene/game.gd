@@ -82,8 +82,8 @@ func _on_Button_pressed() -> void:
 	var result = client.connect_to_server("::1", 2)
 	print("Connection start result: " + str(result))
 	if result:
-		$Button.hide()
+		$CanvasLayer/Button.hide()
 
 func _on_connection_result(result: bool) -> void:
 	if result:
-		$Button.hide()
+		$CanvasLayer/Button.hide()

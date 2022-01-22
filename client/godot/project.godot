@@ -39,6 +39,7 @@ mod/mod_order=PoolStringArray(  )
 
 [debug]
 
+gdscript/warnings/return_value_discarded=false
 gdscript/warnings/integer_division=false
 
 [importer_defaults]
