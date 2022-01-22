@@ -6,6 +6,7 @@
 #![feature(duration_constants)]
 #![feature(derive_default_enum)]
 #![feature(map_try_insert)]
+#![feature(mixed_integer_ops)]
 
 use bevy_ecs::prelude::*;
 use bevy_tasks::{ComputeTaskPool, TaskPool};

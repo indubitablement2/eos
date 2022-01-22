@@ -16,7 +16,7 @@ use tui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin},
     style::{Color, Modifier, Style},
     text::Spans,
-    widgets::{Block, Borders, ListItem, Paragraph, Sparkline, Tabs},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Sparkline, Tabs},
 };
 use tui_logger::{TuiLoggerTargetWidget, TuiLoggerWidget, TuiWidgetEvent, TuiWidgetState};
 
@@ -101,16 +101,24 @@ impl Default for PerformanceMetrics {
 pub struct Terminal {
     backend_terminal: tui::Terminal<TermionBackend<RawTerminal<Stdout>>>,
     input_receiver: Receiver<Key>,
+
     current_tab: TerminalTab,
     /// Display help for current tab and disable terminal to save cpu usage.
     help: bool,
     /// If idle, automaticaly go to help mode.
     last_input: Instant,
     need_redraw: bool,
+
     log_state: TuiWidgetState,
+
     performance_metascape: PerformanceMetrics,
     performance_terminal: PerformanceMetrics,
     performance_total: PerformanceMetrics,
+
+    faction_list_widget_state: ListState,
+    faction_edit: bool,
+    faction_edit_widget_state: ListState,
+    faction_edit_target_increment: isize,
 }
 impl Terminal {
     pub fn new() -> io::Result<Self> {
@@ -134,6 +142,10 @@ impl Terminal {
             performance_metascape: PerformanceMetrics::default(),
             performance_terminal: PerformanceMetrics::default(),
             performance_total: PerformanceMetrics::default(),
+            faction_list_widget_state: ListState::default(),
+            faction_edit: false,
+            faction_edit_widget_state: ListState::default(),
+            faction_edit_target_increment: 10,
         })
     }
 
@@ -182,7 +194,101 @@ impl Terminal {
                     }
                     _ => (),
                 },
-                TerminalTab::Factions => {}
+                TerminalTab::Factions => {
+                    if self.faction_edit {
+                        match key {
+                            Key::Up => self.faction_edit_widget_state.select(Some(
+                                self.faction_edit_widget_state
+                                    .selected()
+                                    .unwrap_or(0)
+                                    .checked_sub(1)
+                                    .unwrap_or(1),
+                            )),
+                            Key::Down => self.faction_edit_widget_state.select(Some(
+                                (self.faction_edit_widget_state.selected().unwrap_or(1) + 1) % 2,
+                            )),
+                            Key::Esc => {
+                                self.faction_edit = false;
+                                self.faction_edit_widget_state.select(None);
+                                continue;
+                            }
+                            Key::Char(c) => {
+                                if c == '\n' {
+                                    let selected_faction = if let Some(s) =
+                                        self.faction_list_widget_state.selected()
+                                    {
+                                        s
+                                    } else {
+                                        self.faction_edit = false;
+                                        continue;
+                                    };
+                                    if let Some(selected) =
+                                        self.faction_edit_widget_state.selected()
+                                    {
+                                        let mut faction = &mut metascape
+                                            .world
+                                            .get_resource_mut::<Factions>()
+                                            .unwrap()
+                                            .factions[selected_faction];
+                                        match selected {
+                                            0 => {
+                                                faction.disabled = !faction.disabled;
+                                                info!(
+                                                    "Disabled = {} for faction {}",
+                                                    faction.disabled, selected_faction
+                                                );
+                                            }
+                                            1 => {
+                                                faction.target_colonies =
+                                                    faction.target_colonies.saturating_add_signed(
+                                                        self.faction_edit_target_increment,
+                                                    );
+                                                info!(
+                                                    "Set faction target colony to {}",
+                                                    faction.target_colonies
+                                                );
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                }
+                            }
+                            Key::Right => {
+                                if let Some(selected) = self.faction_edit_widget_state.selected() {
+                                    match selected {
+                                        1 => self.faction_edit_target_increment += 10,
+                                        _ => {}
+                                    }
+                                } else {
+                                    self.faction_edit = false;
+                                }
+                            }
+                            Key::Left => {
+                                if self.faction_edit_widget_state.selected() == Some(1) {
+                                    self.faction_edit_target_increment -= 10;
+                                } else {
+                                    self.faction_edit = false;
+                                }
+                            }
+                            _ => {}
+                        }
+                    } else {
+                        match key {
+                            Key::Up => self.faction_list_widget_state.select(Some(
+                                self.faction_list_widget_state
+                                    .selected()
+                                    .unwrap_or(0)
+                                    .checked_sub(1)
+                                    .unwrap_or(31),
+                            )),
+                            Key::Down => self.faction_list_widget_state.select(Some(
+                                (self.faction_list_widget_state.selected().unwrap_or(31) + 1) % 32,
+                            )),
+                            Key::Right => self.faction_edit = true,
+                            _ => (),
+                        }
+                    }
+                }
                 TerminalTab::Info => {}
             }
 
@@ -357,17 +463,42 @@ impl Terminal {
                         frame.render_widget(log, chunks[1]);
                     }
                     TerminalTab::Factions => {
-                        let factions = metascape.world.get_resource::<Factions>().unwrap();
-                        let items: Vec<ListItem> = factions
-                            .factions
-                            .iter()
-                            .zip(0u8..)
-                            .map(|(faction, id)| {
-                                ListItem::new(format!("({}) {}", id, faction.name)).style(Style::default().add_modifier(Modifier::DIM))
-                            })
-                            .collect();
-                        let list = tui::widgets::List::new(items);
-                        frame.render_widget(list, chunks[1]);
+                        let mut factions = metascape.world.get_resource_mut::<Factions>().unwrap();
+
+                        if self.faction_edit {
+                            if let Some(selected) = self.faction_list_widget_state.selected() {
+                                let faction = &mut factions.factions[selected];
+
+                                let items = [
+                                    if faction.disabled {
+                                        ListItem::new(format!("Disabled: {}", faction.disabled)).style(Style::default().add_modifier(Modifier::DIM))
+                                    } else {
+                                        ListItem::new(format!("Disabled: {}", faction.disabled))
+                                    },
+                                    ListItem::new(format!("Target number of colonies: {} (increment <- ({}) ->)", faction.target_colonies, self.faction_edit_target_increment)),
+                                ];
+
+                                let list = List::new(items).highlight_symbol(">>");
+                                frame.render_stateful_widget(list, chunks[1], &mut self.faction_edit_widget_state);
+                            } else {
+                                self.faction_edit = false;
+                            }
+                        } else {
+                            let items: Vec<ListItem> = factions
+                                .factions
+                                .iter()
+                                .zip(0u8..)
+                                .map(|(faction, id)| {
+                                    let mut item =  ListItem::new(format!("({}) {} - {} colonies / {} target", id, faction.name, faction.colonies.len(), faction.target_colonies));
+                                    if faction.disabled {
+                                        item = item.style(Style::default().add_modifier(Modifier::DIM))
+                                    }
+                                    item
+                                })
+                                .collect();
+                            let list = List::new(items).highlight_symbol(">>");
+                            frame.render_stateful_widget(list, chunks[1], &mut self.faction_list_widget_state);
+                        }
                     }
                     TerminalTab::Info => {
                         let text = vec![
