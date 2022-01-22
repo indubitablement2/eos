@@ -272,7 +272,8 @@ fn fleet_sensor(
                                 )
                                 .is_enemy()
                         } else {
-                            warn!("An entity has a Detector, but no Reputations. Ignoring...");
+                            // This can happen if the entity was removed, 
+                            // but intersection pipeline was not updated yet.
                             true
                         }
                     });
