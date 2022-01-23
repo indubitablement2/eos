@@ -71,7 +71,7 @@ pub fn add_systems(schedule: &mut Schedule) {
 /// Get new connection and insert client.
 fn get_new_clients(
     mut commands: Commands,
-    mut query_client_fleet: Query<(&ClientIdComp, &mut KnowEntities)>,
+    mut query_client_fleet: Query<(&WrappedId<ClientId>, &mut KnowEntities)>,
     mut clients_res: ResMut<ClientsRes>,
     mut fleets_res: ResMut<FleetsRes>,
     mut data_manager: ResMut<DataManager>,
@@ -114,7 +114,7 @@ fn get_new_clients(
 
         // Check if fleet is already spawned.
         if let Some(old_fleet_entity) = fleets_res.spawned_fleets.get(&fleet_id) {
-            if let Ok((client_id_comp, mut know_entities)) =
+            if let Ok((wrapped_client_id, mut know_entities)) =
                 query_client_fleet.get_mut(*old_fleet_entity)
             {
                 // Update old fleet components.
@@ -122,10 +122,11 @@ fn get_new_clients(
                 *know_entities = KnowEntities::default();
                 commands.entity(*old_fleet_entity).remove::<QueueRemove>();
 
-                if client_id_comp.0 != client_id {
+                if wrapped_client_id.id() != client_id {
                     error!(
                         "{:?} was asigned {:?}'s fleet. Fleets res and world do not match.",
-                        client_id, client_id_comp.0
+                        client_id,
+                        wrapped_client_id.id()
                     );
                 } else {
                     debug!("{:?} has taken back control of his fleet.", client_id);
@@ -203,13 +204,13 @@ fn spawn_colonist(
 fn fleet_sensor(
     mut query: Query<(
         Entity,
-        &FleetIdComp,
+        &WrappedId<FleetId>,
         &Position,
         &DetectorRadius,
         &mut EntityDetected,
         &Reputations,
     )>,
-    query_reputation: Query<(&FleetIdComp, &Reputations)>,
+    query_reputation: Query<(&WrappedId<FleetId>, &Reputations)>,
     detected_intersection_pipeline: Res<DetectedIntersectionPipeline>,
     time: Res<Time>,
     factions: Res<Factions>,
@@ -218,12 +219,19 @@ fn fleet_sensor(
     let turn = time.tick as u64 % DETECTED_UPDATE_INTERVAL;
 
     query.for_each_mut(
-        |(entity, fleet_id_comp, position, detector_radius, mut entity_detected, reputations)| {
-            if fleet_id_comp.0 .0 % DETECTED_UPDATE_INTERVAL == turn {
+        |(
+            entity,
+            wrapped_fleet_id,
+            position,
+            detector_radius,
+            mut entity_detected,
+            reputations,
+        )| {
+            if wrapped_fleet_id.id().0 % DETECTED_UPDATE_INTERVAL == turn {
                 let detector_collider = Collider::new(detector_radius.0, position.0);
 
                 // Filter the result.
-                if fleet_id_comp.0.is_client() {
+                if wrapped_fleet_id.id().is_client() {
                     detected_intersection_pipeline
                         .0
                         .snapshot
@@ -254,13 +262,13 @@ fn fleet_sensor(
 
                     // AI fleet filter out the remaining non enemy factionless fleet.
                     entity_detected.0.drain_filter(|id| {
-                        if let Ok((other_fleet_id_comp, other_rep)) = query_reputation.get(*id) {
+                        if let Ok((other_wrapped_fleet_id, other_rep)) = query_reputation.get(*id) {
                             // TODO: Unroll and remove uneeded logic.
                             !reputations
                                 .get_relative_reputation(
                                     other_rep,
-                                    fleet_id_comp.0,
-                                    other_fleet_id_comp.0,
+                                    wrapped_fleet_id.id(),
+                                    other_wrapped_fleet_id.id(),
                                     &factions.factions,
                                 )
                                 .is_enemy()
@@ -278,12 +286,12 @@ fn fleet_sensor(
 
 /// Consume and apply the client's packets.
 fn handle_client_inputs(
-    mut query: Query<(Entity, &ClientIdComp, &mut WishPosition)>,
+    mut query: Query<(Entity, &WrappedId<ClientId>, &mut WishPosition)>,
     clients_res: Res<ClientsRes>,
     client_disconnected: Res<EventRes<ClientDisconnected>>,
 ) {
-    query.for_each_mut(|(entity, client_id_comp, mut wish_position)| {
-        if let Some(connection) = clients_res.connected_clients.get(&client_id_comp.0) {
+    query.for_each_mut(|(entity, wrapped_client_id, mut wish_position)| {
+        if let Some(connection) = clients_res.connected_clients.get(&wrapped_client_id.id()) {
             loop {
                 match connection.inbound_receiver.try_recv() {
                     Ok(payload) => match Packet::deserialize(&payload) {
@@ -302,10 +310,10 @@ fn handle_client_inputs(
                         _ => {
                             debug!(
                                 "{:?} sent an invalid packet. Disconnecting...",
-                                client_id_comp.0
+                                wrapped_client_id.id()
                             );
                             client_disconnected.events.push(ClientDisconnected {
-                                client_id: client_id_comp.0,
+                                client_id: wrapped_client_id.id(),
                                 fleet_entity: entity,
                                 send_packet: Some(Packet::DisconnectedReason(
                                     DisconnectedReasonEnum::InvalidPacket,
@@ -317,7 +325,7 @@ fn handle_client_inputs(
                     Err(err) => {
                         if err.is_disconnected() {
                             client_disconnected.events.push(ClientDisconnected {
-                                client_id: client_id_comp.0,
+                                client_id: wrapped_client_id.id(),
                                 fleet_entity: entity,
                                 send_packet: None,
                             });
@@ -622,21 +630,21 @@ fn disconnect_client(
 /// Remove fleet that are queued for deletion.
 fn remove_fleet(
     mut commands: Commands,
-    query: Query<(Entity, &FleetIdComp, &QueueRemove)>,
+    query: Query<(Entity, &WrappedId<FleetId>, &QueueRemove)>,
     mut fleets_res: ResMut<FleetsRes>,
     mut data_manager: ResMut<DataManager>,
     time: Res<Time>,
 ) {
-    query.for_each(|(entity, fleet_id_comp, queue_remove)| {
+    query.for_each(|(entity, wrapped_fleet_id, queue_remove)| {
         if queue_remove.when <= time.tick {
-            if let Some(client_id) = fleet_id_comp.0.to_client_id() {
+            if let Some(client_id) = wrapped_fleet_id.id().to_client_id() {
                 // TODO: Save client's fleet.
                 data_manager.client_fleets.insert(client_id, ());
 
                 debug!("Removed and saved {:?}'s fleet.", client_id);
             }
 
-            fleets_res.spawned_fleets.remove(&fleet_id_comp.0);
+            fleets_res.spawned_fleets.remove(&wrapped_fleet_id.id());
             commands.entity(entity).despawn();
         }
     });
@@ -644,15 +652,15 @@ fn remove_fleet(
 
 /// Update the system each entity is currently in.
 fn update_in_system(
-    mut query: Query<(&FleetIdComp, &Position, &mut InSystem)>,
+    mut query: Query<(&WrappedId<FleetId>, &Position, &mut InSystem)>,
     systems: Res<Systems>,
     systems_acceleration_structure: Res<SystemsAccelerationStructure>,
     time: Res<Time>,
 ) {
     let turn = time.total_tick % UPDATE_IN_SYSTEM_INTERVAL;
 
-    query.for_each_mut(|(fleet_id_comp, position, mut in_system)| {
-        if fleet_id_comp.0 .0 % UPDATE_IN_SYSTEM_INTERVAL == turn {
+    query.for_each_mut(|(wrapped_fleet_id, position, mut in_system)| {
+        if wrapped_fleet_id.id().0 % UPDATE_IN_SYSTEM_INTERVAL == turn {
             match in_system.0 {
                 Some(system_id) => {
                     let system = &systems.systems[system_id];
@@ -747,13 +755,13 @@ fn update_detected_intersection_pipeline(
 fn send_detected_entity(
     mut query_client: Query<(
         Entity,
-        &ClientIdComp,
+        &WrappedId<ClientId>,
         &Position,
         &EntityDetected,
         &mut KnowEntities,
     )>,
     query_changed_entity: Query<Entity, Changed<OrbitComp>>,
-    query_fleet_info: Query<(&FleetIdComp, &Name, Option<&OrbitComp>)>,
+    query_fleet_info: Query<(&WrappedId<FleetId>, &Name, Option<&OrbitComp>)>,
     query_entity_state: Query<&Position, Without<OrbitComp>>,
     time: Res<Time>,
     clients_res: Res<ClientsRes>,
@@ -762,8 +770,8 @@ fn send_detected_entity(
     query_client.par_for_each_mut(
         &task_pool,
         512,
-        |(entity, client_id_comp, position, entity_detected, mut know_entities)| {
-            if let Some(connection) = clients_res.connected_clients.get(&client_id_comp.0) {
+        |(entity, wrapped_client_id, position, entity_detected, mut know_entities)| {
+            if let Some(connection) = clients_res.connected_clients.get(&wrapped_client_id.id()) {
                 let know_entities = &mut *know_entities;
 
                 let mut updated = Vec::with_capacity(entity_detected.0.len());
@@ -791,12 +799,12 @@ fn send_detected_entity(
                     })
                     .for_each(|(temp_id, entity)| {
                         // TODO: This should be a function that write directly into a buffer.
-                        if let Ok((fleet_id_comp, name, orbit_comp)) = query_fleet_info.get(*entity) {
+                        if let Ok((wrapped_fleet_id, name, orbit_comp)) = query_fleet_info.get(*entity) {
                             infos.push((
                                 temp_id,
                                 EntityInfo {
                                     info_type: EntityInfoType::Fleet(FleetInfo {
-                                        fleet_id: fleet_id_comp.0,
+                                        fleet_id: wrapped_fleet_id.id(),
                                         composition: Vec::new(),
                                     }),
                                     name: name.0.clone(),
@@ -829,10 +837,10 @@ fn send_detected_entity(
                 {
                     know_entities.force_update_client_info = false;
 
-                    if let Ok((fleet_id_comp, name, orbit_comp)) = query_fleet_info.get(entity) {
+                    if let Ok((wrapped_fleet_id, name, orbit_comp)) = query_fleet_info.get(entity) {
                         Some(EntityInfo {
                             info_type: EntityInfoType::Fleet(FleetInfo {
-                                fleet_id: fleet_id_comp.0,
+                                fleet_id: wrapped_fleet_id.id(),
                                 composition: Vec::new(),
                             }),
                             name: name.0.clone(),
@@ -841,7 +849,7 @@ fn send_detected_entity(
                     } else {
                         warn!(
                             "{:?} does not return a result when queried for fleet info. Ignoring...",
-                            client_id_comp.0
+                            wrapped_client_id.id()
                         );
                         None
                     }

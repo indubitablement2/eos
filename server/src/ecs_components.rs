@@ -7,7 +7,7 @@ use glam::Vec2;
 
 #[derive(Bundle)]
 pub struct ClientFleetBundle {
-    client_id_comp: ClientIdComp,
+    wrapped_client_id: WrappedId<ClientId>,
     know_entities: KnowEntities,
     #[bundle]
     fleet_bundle: FleetBundle,
@@ -22,7 +22,7 @@ impl ClientFleetBundle {
         debug_assert_eq!(client_id.to_fleet_id(), fleet_id);
 
         Self {
-            client_id_comp: ClientIdComp(client_id),
+            wrapped_client_id: WrappedId::new(client_id),
             know_entities: Default::default(),
             fleet_bundle: FleetBundle::new(fleet_id, position, faction),
         }
@@ -56,7 +56,7 @@ impl ColonistAIFleetBundle {
 #[derive(Bundle)]
 pub struct FleetBundle {
     pub name: Name,
-    pub fleet_id_comp: FleetIdComp,
+    pub wrapped_fleet_id: WrappedId<FleetId>,
     pub position: Position,
     pub in_system: InSystem,
     pub wish_position: WishPosition,
@@ -72,7 +72,7 @@ impl FleetBundle {
     pub fn new(fleet_id: FleetId, position: Vec2, faction: Option<FactionId>) -> Self {
         Self {
             name: Name(format!("{}", fleet_id.0)),
-            fleet_id_comp: FleetIdComp(fleet_id),
+            wrapped_fleet_id: WrappedId::new(fleet_id),
             position: Position(position),
             in_system: InSystem::default(),
             wish_position: WishPosition::default(),
@@ -377,13 +377,17 @@ pub struct EntityDetected(pub Vec<Entity>);
 
 //* Idx
 
-// #[derive(Debug, Clone, Copy, Component)]
-// pub struct WrappedId<T> {
-//     id: T,
-// }
-
 #[derive(Debug, Clone, Copy, Component)]
-pub struct ClientIdComp(pub ClientId);
+pub struct WrappedId<T> {
+    id: T,
+}
+impl<T> WrappedId<T> {
+    pub fn new(id: T) -> Self {
+        Self { id }
+    }
 
-#[derive(Debug, Clone, Copy, Component)]
-pub struct FleetIdComp(pub FleetId);
+    /// Get the wrapped id's id.
+    pub fn id(self) -> T {
+        self.id
+    }
+}
