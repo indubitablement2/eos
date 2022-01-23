@@ -1,5 +1,5 @@
-use crate::{idx::*, reputation::Reputation, systems::Systems};
-use ahash::{AHashMap, AHashSet};
+use crate::{idx::*, reputation::Reputation};
+use ahash::AHashMap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7,8 +7,6 @@ pub struct Faction {
     pub disabled: bool,
 
     pub name: String,
-    #[serde(skip)]
-    pub colonies: AHashSet<PlanetId>,
     /// Reputation between factions.
     /// The highest `FactionId` has the reputation of all lower `FactionId`.
     ///
@@ -27,7 +25,6 @@ impl Default for Faction {
         Self {
             disabled: true,
             name: Default::default(),
-            colonies: Default::default(),
             relations: Default::default(),
             reputations: Default::default(),
             default_reputation: Default::default(),
@@ -38,30 +35,15 @@ impl Default for Faction {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Factions {
-    pub factions: [Faction; 32],
+    pub factions: [Faction; Self::MAX_FACTIONS],
     /// The enemy mask of each factions.
     #[serde(skip)]
     pub enemy_masks: [u32; 32],
 }
 impl Factions {
-    pub fn update_all(&mut self, systems: &mut Systems) {
-        // Add colonies.
-        for (system, id) in systems.systems.iter_mut().zip(0u16..) {
-            for (planet, planets_offset) in system.planets.iter_mut().zip(0u8..) {
-                if let Some(faction_id) = planet.faction {
-                    let faction = &mut self.factions[faction_id];
-                    if faction.disabled {
-                        planet.faction = None;
-                    } else {
-                        faction.colonies.insert(PlanetId {
-                            system_id: SystemId(id),
-                            planets_offset,
-                        });
-                    }
-                }
-            }
-        }
+    pub const MAX_FACTIONS: usize = 32;
 
+    pub fn update_all(&mut self) {
         for i in 0..self.factions.len() {
             let current = &mut self.factions[i];
 
@@ -95,8 +77,7 @@ fn test_get_factions_enemy_mask() {
     let mut rng = rand::thread_rng();
 
     let mut f = Factions::default();
-    let mut s = Systems::default();
-    f.update_all(&mut s);
+    f.update_all();
 
     for faction in f.factions.iter_mut() {
         for reputation in faction.relations.iter_mut() {

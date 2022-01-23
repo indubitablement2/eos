@@ -1,8 +1,9 @@
 use std::ops::{Index, IndexMut};
 
+use ahash::AHashSet;
 use serde::{Deserialize, Serialize};
 
-use crate::{factions::Faction, systems::System};
+use crate::{factions::*, systems::System};
 
 /// Never recycled.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -47,14 +48,26 @@ impl FactionId {
         1 << self.0
     }
 }
-impl Index<FactionId> for [Faction; 32] {
+impl Index<FactionId> for [Faction; Factions::MAX_FACTIONS] {
     type Output = Faction;
 
     fn index(&self, index: FactionId) -> &Self::Output {
         &self[index.0 as usize]
     }
 }
-impl IndexMut<FactionId> for [Faction; 32] {
+impl IndexMut<FactionId> for [Faction; Factions::MAX_FACTIONS] {
+    fn index_mut(&mut self, index: FactionId) -> &mut Self::Output {
+        &mut self[index.0 as usize]
+    }
+}
+impl Index<FactionId> for [AHashSet<PlanetId>; Factions::MAX_FACTIONS] {
+    type Output = AHashSet<PlanetId>;
+
+    fn index(&self, index: FactionId) -> &Self::Output {
+        &self[index.0 as usize]
+    }
+}
+impl IndexMut<FactionId> for [AHashSet<PlanetId>; Factions::MAX_FACTIONS] {
     fn index_mut(&mut self, index: FactionId) -> &mut Self::Output {
         &mut self[index.0 as usize]
     }

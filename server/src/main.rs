@@ -10,6 +10,7 @@
 
 use bevy_ecs::prelude::*;
 use bevy_tasks::{ComputeTaskPool, TaskPool};
+use colony::Colonies;
 use common::factions::Factions;
 use common::parameters::Parameters;
 use common::systems::Systems;
@@ -22,6 +23,7 @@ use std::{fs::File, io::prelude::*, thread::sleep, time::Instant};
 
 use crate::terminal::Terminal;
 
+mod colony;
 mod connection_manager;
 mod data_manager;
 mod ecs_components;
@@ -82,7 +84,11 @@ impl Metascape {
         file.read_to_string(&mut buffer).unwrap();
         let mut factions = serde_yaml::from_str::<Factions>(buffer.as_str())
             .expect("Could not deserialize factions.yaml");
-        factions.update_all(&mut systems);
+        factions.update_all();
+
+        // Load colonies.
+        // TODO: This should be loaded from file.
+        self.world.insert_resource(Colonies::default());
 
         // Add systems and systems_acceleration_structure resource.
         self.world.insert_resource(SystemsAccelerationStructure(

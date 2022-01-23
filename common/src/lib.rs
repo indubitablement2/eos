@@ -45,3 +45,6 @@ impl Version {
 pub const UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 /// The server's tcp port.
 pub const SERVER_PORT: u16 = 31415;
+
+/// The maximum distance to the center.
+pub const WORLD_BOUND: f32 = u16::MAX as f32;

@@ -1,4 +1,4 @@
-use common::{factions::Factions, *};
+use common::{factions::Factions, idx::FactionId, *};
 use crossbeam::channel::*;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use std::{
@@ -20,7 +20,7 @@ use tui::{
 };
 use tui_logger::{TuiLoggerTargetWidget, TuiLoggerWidget, TuiWidgetEvent, TuiWidgetState};
 
-use crate::Metascape;
+use crate::{colony::Colonies, Metascape};
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, IntoPrimitive, FromPrimitive,
@@ -463,7 +463,7 @@ impl Terminal {
                         frame.render_widget(log, chunks[1]);
                     }
                     TerminalTab::Factions => {
-                        let mut factions = metascape.world.get_resource_mut::<Factions>().unwrap();
+                        let mut factions = unsafe {metascape.world.get_resource_unchecked_mut::<Factions>().unwrap()};
 
                         if self.faction_edit {
                             if let Some(selected) = self.faction_list_widget_state.selected() {
@@ -484,12 +484,14 @@ impl Terminal {
                                 self.faction_edit = false;
                             }
                         } else {
+                            let colonies = metascape.world.get_resource::<Colonies>().unwrap();
+
                             let items: Vec<ListItem> = factions
                                 .factions
                                 .iter()
                                 .zip(0u8..)
                                 .map(|(faction, id)| {
-                                    let mut item =  ListItem::new(format!("({}) {} - {} colonies / {} target", id, faction.name, faction.colonies.len(), faction.target_colonies));
+                                    let mut item =  ListItem::new(format!("({}) {} - {} colonies / {} target", id, faction.name, colonies.get_faction_colonies(FactionId(id)).len(), faction.target_colonies));
                                     if faction.disabled {
                                         item = item.style(Style::default().add_modifier(Modifier::DIM))
                                     }

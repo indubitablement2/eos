@@ -1,8 +1,8 @@
-use common::{factions::Factions, systems::Systems};
+use common::factions::Factions;
 
 fn main() {
     let mut f = Factions::default();
-    f.update_all(&mut Systems::default());
+    f.update_all();
 
     let yaml = serde_yaml::to_string(&f).unwrap();
 

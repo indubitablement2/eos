@@ -1,5 +1,6 @@
 use std::f32::consts::TAU;
 
+use crate::colony::Colonies;
 use crate::data_manager::ClientData;
 use crate::data_manager::DataManager;
 use crate::ecs_components::*;
@@ -10,16 +11,15 @@ use crate::DetectedIntersectionPipeline;
 use crate::SystemsAccelerationStructure;
 use bevy_ecs::prelude::*;
 use bevy_tasks::ComputeTaskPool;
-use common::factions::Factions;
-use common::idx::FactionId;
-use common::idx::FleetId;
-use common::idx::PlanetId;
+use common::factions::*;
+use common::idx::*;
 use common::intersection::*;
 use common::orbit::*;
 use common::packets::*;
 use common::parameters::Parameters;
 use common::systems::Systems;
 use common::time::Time;
+use common::WORLD_BOUND;
 use glam::Vec2;
 use rand::thread_rng;
 use rand::Rng;
@@ -50,7 +50,7 @@ pub fn add_systems(schedule: &mut Schedule) {
 
     schedule.add_system_to_stage("", handle_client_inputs.before(Label::Movement));
     schedule.add_system_to_stage("", colony_fleet_ai.before(Label::Movement));
-    schedule.add_system_to_stage("", colonist_ai.before(Label::Movement));
+    schedule.add_system_to_stage("", colonist_fleet_ai.before(Label::Movement));
 
     schedule.add_system_to_stage("", apply_fleet_movement.label(Label::Movement));
 
@@ -138,30 +138,19 @@ fn get_new_clients(
                 );
             }
         } else {
-            // Create default client fleet.
+            // Create a default client fleet.
             let entity = commands
-                .spawn_bundle(ClientFleetBundle {
-                    client_id_comp: ClientIdComp(client_id),
-                    know_entities: KnowEntities::default(),
-                    fleet_bundle: FleetBundle {
-                        name: Name(format!("{:?}", fleet_id)),
-                        fleet_id_comp: FleetIdComp(fleet_id),
-                        position: Position(Vec2::ZERO),
-                        in_system: InSystem(None),
-                        wish_position: WishPosition::default(),
-                        velocity: Velocity::default(),
-                        idle_counter: IdleCounter(0),
-                        derived_fleet_stats: DerivedFleetStats { acceleration: 0.04 },
-                        reputations: Reputations::default(),
-                        detected_radius: DetectedRadius(10.0),
-                        detector_radius: DetectorRadius(50.0),
-                        entity_detected: EntityDetected(Vec::new()),
-                    },
-                })
+                .spawn_bundle(ClientFleetBundle::new(
+                    client_id,
+                    fleet_id,
+                    Vec2::ZERO,
+                    None,
+                ))
                 .id();
 
             // Insert fleet.
-            let _ = fleets_res.spawned_fleets.insert(fleet_id, entity);
+            let result = fleets_res.spawned_fleets.insert(fleet_id, entity);
+            debug_assert!(result.is_none(), "client's spawned fleet was overwritten.");
 
             debug!(
                 "Created a new fleet for {:?} which he now control.",
@@ -175,6 +164,7 @@ fn get_new_clients(
 fn spawn_colonist(
     mut commands: Commands,
     factions: Res<Factions>,
+    colonies: Res<Colonies>,
     mut fleets_res: ResMut<FleetsRes>,
     time: Res<Time>,
 ) {
@@ -188,8 +178,11 @@ fn spawn_colonist(
             continue;
         }
 
-        if faction.colonies.len() < faction.target_colonies {
-            let faction_id = FactionId(faction_id);
+        let faction_id = FactionId(faction_id);
+
+        let faction_colonies = colonies.get_faction_colonies(faction_id);
+
+        if faction_colonies.len() < faction.target_colonies {
             let fleet_id = fleets_res.get_new_fleet_id();
             let entity = commands
                 .spawn()
@@ -272,7 +265,7 @@ fn fleet_sensor(
                                 )
                                 .is_enemy()
                         } else {
-                            // This can happen if the entity was removed, 
+                            // This can happen if the entity was removed,
                             // but intersection pipeline was not updated yet.
                             true
                         }
@@ -298,7 +291,7 @@ fn handle_client_inputs(
                             // TODO: Broadcast the message.
                         }
                         Packet::MetascapeWishPos { wish_pos } => {
-                            wish_position.to = Some(wish_pos);
+                            wish_position.set_wish_position(wish_pos, 1.0);
                         }
                         Packet::BattlescapeInput {
                             wish_input,
@@ -414,68 +407,77 @@ fn colony_fleet_ai(mut query: Query<(&mut ColonyFleetAI, &Position, &mut WishPos
     query.for_each_mut(|(mut colony_fleet_ai, position, mut wish_position)| {
         match &mut colony_fleet_ai.goal {
             ColonyFleetAIGoal::Trade { colony } => todo!(),
-            ColonyFleetAIGoal::Guard { duration } => todo!(),
+            ColonyFleetAIGoal::Guard => todo!(),
         }
     });
 }
 
-fn colonist_ai(
+fn colonist_fleet_ai(
     mut commands: Commands,
     mut query: Query<(
         Entity,
         &Position,
         &InSystem,
-        &mut ColonistAI,
+        &mut ColonistFleetAI,
         &mut WishPosition,
         &Reputations,
     )>,
     mut systems: ResMut<Systems>,
     mut factions: ResMut<Factions>,
+    mut colonies: ResMut<Colonies>,
     time: Res<Time>,
 ) {
     let timef = time.as_time();
     let mut rng = thread_rng();
 
     query.for_each_mut(
-        |(entity, position, in_system, mut colonist_ai, mut wish_position, reputations)| {
-            if let Some(planet_id) = colonist_ai.target_planet {
-                let system = &mut systems.systems[planet_id.system_id];
-                let planet = &mut system.planets[planet_id.planets_offset as usize];
-
-                // Go torward planet.
+        |(entity, position, in_system, mut colonist_fleet_ai, mut wish_position, reputations)| {
+            if let Some(planet_id) = colonist_fleet_ai.target_planet() {
+                // Go torward target planet.
+                let (system, planet) = systems.get_system_and_planet(planet_id);
                 let planet_position = planet.relative_orbit.to_position(timef, system.position);
-                wish_position.to = Some(planet_position);
-                wish_position.speed_multiplier = 0.3;
+                wish_position.set_wish_position(
+                    planet_position,
+                    ColonistFleetAI::MOVEMENT_MULTIPLIER_COLONIZING,
+                );
 
-                if planet.faction.is_some() {
+                if colonies.get_colony_faction(planet_id).is_some() {
                     // Planet has already been colonized.
-                    colonist_ai.target_planet = None;
+                    colonist_fleet_ai.reset_target_planet();
                 } else {
                     // Are we close enough to the planet to take it?
                     if planet_position.distance_squared(position.0) < 1.0 {
-                        if let Some(faction_id) = reputations.faction {
-                            // Faction take control of the planet.
-                            let faction = &mut factions.factions[faction_id];
+                        // Faction take control of the planet.
+                        // TODO: This should take time.
+                        colonies.give_colony_to_faction(planet_id, reputations.faction);
 
-                            // TODO: This should take time.
-                            planet.faction = Some(faction_id);
-                            faction.colonies.insert(planet_id);
-
-                            // TODO: Change AI to guard the planet.
-                        } else {
-                            // Fleet is factionless and can not colonize.
-                            commands.entity(entity).insert(QueueRemove { when: 0 });
-                        }
+                        // Change AI to guard the planet.
+                        commands
+                            .entity(entity)
+                            .remove::<ColonistFleetAI>()
+                            .insert(ColonyFleetAI {
+                                goal: ColonyFleetAIGoal::Guard,
+                                colony: planet_id,
+                            });
                     }
                 }
-            } else if wish_position.to.is_none() {
-                // Go to a random system's bound.
+            } else if wish_position.target().is_none() {
+                // Go to a random system.
+                // We aim for the system's bound instead of center where there can be a star or worse.
+
+                // Get a random system.
                 let system = &systems.systems[rng.gen::<usize>() % systems.systems.len()];
+
+                // Randomly compute the system bound direction.
                 let rot = rng.gen::<f32>() * TAU;
-                wish_position.to =
-                    Some(system.position + Vec2::new(rot.cos(), rot.sin()) * system.bound);
-                wish_position.speed_multiplier = 0.6;
-            } else if colonist_ai.travel_until < time.tick {
+                let random_system_bound =
+                    system.position + Vec2::new(rot.cos(), rot.sin()) * system.bound;
+
+                wish_position.set_wish_position(
+                    random_system_bound,
+                    ColonistFleetAI::MOVEMENT_MULTIPLIER_TRAVELLING,
+                );
+            } else if colonist_fleet_ai.is_done_travelling(time.tick) {
                 // We are done travelling. Start searching for a planet.
                 if let Some(system_id) = in_system.0 {
                     let system = &systems.systems[system_id];
@@ -488,12 +490,12 @@ fn colonist_ai(
                     };
 
                     let planet = &system.planets[planets_offset as usize];
-                    if planet.faction.is_none() {
-                        colonist_ai.target_planet = Some(planet_id);
+                    if colonies.get_colony_faction(planet_id).is_some() {
+                        colonist_fleet_ai.set_target_planet(planet_id);
                     } else {
                         // Start travelling again.
-                        colonist_ai.travel_until = time.tick + 1200;
-                        wish_position.to = None;
+                        colonist_fleet_ai.set_travel_until(1200, time.tick);
+                        wish_position.stop();
                     }
                 }
             }
@@ -518,7 +520,7 @@ fn apply_fleet_movement(
     parameters: Res<Parameters>,
     fleet_idle: Res<EventRes<FleetIdle>>,
 ) {
-    let bound_squared = parameters.world_bound.powi(2);
+    let bound_squared = WORLD_BOUND.powi(2);
 
     query.for_each_mut(
         |(
@@ -529,22 +531,22 @@ fn apply_fleet_movement(
             derived_fleet_stats,
             mut idle_counter,
         )| {
-            if let Some(target) = wish_position.to {
+            if let Some(target) = wish_position.target() {
                 // A vector equal to our current velocity toward our target.
                 let wish_vel = target - position.0 - velocity.0;
 
                 // Seek target.
                 velocity.0 += wish_vel.clamp_length_max(
-                    derived_fleet_stats.acceleration * wish_position.speed_multiplier,
+                    derived_fleet_stats.acceleration * wish_position.movement_multiplier(),
                 );
 
                 // Stop if we are near the target.
-                if wish_vel.length_squared() < 0.5 {
-                    wish_position.to = None;
+                // TODO: Stop threshold should depend on fleet acceleration and current speed.
+                if wish_vel.length_squared() < 1.0 {
+                    wish_position.stop();
                 }
 
-                // Fleet is not idle.
-                idle_counter.0 = 0;
+                idle_counter.set_non_idle();
             } else if velocity.0.x != 0.0 || velocity.0.y != 0.0 {
                 // Go against current velocity.
                 let vel_change = -velocity
@@ -560,10 +562,9 @@ fn apply_fleet_movement(
                     velocity.0.y = 0.0;
                 }
 
-                // Fleet is not idle.
-                idle_counter.0 = 0;
-            } else if !idle_counter.is_idle() {
-                idle_counter.0 += 1;
+                idle_counter.set_non_idle();
+            } else {
+                idle_counter.increment();
                 if idle_counter.just_stated_idling() {
                     // Fire idle event only once.
                     fleet_idle.events.push(FleetIdle { entity });
@@ -572,7 +573,7 @@ fn apply_fleet_movement(
 
             // Entities are pushed away from the world's bound.
             if position.0.length_squared() > bound_squared {
-                velocity.0 -= position.0.normalize();
+                velocity.0 -= position.0.normalize() * 10.0;
             }
 
             // Apply friction.

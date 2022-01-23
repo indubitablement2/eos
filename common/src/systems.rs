@@ -37,8 +37,6 @@ pub struct Planet {
     pub relative_orbit: RelativeOrbit,
     #[serde(skip)]
     pub temperature: f32,
-    pub faction: Option<FactionId>,
-    pub population: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

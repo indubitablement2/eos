@@ -1,21 +1,37 @@
 use ahash::AHashMap;
 use bevy_ecs::prelude::*;
-use common::{factions::Faction, idx::*, orbit::Orbit, reputation::Reputation};
+use common::{factions::Faction, idx::*, orbit::Orbit, reputation::Reputation, WORLD_BOUND};
 use glam::Vec2;
 
 //* bundle
 
 #[derive(Bundle)]
 pub struct ClientFleetBundle {
-    pub client_id_comp: ClientIdComp,
-    pub know_entities: KnowEntities,
+    client_id_comp: ClientIdComp,
+    know_entities: KnowEntities,
     #[bundle]
-    pub fleet_bundle: FleetBundle,
+    fleet_bundle: FleetBundle,
+}
+impl ClientFleetBundle {
+    pub fn new(
+        client_id: ClientId,
+        fleet_id: FleetId,
+        position: Vec2,
+        faction: Option<FactionId>,
+    ) -> Self {
+        debug_assert_eq!(client_id.to_fleet_id(), fleet_id);
+
+        Self {
+            client_id_comp: ClientIdComp(client_id),
+            know_entities: Default::default(),
+            fleet_bundle: FleetBundle::new(fleet_id, position, faction),
+        }
+    }
 }
 
 #[derive(Bundle)]
 pub struct ColonistAIFleetBundle {
-    pub colonist_ai: ColonistAI,
+    pub colonist_fleet_ai: ColonistFleetAI,
     #[bundle]
     pub fleet_bundle: FleetBundle,
 }
@@ -28,7 +44,7 @@ impl ColonistAIFleetBundle {
         faction: Option<FactionId>,
     ) -> Self {
         Self {
-            colonist_ai: ColonistAI {
+            colonist_fleet_ai: ColonistFleetAI {
                 target_planet: target,
                 travel_until,
             },
@@ -192,32 +208,81 @@ impl Reputations {
 
 /// How long this entity has been without velocity.
 #[derive(Debug, Clone, Copy, Component, Default)]
-pub struct IdleCounter(pub u32);
+pub struct IdleCounter {
+    counter: u32,
+}
 impl IdleCounter {
     /// Delay before a fleet without velocity is considered idle in tick.
-    pub const IDLE_DELAY: u32 = 60;
+    const IDLE_DELAY: u32 = 60;
+
+    pub fn increment(&mut self) {
+        self.counter += 1;
+    }
+
+    pub fn set_non_idle(&mut self) {
+        self.counter = 0;
+    }
 
     pub fn is_idle(self) -> bool {
-        self.0 >= Self::IDLE_DELAY
+        self.counter >= Self::IDLE_DELAY
     }
 
     /// Will return true only when the entity start idling.
     pub fn just_stated_idling(self) -> bool {
-        self.0 == Self::IDLE_DELAY
+        self.counter == Self::IDLE_DELAY
     }
 }
 
 /// Where the fleet wish to move.
 #[derive(Debug, Clone, Copy, Component)]
 pub struct WishPosition {
-    pub to: Option<Vec2>,
-    pub speed_multiplier: f32,
+    /// Where the fleet will try to move to.
+    target: Option<Vec2>,
+    /// Fleet will cap its movement speed.
+    /// This will always be between 0 and 1.
+    movement_multiplier: f32,
+}
+impl WishPosition {
+    /// Reset the wish position's target to none.
+    pub fn stop(&mut self) {
+        // We don't need to reset movement multiplier as it will not be taken into account when stopping.
+        self.target = None;
+    }
+
+    /// Set the wish position's target and movement multiplier.
+    pub fn set_wish_position(&mut self, target: Vec2, movement_multiplier: f32) {
+        debug_assert!(
+            target.length_squared() < WORLD_BOUND.powi(2),
+            "Wish position's target should be within the would bound."
+        );
+        self.target = Some(target);
+
+        debug_assert!(
+            movement_multiplier > 0.0,
+            "Movement multiplier should be more than 0."
+        );
+        debug_assert!(
+            movement_multiplier <= 1.0,
+            "Movement multiplier should not be more than 1."
+        );
+        self.movement_multiplier = movement_multiplier;
+    }
+
+    /// Get a reference to the wish position's movement multiplier.
+    pub fn movement_multiplier(&self) -> f32 {
+        self.movement_multiplier
+    }
+
+    /// Get a reference to the wish position's target.
+    pub fn target(&self) -> Option<Vec2> {
+        self.target
+    }
 }
 impl Default for WishPosition {
     fn default() -> Self {
         Self {
-            to: None,
-            speed_multiplier: 1.0,
+            target: None,
+            movement_multiplier: 1.0,
         }
     }
 }
@@ -242,25 +307,58 @@ pub struct QueueRemove {
 
 //* AI
 
-/// AI that want to colonize a planet.
+/// AI that wants to colonize a random factionless planet.
 #[derive(Debug, Clone, Copy, Component)]
-pub struct ColonistAI {
-    pub target_planet: Option<PlanetId>,
+pub struct ColonistFleetAI {
+    target_planet: Option<PlanetId>,
     /// Fleet will travel at least until this tick before attempting to find a planet.
-    pub travel_until: u32,
+    travel_until: u32,
+}
+impl ColonistFleetAI {
+    pub const MOVEMENT_MULTIPLIER_TRAVELLING: f32 = 0.5;
+    pub const MOVEMENT_MULTIPLIER_COLONIZING: f32 = 0.3;
+
+    /// Return if this AI has completed its minimum travelling time.
+    pub fn is_done_travelling(&self, time: u32) -> bool {
+        debug_assert!(
+            self.travel_until.saturating_sub(time) < 1000000,
+            "Travel time is a very large number. This probably not intented."
+        );
+        self.travel_until < time
+    }
+
+    /// Get a reference to the colonist fleet ai's target planet.
+    pub fn target_planet(&self) -> Option<PlanetId> {
+        self.target_planet
+    }
+
+    /// Set the colonist fleet ai's target planet to none.
+    pub fn reset_target_planet(&mut self) {
+        self.target_planet = None;
+    }
+
+    /// Set the colonist fleet ai's target planet.
+    pub fn set_target_planet(&mut self, target_planet: PlanetId) {
+        self.target_planet = Some(target_planet);
+    }
+
+    /// Set the colonist fleet ai's travel duration.
+    pub fn set_travel_until(&mut self, travel_duration: u32, time: u32) {
+        self.travel_until = time + travel_duration;
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum ColonyFleetAIGoal {
-    Trade { colony: Entity },
-    Guard { duration: i32 },
+    Trade { colony: PlanetId },
+    Guard,
 }
 /// Ai for fleet that are owned by a colony.
 #[derive(Debug, Clone, Copy, Component)]
 pub struct ColonyFleetAI {
     pub goal: ColonyFleetAIGoal,
     /// The colony that own this fleet.
-    pub colony: Entity,
+    pub colony: PlanetId,
 }
 
 //* Detection
@@ -278,6 +376,11 @@ pub struct DetectorRadius(pub f32);
 pub struct EntityDetected(pub Vec<Entity>);
 
 //* Idx
+
+// #[derive(Debug, Clone, Copy, Component)]
+// pub struct WrappedId<T> {
+//     id: T,
+// }
 
 #[derive(Debug, Clone, Copy, Component)]
 pub struct ClientIdComp(pub ClientId);

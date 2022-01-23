@@ -123,7 +123,7 @@ impl Metascape {
         let buffer = file.get_as_text().to_string();
         file.close();
         let factions = if let Ok(mut factions) = serde_yaml::from_str::<Factions>(buffer.as_str()) {
-            factions.update_all(&mut systems);
+            factions.update_all();
             factions
         } else {
             return Err(std::io::Error::new(
@@ -277,10 +277,13 @@ impl Metascape {
             // Handle entities info update.
             for (id, info) in infos_update.infos.into_iter() {
                 if !self.entities_state.contains_key(&id) {
-                    self.entities_state.insert(id, EntityState {
-                        discovered_tick: current_tick,
-                        ..Default::default()
-                    });
+                    self.entities_state.insert(
+                        id,
+                        EntityState {
+                            discovered_tick: current_tick,
+                            ..Default::default()
+                        },
+                    );
                 }
                 if let Some(orbit) = info.orbit {
                     if let Some(state) = self.entities_state.get_mut(&id) {

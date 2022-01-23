@@ -210,6 +210,7 @@ pub enum Packet {
     },
 
     /// Client send this when he wants his fleet to move to a position.
+    /// TODO: Add movement multiplier 0-1.
     MetascapeWishPos { wish_pos: Vec2 },
     /// Client send his battlescape inputs and last acknowledged commands.
     BattlescapeInput {
