@@ -52,10 +52,12 @@ impl Colonies {
             }
         } else {
             // Create a new colony.
-            let colony = Colony {
+            let new_colony = Colony {
                 faction: new_faction,
                 ..Default::default()
             };
+            let result = self.colonies.insert(planet_id, new_colony);
+            debug_assert!(result.is_none());
 
             // Add PlanetId to new faction.
             if let Some(faction_id) = new_faction {
