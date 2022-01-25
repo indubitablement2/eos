@@ -5,7 +5,7 @@ use crate::data_manager::DataManager;
 use crate::ecs_components::*;
 use crate::ecs_events::*;
 use crate::clients_manager::*;
-use crate::res_fleets::*;
+use crate::fleets_manager::*;
 use crate::DetectedIntersectionPipeline;
 use crate::SystemsAccelerationStructure;
 use crate::server_configs::ConnectionHandlerConfigs;
@@ -73,7 +73,7 @@ fn get_new_clients(
     mut commands: Commands,
     mut query_client_fleet: Query<(&WrappedId<ClientId>, &mut KnowEntities)>,
     mut clients_manager: ResMut<ClientsManager>,
-    mut fleets_res: ResMut<FleetsRes>,
+    mut fleets_manager: ResMut<FleetsManager>,
     mut data_manager: ResMut<DataManager>,
     connection_handler_configs: Res<ConnectionHandlerConfigs>,
 ) {
@@ -114,50 +114,34 @@ fn get_new_clients(
         }
 
         // Check if fleet is already spawned.
-        if let Some(old_fleet_entity) = fleets_res.spawned_fleets.get(&fleet_id) {
+        if let Some(old_fleet_entity) = fleets_manager.get_spawned_fleet(fleet_id) {
             if let Ok((wrapped_client_id, mut know_entities)) =
-                query_client_fleet.get_mut(*old_fleet_entity)
+                query_client_fleet.get_mut(old_fleet_entity)
             {
                 // Update old fleet components.
                 let know_entities = &mut *know_entities;
                 *know_entities = KnowEntities::default();
-                commands.entity(*old_fleet_entity).remove::<QueueRemove>();
+                commands.entity(old_fleet_entity).remove::<QueueRemove>();
 
                 if wrapped_client_id.id() != client_id {
                     error!(
-                        "{:?} was asigned {:?}'s fleet. Fleets res and world do not match.",
+                        "{:?} was asigned {:?}'s fleet. Fleets manager and world do not match.",
                         client_id,
                         wrapped_client_id.id()
                     );
-                } else {
-                    debug!("{:?} has taken back control of his fleet.", client_id);
+                    debug_assert!(false, "Fleets manager and world out of sync.");
                 }
+
+                debug!("{:?} has taken back control of his fleet.", client_id);
+                
             } else {
-                fleets_res.spawned_fleets.remove(&fleet_id);
                 error!(
-                    "{:?}'s fleet is in fleets res, but is not found in world. Removing from spawned fleets...",
+                    "{:?}'s fleet is in fleets manager, but is not found in world. Removing from spawned fleets...",
                     client_id
                 );
             }
         } else {
-            // Create a default client fleet.
-            let entity = commands
-                .spawn_bundle(ClientFleetBundle::new(
-                    client_id,
-                    fleet_id,
-                    Vec2::ZERO,
-                    None,
-                ))
-                .id();
-
-            // Insert fleet.
-            let result = fleets_res.spawned_fleets.insert(fleet_id, entity);
-            debug_assert!(result.is_none(), "client's spawned fleet was overwritten.");
-
-            debug!(
-                "Created a new fleet for {:?} which he now control.",
-                client_id
-            );
+            fleets_manager.spawn_default_client_fleet(&mut commands, client_id);
         }
     
         num_new_connection += 1;
@@ -172,7 +156,7 @@ fn spawn_colonist(
     mut commands: Commands,
     factions: Res<Factions>,
     colonies: Res<Colonies>,
-    mut fleets_res: ResMut<FleetsRes>,
+    mut fleets_manager: ResMut<FleetsManager>,
     time: Res<Time>,
 ) {
     // TODO: Use run criteria.
@@ -190,18 +174,7 @@ fn spawn_colonist(
         let faction_colonies = colonies.get_faction_colonies(faction_id);
 
         if faction_colonies.len() < faction.target_colonies {
-            let fleet_id = fleets_res.get_new_fleet_id();
-            let entity = commands
-                .spawn()
-                .insert_bundle(ColonistAIFleetBundle::new(
-                    None,
-                    time.tick + 3000,
-                    fleet_id,
-                    Vec2::ZERO,
-                    Some(faction_id),
-                ))
-                .id();
-            fleets_res.spawned_fleets.insert(fleet_id, entity);
+            fleets_manager.spawn_colonist_ai_fleet(&mut commands, None, time.tick + 3000, Vec2::ZERO, Some(faction_id))
         }
     }
 }
@@ -436,8 +409,7 @@ fn colonist_fleet_ai(
         &mut WishPosition,
         &Reputations,
     )>,
-    mut systems: ResMut<Systems>,
-    mut factions: ResMut<Factions>,
+    systems: Res<Systems>,
     mut colonies: ResMut<Colonies>,
     time: Res<Time>,
 ) {
@@ -503,7 +475,6 @@ fn colonist_fleet_ai(
                         planets_offset,
                     };
 
-                    let planet = &system.planets[planets_offset as usize];
                     if colonies.get_colony_faction(planet_id).is_some() {
                         colonist_fleet_ai.set_target_planet(planet_id);
                     } else {
@@ -631,22 +602,13 @@ fn disconnect_client(
 /// Remove fleet that are queued for deletion.
 fn remove_fleet(
     mut commands: Commands,
-    query: Query<(Entity, &WrappedId<FleetId>, &QueueRemove)>,
-    mut fleets_res: ResMut<FleetsRes>,
-    mut data_manager: ResMut<DataManager>,
+    query: Query<(&WrappedId<FleetId>, &QueueRemove)>,
+    mut fleets_manager: ResMut<FleetsManager>,
     time: Res<Time>,
 ) {
-    query.for_each(|(entity, wrapped_fleet_id, queue_remove)| {
+    query.for_each(|(wrapped_fleet_id, queue_remove)| {
         if queue_remove.when <= time.tick {
-            if let Some(client_id) = wrapped_fleet_id.id().to_client_id() {
-                // TODO: Save client's fleet.
-                data_manager.client_fleets.insert(client_id, ());
-
-                debug!("Removed and saved {:?}'s fleet.", client_id);
-            }
-
-            fleets_res.spawned_fleets.remove(&wrapped_fleet_id.id());
-            commands.entity(entity).despawn();
+            fleets_manager.remove_spawned_fleet(&mut commands, wrapped_fleet_id.id());
         }
     });
 }

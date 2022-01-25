@@ -20,7 +20,7 @@ use common::{idx::SystemId, intersection::*};
 use server_configs::ServerConfigs;
 use data_manager::DataManager;
 use clients_manager::*;
-use res_fleets::FleetsRes;
+use fleets_manager::FleetsManager;
 use std::{fs::File, io::prelude::*, thread::sleep, time::Instant};
 
 use crate::terminal::Terminal;
@@ -32,7 +32,7 @@ mod ecs_components;
 mod ecs_events;
 mod ecs_systems;
 mod clients_manager;
-mod res_fleets;
+mod fleets_manager;
 mod terminal;
 mod server_configs;
 
@@ -62,7 +62,7 @@ impl Metascape {
         world.insert_resource(Time::default());
         world.insert_resource(DataManager::new());
         world.insert_resource(DetectedIntersectionPipeline(IntersectionPipeline::new()));
-        world.insert_resource(FleetsRes::new());
+        world.insert_resource(FleetsManager::default());
 
         // TODO: Load ServerConfigs from file.
         let server_configs = ServerConfigs::default();

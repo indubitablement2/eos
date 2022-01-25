@@ -320,10 +320,6 @@ impl ColonistFleetAI {
 
     /// Return if this AI has completed its minimum travelling time.
     pub fn is_done_travelling(&self, time: u32) -> bool {
-        debug_assert!(
-            self.travel_until.saturating_sub(time) < 1000000,
-            "Travel time is a very large number. This probably not intented."
-        );
         self.travel_until < time
     }
 
@@ -345,6 +341,11 @@ impl ColonistFleetAI {
     /// Set the colonist fleet ai's travel duration.
     pub fn set_travel_until(&mut self, travel_duration: u32, time: u32) {
         self.travel_until = time + travel_duration;
+    }
+}
+impl Default for ColonistFleetAI {
+    fn default() -> Self {
+        Self { target_planet: None, travel_until: 3000 }
     }
 }
 
