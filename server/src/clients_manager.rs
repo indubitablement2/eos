@@ -47,10 +47,10 @@ impl ClientsManager {
             self.pendings.push_back(new_connection);
         }
 
-        if self.pendings.len() > 100 {
+        if self.pendings.len() > self.min_pending_for_update {
             self.last_pendings_update += 1;
 
-            if self.last_pendings_update > 50 {
+            if self.last_pendings_update > self.pendings_update_interval {
                 self.update_pendings();
                 self.last_pendings_update = 0;
             }
@@ -66,7 +66,7 @@ impl ClientsManager {
                 Ok(new_connection) => Ok(new_connection),
                 Err(err) => {
                     // New connection take the place of the old connection.
-                    let (client_id, old_connection) = err.entry.replace_entry(err.value);
+                    let (_, old_connection) = err.entry.replace_entry(err.value);
 
                     debug!(
                         "{:?} was disconnected as a new connection took this client.",
