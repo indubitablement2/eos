@@ -1,14 +1,14 @@
 use std::f32::consts::TAU;
-
 use crate::colony::Colonies;
 use crate::data_manager::ClientData;
 use crate::data_manager::DataManager;
 use crate::ecs_components::*;
 use crate::ecs_events::*;
-use crate::res_clients::*;
+use crate::clients_manager::*;
 use crate::res_fleets::*;
 use crate::DetectedIntersectionPipeline;
 use crate::SystemsAccelerationStructure;
+use crate::server_configs::ConnectionHandlerConfigs;
 use bevy_ecs::prelude::*;
 use bevy_tasks::ComputeTaskPool;
 use common::factions::*;
@@ -16,7 +16,7 @@ use common::idx::*;
 use common::intersection::*;
 use common::orbit::*;
 use common::packets::*;
-use common::parameters::Parameters;
+use common::metascape_configs::MetascapeConfigs;
 use common::systems::Systems;
 use common::time::Time;
 use common::WORLD_BOUND;
@@ -24,16 +24,16 @@ use glam::Vec2;
 use rand::thread_rng;
 use rand::Rng;
 
+const DETECTED_UPDATE_INTERVAL: u64 = 5;
+/// Minimum delay before a disconnected client's fleet get removed.
+const DISCONNECT_REMOVE_FLEET_DELAY: u32 = 200;
+const UPDATE_IN_SYSTEM_INTERVAL: u64 = 20;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
 enum Label {
     Movement,
     DetectedPipelineUpdate,
 }
-
-const DETECTED_UPDATE_INTERVAL: u64 = 5;
-/// Minimum delay before a disconnected client's fleet get removed.
-const DISCONNECT_REMOVE_FLEET_DELAY: u32 = 200;
-const UPDATE_IN_SYSTEM_INTERVAL: u64 = 20;
 
 pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_stage("", SystemStage::parallel());
@@ -72,32 +72,33 @@ pub fn add_systems(schedule: &mut Schedule) {
 fn get_new_clients(
     mut commands: Commands,
     mut query_client_fleet: Query<(&WrappedId<ClientId>, &mut KnowEntities)>,
-    mut clients_res: ResMut<ClientsRes>,
+    mut clients_manager: ResMut<ClientsManager>,
     mut fleets_res: ResMut<FleetsRes>,
     mut data_manager: ResMut<DataManager>,
+    connection_handler_configs: Res<ConnectionHandlerConfigs>,
 ) {
-    // TODO: Only do a few each tick.
-    // TODO: Send notice to the rest of the wait queue.
-    while let Ok(connection) = clients_res
-        .connection_manager
-        .new_connection_receiver
-        .try_recv()
-    {
-        let client_id = connection.client_id;
-        let fleet_id = client_id.to_fleet_id();
+    clients_manager.handle_pending_connections();
 
-        // Insert client.
-        if let Some(old_connection) = clients_res.connected_clients.insert(client_id, connection) {
-            debug!(
-                "{:?} was disconnected as a new connection took this client.",
-                client_id
-            );
-            // Send message to old client explaining why he got disconnected.
-            old_connection.send_packet_reliable(
-                Packet::DisconnectedReason(DisconnectedReasonEnum::ConnectionFromOther).serialize(),
-            );
-            old_connection.flush_tcp_stream();
-        }
+    let mut num_new_connection = 0;
+
+    // Connect a few clients.
+    loop {
+        let new_connection = match clients_manager.try_connect_one() {
+            Ok(new_connection) => new_connection,
+            Err(err) => {
+                match err {
+                    ConnectError::Empty => {
+                        break;
+                    }
+                    ConnectError::AlreadyConnected => {
+                        continue;
+                    }
+                }
+            }
+        };
+
+        let client_id = new_connection.client_id;
+        let fleet_id = client_id.to_fleet_id();
 
         // Check if client has data.
         match data_manager
@@ -157,6 +158,11 @@ fn get_new_clients(
                 "Created a new fleet for {:?} which he now control.",
                 client_id
             );
+        }
+    
+        num_new_connection += 1;
+        if num_new_connection >= connection_handler_configs.max_new_connection_per_update {
+            break;
         }
     }
 }
@@ -287,11 +293,11 @@ fn fleet_sensor(
 /// Consume and apply the client's packets.
 fn handle_client_inputs(
     mut query: Query<(Entity, &WrappedId<ClientId>, &mut WishPosition)>,
-    clients_res: Res<ClientsRes>,
+    clients_manager: Res<ClientsManager>,
     client_disconnected: Res<EventRes<ClientDisconnected>>,
 ) {
     query.for_each_mut(|(entity, wrapped_client_id, mut wish_position)| {
-        if let Some(connection) = clients_res.connected_clients.get(&wrapped_client_id.id()) {
+        if let Some(connection) = clients_manager.get_connection(wrapped_client_id.id()) {
             loop {
                 match connection.inbound_receiver.try_recv() {
                     Ok(payload) => match Packet::deserialize(&payload) {
@@ -525,7 +531,7 @@ fn apply_fleet_movement(
         &DerivedFleetStats,
         &mut IdleCounter,
     )>,
-    parameters: Res<Parameters>,
+    metascape_configs: Res<MetascapeConfigs>,
     fleet_idle: Res<EventRes<FleetIdle>>,
 ) {
     let bound_squared = WORLD_BOUND.powi(2);
@@ -585,7 +591,7 @@ fn apply_fleet_movement(
             }
 
             // Apply friction.
-            velocity.0 *= parameters.friction;
+            velocity.0 *= metascape_configs.friction;
 
             // Apply velocity.
             position.0 += velocity.0;
@@ -593,10 +599,10 @@ fn apply_fleet_movement(
     );
 }
 
-/// Remove a client from connected client map queue his fleet to be removed.
+/// Remove a client from connected client map and queue his fleet to be removed.
 fn disconnect_client(
     mut commands: Commands,
-    mut clients_res: ResMut<ClientsRes>,
+    mut clients_manager: ResMut<ClientsManager>,
     client_disconnected: Res<EventRes<ClientDisconnected>>,
     time: Res<Time>,
 ) {
@@ -604,18 +610,13 @@ fn disconnect_client(
         let client_id = client_disconnected.client_id;
 
         // Remove connection.
-        if let Some(connection) = clients_res.connected_clients.remove(&client_id) {
+        if let Some(connection) = clients_manager.remove_connection(client_id) {
             if let Some(packet) = client_disconnected.send_packet {
                 // Send last packet.
                 connection.send_packet_reliable(packet.serialize());
                 connection.flush_tcp_stream();
             }
             debug!("{:?} disconnected.", client_id);
-        } else {
-            warn!(
-                "Got ClientDisconnected event, but {:?} can not be found. Ignoring...",
-                client_id
-            );
         }
 
         // Queue his fleet to be removed after a delay.
@@ -764,14 +765,14 @@ fn send_detected_entity(
     query_fleet_info: Query<(&WrappedId<FleetId>, &Name, Option<&OrbitComp>)>,
     query_entity_state: Query<&Position, Without<OrbitComp>>,
     time: Res<Time>,
-    clients_res: Res<ClientsRes>,
+    clients_manager: Res<ClientsManager>,
     task_pool: Res<ComputeTaskPool>,
 ) {
     query_client.par_for_each_mut(
         &task_pool,
         512,
         |(entity, wrapped_client_id, position, entity_detected, mut know_entities)| {
-            if let Some(connection) = clients_res.connected_clients.get(&wrapped_client_id.id()) {
+            if let Some(connection) = clients_manager.get_connection(wrapped_client_id.id()) {
                 let know_entities = &mut *know_entities;
 
                 let mut updated = Vec::with_capacity(entity_detected.0.len());

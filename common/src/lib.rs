@@ -15,7 +15,7 @@ pub mod idx;
 pub mod intersection;
 pub mod orbit;
 pub mod packets;
-pub mod parameters;
+pub mod metascape_configs;
 pub mod reputation;
 pub mod systems;
 pub mod tcp_loops;

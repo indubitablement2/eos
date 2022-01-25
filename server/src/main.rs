@@ -7,17 +7,19 @@
 #![feature(derive_default_enum)]
 #![feature(map_try_insert)]
 #![feature(mixed_integer_ops)]
+#![feature(map_entry_replace)]
 
 use bevy_ecs::prelude::*;
 use bevy_tasks::{ComputeTaskPool, TaskPool};
 use colony::Colonies;
 use common::factions::Factions;
-use common::parameters::Parameters;
+use common::metascape_configs::MetascapeConfigs;
 use common::systems::Systems;
 use common::time::Time;
 use common::{idx::SystemId, intersection::*};
+use server_configs::ServerConfigs;
 use data_manager::DataManager;
-use res_clients::ClientsRes;
+use clients_manager::*;
 use res_fleets::FleetsRes;
 use std::{fs::File, io::prelude::*, thread::sleep, time::Instant};
 
@@ -29,9 +31,10 @@ mod data_manager;
 mod ecs_components;
 mod ecs_events;
 mod ecs_systems;
-mod res_clients;
+mod clients_manager;
 mod res_fleets;
 mod terminal;
+mod server_configs;
 
 // use common::metascape::Metascape;
 
@@ -52,24 +55,25 @@ pub struct Metascape {
     schedule: Schedule,
 }
 impl Metascape {
-    fn new(local: bool, parameters: Parameters) -> std::io::Result<Self> {
+    fn new() -> std::io::Result<Self> {
         let mut world = World::new();
         ecs_events::add_event_res(&mut world);
         world.insert_resource(ComputeTaskPool(TaskPool::new()));
         world.insert_resource(Time::default());
         world.insert_resource(DataManager::new());
-        world.insert_resource(parameters);
         world.insert_resource(DetectedIntersectionPipeline(IntersectionPipeline::new()));
-        world.insert_resource(ClientsRes::new(local)?);
         world.insert_resource(FleetsRes::new());
 
-        let mut schedule = Schedule::default();
-        ecs_systems::add_systems(&mut schedule);
+        // TODO: Load ServerConfigs from file.
+        let server_configs = ServerConfigs::default();
+        world.insert_resource(ClientsManager::new(&server_configs.clients_manager_configs)?);
+        world.insert_resource(server_configs.connection_handler_configs);
 
-        Ok(Self { world, schedule })
-    }
+        // TODO: Load MetascapeConfigs from file or use default.
+        let metascape_configs = MetascapeConfigs::default();
+        world.insert_resource(metascape_configs);
 
-    fn load(&mut self) {
+
         // Load systems.
         let mut file = File::open("systems.bin").expect("Could not open systems.bin");
         let mut buffer = Vec::with_capacity(file.metadata().unwrap().len() as usize);
@@ -88,14 +92,20 @@ impl Metascape {
 
         // Load colonies.
         // TODO: This should be loaded from file.
-        self.world.insert_resource(Colonies::default());
+        world.insert_resource(Colonies::default());
 
         // Add systems and systems_acceleration_structure resource.
-        self.world.insert_resource(SystemsAccelerationStructure(
+        world.insert_resource(SystemsAccelerationStructure(
             systems.create_acceleration_structure(),
         ));
-        self.world.insert_resource(systems);
-        self.world.insert_resource(factions);
+        world.insert_resource(systems);
+        world.insert_resource(factions);
+
+        // Create schedule.
+        let mut schedule = Schedule::default();
+        ecs_systems::add_systems(&mut schedule);
+
+        Ok(Self { world, schedule })
     }
 
     fn update(&mut self) {
@@ -114,22 +124,7 @@ fn main() {
     tui_logger::init_logger(log::LevelFilter::Trace).expect("Could not init logger.");
     tui_logger::set_default_level(log::LevelFilter::Trace);
 
-    let mut metascape;
-    loop {
-        match startup() {
-            Ok(new_metascape) => {
-                metascape = new_metascape;
-                break;
-            }
-            Err(err) => {
-                println!("{:?}", err);
-            }
-        }
-    }
-
-    println!("Loading...");
-    metascape.load();
-
+    let mut metascape = Metascape::new().unwrap();
     let mut terminal = Terminal::new().expect("Could not create Terminal.");
 
     // Main loop.
@@ -172,31 +167,4 @@ fn main() {
 
     // Cleanup.
     terminal.clear();
-}
-
-fn startup() -> std::io::Result<Metascape> {
-    let mut buffer = String::new();
-
-    // Ask if we should create local server.
-    println!("Do you want to create a server over localhost? [_/n]");
-    std::io::stdin().read_line(&mut buffer)?;
-    let local = buffer.split_whitespace().next().unwrap_or_default() != "n";
-    println!("Local server: {}", local);
-
-    // Ask if we should use default values.
-    println!("Do you want to use default Metascape values? [_/n]");
-    buffer.clear();
-    std::io::stdin().read_line(&mut buffer)?;
-    let default_values = buffer.split_whitespace().next().unwrap_or_default() != "n";
-    println!("Default values: {}", default_values);
-
-    // Init Metascape.
-    if default_values {
-        return Ok(Metascape::new(local, Parameters::default())?);
-    } else {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "TODO: Non default values",
-        ));
-    }
 }
