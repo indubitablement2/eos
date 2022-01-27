@@ -1,6 +1,11 @@
 #![feature(test)]
 #![feature(duration_constants)]
 #![feature(derive_default_enum)]
+#![feature(slice_split_at_unchecked)]
+#![feature(slice_as_chunks)]
+#![feature(hash_drain_filter)]
+#![feature(split_array)]
+#![feature(array_chunks)]
 
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -9,13 +14,15 @@ use std::fmt::Display;
 extern crate log;
 
 pub mod array_difference;
+pub mod compressed_vec2;
 pub mod connection;
 pub mod factions;
 pub mod idx;
 pub mod intersection;
+pub mod metascape_configs;
 pub mod orbit;
 pub mod packets;
-pub mod metascape_configs;
+pub mod reliable_udp;
 pub mod reputation;
 pub mod systems;
 pub mod tcp_loops;
