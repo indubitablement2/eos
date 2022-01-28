@@ -16,7 +16,7 @@ fn create_test_connections_pair() -> (Connection, Connection) {
     let configs = Arc::new(ConnectionConfigs::default());
 
     let (sc, s_chan) = Connection::new(c.local_addr().unwrap(), s.clone(), configs.clone());
-    let (cc, c_chan) = Connection::new(s.local_addr().unwrap(), s.clone(), configs);
+    let (cc, c_chan) = Connection::new(s.local_addr().unwrap(), c.clone(), configs);
 
     let s_ci = ConnectionsInternals::default();
     s_ci.connections.write().unwrap().insert(sc.address(), s_chan);
@@ -34,8 +34,8 @@ fn sleep_milli() {
 }
 
 fn print_stats(sc: &Connection, cc: &Connection) {
-    println!("{:#?}", sc.stats);
-    println!("{:#?}", cc.stats);
+    println!("sc: {:#?}", sc.stats);
+    println!("cc: {:#?}", cc.stats);
 }
 
 /// Send and receive an empty packet.
@@ -46,6 +46,10 @@ fn test_reliable_udp() {
     sc.send(&[], false);
     sleep_milli();
     assert!(cc.recv().unwrap().get_slice().is_empty());
+
+    cc.send(&[], false);
+    sleep_milli();
+    assert!(sc.recv().unwrap().get_slice().is_empty());
 
     print_stats(&sc, &cc);
 }
@@ -59,18 +63,36 @@ fn test_non_corrupt() {
 
     let (mut sc, mut cc) = create_test_connections_pair();
 
-    for _ in 0..100 {
+    for _ in 0..16 {
         let mut packets = Vec::with_capacity(u8::MAX as usize);
+        let mut recved = 0;
+        
         for i in 0..u8::MAX {
-            let mut r: Vec<u8> = (0..rng.gen::<usize>() % MAX_PAYLOAD_SIZE)
+            let mut r: Vec<u8> = (0..rng.gen::<usize>() % (MAX_PAYLOAD_SIZE - 1) + 1)
                 .into_iter()
                 .map(|_| rng.gen::<u8>())
                 .collect();
+            r[0] = i;
 
-            if r.is_empty() {
-                r.push(i);
-            } else {
-                r[0] = i;
+            if sc.is_bandwidth_saturated() {
+                sleep_milli();
+
+                while let Ok(payload) = cc.recv() {
+                    recved += 1;
+                    let i = payload.get_slice().first().unwrap().to_owned() as usize;
+                    assert_eq!(&packets[i], payload.get_slice());
+                    cc.reset_buffer();
+                    
+                    cc.send_manual(false);
+                    assert!(!cc.is_bandwidth_saturated());
+                }
+
+                sleep_milli();
+
+                while sc.recv().is_ok() {
+                    
+                }
+                sc.update(1.0).unwrap();
             }
 
             sc.send(&r, true);
@@ -78,18 +100,25 @@ fn test_non_corrupt() {
         }
 
         sleep_milli();
-
-        let mut recved = 0;
+        
         while let Ok(payload) = cc.recv() {
             recved += 1;
-
             let i = payload.get_slice().first().unwrap().to_owned() as usize;
-
             assert_eq!(&packets[i], payload.get_slice());
+            cc.reset_buffer();
+            cc.send_manual(false);
+            assert!(!cc.is_bandwidth_saturated());
+        }
+
+        sleep_milli();
+
+        while sc.recv().is_ok() {
+                    
         }
 
         assert_eq!(recved, u8::MAX);
     }
 
+    assert!(sc.stats.compare(cc.stats));
     print_stats(&sc, &cc);
 }

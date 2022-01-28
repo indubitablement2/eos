@@ -16,15 +16,15 @@ pub struct ConnectionConfigs {
     /// When reached, unreliable packet will be discarded
     /// and reliable packet will be buffered.
     ///
-    /// Default: 30000
+    /// Default: 50000
     pub max_bps: usize,
     /// Maximum number of inbound packet per seconds before to trigger a disconnect.
     ///
-    /// Default: 100
+    /// Default: 128
     pub max_inbound_pps: usize,
     /// Number of seconds without receiving or sending any packet to trigger a disconnect.
     ///
-    /// Default: 10.0
+    /// Default: 20.0
     pub timeout_duration: f32,
     /// The minimum number of seconds, before a reliable packet is resent.
     ///
@@ -43,9 +43,9 @@ pub struct ConnectionConfigs {
 impl Default for ConnectionConfigs {
     fn default() -> Self {
         Self {
-            max_bps: 30000,
-            max_inbound_pps: 100,
-            timeout_duration: 10.0,
+            max_bps: 50000,
+            max_inbound_pps: 128,
+            timeout_duration: 20.0,
             min_in_flight_time: 0.2,
             expected_in_flight_time_modifier: 2.0,
         }
@@ -57,19 +57,55 @@ pub struct ConnectionStats {
     /// The total number of packets that were successfully sent,
     /// but not necessarily received.
     pub outbound_packet: u64,
+    /// The total number of reliable packets that were successfully sent,
+    /// but not necessarily received.
+    pub outbound_reliable_packet: u64,
     /// The total number of bytes that were successfully sent,
     /// but not necessarily received.
+    /// Does not include udp header.
     pub outbound_byte: u64,
+    /// The total number of fragmented packets that were successfully sent,
+    /// but not necessarily received.
+    pub outbound_fragment: u64,
+
+    /// The total number of ack confirmation appended to packet that were successfully sent,
+    /// but not necessarily received.
+    pub outbound_ack_confirmantion: u64,
+
     /// The total number of packets that could not be sent for any reason.
     pub outbound_fail: u64,
     /// The total number of reliable packets that needed to be resent,
     /// because we did not receive an ack in time.
-    pub outbound_no_ack: u64,
+    pub outbound_unacked: u64,
 
-    /// The total number of packets that were successfully received
-    /// and sent to the proper connection.
+    /// The total number of packets that were successfully received.
     pub inbound_packet: u64,
+    /// The total number of reliable packets that were successfully received.
+    pub inbound_reliable_packet: u64,
     /// The total number of bytes that were successfully received
     /// and sent to the proper connection.
     pub inbound_byte: u64,
+    /// The total number of fragment packets that were successfully received.
+    pub inbound_fragment: u64,
+
+    /// The total number of ack confirmation appended to packet that were received.
+    pub inbound_ack_confirmation: u64,
+
+    /// The total number of packets we could not deserialize its metadata and were ignored.
+    pub inbound_corrupt: u64,
+}
+impl ConnectionStats {
+    pub fn compare(self, other: ConnectionStats) -> bool {
+        self.outbound_packet == other.inbound_packet &&
+        self.outbound_reliable_packet == other.inbound_reliable_packet &&
+        self.outbound_byte == other.inbound_byte &&
+        self.outbound_fragment == other.inbound_fragment &&
+        self.outbound_ack_confirmantion == other.inbound_ack_confirmation &&
+        self.outbound_fail == 0 &&
+        other.outbound_fail == 0 &&
+        self.outbound_unacked == 0 &&
+        other.outbound_unacked == 0 &&
+        self.inbound_corrupt == 0 &&
+        other.inbound_corrupt == 0
+    }
 }
