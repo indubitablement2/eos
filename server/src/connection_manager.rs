@@ -1,5 +1,5 @@
 use common::{
-    connection::Connection, idx::ClientId, packets::*, tcp_loops::*, Version, SERVER_PORT,
+    net::connection::Connection, idx::ClientId, net::login_packets::*, net::tcp_loops::*, Version, net::SERVER_PORT,
 };
 use std::io::Result;
 use std::{
@@ -56,6 +56,7 @@ struct LoginResult {
     client_id: ClientId,
     stream: TcpStream,
     client_addr: SocketAddrV6,
+    selected_server: u32,
 }
 
 /// Entry point for client.
@@ -145,6 +146,7 @@ async fn try_login(
                 client_id,
                 stream,
                 client_addr,
+                selected_server: todo!(),
             })
             .await
         {
@@ -198,21 +200,15 @@ async fn handle_first_packet(
             ClientId(login_packet.token as u32)
         }
         false => {
-            match login_packet.is_steam {
-                true => {
-                    // TODO: Check credential with steam.
-                    todo!()
-                }
-                false => {
-                    debug!(
-                        "{} tried to login without steam which is not emplemented. Ignoring...",
-                        client_addr
-                    );
-                    return LoginResponsePacket::NotSteam;
-                }
+            match login_packet.credential_checker {
+                CredentialChecker::Steam => todo!(),
+                CredentialChecker::Epic => todo!(),
             }
         }
     };
+
+    // Check selected server.
+    // login_packet.selected_server
 
     debug!(
         "{} successfully identified as {:?}.",

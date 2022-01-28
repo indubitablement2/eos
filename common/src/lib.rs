@@ -15,18 +15,16 @@ extern crate log;
 
 pub mod array_difference;
 pub mod compressed_vec2;
-pub mod connection;
 pub mod factions;
 pub mod idx;
 pub mod intersection;
 pub mod metascape_configs;
 pub mod orbit;
-pub mod packets;
-pub mod reliable_udp;
+// pub mod reliable_udp;
 pub mod reputation;
 pub mod systems;
-pub mod tcp_loops;
 pub mod time;
+pub mod net;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Version {
@@ -50,8 +48,6 @@ impl Version {
 
 /// How long between each Battlescape/Metascape tick.
 pub const UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
-/// The server's tcp port.
-pub const SERVER_PORT: u16 = 31415;
 
 /// The maximum distance to the center.
 pub const WORLD_BOUND: f32 = u16::MAX as f32;

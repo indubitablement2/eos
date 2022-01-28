@@ -3,13 +3,7 @@ use tokio::{
     io::*,
     net::tcp::{OwnedReadHalf, OwnedWriteHalf},
 };
-
-pub enum TcpOutboundEvent {
-    /// Send a packet (without header) to the connected peer.
-    PacketEvent(Vec<u8>),
-    /// Request a write flush.
-    FlushEvent,
-}
+use super::TcpOutboundEvent;
 
 pub async fn tcp_out_loop(
     mut tcp_outbound_event_receiver: tokio::sync::mpsc::Receiver<TcpOutboundEvent>,

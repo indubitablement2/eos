@@ -2,9 +2,9 @@ use std::collections::VecDeque;
 use crate::connection_manager::ConnectionsManager;
 use crate::server_configs::ClientsManagerConfigs;
 use ahash::AHashMap;
-use common::connection::Connection;
+use common::net::packets::*;
+use common::net::connection::*;
 use common::idx::*;
-use common::packets::*;
 
 pub enum ConnectError {
     /// The pending queue is empty.
@@ -62,7 +62,7 @@ impl ClientsManager {
     /// Pop a pending connection and return a mutable reference to it.
     pub fn try_connect_one(&mut self) -> Result<&mut Connection, ConnectError> {
         if let Some(new_connection) = self.pendings.pop_front() {
-            match self.connected.try_insert(new_connection.client_id, new_connection) {
+            match self.connected.try_insert(new_connection.client_id(), new_connection) {
                 Ok(new_connection) => Ok(new_connection),
                 Err(err) => {
                     // New connection take the place of the old connection.
@@ -70,7 +70,7 @@ impl ClientsManager {
 
                     debug!(
                         "{:?} was disconnected as a new connection took this client.",
-                        old_connection.client_id
+                        old_connection.client_id()
                     );
 
                     // Send message to old client explaining why he got disconnected.

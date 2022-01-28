@@ -21,7 +21,7 @@ impl Default for ConnectionHandlerConfigs {
 pub struct ClientsManagerConfigs {
     /// Bind using loop back address.
     pub local: bool,
-    /// How many pendings connections before update is considered.
+    /// How many pendings connections before an update is considered.
     pub min_pending_for_update: usize,
     /// How many times do we have to call `handle_pending_connections`
     /// before an update is done (sending queue size, checking disconnect).
