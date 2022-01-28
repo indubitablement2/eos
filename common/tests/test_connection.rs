@@ -1,6 +1,5 @@
 use common::reliable_udp::connection::*;
 use common::reliable_udp::inbound_loop::*;
-use common::reliable_udp::packets::*;
 use common::reliable_udp::*;
 use std::net::UdpSocket;
 use std::sync::atomic::AtomicBool;
@@ -45,11 +44,11 @@ fn test_reliable_udp() {
 
     sc.send(&[], false);
     sleep_milli();
-    assert!(cc.recv().unwrap().get_slice().is_empty());
+    assert!(cc.recv().unwrap().slice().is_empty());
 
     cc.send(&[], false);
     sleep_milli();
-    assert!(sc.recv().unwrap().get_slice().is_empty());
+    assert!(sc.recv().unwrap().slice().is_empty());
 
     print_stats(&sc, &cc);
 }
@@ -79,11 +78,9 @@ fn test_non_corrupt() {
 
                 while let Ok(payload) = cc.recv() {
                     recved += 1;
-                    let i = payload.get_slice().first().unwrap().to_owned() as usize;
-                    assert_eq!(&packets[i], payload.get_slice());
-                    cc.reset_buffer();
-                    
-                    cc.send_manual(false);
+                    let i = payload.slice().first().unwrap().to_owned() as usize;
+                    assert_eq!(&packets[i], payload.slice());
+                    cc.send(&[], false);
                     assert!(!cc.is_bandwidth_saturated());
                 }
 
@@ -103,10 +100,9 @@ fn test_non_corrupt() {
         
         while let Ok(payload) = cc.recv() {
             recved += 1;
-            let i = payload.get_slice().first().unwrap().to_owned() as usize;
-            assert_eq!(&packets[i], payload.get_slice());
-            cc.reset_buffer();
-            cc.send_manual(false);
+            let i = payload.slice().first().unwrap().to_owned() as usize;
+            assert_eq!(&packets[i], payload.slice());
+            cc.send(&[], false);
             assert!(!cc.is_bandwidth_saturated());
         }
 

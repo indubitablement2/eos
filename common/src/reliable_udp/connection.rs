@@ -1,8 +1,6 @@
 use super::*;
-use crate::compressed_vec2::CVec2;
 use ahash::AHashMap;
 use crossbeam::channel::{unbounded, Receiver, Sender};
-use glam::Vec2;
 use std::{
     net::{SocketAddr, UdpSocket},
     sync::Arc,
@@ -40,12 +38,12 @@ pub enum ConnectionEvent {
 ///
 /// Ack request - 0..2
 /// -
-/// If there is an ack request.
+/// u16 - If there is an ack request.
 /// Reliable fragmented packet needs its individual fragment to be acked.
 ///
 /// Acks confirmation - 0..16
 /// -
-/// If these are ack confirmation. Up to 8 can be appended per packet.
+/// u16 - If these are ack confirmation. Up to 8 can be appended per packet.
 pub struct Connection {
     address: SocketAddr,
     socket: Arc<UdpSocket>,
@@ -91,8 +89,6 @@ pub struct Connection {
     configs: Arc<ConnectionConfigs>,
 }
 impl Connection {
-    const MAX_WRITABLE_SIZE: usize = HEADER_SIZE + MAX_PAYLOAD_SIZE;
-
     pub fn new(
         address: SocketAddr,
         socket: Arc<UdpSocket>,
@@ -179,7 +175,6 @@ impl Connection {
         } else {
             // Packet was not sent successfuly.
             self.stats.outbound_fail += 1;
-
             self.retake_appended_ack_confirmation_from_buffer();
 
             if reliable {
@@ -282,69 +277,6 @@ impl Connection {
     fn push_buffer_to_pending_ack(&mut self) {
         self.pending_ack
             .insert(self.current_ack, (self.copy_buffer_to_vec(), 0.0));
-    }
-
-    /// Send data written with the write methods.
-    ///
-    /// There are a few caviats to remember when writting directly to the internal buffer.
-    ///
-    /// First: You should always call `reset_buffer` before writting data
-    /// as the internal buffer may be in any state.
-    ///
-    /// Seconds: Packed will not be fragmented.
-    ///
-    /// Third: Ensure you have enough space to write to the internal buffer with `can_write`
-    /// otherwise, an out of bound panic could occur.
-    pub fn send_manual(&mut self, reliable: bool) {
-        self.prepare_buffer(reliable);
-        self.send_internal_buffer(reliable);
-    }
-
-    pub fn reset_buffer(&mut self) {
-        self.used_buffer = HEADER_SIZE;
-    }
-
-    /// Return if there is enough place left to write num bytes.
-    pub fn can_write(&self, num: usize) -> bool {
-        self.used_buffer + num <= Self::MAX_WRITABLE_SIZE
-    }
-
-    /// Get the connection's used buffer.
-    pub fn used_buffer(&self) -> usize {
-        self.used_buffer
-    }
-
-    pub fn write_u8(&mut self, v: u8) {
-        self.buffer[self.used_buffer] = v;
-        self.used_buffer += 1;
-    }
-
-    pub fn write_u16(&mut self, v: u16) {
-        let prev = self.used_buffer;
-        self.used_buffer += 2;
-        self.buffer[prev..self.used_buffer].copy_from_slice(&v.to_be_bytes());
-    }
-
-    pub fn write_u32(&mut self, v: u32) {
-        let prev = self.used_buffer;
-        self.used_buffer += 4;
-        self.buffer[prev..self.used_buffer].copy_from_slice(&v.to_be_bytes());
-    }
-
-    pub fn write_f32(&mut self, v: f32) {
-        let prev = self.used_buffer;
-        self.used_buffer += 4;
-        self.buffer[prev..self.used_buffer].copy_from_slice(&v.to_be_bytes());
-    }
-
-    pub fn write_vec2(&mut self, v: Vec2) {
-        self.write_f32(v.x);
-        self.write_f32(v.y);
-    }
-
-    pub fn write_cvec2(&mut self, v: CVec2) {
-        self.write_u16(v.x);
-        self.write_u16(v.y);
     }
 
     pub fn is_bandwidth_saturated(&self) -> bool {
@@ -520,7 +452,7 @@ impl Payload {
     }
 
     /// Return the packet payload without the header.
-    pub fn get_slice(&self) -> &[u8] {
+    pub fn slice(&self) -> &[u8] {
         &self.buffer[HEADER_SIZE..]
     }
 }
