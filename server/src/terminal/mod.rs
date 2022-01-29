@@ -6,18 +6,16 @@ use crossbeam::channel::*;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use performance::PerformanceMetrics;
 use std::{
-    io::{self, stdin, Stdout},
+    io::{self, Stdout},
     thread::spawn,
-    time::{Duration, Instant},
 };
 use termion::{
     event::Key,
-    input::TermRead,
     raw::{IntoRawMode, RawTerminal},
 };
 use tui::{
     backend::TermionBackend,
-    layout::{Alignment, Constraint, Direction, Layout, Margin},
+    layout::*,
     style::*,
     symbols::*,
     text::{Span, Spans},
@@ -286,9 +284,5 @@ impl Terminal {
             log.state(&self.log_state);
             frame.render_widget(log, chunks[2]);
         });
-    }
-
-    pub fn clear(&mut self) {
-        let _ = self.backend_terminal.clear();
     }
 }
