@@ -52,8 +52,6 @@ pub fn generate_system(position: Vec2, target_radius: f32) -> System {
                     orbit_speed,
                 },
                 temperature: 0.0,
-                faction: None,
-                population: 0,
             });
 
             used_radius = radius.mul_add(2.0, distance).max(used_radius);

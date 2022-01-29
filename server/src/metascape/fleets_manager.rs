@@ -1,8 +1,9 @@
+use super::ecs_components::ClientFleetBundle;
+use super::ecs_components::ColonistAIFleetBundle;
 use ahash::AHashMap;
 use bevy_ecs::prelude::*;
 use common::idx::*;
 use glam::Vec2;
-use crate::ecs_components::*;
 
 pub struct FleetsManager {
     spawned_fleets: AHashMap<FleetId, Entity>,
@@ -30,14 +31,14 @@ impl FleetsManager {
                 None,
             ))
             .id();
-        
-        debug!(
-            "Created a new default fleet for {:?}.",
-            client_id
-        );
+
+        debug!("Created a new default fleet for {:?}.", client_id);
 
         if self.spawned_fleets.insert(fleet_id, new_entity).is_some() {
-            error!("{:?}'s fleet was overwritten. World and fleets manager are out of sync.", client_id);
+            error!(
+                "{:?}'s fleet was overwritten. World and fleets manager are out of sync.",
+                client_id
+            );
         }
     }
 
@@ -47,7 +48,7 @@ impl FleetsManager {
         target: Option<PlanetId>,
         travel_until: u32,
         position: Vec2,
-        faction: Option<FactionId>
+        faction: Option<FactionId>,
     ) {
         let fleet_id = self.get_new_fleet_id();
 
@@ -61,7 +62,7 @@ impl FleetsManager {
                 faction,
             ))
             .id();
-        
+
         self.spawned_fleets.insert(fleet_id, entity);
     }
 
@@ -78,16 +79,23 @@ impl FleetsManager {
             if let Some(client_id) = fleet_id.to_client_id() {
                 // TODO: Save client's fleet.
                 self.client_fleets.insert(client_id, ());
-    
+
                 debug!("Removed and saved {:?}'s fleet.", client_id);
             }
         } else {
-            debug!("Remove spawned fleet was called for an unexisting fleet ({:?}). Ignoring...", fleet_id);
+            debug!(
+                "Remove spawned fleet was called for an unexisting fleet ({:?}). Ignoring...",
+                fleet_id
+            );
         }
     }
 }
 impl Default for FleetsManager {
     fn default() -> Self {
-        Self { spawned_fleets: Default::default(), last_used_id: u32::MAX as u64, client_fleets: Default::default() }
+        Self {
+            spawned_fleets: Default::default(),
+            last_used_id: u32::MAX as u64,
+            client_fleets: Default::default(),
+        }
     }
 }

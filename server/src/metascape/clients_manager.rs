@@ -1,10 +1,10 @@
-use std::collections::VecDeque;
 use crate::connection_manager::ConnectionsManager;
 use crate::server_configs::ClientsManagerConfigs;
 use ahash::AHashMap;
-use common::net::packets::*;
-use common::net::connection::*;
 use common::idx::*;
+use common::net::connection::*;
+use common::net::packets::*;
+use std::collections::VecDeque;
 
 pub enum ConnectError {
     /// The pending queue is empty.
@@ -34,13 +34,11 @@ impl ClientsManager {
     }
 
     /// TODO: Check for disconnect while sending queue size.
-    fn update_pendings(&mut self) {
-        
-    }
+    fn update_pendings(&mut self) {}
 
-    /// Fetch new connection from the `ConnectionsManager` 
+    /// Fetch new connection from the `ConnectionsManager`
     /// and append them at the end of the pendings queue.
-    /// 
+    ///
     /// Does a pending queue update if nessesary (long queue and minimum duration elapsed).
     pub fn handle_pending_connections(&mut self) {
         while let Ok(new_connection) = self.connection_manager.new_connection_receiver.try_recv() {
@@ -62,7 +60,10 @@ impl ClientsManager {
     /// Pop a pending connection and return a mutable reference to it.
     pub fn try_connect_one(&mut self) -> Result<&mut Connection, ConnectError> {
         if let Some(new_connection) = self.pendings.pop_front() {
-            match self.connected.try_insert(new_connection.client_id(), new_connection) {
+            match self
+                .connected
+                .try_insert(new_connection.client_id(), new_connection)
+            {
                 Ok(new_connection) => Ok(new_connection),
                 Err(err) => {
                     // New connection take the place of the old connection.
@@ -75,7 +76,8 @@ impl ClientsManager {
 
                     // Send message to old client explaining why he got disconnected.
                     old_connection.send_packet_reliable(
-                        Packet::DisconnectedReason(DisconnectedReasonEnum::ConnectionFromOther).serialize(),
+                        Packet::DisconnectedReason(DisconnectedReasonEnum::ConnectionFromOther)
+                            .serialize(),
                     );
                     old_connection.flush_tcp_stream();
 

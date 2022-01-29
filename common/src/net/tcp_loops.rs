@@ -1,12 +1,12 @@
 use crate::idx::*;
 use tokio::{
     io::*,
-    net::tcp::{OwnedReadHalf, OwnedWriteHalf},
+    net::tcp::{OwnedReadHalf, OwnedWriteHalf}, sync::mpsc::Receiver,
 };
 use super::TcpOutboundEvent;
 
 pub async fn tcp_out_loop(
-    mut tcp_outbound_event_receiver: tokio::sync::mpsc::Receiver<TcpOutboundEvent>,
+    mut tcp_outbound_event_receiver: Receiver<TcpOutboundEvent>,
     mut buf_write: BufWriter<OwnedWriteHalf>,
     client_id: ClientId,
 ) {

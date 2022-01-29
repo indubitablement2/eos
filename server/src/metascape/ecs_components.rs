@@ -345,7 +345,10 @@ impl ColonistFleetAI {
 }
 impl Default for ColonistFleetAI {
     fn default() -> Self {
-        Self { target_planet: None, travel_until: 3000 }
+        Self {
+            target_planet: None,
+            travel_until: 3000,
+        }
     }
 }
 

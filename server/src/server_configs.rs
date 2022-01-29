@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct ServerConfigs {
@@ -13,7 +13,9 @@ pub struct ConnectionHandlerConfigs {
 }
 impl Default for ConnectionHandlerConfigs {
     fn default() -> Self {
-        Self { max_new_connection_per_update: 4 }
+        Self {
+            max_new_connection_per_update: 4,
+        }
     }
 }
 
@@ -29,6 +31,10 @@ pub struct ClientsManagerConfigs {
 }
 impl Default for ClientsManagerConfigs {
     fn default() -> Self {
-        Self { local: true, min_pending_for_update: 100, pendings_update_interval: 50 }
+        Self {
+            local: true,
+            min_pending_for_update: 100,
+            pendings_update_interval: 50,
+        }
     }
 }

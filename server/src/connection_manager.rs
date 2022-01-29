@@ -1,5 +1,6 @@
 use common::{
-    net::connection::Connection, idx::ClientId, net::login_packets::*, net::tcp_loops::*, Version, net::SERVER_PORT,
+    idx::ClientId, net::connection::Connection, net::login_packets::*, net::tcp_loops::*,
+    net::SERVER_PORT, Version,
 };
 use std::io::Result;
 use std::{
@@ -199,12 +200,10 @@ async fn handle_first_packet(
             debug!("{} logged-in localy.", client_addr);
             ClientId(login_packet.token as u32)
         }
-        false => {
-            match login_packet.credential_checker {
-                CredentialChecker::Steam => todo!(),
-                CredentialChecker::Epic => todo!(),
-            }
-        }
+        false => match login_packet.credential_checker {
+            CredentialChecker::Steam => todo!(),
+            CredentialChecker::Epic => todo!(),
+        },
     };
 
     // Check selected server.

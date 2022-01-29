@@ -1,28 +1,28 @@
-use std::f32::consts::TAU;
-use crate::colony::Colonies;
-use crate::data_manager::ClientData;
-use crate::data_manager::DataManager;
-use crate::ecs_components::*;
-use crate::ecs_events::*;
-use crate::clients_manager::*;
-use crate::fleets_manager::*;
-use crate::DetectedIntersectionPipeline;
-use crate::SystemsAccelerationStructure;
-use crate::server_configs::ConnectionHandlerConfigs;
+use super::clients_manager::*;
+use super::colony::Colonies;
+use super::data_manager::ClientData;
+use super::data_manager::DataManager;
+use super::ecs_components::*;
+use super::ecs_events::*;
+use super::fleets_manager::*;
+use super::DetectedIntersectionPipeline;
+use super::SystemsAccelerationStructure;
+use crate::server_configs::*;
 use bevy_ecs::prelude::*;
 use bevy_tasks::ComputeTaskPool;
 use common::factions::*;
 use common::idx::*;
 use common::intersection::*;
-use common::orbit::*;
-use common::packets::*;
 use common::metascape_configs::MetascapeConfigs;
+use common::net::packets::*;
+use common::orbit::*;
 use common::systems::Systems;
 use common::time::Time;
 use common::WORLD_BOUND;
 use glam::Vec2;
 use rand::thread_rng;
 use rand::Rng;
+use std::f32::consts::TAU;
 
 const DETECTED_UPDATE_INTERVAL: u64 = 5;
 /// Minimum delay before a disconnected client's fleet get removed.
@@ -85,19 +85,17 @@ fn get_new_clients(
     loop {
         let new_connection = match clients_manager.try_connect_one() {
             Ok(new_connection) => new_connection,
-            Err(err) => {
-                match err {
-                    ConnectError::Empty => {
-                        break;
-                    }
-                    ConnectError::AlreadyConnected => {
-                        continue;
-                    }
+            Err(err) => match err {
+                ConnectError::Empty => {
+                    break;
                 }
-            }
+                ConnectError::AlreadyConnected => {
+                    continue;
+                }
+            },
         };
 
-        let client_id = new_connection.client_id;
+        let client_id = new_connection.client_id();
         let fleet_id = client_id.to_fleet_id();
 
         // Check if client has data.
@@ -133,7 +131,6 @@ fn get_new_clients(
                 }
 
                 debug!("{:?} has taken back control of his fleet.", client_id);
-                
             } else {
                 error!(
                     "{:?}'s fleet is in fleets manager, but is not found in world. Removing from spawned fleets...",
@@ -143,7 +140,7 @@ fn get_new_clients(
         } else {
             fleets_manager.spawn_default_client_fleet(&mut commands, client_id);
         }
-    
+
         num_new_connection += 1;
         if num_new_connection >= connection_handler_configs.max_new_connection_per_update {
             break;
@@ -174,7 +171,13 @@ fn spawn_colonist(
         let faction_colonies = colonies.get_faction_colonies(faction_id);
 
         if faction_colonies.len() < faction.target_colonies {
-            fleets_manager.spawn_colonist_ai_fleet(&mut commands, None, time.tick + 3000, Vec2::ZERO, Some(faction_id))
+            fleets_manager.spawn_colonist_ai_fleet(
+                &mut commands,
+                None,
+                time.tick + 3000,
+                Vec2::ZERO,
+                Some(faction_id),
+            )
         }
     }
 }
@@ -272,7 +275,7 @@ fn handle_client_inputs(
     query.for_each_mut(|(entity, wrapped_client_id, mut wish_position)| {
         if let Some(connection) = clients_manager.get_connection(wrapped_client_id.id()) {
             loop {
-                match connection.inbound_receiver.try_recv() {
+                match connection.try_recv() {
                     Ok(payload) => match Packet::deserialize(&payload) {
                         Packet::Message { origin, content } => {
                             // TODO: Broadcast the message.

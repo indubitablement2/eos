@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use crate::{idx::*, orbit::Orbit, Version};
+use crate::{idx::*, orbit::Orbit};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
