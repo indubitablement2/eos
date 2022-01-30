@@ -188,7 +188,7 @@ impl Terminal {
                 .block(Block::default().borders(Borders::ALL));
             // Select ? if we are in help mode.
             if self.help {
-                tabs = tabs.select(TerminalTab::LEN);
+                tabs = tabs.select(TerminalTab::LEN + 1);
             } else {
                 tabs = tabs.select(self.current_tab.into());
             }
