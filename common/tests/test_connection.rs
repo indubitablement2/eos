@@ -1,7 +1,3 @@
-use std::io::{Write, BufWriter};
-
-use common::net::packets::Packet;
-
 // use common::reliable_udp::connection::*;
 // use common::reliable_udp::inbound_loop::*;
 // use common::reliable_udp::*;
@@ -9,17 +5,17 @@ use common::net::packets::Packet;
 // use std::sync::atomic::AtomicBool;
 // use std::sync::Arc;
 
-#[test]
-fn asd() {
-    let mut v = Vec::new();
+// #[test]
+// fn asd() {
+//     let mut v = Vec::new();
 
-    bincode::serialize_into(&mut v, &128u8).unwrap();
-    println!("{:?}", &v);
+//     bincode::serialize_into(&mut v, &128u8).unwrap();
+//     println!("{:?}", &v);
 
-    let p = (10, "Hello".to_string());
-    bincode::serialize_into(&mut v, &p).unwrap();
-    println!("{:?}", &v);
-}
+//     let p = (10, "Hello".to_string());
+//     bincode::serialize_into(&mut v, &p).unwrap();
+//     println!("{:?}", &v);
+// }
 
 // /// Create 2 connected peers.
 // fn create_test_connections_pair() -> (Connection, Connection) {
