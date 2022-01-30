@@ -52,12 +52,18 @@ pub struct Terminal {
     log_state: TuiWidgetState,
 
     current_tab: TerminalTab,
-    /// Display help for current tab and disable terminal to save cpu usage.
+    /// Display help for current tab.
     help: bool,
 
     need_redraw: bool,
+    draw_interval: i32,
 }
 impl Terminal {
+    /// Only draw once for every DRAW_INTERVAL update.
+    const DRAW_INTERVAL: i32 = 2;
+    /// Stop drawing if we did get any input for that many update.
+    const IDLE_DELAY: u32 = 600;
+
     pub fn new() -> io::Result<Self> {
         let stdout = io::stdout().into_raw_mode()?;
         let backend = TermionBackend::new(stdout);
@@ -76,6 +82,7 @@ impl Terminal {
             last_input: 0,
             need_redraw: true,
             log_state: Default::default(),
+            draw_interval: Default::default(),
         })
     }
 
@@ -92,8 +99,19 @@ impl Terminal {
         }
 
         // Draw.
-        if self.need_redraw {
-            self.draw(performance);
+        self.draw_interval = (self.draw_interval + 1) % Self::DRAW_INTERVAL;
+        if self.draw_interval == 0 {
+            if self.need_redraw {
+                if self.last_input > Self::IDLE_DELAY {
+                    self.need_redraw = false;
+                    info!("Disabled terminal to save cpu time. Press any key to re-enable.");
+                }
+                self.draw(performance);
+            } else {
+                if self.last_input <= Self::IDLE_DELAY {
+                    self.need_redraw = true;
+                }
+            }
         }
 
         false
@@ -177,8 +195,6 @@ impl Terminal {
             frame.render_widget(tabs, chunks[0]);
 
             if self.help {
-                self.need_redraw = false;
-
                 // Draw current tab in help mode.
                 let text = match self.current_tab {
                     TerminalTab::Performance => vec![
@@ -203,7 +219,6 @@ impl Terminal {
                     TerminalTab::Info => vec![
                         Spans::from("This is the help mode for the Info tab. Each tab has its own help mode."),
                         Spans::from("You can leave by pressing any key."),
-                        Spans::from("In help mode, the terminal will not redraw to save cpu time."),
                         Spans::from("Some keys apply to all tabs unless specifically prevented."),
                         Spans::from("| ?        | Go into help mode for the current tab."),
                         Spans::from("| tab      | Go to the next tab."),

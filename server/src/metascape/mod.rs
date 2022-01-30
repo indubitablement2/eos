@@ -47,10 +47,9 @@ impl Metascape {
 
         // TODO: Load ServerConfigs from file.
         let server_configs = ServerConfigs::default();
-        world.insert_resource(
-            ClientsManager::new(&server_configs.clients_manager_configs)
-                .expect("Could not initialize ClientManager."),
-        );
+        world.insert_resource(ClientsManager::new(
+            &server_configs.clients_manager_configs,
+        ).expect("Could not initialize ClientManager."));
         world.insert_resource(server_configs.connection_handler_configs);
 
         // TODO: Load MetascapeConfigs from file or use default.
@@ -91,6 +90,7 @@ impl Metascape {
         Self { world, schedule }
     }
 
+    /// Run the metascape's schedule once.
     pub fn update(&mut self) {
         self.schedule.run_once(&mut self.world);
         unsafe {
