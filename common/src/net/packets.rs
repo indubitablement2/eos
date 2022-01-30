@@ -1,7 +1,7 @@
-use std::fmt::Display;
 use crate::{idx::*, orbit::Orbit};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BattlescapeInput {

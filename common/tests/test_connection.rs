@@ -77,7 +77,7 @@
 //     for _ in 0..16 {
 //         let mut packets = Vec::with_capacity(u8::MAX as usize);
 //         let mut recved = 0;
-        
+
 //         for i in 0..u8::MAX {
 //             let mut r: Vec<u8> = (0..rng.gen::<usize>() % (MAX_PAYLOAD_SIZE - 1) + 1)
 //                 .into_iter()
@@ -99,7 +99,7 @@
 //                 sleep_milli();
 
 //                 while sc.recv().is_ok() {
-                    
+
 //                 }
 //                 sc.update(1.0).unwrap();
 //             }
@@ -109,7 +109,7 @@
 //         }
 
 //         sleep_milli();
-        
+
 //         while let Ok(payload) = cc.recv() {
 //             recved += 1;
 //             let i = payload.slice().first().unwrap().to_owned() as usize;
@@ -121,7 +121,7 @@
 //         sleep_milli();
 
 //         while sc.recv().is_ok() {
-                    
+
 //         }
 
 //         assert_eq!(recved, u8::MAX);

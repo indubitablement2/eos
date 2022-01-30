@@ -19,11 +19,11 @@ pub mod factions;
 pub mod idx;
 pub mod intersection;
 pub mod metascape_configs;
+pub mod net;
 pub mod orbit;
 pub mod reputation;
 pub mod systems;
 pub mod time;
-pub mod net;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Version {

@@ -1,9 +1,9 @@
+use super::*;
+use crate::idx::ClientId;
 use std::{
     net::{SocketAddrV6, UdpSocket},
     sync::Arc,
 };
-use crate::idx::ClientId;
-use super::*;
 
 pub struct Connection {
     client_id: ClientId,

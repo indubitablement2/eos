@@ -1,7 +1,7 @@
 pub mod connection;
+pub mod login_packets;
 pub mod packets;
 pub mod tcp_loops;
-pub mod login_packets;
 
 /// The server's tcp port.
 pub const SERVER_PORT: u16 = 31415;
