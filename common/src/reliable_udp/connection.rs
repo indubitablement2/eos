@@ -8,10 +8,205 @@ use std::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConnectionEvent {
-    /// We or the client as not sent any packet for some time.
+    /// We or the client did not sent any packet for some time.
     Timeout,
     /// Connected peer is sending too many packets.
     Flood,
+}
+
+pub trait PacketHeader {
+    const HEADER_ACK_REQUEST_MASK: u8 = 0b1;
+    const HEADER_FRAGMENTED_MASK: u8 = 0b10;
+    const HEADER_NUM_APPENDED_ACK_MASK: u8 = 0b11100;
+
+    fn reset(&mut self);
+    fn ack_request(&self) -> bool;
+    fn set_ack_request(&mut self, v: bool);
+    fn fragmented(&self) -> bool;
+    fn set_fragmented(&mut self, v: bool);
+    fn num_appended_ack(&self) -> u8;
+    fn set_num_appended_ack(&mut self, v: u8);
+}
+impl PacketHeader for u8 {
+    fn reset(&mut self) {
+        *self = 0;
+    }
+
+    fn ack_request(&self) -> bool {
+        self & Self::HEADER_ACK_REQUEST_MASK != 0
+    }
+
+    fn set_ack_request(&mut self, v: bool) {
+        if v {
+            *self |= Self::HEADER_ACK_REQUEST_MASK;
+        } else {
+            *self &= !Self::HEADER_ACK_REQUEST_MASK;
+        }
+    }
+
+    fn fragmented(&self) -> bool {
+        self & Self::HEADER_FRAGMENTED_MASK != 0
+    }
+
+    fn set_fragmented(&mut self, v: bool) {
+        if v {
+            *self |= Self::HEADER_FRAGMENTED_MASK;
+        } else {
+            *self &= !Self::HEADER_FRAGMENTED_MASK;
+        }
+    }
+
+    fn num_appended_ack(&self) -> u8 {
+        (*self & Self::HEADER_NUM_APPENDED_ACK_MASK) >> 2
+    }
+
+    fn set_num_appended_ack(&mut self, v: u8) {
+        *self &= !Self::HEADER_NUM_APPENDED_ACK_MASK;
+        *self |= v << 2;
+    }
+}
+
+#[derive(Debug, Clone)]
+struct PacketBuffer {
+    data: Vec<u8>,
+}
+impl PacketBuffer {
+    pub fn reset(&mut self)  {
+        self.data.truncate(1);
+        self.header_mut().unwrap().reset();
+    }
+
+    /// Return the packet payload without the header.
+    pub fn slice(&self) -> &[u8] {
+        &self.data[HEADER_SIZE..]
+    }
+
+    pub fn header(&self) -> Option<&u8> {
+        self.data.first()
+    }
+
+    pub fn header_mut(&mut self) -> Option<&mut u8> {
+        self.data.first_mut()
+    }
+
+    fn append_fragment_components(&mut self, fragment_id: u16, part: u8, num_part: u8) {
+        debug_assert!(!self.header().unwrap().ack_request());
+        debug_assert!(!self.header().unwrap().fragmented());
+        debug_assert_eq!(self.header().unwrap().num_appended_ack(), 0);
+
+        if let Some(header) = self.header_mut() {
+            header.set_fragmented(true);
+        }
+
+        self.data.extend_from_slice(&fragment_id.to_be_bytes());
+        self.data.push(part);
+        self.data.push(num_part);
+    }
+
+    fn append_ack_request(&mut self, ack: u16) {
+        debug_assert_eq!(self.header().unwrap().num_appended_ack(), 0);
+
+        if let Some(header) = self.header_mut() {
+            header.set_ack_request(true);
+        }
+
+        self.data.extend_from_slice(&ack.to_be_bytes());
+    }
+
+    fn append_acks(&mut self, acks: &[u8]) {
+        debug_assert_eq!(self.header().unwrap().num_appended_ack(), 0);
+
+        if let Some(header) = self.header_mut() {
+            header.set_num_appended_ack(acks.len() as u8 / 2);
+        }
+
+        self.data.extend_from_slice(acks);
+    }
+
+    fn remove_appended_acks(&mut self) -> Vec<u8> {
+        let num = if let Some(header) = self.header_mut() {
+            let num = header.num_appended_ack() as usize;
+            header.set_num_appended_ack(0);
+            num
+        } else {
+            0
+        };
+
+        let new_len = self.data.len() - num;
+        self.data.split_off(new_len)
+    }
+
+    fn truncate_acks(&mut self, old_len: usize) {
+        self.data.truncate(old_len);
+        self.header_mut().unwrap().set_num_appended_ack(0);
+    }
+
+    /// Return the metadata of the packet.
+    fn split_packet(&self) -> Option<PacketMetadata> {
+        if self.data.len() < HEADER_SIZE {
+            return None;
+        }
+
+        // Parse header.
+        let (header, rest) = self.data.split_first().unwrap();
+        let reliable = header.ack_request();
+        let fragmented = header.fragmented();
+        let num_ack = header.num_appended_ack() as usize;
+
+        // The amount of byte that are appended to this packet.
+        let appended_len = (reliable as usize * 2) + (fragmented as usize * 4) + num_ack * 2;
+
+        let payload_len = if let Some(payload_len) = rest.len().checked_sub(appended_len) {
+            payload_len
+        } else {
+            return None;
+        };
+
+        // This is safe as payload_len is just len minus some value.
+        let (_, rest) = unsafe { rest.split_at_unchecked(payload_len) };
+        if rest.len() != appended_len {
+            return None;
+        }
+
+        // Get the fragment data.
+        let (fragment_data, rest) = if fragmented {
+            let (fragment_data, rest) = rest.split_at(4);
+            let fragment_id = u16::from_be_bytes([fragment_data[0], fragment_data[1]]);
+            let fragment_part = fragment_data[2];
+            let fragment_num_part = fragment_data[3];
+            (Some((fragment_id, fragment_part, fragment_num_part)), rest)
+        } else {
+            (None, rest)
+        };
+
+        // Get the ack request.
+        let (ack_request, rest) = if reliable {
+            let (request, rest) = rest.split_array_ref();
+            (Some(request.to_owned()), rest)
+        } else {
+            (None, rest)
+        };
+
+        // Get the ack confirmation.
+        let acks = unsafe { rest.as_chunks_unchecked() };
+        let acks = acks.iter().map(|v| u16::from_be_bytes(*v)).collect();
+
+        Some(
+            PacketMetadata {
+                ack_request,
+                payload_len,
+                fragment_data,
+                acks,
+            }
+        )
+    }
+}
+impl Default for PacketBuffer {
+    fn default() -> Self {
+        let mut data = Vec::with_capacity(MAX_PACKET_SIZE);
+        data.push(0);
+        Self { data }
+    }
 }
 
 /// Header - 1
@@ -20,9 +215,9 @@ pub enum ConnectionEvent {
 ///
 /// 1..2 - fragmented bool
 ///
-/// 2..6 - num appended ack
+/// 2..5 - num appended ack
 ///
-/// 6..8 - unused
+/// 5..8 - unused
 ///
 /// Payload - 0..1024
 /// -
@@ -57,15 +252,11 @@ pub struct Connection {
     /// Reliable packet that are awaiting to be sent.
     ///
     /// These should only need to have their ack request updated (2 last bytes).
-    pending_send: Vec<Vec<u8>>,
+    pending_send: Vec<PacketBuffer>,
     /// Reliable packets that were sent, but are awaiting an ack confirmantion.
-    pending_ack: AHashMap<u16, (Vec<u8>, f32)>,
+    pending_ack: AHashMap<u16, (PacketBuffer, f32)>,
 
-    buffer: Box<[u8; MAX_PACKET_SIZE]>,
-    /// The total number of bytes used in the buffer.
-    used_buffer: usize,
-    /// The number of byte used for appended ack confirmation.
-    used_appended_ack: usize,
+    buffer: PacketBuffer,
 
     /// How long since the last outbound packet was explicitly sent.
     last_out: f32,
@@ -76,7 +267,7 @@ pub struct Connection {
     ping: f32,
     /// Bytes send in the previous second.
     bps: usize,
-    /// Number of packet received in the previous second,
+    /// Number of packet received in the previous second.
     inbound_pps: usize,
 
     fragmented_packets: AHashMap<u16, FragmentedPacket>,
@@ -103,18 +294,16 @@ impl Connection {
                 inbound_receiver,
                 current_ack: 0,
                 pending_send: Vec::new(),
-                pending_ack: AHashMap::new(),
-                buffer: Box::new([0; MAX_PACKET_SIZE]),
-                used_buffer: 1,
-                used_appended_ack: 0,
+                pending_ack: Default::default(),
+                buffer: Default::default(),
                 last_out: 0.0,
                 last_in: 0.0,
                 ping: 1.0,
-                ack_to_send: Vec::new(),
+                ack_to_send: Default::default(),
                 stats: Default::default(),
                 configs,
                 current_fragment: 0,
-                fragmented_packets: AHashMap::new(),
+                fragmented_packets: Default::default(),
                 bps: 0,
                 inbound_pps: 0,
             },
@@ -122,161 +311,131 @@ impl Connection {
         )
     }
 
-    fn copy_payload_to_buffer(&mut self, buffer: &[u8]) {
-        // Copy payload (ouch!).
-        self.used_buffer = HEADER_SIZE + buffer.len();
-        self.buffer[HEADER_SIZE..self.used_buffer].copy_from_slice(buffer);
+    fn get_ack_confirmation(&mut self) -> Vec<u8> {
+        let at = self.ack_to_send.len().saturating_sub(MAX_ACK_PER_PACKET * 2);
+        self.ack_to_send.split_off(at)
     }
 
-    fn prepare_buffer(&mut self, reliable: bool) {
-        // Copy ack request.
-        if reliable {
-            self.buffer[self.used_buffer..self.used_buffer + 2].copy_from_slice(&self.current_ack.to_be_bytes());
-            self.used_buffer += 2;
-        }
-
-        // Append some ack confirmation.
-        self.append_ack_confirmation_to_buffer();
-
-        // Update header.
-        self.buffer[0] |= reliable as u8;
-    }
-
-    fn send_buffer(&self, buffer: &[u8]) -> Option<usize> {
+    fn send_buffer(&mut self, buffer: &[u8], reliable: bool, fragmented: bool, num_acks: u64) -> bool {
         if self.is_bandwidth_saturated() {
-            return None;
+            self.stats.outbound_fail += 1;
+
+            return false;
         }
 
-        self.socket.send_to(&buffer, self.address).ok().and_then(
-            |num| {
-                if num == buffer.len() {
-                    Some(num)
-                } else {
-                    None
-                }
-            },
-        )
-    }
+        if let Ok(num) = self.socket.send_to(buffer, self.address) {
+            debug_assert_eq!(num, buffer.len());
 
-    fn send_internal_buffer(&mut self, reliable: bool) -> bool {
-        let send_success = self.send_buffer(&self.buffer[..self.used_buffer + self.used_appended_ack]);
-
-        if let Some(num) = send_success {
             // Packet was sent successfuly.
             self.stats.outbound_packet += 1;
             self.stats.outbound_byte += num as u64;
-            self.stats.outbound_ack_confirmantion += (self.used_appended_ack / 2) as u64;
+            self.stats.outbound_ack_confirmantion += num_acks;
             self.bps += num;
+
+            if fragmented {
+                self.stats.outbound_fragment += 1;
+            }
 
             if reliable {
                 self.stats.outbound_reliable_packet += 1;
-                self.push_buffer_to_pending_ack();
             }
+
+            true
         } else {
             // Packet was not sent successfuly.
             self.stats.outbound_fail += 1;
-            self.retake_appended_ack_confirmation_from_buffer();
 
-            if reliable {
-                self.push_buffer_to_pending_send();
-            }
+            false
         }
-
-        send_success.is_some()
     }
 
     /// This may block, but typically for a very short time.
-    pub fn send(&mut self, buffer: &[u8], reliable: bool) {
+    pub fn send<T: ?Sized>(&mut self, value: &T, reliable: bool)
+    where T: serde::Serialize
+    {
         self.last_out = 0.0;
 
-        if reliable {
-            self.current_ack = self.current_ack.wrapping_add(1);
-        } else if self.is_bandwidth_saturated() {
-            // Shortcut to save some copying of data.
-            self.stats.outbound_fail += 1;
+        // Reset the buffer.
+        self.buffer.reset();
+
+        // Serialize the packet.
+        if bincode::serialize_into(&mut self.buffer.data, value).is_err() {
+            error!("Can not serialize packet. Ignoring...");
             return;
         }
 
-        if buffer.len() > MAX_PAYLOAD_SIZE {
+        let num_part = (self.buffer.data.len() - 1) / MAX_PAYLOAD_SIZE + 1;
+
+        if num_part > 1 {
             // This is a fragmented packet.
             self.current_fragment = self.current_fragment.wrapping_add(1);
-            let num_part = buffer.len() / MAX_PAYLOAD_SIZE + 1;
 
-            for (chunk, fragment_part) in buffer.chunks(MAX_PAYLOAD_SIZE).zip(0u8..) {
-                self.copy_payload_to_buffer(chunk);
+            // Create a new buffer to old the indibidual parts.
+            let mut large_buffer = std::mem::take(&mut self.buffer);
 
-                // Copy frament components.
-                self.buffer[self.used_buffer..self.used_buffer + 2]
-                    .copy_from_slice(&self.current_fragment.to_be_bytes());
-                self.used_buffer += 2;
-                self.buffer[self.used_buffer] = fragment_part;
-                self.used_buffer += 1;
-                self.buffer[self.used_buffer] = num_part as u8;
-                self.used_buffer += 1;
+            for (chunk, part) in large_buffer.data[1..].chunks(MAX_PAYLOAD_SIZE).zip(0u8..) {
+                // Copy payload chunk to the new buffer.
+                self.buffer.data.extend_from_slice(chunk);
 
-                self.prepare_buffer(reliable);
-                self.buffer[0] |= 0b10;
-                if self.send_internal_buffer(reliable) {
-                    self.stats.outbound_fragment += 1
-                } else if !reliable {
-                    // There is no point in sending the other parts.
-                    break;
+                // Copy fragment components.
+                self.buffer.append_fragment_components(self.current_fragment, part, num_part as u8);
+
+                if reliable {
+                    self.current_ack = self.current_ack.wrapping_add(1);
+                    self.buffer.append_ack_request(self.current_ack);
                 }
+
+                let acks = self.get_ack_confirmation();
+                let old_len = self.buffer.data.len();
+                self.buffer.append_acks(&acks);
+
+                // Send part.
+                if self.send_buffer(&self.buffer.data, reliable, false, acks.len() as u64) {
+                    if reliable {
+                        self.buffer.truncate_acks(old_len);
+                        let packet = std::mem::take(&mut self.buffer);
+                        self.pending_ack.insert(self.current_ack, (packet, 0.0));
+                    }
+                } else {
+                    if reliable {
+                        self.buffer.truncate_acks(old_len);
+                        self.ack_to_send.extend_from_slice(&acks);
+                        let packet = std::mem::take(&mut self.buffer);
+                        self.pending_send.push(packet);
+                    } else {
+                        // There is no point in sending the other parts.
+                        break;
+                    }
+                }
+
+                // Reset buffer.
+                self.buffer.reset();
             }
         } else {
-            self.copy_payload_to_buffer(buffer);
-            self.prepare_buffer(reliable);
-            self.send_internal_buffer(reliable);
+            if reliable {
+                self.current_ack = self.current_ack.wrapping_add(1);
+                self.buffer.append_ack_request(self.current_ack);
+            }
+
+            let acks = self.get_ack_confirmation();
+            let old_len = self.buffer.data.len();
+            self.buffer.append_acks(&acks);
+
+            if self.send_buffer(&self.buffer.data, reliable, false, acks.len() as u64) {
+                if reliable {
+                    self.buffer.truncate_acks(old_len);
+                    let packet = std::mem::take(&mut self.buffer);
+                    self.pending_ack.insert(self.current_ack, (packet, 0.0));
+                }
+            } else {
+                if reliable {
+                    self.buffer.truncate_acks(old_len);
+                    self.ack_to_send.extend_from_slice(&acks);
+                    let packet = std::mem::take(&mut self.buffer);
+                    self.pending_send.push(packet);
+                }
+            }
         }
-    }
-
-    /// Append a number of ack from `ack_to_send` to the buffer.
-    ///
-    /// This also reset the header.
-    fn append_ack_confirmation_to_buffer(&mut self) {
-        self.used_appended_ack = 0;
-
-        if !self.ack_to_send.is_empty() {
-            let i = self.ack_to_send.len().saturating_sub(MAX_ACK_PER_PACKET * 2);
-            let acks = &self.ack_to_send[i..self.ack_to_send.len()];
-            self.used_appended_ack = acks.len();
-            self.buffer[self.used_buffer..self.used_buffer + self.used_appended_ack].copy_from_slice(acks);
-            drop(acks);
-            let new_len = self.ack_to_send.len() - self.used_appended_ack;
-            self.ack_to_send.truncate(new_len);
-        }
-
-        // Update header.
-        self.buffer[0] = ((self.used_appended_ack / 2) as u8) << 2;
-    }
-
-    /// Retake acks confirmation that were appended to the buffer.
-    ///
-    /// This is used when a packet could not be sent.
-    fn retake_appended_ack_confirmation_from_buffer(&mut self) {
-        if self.used_appended_ack != 0 {
-            let acks = &self.buffer[self.used_buffer..self.used_buffer + self.used_appended_ack];
-            self.ack_to_send.extend_from_slice(acks);
-            self.used_appended_ack = 0;
-        }
-
-        // Update header.
-        self.buffer[0] &= 0b11;
-    }
-
-    fn copy_buffer_to_vec(&self) -> Vec<u8> {
-        self.buffer[0..self.used_buffer].to_vec()
-    }
-
-    fn push_buffer_to_pending_send(&mut self) {
-        self.retake_appended_ack_confirmation_from_buffer();
-
-        self.pending_send.push(self.copy_buffer_to_vec());
-    }
-
-    fn push_buffer_to_pending_ack(&mut self) {
-        self.pending_ack
-            .insert(self.current_ack, (self.copy_buffer_to_vec(), 0.0));
     }
 
     pub fn is_bandwidth_saturated(&self) -> bool {
@@ -332,14 +491,31 @@ impl Connection {
                 break;
             };
 
-            println!("sent");
-
             // Update ack request.
             self.current_ack = self.current_ack.wrapping_add(1);
-            let i = packet.len() - 2;
-            packet[i..].copy_from_slice(&self.current_ack.to_be_bytes());
+            let i = packet.data.len() - 2;
+            packet.data[i..].copy_from_slice(&self.current_ack.to_be_bytes());
+
+            let acks = self.get_ack_confirmation();
+            let old_len = self.buffer.data.len();
+            self.buffer.append_acks(&acks);
 
             // Resend packet.
+            if self.send_buffer(&packet.data, true, packet.header().unwrap().fragmented(), acks.len() as u64) {
+                if reliable {
+                    self.buffer.truncate_acks(old_len);
+                    let packet = std::mem::take(&mut self.buffer);
+                    self.pending_ack.insert(self.current_ack, (packet, 0.0));
+                }
+            } else {
+                if reliable {
+                    self.buffer.truncate_acks(old_len);
+                    self.ack_to_send.extend_from_slice(&acks);
+                    let packet = std::mem::take(&mut self.buffer);
+                    self.pending_send.push(packet);
+                }
+            }
+
             if let Some(num) = self.send_buffer(&packet) {
                 // Packet was sent successfuly.
                 self.stats.outbound_packet += 1;
@@ -461,6 +637,7 @@ struct PacketMetadata {
     payload_len: usize,
     fragment_data: Option<(u16, u8, u8)>,
     ack_request: Option<[u8;2]>,
+    acks: Vec<u16>,
 }
 
 /// Return the metadata of the packet.
