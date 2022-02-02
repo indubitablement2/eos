@@ -304,10 +304,6 @@ impl WishPosition {
             movement_multiplier > 0.0,
             "Movement multiplier should be more than 0."
         );
-        debug_assert!(
-            movement_multiplier <= 1.0,
-            "Movement multiplier should not be more than 1."
-        );
         self.movement_multiplier = movement_multiplier;
     }
 
@@ -425,6 +421,7 @@ pub struct ColonistFleetAI {
     travel_until: u32,
 }
 impl ColonistFleetAI {
+    pub const DEFAULT_TRAVEL_DURATION: u32 = 30;
     pub const MOVEMENT_MULTIPLIER_TRAVELLING: f32 = 0.5;
     pub const MOVEMENT_MULTIPLIER_COLONIZING: f32 = 0.3;
 
@@ -457,7 +454,7 @@ impl Default for ColonistFleetAI {
     fn default() -> Self {
         Self {
             target_planet: None,
-            travel_until: 3000,
+            travel_until: Self::DEFAULT_TRAVEL_DURATION,
         }
     }
 }

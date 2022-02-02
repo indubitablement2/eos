@@ -182,7 +182,7 @@ fn spawn_colonist(
             fleets_manager.spawn_colonist_ai_fleet(
                 &mut commands,
                 None,
-                time.tick + 3000,
+                time.tick + ColonistFleetAI::DEFAULT_TRAVEL_DURATION,
                 Vec2::ZERO,
                 Some(faction_id),
             )
@@ -540,11 +540,17 @@ fn colony_guard_fleet_ai(
     query_other: Query<&Position, Without<Intercepted>>,
     mut interception_manager: ResMut<InterceptionManager>,
     mut battlescape_manager: ResMut<BattlescapeManager>,
+    systems: Res<Systems>,
+    time: Res<Time>,
 ) {
+    let timef = time.as_time();
+
     query.for_each_mut(
         |(entity, mut colony_guard_fleet_ai, position, mut wish_position, entity_detected)| {
             if let Some(target_entity) = colony_guard_fleet_ai.target {
                 if let Ok(target_position) = query_other.get(target_entity) {
+                    // TODO: Check that atarget is still detected.
+
                     // Go toward target position.
                     wish_position.set_wish_position(target_position.0, 1.0);
 
@@ -573,7 +579,7 @@ fn colony_guard_fleet_ai(
                     // Can not find target.
                     colony_guard_fleet_ai.target = None;
                 }
-            } else {
+            } else if !entity_detected.0.is_empty() {
                 // Chase the closest target.
                 for other_entity in entity_detected.0.iter() {
                     if let Ok(other_position) = query_other.get(*other_entity) {
@@ -590,6 +596,12 @@ fn colony_guard_fleet_ai(
                         }
                     }
                 }
+            } else if wish_position.target().is_none() {
+                // TODO: Wander around colony.
+                let (system, planet) = systems.get_system_and_planet(colony_guard_fleet_ai.colony);
+                let planet_position = planet.relative_orbit.to_position(timef, system.position);
+
+                wish_position.set_wish_position(planet_position, 0.8);
             }
         },
     );
@@ -643,6 +655,10 @@ fn colonist_fleet_ai(
                                 colony: planet_id,
                             },
                         );
+
+                        wish_position.stop();
+
+                        debug!("Took planet.");
                     }
                 }
             } else if wish_position.target().is_none() {
@@ -673,11 +689,12 @@ fn colonist_fleet_ai(
                         planets_offset,
                     };
 
-                    if colonies.get_colony_faction(planet_id).is_some() {
+                    if colonies.get_colony_faction(planet_id).is_none() {
                         colonist_fleet_ai.set_target_planet(planet_id);
                     } else {
+                        // Planet is already a colony.
                         // Start travelling again.
-                        colonist_fleet_ai.set_travel_until(1200, time.tick);
+                        colonist_fleet_ai.set_travel_until(ColonistFleetAI::DEFAULT_TRAVEL_DURATION, time.tick);
                         wish_position.stop();
                     }
                 }
