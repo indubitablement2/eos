@@ -1,3 +1,4 @@
+mod battlescape_manager;
 mod clients_manager;
 mod colony;
 mod data_manager;
@@ -5,11 +6,13 @@ mod ecs_components;
 mod ecs_events;
 mod ecs_systems;
 mod fleets_manager;
+mod interception_manager;
 
 use bevy_ecs::prelude::*;
 use bevy_tasks::{ComputeTaskPool, TaskPool};
 use common::factions::Factions;
 use common::metascape_configs::MetascapeConfigs;
+use common::ships::Bases;
 use common::systems::Systems;
 use common::time::Time;
 use common::{idx::SystemId, intersection::*};
@@ -17,10 +20,12 @@ use std::{fs::File, io::prelude::*};
 
 use crate::server_configs::ServerConfigs;
 
+use self::battlescape_manager::BattlescapeManager;
 use self::clients_manager::ClientsManager;
 use self::colony::Colonies;
 use self::data_manager::DataManager;
 use self::fleets_manager::FleetsManager;
+use self::interception_manager::InterceptionManager;
 
 /// An acceleration structure that contain the systems bounds.
 /// It is never updated at runtime.
@@ -44,17 +49,25 @@ impl Metascape {
         world.insert_resource(DataManager::new());
         world.insert_resource(DetectedIntersectionPipeline(IntersectionPipeline::new()));
         world.insert_resource(FleetsManager::default());
+        world.insert_resource(InterceptionManager::default());
 
         // TODO: Load ServerConfigs from file.
         let server_configs = ServerConfigs::default();
-        world.insert_resource(ClientsManager::new(
-            &server_configs.clients_manager_configs,
-        ).expect("Could not initialize ClientManager."));
+        world.insert_resource(
+            ClientsManager::new(&server_configs.clients_manager_configs)
+                .expect("Could not initialize ClientManager."),
+        );
         world.insert_resource(server_configs.connection_handler_configs);
 
         // TODO: Load MetascapeConfigs from file or use default.
         let metascape_configs = MetascapeConfigs::default();
         world.insert_resource(metascape_configs);
+
+        // TODO: Load BattlescapeManager.
+        world.insert_resource(BattlescapeManager::default());
+
+        // TODO: Load bases.
+        world.insert_resource(Bases::default());
 
         // Load systems.
         let mut file = File::open("systems.bin").expect("Could not open systems.bin");

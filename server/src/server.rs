@@ -1,8 +1,8 @@
-use std::time::Instant;
 use crate::{
     metascape::Metascape,
     terminal::{performance::PerformanceMetrics, Terminal},
 };
+use std::time::Instant;
 
 pub struct Server {
     metascape: Metascape,

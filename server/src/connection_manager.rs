@@ -57,7 +57,6 @@ struct LoginResult {
     client_id: ClientId,
     stream: TcpStream,
     client_addr: SocketAddrV6,
-    selected_server: u32,
 }
 
 /// Entry point for client.
@@ -147,7 +146,6 @@ async fn try_login(
                 client_id,
                 stream,
                 client_addr,
-                selected_server: todo!(),
             })
             .await
         {

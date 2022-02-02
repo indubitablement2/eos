@@ -3,7 +3,7 @@ use std::ops::{Index, IndexMut};
 use ahash::AHashSet;
 use serde::{Deserialize, Serialize};
 
-use crate::{factions::*, systems::System};
+use crate::{factions::*, systems::System, ships::{ShipBase, WeaponBase}};
 
 /// Never recycled.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -92,4 +92,50 @@ impl IndexMut<SystemId> for Vec<System> {
 pub struct PlanetId {
     pub system_id: SystemId,
     pub planets_offset: u8,
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct BattlescapeId(u64);
+impl BattlescapeId {
+    pub fn from_raw(id: u64) -> Self {
+        Self(id)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct ShipBaseId(u32);
+impl ShipBaseId {
+    pub fn from_raw(id: u32) -> Self {
+        Self(id)
+    }
+}
+impl Index<ShipBaseId> for Vec<ShipBase> {
+    type Output = ShipBase;
+
+    fn index(&self, index: ShipBaseId) -> &Self::Output {
+        &self[index.0 as usize]
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct WeaponBaseId(u32);
+impl WeaponBaseId {
+    pub fn from_raw(id: u32) -> Self {
+        Self(id)
+    }
+}
+impl Index<WeaponBaseId> for Vec<WeaponBase> {
+    type Output = WeaponBase;
+
+    fn index(&self, index: WeaponBaseId) -> &Self::Output {
+        &self[index.0 as usize]
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct InterceptionId(u32);
+impl InterceptionId {
+    pub fn from_raw(id: u32) -> Self {
+        Self(id)
+    }
 }

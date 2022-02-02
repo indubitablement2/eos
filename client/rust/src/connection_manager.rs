@@ -1,4 +1,4 @@
-use common::{idx::ClientId, packets::*, tcp_loops::*, Version, SERVER_PORT};
+use common::{idx::ClientId, net::{login_packets::*, packets::Packet}, net::tcp_loops::*, Version, net::*};
 use std::net::{Ipv6Addr, SocketAddrV6};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
@@ -81,9 +81,22 @@ pub struct ConnectionManager {
     pub rt: Runtime,
     pub client_id: ClientId,
     /// The client can only send packets to the server through tcp.
-    pub tcp_outbound_event_sender: tokio::sync::mpsc::Sender<TcpOutboundEvent>,
+    tcp_outbound_event_sender: tokio::sync::mpsc::Sender<TcpOutboundEvent>,
     /// The client can receive packets from the server through tcp and udp.
-    pub inbound_receiver: crossbeam::channel::Receiver<Vec<u8>>,
+    inbound_receiver: crossbeam::channel::Receiver<Vec<u8>>,
+}
+impl ConnectionManager {
+    pub fn send(&self, packet: &Packet) -> bool {
+        self.tcp_outbound_event_sender.blocking_send(TcpOutboundEvent::PacketEvent(packet.serialize())).is_ok()
+    }
+
+    pub fn flush(&self) -> bool {
+        self.tcp_outbound_event_sender.blocking_send(TcpOutboundEvent::FlushEvent).is_ok()
+    }
+
+    pub fn try_recv(&self) -> Result<Vec<u8>, crossbeam::channel::TryRecvError> {
+        self.inbound_receiver.try_recv()
+    }
 }
 
 async fn login_task(
@@ -111,7 +124,7 @@ async fn login(
 )> {
     // Create login packet.
     let login_packet = LoginPacket {
-        is_steam: true,
+        credential_checker: CredentialChecker::Steam,
         token,
         client_version: Version::CURRENT,
     }

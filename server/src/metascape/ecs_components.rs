@@ -1,7 +1,11 @@
 use ahash::AHashMap;
 use bevy_ecs::prelude::*;
-use common::{factions::Faction, idx::*, orbit::Orbit, reputation::Reputation, WORLD_BOUND};
+use common::{
+    factions::Faction, idx::*, orbit::Orbit, reputation::Reputation, ships::*, WORLD_BOUND,
+};
 use glam::Vec2;
+use rand::Rng;
+use rand_xoshiro::Xoshiro256StarStar;
 
 //* bundle
 
@@ -18,13 +22,14 @@ impl ClientFleetBundle {
         fleet_id: FleetId,
         position: Vec2,
         faction: Option<FactionId>,
+        ships: Vec<ShipInfo>,
     ) -> Self {
         debug_assert_eq!(client_id.to_fleet_id(), fleet_id);
 
         Self {
             wrapped_client_id: WrappedId::new(client_id),
             know_entities: Default::default(),
-            fleet_bundle: FleetBundle::new(fleet_id, position, faction),
+            fleet_bundle: FleetBundle::new(fleet_id, position, faction, ships),
         }
     }
 }
@@ -42,13 +47,14 @@ impl ColonistAIFleetBundle {
         fleet_id: FleetId,
         position: Vec2,
         faction: Option<FactionId>,
+        ships: Vec<ShipInfo>,
     ) -> Self {
         Self {
             colonist_fleet_ai: ColonistFleetAI {
                 target_planet: target,
                 travel_until,
             },
-            fleet_bundle: FleetBundle::new(fleet_id, position, faction),
+            fleet_bundle: FleetBundle::new(fleet_id, position, faction, ships),
         }
     }
 }
@@ -67,9 +73,19 @@ pub struct FleetBundle {
     pub detected_radius: DetectedRadius,
     pub detector_radius: DetectorRadius,
     pub entity_detected: EntityDetected,
+    pub fleet_composition: FleetComposition,
+    pub fleet_state: FleetState,
+    pub size: Size,
 }
 impl FleetBundle {
-    pub fn new(fleet_id: FleetId, position: Vec2, faction: Option<FactionId>) -> Self {
+    pub fn new(
+        fleet_id: FleetId,
+        position: Vec2,
+        faction: Option<FactionId>,
+        ships: Vec<ShipInfo>,
+    ) -> Self {
+        debug_assert!(!ships.is_empty());
+
         Self {
             name: Name(format!("{}", fleet_id.0)),
             wrapped_fleet_id: WrappedId::new(fleet_id),
@@ -86,6 +102,17 @@ impl FleetBundle {
             detected_radius: DetectedRadius(10.0),
             detector_radius: DetectorRadius(10.0),
             entity_detected: EntityDetected::default(),
+            fleet_state: FleetState {
+                ships: vec![
+                    ShipState {
+                        hp: 1000.0,
+                        state: 1.0
+                    };
+                    ships.len()
+                ],
+            },
+            fleet_composition: FleetComposition { ships },
+            size: Size { radius: 0.2 },
         }
     }
 }
@@ -108,7 +135,7 @@ pub struct KnowEntities {
     pub force_update_client_info: bool,
 }
 impl KnowEntities {
-    /// This will break if there are more than 65535 know entities,
+    /// This will break if there are more than 65535 known entities,
     /// but that should not happen.
     pub fn get_new_id(&mut self) -> u16 {
         self.free_idx.pop().unwrap_or_else(|| {
@@ -202,6 +229,22 @@ impl Reputations {
             }
         }
     }
+}
+
+/// The size of an entity.
+#[derive(Debug, Clone, Copy, Component)]
+pub struct Size {
+    pub radius: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum InterceptedReason {
+    Battle(BattlescapeId),
+}
+#[derive(Debug, Clone, Copy, Component)]
+pub struct Intercepted {
+    pub interception_id: InterceptionId,
+    pub reason: InterceptedReason,
 }
 
 //* Fleet
@@ -298,6 +341,73 @@ pub struct DerivedFleetStats {
     pub acceleration: f32,
 }
 
+#[derive(Debug, Clone, Component)]
+pub struct FleetState {
+    ships: Vec<ShipState>,
+}
+
+#[derive(Debug, Clone, Component)]
+pub struct FleetComposition {
+    ships: Vec<ShipInfo>,
+}
+impl FleetComposition {
+    /// Return if all ships were destroyed.
+    /// TODO: This need to be done in-system to not trigger change detection needlessly.
+    pub fn attack_fleet(
+        &mut self,
+        fleet_state: &mut FleetState,
+        mut attack: f32,
+        rng: &mut Xoshiro256StarStar,
+        time: u32,
+    ) -> bool {
+        if self.ships.is_empty() {
+            return true;
+        }
+
+        loop {
+            let i = rng.gen::<usize>() % self.ships.len();
+            let ship = &mut self.ships[i];
+            let state = &mut fleet_state.ships[i];
+
+            if state.hp >= attack {
+                state.hp -= attack;
+                break;
+            } else {
+                attack -= state.hp;
+
+                // 50% chance to be incapacitated instead of destroyed.
+                if rng.gen::<bool>() {
+                    state.state = 0.0;
+                    state.hp = state.hp * 0.1;
+                } else {
+                    // Destroy the ship.
+                    self.ships.swap_remove(i);
+                    fleet_state.ships.swap_remove(i);
+                    if self.ships.is_empty() {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
+    pub fn compute_auto_combat_strenght(&self, fleet_state: &FleetState, bases: &Bases) -> f32 {
+        self.ships
+            .iter()
+            .zip(fleet_state.ships.iter())
+            .fold(0.0, |acc, (info, state)| {
+                acc + info.compute_auto_combat_strenght(state, bases)
+            })
+    }
+
+    /// Get a reference to the fleet composition's ships.
+    pub fn ships(&self) -> &[ShipInfo] {
+        self.ships.as_ref()
+    }
+}
+
 /// Fleet that should be removed after a provided tick,
 /// if they are not in a battle.
 #[derive(Debug, Clone, Copy, Component)]
@@ -352,15 +462,10 @@ impl Default for ColonistFleetAI {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum ColonyFleetAIGoal {
-    Trade { colony: PlanetId },
-    Guard,
-}
-/// Ai for fleet that are owned by a colony.
+/// Ai for fleet that are guarding a colony.
 #[derive(Debug, Clone, Copy, Component)]
-pub struct ColonyFleetAI {
-    pub goal: ColonyFleetAIGoal,
+pub struct ColonyGuardFleetAI {
+    pub target: Option<Entity>,
     /// The colony that own this fleet.
     pub colony: PlanetId,
 }

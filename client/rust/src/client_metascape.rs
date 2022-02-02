@@ -8,9 +8,8 @@ use common::factions::*;
 use common::idx::*;
 use common::intersection::*;
 use common::orbit::Orbit;
-use common::packets::*;
+use common::net::packets::*;
 use common::systems::*;
-use common::tcp_loops::TcpOutboundEvent;
 use common::UPDATE_INTERVAL;
 use gdnative::api::*;
 use gdnative::prelude::*;
@@ -170,7 +169,7 @@ impl Metascape {
 
         // Handle server packets.
         loop {
-            match self.connection_manager.inbound_receiver.try_recv() {
+            match self.connection_manager.try_recv() {
                 Ok(packet) => match Packet::deserialize(&packet) {
                     Packet::BattlescapeCommands(new_commands) => todo!(),
                     Packet::EntitiesState(new_states) => {
@@ -320,24 +319,19 @@ impl Metascape {
         if player_inputs.primary {
             let packet = Packet::MetascapeWishPos {
                 wish_pos: player_inputs.global_mouse_position,
-            }
-            .serialize();
-            quit |= self
+            };
+            quit |= !self
                 .connection_manager
-                .tcp_outbound_event_sender
-                .blocking_send(TcpOutboundEvent::PacketEvent(packet))
-                .is_err();
+                .send(&packet);
         }
 
         // Send client packets to server.
         self.send_timer -= delta;
         if self.send_timer <= 0.0 {
             self.send_timer = 0.010;
-            quit |= self
+            quit |= !self
                 .connection_manager
-                .tcp_outbound_event_sender
-                .blocking_send(TcpOutboundEvent::FlushEvent)
-                .is_err();
+                .flush()
         }
 
         quit

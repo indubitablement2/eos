@@ -22,6 +22,7 @@ pub mod metascape_configs;
 pub mod net;
 pub mod orbit;
 pub mod reputation;
+pub mod ships;
 pub mod systems;
 pub mod time;
 

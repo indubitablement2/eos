@@ -13,10 +13,9 @@ pub struct LoginPacket {
     pub token: u64,
     /// Server/client version should match.
     pub client_version: Version,
-    pub selected_server: u32,
 }
 impl LoginPacket {
-    pub const FIXED_SIZE: usize = 22;
+    pub const FIXED_SIZE: usize = 18;
 
     pub fn serialize(&self) -> Vec<u8> {
         bincode::serialize(self).expect("could not serialize LoginPacket")
@@ -77,7 +76,6 @@ fn test_login_packet() {
         credential_checker: CredentialChecker::Steam,
         token: 255,
         client_version: Version::CURRENT,
-        selected_server: 4,
     };
     assert_eq!(og, LoginPacket::deserialize(&og.serialize()).unwrap());
     assert_eq!(og.serialize().len(), LoginPacket::FIXED_SIZE);

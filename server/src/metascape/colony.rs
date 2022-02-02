@@ -5,7 +5,7 @@ use common::idx::*;
 
 #[derive(Debug, Clone, Default)]
 pub struct Colony {
-    fleets: Vec<Entity>,
+    guards: Vec<Entity>,
     faction: Option<FactionId>,
     population: u64,
 }
@@ -13,6 +13,10 @@ impl Colony {
     /// Get a reference to the colony's faction.
     pub fn faction(&self) -> Option<FactionId> {
         self.faction
+    }
+
+    pub fn add_guard(&mut self, entity: Entity) {
+        self.guards.push(entity);
     }
 }
 

@@ -9,6 +9,7 @@
 #![feature(mixed_integer_ops)]
 #![feature(map_entry_replace)]
 #![feature(duration_consts_float)]
+#![feature(is_sorted)]
 
 use server::Server;
 use std::{thread::sleep, time::Instant};

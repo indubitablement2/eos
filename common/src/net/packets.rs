@@ -50,7 +50,7 @@ pub struct EntitiesState {
 pub struct FleetInfo {
     pub fleet_id: FleetId,
     /// The ships composing the fleet.
-    pub composition: Vec<u32>,
+    pub composition: Vec<ShipBaseId>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

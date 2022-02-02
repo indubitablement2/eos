@@ -1,3 +1,4 @@
+use super::battlescape_manager::BattlescapeManager;
 use super::clients_manager::*;
 use super::colony::Colonies;
 use super::data_manager::ClientData;
@@ -5,6 +6,7 @@ use super::data_manager::DataManager;
 use super::ecs_components::*;
 use super::ecs_events::*;
 use super::fleets_manager::*;
+use super::interception_manager::InterceptionManager;
 use super::DetectedIntersectionPipeline;
 use super::SystemsAccelerationStructure;
 use crate::server_configs::*;
@@ -16,12 +18,15 @@ use common::intersection::*;
 use common::metascape_configs::MetascapeConfigs;
 use common::net::packets::*;
 use common::orbit::*;
+use common::ships::Bases;
 use common::systems::Systems;
 use common::time::Time;
 use common::WORLD_BOUND;
 use glam::Vec2;
+use rand::seq::index::sample;
 use rand::thread_rng;
 use rand::Rng;
+use rand::SeedableRng;
 use std::f32::consts::TAU;
 
 const DETECTED_UPDATE_INTERVAL: u64 = 5;
@@ -48,8 +53,11 @@ pub fn add_systems(schedule: &mut Schedule) {
 
     schedule.add_system_to_stage("", update_in_system);
 
+    schedule.add_system_to_stage("", handle_battlescape);
+
+    schedule.add_system_to_stage("", handle_interceptions.before(Label::Movement));
     schedule.add_system_to_stage("", handle_client_inputs.before(Label::Movement));
-    schedule.add_system_to_stage("", colony_fleet_ai.before(Label::Movement));
+    schedule.add_system_to_stage("", colony_guard_fleet_ai.before(Label::Movement));
     schedule.add_system_to_stage("", colonist_fleet_ai.before(Label::Movement));
 
     schedule.add_system_to_stage("", apply_fleet_movement.label(Label::Movement));
@@ -392,26 +400,214 @@ fn handle_idle(
     }
 }
 
-/// TODO: Ai that control fleet owned by a colony.
-fn colony_fleet_ai(mut query: Query<(&mut ColonyFleetAI, &Position, &mut WishPosition)>) {
-    query.for_each_mut(|(mut colony_fleet_ai, position, mut wish_position)| {
-        match &mut colony_fleet_ai.goal {
-            ColonyFleetAIGoal::Trade { colony } => todo!(),
-            ColonyFleetAIGoal::Guard => todo!(),
+fn handle_interceptions(
+    mut interception_manager: ResMut<InterceptionManager>,
+    query: Query<(&Size, Option<&mut WishPosition>)>,
+) {
+    interception_manager.update(query);
+}
+
+fn handle_battlescape(
+    mut commands: Commands,
+    mut query_fleet: Query<(&mut FleetComposition, &mut FleetState)>,
+    mut battlescape_manager: ResMut<BattlescapeManager>,
+    mut fleets_manager: ResMut<FleetsManager>,
+    bases: Res<Bases>,
+    time: Res<Time>,
+) {
+    let bases = &*bases;
+    let mut rng = rand_xoshiro::Xoshiro256StarStar::seed_from_u64(time.total_tick);
+
+    let mut queue_terminated = Vec::new();
+
+    for (battlescape_id, battlescape) in battlescape_manager.active_battlescape.iter_mut() {
+        battlescape.time += 1;
+
+        if battlescape.teams.len() < 2 {
+            if battlescape.time > 5 {
+                // Queue the battlescape to be terminated.
+                queue_terminated.push(*battlescape_id);
+            }
+            continue;
         }
-    });
+
+        // Simulate the battlescape.
+        if battlescape.time % 10 == 0 {
+            while battlescape.teams.len() > 1 {
+                // Chose an attacker and a defender team.
+                let idx = sample(&mut rng, battlescape.teams.len(), 2);
+                let attacker_id = idx.index(0);
+                let defender_id = idx.index(1);
+                let attacker_team = battlescape.teams[attacker_id].clone();
+                let defender_team = battlescape.teams[defender_id].clone();
+
+                let mut queue_remove_fleet = Vec::new();
+
+                // Look for how much we will attack for.
+                let attack = attacker_team
+                    .into_iter()
+                    .enumerate()
+                    .filter_map(|(i, entity)| {
+                        if let Ok((fleet_composition, fleet_state)) = query_fleet.get(entity) {
+                            Some(fleet_composition.compute_auto_combat_strenght(fleet_state, bases))
+                        } else {
+                            // Queue fleet to be removed from the battlescape.
+                            queue_remove_fleet.push(i);
+                            None
+                        }
+                    })
+                    .reduce(|acc, x| acc + x);
+                let mut attack = if let Some(attack) = attack {
+                    attack
+                } else {
+                    // Attacker team is invalid. We have to try again.
+                    battlescape.teams.swap_remove(attacker_id);
+                    continue;
+                };
+
+                // Remove invalid fleets from the attacker team.
+                debug_assert!(queue_remove_fleet.is_sorted());
+                let team = &mut battlescape.teams[attacker_id];
+                for i in queue_remove_fleet.drain(..).rev() {
+                    team.swap_remove(i);
+                }
+
+                // Apply attack to the defender team.
+                attack /= defender_team.len() as f32;
+                defender_team
+                    .into_iter()
+                    .enumerate()
+                    .for_each(|(i, entity)| {
+                        if let Ok((mut fleet_composition, mut fleet_state)) =
+                            query_fleet.get_mut(entity)
+                        {
+                            if fleet_composition.attack_fleet(
+                                &mut fleet_state,
+                                attack,
+                                &mut rng,
+                                time.tick,
+                            ) {
+                                // Fleet is destroyed.
+                                queue_remove_fleet.push(i);
+                                // TODO: Fleet was destroyed. Handle it.
+                            }
+                        } else {
+                            // Queue fleet to be removed from the battlescape.
+                            queue_remove_fleet.push(i);
+                        }
+                    });
+
+                // Remove defender destroyed fleets.
+                debug_assert!(queue_remove_fleet.is_sorted());
+                let team = &mut battlescape.teams[defender_id];
+                for i in queue_remove_fleet.drain(..).rev() {
+                    team.swap_remove(i);
+                }
+
+                break;
+            }
+        }
+    }
+
+    // Terminate battlescape.
+    for battlescape_id in queue_terminated.into_iter() {
+        if let Some(battlescape) = battlescape_manager
+            .active_battlescape
+            .remove(&battlescape_id)
+        {
+            for team in battlescape.teams.into_iter() {
+                for entity in team.into_iter() {
+                    commands.entity(entity).remove::<Intercepted>();
+                }
+            }
+        }
+    }
+}
+
+/// Ai that control fleet guarding a colony.
+fn colony_guard_fleet_ai(
+    mut commands: Commands,
+    mut query: Query<
+        (
+            Entity,
+            &mut ColonyGuardFleetAI,
+            &Position,
+            &mut WishPosition,
+            &EntityDetected,
+        ),
+        Without<Intercepted>,
+    >,
+    query_other: Query<&Position, Without<Intercepted>>,
+    mut interception_manager: ResMut<InterceptionManager>,
+    mut battlescape_manager: ResMut<BattlescapeManager>,
+) {
+    query.for_each_mut(
+        |(entity, mut colony_guard_fleet_ai, position, mut wish_position, entity_detected)| {
+            if let Some(target_entity) = colony_guard_fleet_ai.target {
+                if let Ok(target_position) = query_other.get(target_entity) {
+                    // Go toward target position.
+                    wish_position.set_wish_position(target_position.0, 1.0);
+
+                    // Intercept and start a battlescape if target is close enough.
+                    if target_position.0.distance_squared(position.0) < 1.0 {
+                        // Create the battlescape.
+                        let battlescape_id = battlescape_manager
+                            .start_new_battlescape(vec![vec![entity], vec![target_entity]]);
+
+                        // Create the intersection.
+                        let entities = vec![entity, target_entity];
+                        let center = (position.0 + target_position.0) * 0.5;
+                        let interception_id =
+                            interception_manager.create_interception(entities, center);
+
+                        commands.entity(entity).insert(Intercepted {
+                            interception_id,
+                            reason: InterceptedReason::Battle(battlescape_id),
+                        });
+                        commands.entity(target_entity).insert(Intercepted {
+                            interception_id,
+                            reason: InterceptedReason::Battle(battlescape_id),
+                        });
+                    }
+                } else {
+                    // Can not find target.
+                    colony_guard_fleet_ai.target = None;
+                }
+            } else {
+                // Chase the closest target.
+                for other_entity in entity_detected.0.iter() {
+                    if let Ok(other_position) = query_other.get(*other_entity) {
+                        if let Some(previous_target) = wish_position.target() {
+                            if previous_target.distance_squared(position.0)
+                                > other_position.0.distance_squared(position.0)
+                            {
+                                colony_guard_fleet_ai.target = Some(*other_entity);
+                                wish_position.set_wish_position(other_position.0, 1.0);
+                            }
+                        } else {
+                            colony_guard_fleet_ai.target = Some(*other_entity);
+                            wish_position.set_wish_position(other_position.0, 1.0);
+                        }
+                    }
+                }
+            }
+        },
+    );
 }
 
 fn colonist_fleet_ai(
     mut commands: Commands,
-    mut query: Query<(
-        Entity,
-        &Position,
-        &InSystem,
-        &mut ColonistFleetAI,
-        &mut WishPosition,
-        &Reputations,
-    )>,
+    mut query: Query<
+        (
+            Entity,
+            &Position,
+            &InSystem,
+            &mut ColonistFleetAI,
+            &mut WishPosition,
+            &Reputations,
+        ),
+        Without<Intercepted>,
+    >,
     systems: Res<Systems>,
     mut colonies: ResMut<Colonies>,
     time: Res<Time>,
@@ -441,13 +637,12 @@ fn colonist_fleet_ai(
                         colonies.give_colony_to_faction(planet_id, reputations.faction);
 
                         // Change AI to guard the planet.
-                        commands
-                            .entity(entity)
-                            .remove::<ColonistFleetAI>()
-                            .insert(ColonyFleetAI {
-                                goal: ColonyFleetAIGoal::Guard,
+                        commands.entity(entity).remove::<ColonistFleetAI>().insert(
+                            ColonyGuardFleetAI {
+                                target: None,
                                 colony: planet_id,
-                            });
+                            },
+                        );
                     }
                 }
             } else if wish_position.target().is_none() {
@@ -495,7 +690,7 @@ fn colonist_fleet_ai(
 ///
 /// Apply velocity and friction.
 ///
-/// TODO: Fleets engaged in the same Battlescape should aggregate.
+/// Intercepted entity aggregate.
 fn apply_fleet_movement(
     mut query: Query<(
         Entity,
@@ -726,16 +921,24 @@ fn send_detected_entity(
         &EntityDetected,
         &mut KnowEntities,
     )>,
-    query_changed_entity: Query<Entity, Changed<OrbitComp>>,
-    query_fleet_info: Query<(&WrappedId<FleetId>, &Name, Option<&OrbitComp>)>,
-    query_entity_state: Query<&Position, Without<OrbitComp>>,
-    time: Res<Time>,
+    query_changed: Query<
+        (Entity, &FleetComposition, Option<&OrbitComp>),
+        Or<(Changed<OrbitComp>, Changed<FleetComposition>)>,
+    >,
+    query_fleet_info: Query<(
+        &WrappedId<FleetId>,
+        &FleetComposition,
+        &Name,
+        Option<&OrbitComp>,
+    )>,
+    query_state: Query<&Position, Without<OrbitComp>>,
     clients_manager: Res<ClientsManager>,
+    time: Res<Time>,
     task_pool: Res<ComputeTaskPool>,
 ) {
     query_client.par_for_each_mut(
         &task_pool,
-        512,
+        1024,
         |(entity, wrapped_client_id, position, entity_detected, mut know_entities)| {
             if let Some(connection) = clients_manager.get_connection(wrapped_client_id.id()) {
                 let know_entities = &mut *know_entities;
@@ -751,7 +954,7 @@ fn send_detected_entity(
                             // Client already know about this entity.
                             updated.push((*detected_entity, temp_id));
                             // Check if the entity infos changed. Otherwise do nothing.
-                            if query_changed_entity.get(*detected_entity).is_ok() {
+                            if query_changed.get(*detected_entity).is_ok() {
                                 Some((temp_id, detected_entity))
                             } else {
                                 None
@@ -764,23 +967,22 @@ fn send_detected_entity(
                         }
                     })
                     .for_each(|(temp_id, entity)| {
-                        // TODO: This should be a function that write directly into a buffer.
-                        if let Ok((wrapped_fleet_id, name, orbit_comp)) = query_fleet_info.get(*entity) {
+                        if let Ok((wrapped_fleet_id, fleet_composition, name, orbit_comp)) = query_fleet_info.get(*entity) {
                             infos.push((
                                 temp_id,
                                 EntityInfo {
                                     info_type: EntityInfoType::Fleet(FleetInfo {
                                         fleet_id: wrapped_fleet_id.id(),
-                                        composition: Vec::new(),
+                                        composition: fleet_composition.ships().iter().map(|ship| ship.ship).collect(),
                                     }),
                                     name: name.0.clone(),
                                     orbit: orbit_comp.map(|orbit_comp| orbit_comp.0),
                                 },
                             ));
                         } else {
+                            // TODO: Try to query other type of entity.
                             debug!("Unknow entity type. Ignoring...");
                         }
-                        // TODO: Try to query other type of entity.
                     });
 
                 // Recycle temp idx.
@@ -799,15 +1001,15 @@ fn send_detected_entity(
                 know_entities.known.extend(updated.into_iter());
 
                 // Check if we should update the client's fleet.
-                let client_info = if know_entities.force_update_client_info || query_changed_entity.get(entity).is_ok()
+                let client_info = if know_entities.force_update_client_info || query_changed.get(entity).is_ok()
                 {
                     know_entities.force_update_client_info = false;
 
-                    if let Ok((wrapped_fleet_id, name, orbit_comp)) = query_fleet_info.get(entity) {
+                    if let Ok((wrapped_fleet_id, fleet_composition, name, orbit_comp)) = query_fleet_info.get(entity) {
                         Some(EntityInfo {
                             info_type: EntityInfoType::Fleet(FleetInfo {
                                 fleet_id: wrapped_fleet_id.id(),
-                                composition: Vec::new(),
+                                composition: fleet_composition.ships().iter().map(|ship| ship.ship).collect(),
                             }),
                             name: name.0.clone(),
                             orbit: orbit_comp.map(|orbit_comp| orbit_comp.0),
@@ -845,7 +1047,7 @@ fn send_detected_entity(
                         .known
                         .iter()
                         .filter_map(|(entity, temp_id)| {
-                            if let Ok(entity_position) = query_entity_state.get(*entity) {
+                            if let Ok(entity_position) = query_state.get(*entity) {
                                 Some((*temp_id, entity_position.0 - position.0))
                             } else {
                                 None

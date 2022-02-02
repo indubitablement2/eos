@@ -3,6 +3,7 @@ use super::ecs_components::ColonistAIFleetBundle;
 use ahash::AHashMap;
 use bevy_ecs::prelude::*;
 use common::idx::*;
+use common::ships::*;
 use glam::Vec2;
 
 pub struct FleetsManager {
@@ -29,6 +30,10 @@ impl FleetsManager {
                 fleet_id,
                 Vec2::ZERO,
                 None,
+                vec![ShipInfo {
+                    ship: ShipBaseId::from_raw(0),
+                    weapons: Vec::new(),
+                }],
             ))
             .id();
 
@@ -60,6 +65,10 @@ impl FleetsManager {
                 fleet_id,
                 position,
                 faction,
+                vec![ShipInfo {
+                    ship: ShipBaseId::from_raw(0),
+                    weapons: Vec::new(),
+                }],
             ))
             .id();
 
