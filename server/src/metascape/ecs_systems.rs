@@ -655,7 +655,7 @@ fn colonist_fleet_ai(
                 // Randomly compute the system bound direction.
                 let rot = rng.gen::<f32>() * TAU;
                 let random_system_bound =
-                    system.position + Vec2::new(rot.cos(), rot.sin()) * system.bound;
+                    system.position + Vec2::new(rot.cos(), rot.sin()) * system.bound * 0.7;
 
                 wish_position.set_wish_position(
                     random_system_bound,
