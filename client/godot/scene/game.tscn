@@ -15,6 +15,7 @@ script = ExtResource( 4 )
 layer = -1
 
 [node name="Background" type="TextureRect" parent="CanvasLayer2"]
+modulate = Color( 0.329412, 0.329412, 0.329412, 1 )
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2

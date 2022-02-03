@@ -1,4 +1,10 @@
-use common::{idx::ClientId, net::{login_packets::*, packets::Packet}, net::tcp_loops::*, Version, net::*};
+use common::{
+    idx::ClientId,
+    net::tcp_loops::*,
+    net::*,
+    net::{login_packets::*, packets::Packet},
+    Version,
+};
 use std::net::{Ipv6Addr, SocketAddrV6};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
@@ -87,11 +93,15 @@ pub struct ConnectionManager {
 }
 impl ConnectionManager {
     pub fn send(&self, packet: &Packet) -> bool {
-        self.tcp_outbound_event_sender.blocking_send(TcpOutboundEvent::PacketEvent(packet.serialize())).is_ok()
+        self.tcp_outbound_event_sender
+            .blocking_send(TcpOutboundEvent::PacketEvent(packet.serialize()))
+            .is_ok()
     }
 
     pub fn flush(&self) -> bool {
-        self.tcp_outbound_event_sender.blocking_send(TcpOutboundEvent::FlushEvent).is_ok()
+        self.tcp_outbound_event_sender
+            .blocking_send(TcpOutboundEvent::FlushEvent)
+            .is_ok()
     }
 
     pub fn try_recv(&self) -> Result<Vec<u8>, crossbeam::channel::TryRecvError> {

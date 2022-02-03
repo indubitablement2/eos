@@ -7,8 +7,8 @@ use ahash::AHashMap;
 use common::factions::*;
 use common::idx::*;
 use common::intersection::*;
-use common::orbit::Orbit;
 use common::net::packets::*;
+use common::orbit::Orbit;
 use common::systems::*;
 use common::UPDATE_INTERVAL;
 use gdnative::api::*;
@@ -319,19 +319,16 @@ impl Metascape {
         if player_inputs.primary {
             let packet = Packet::MetascapeWishPos {
                 wish_pos: player_inputs.global_mouse_position,
+                movement_multiplier: 1.0,
             };
-            quit |= !self
-                .connection_manager
-                .send(&packet);
+            quit |= !self.connection_manager.send(&packet);
         }
 
         // Send client packets to server.
         self.send_timer -= delta;
         if self.send_timer <= 0.0 {
             self.send_timer = 0.010;
-            quit |= !self
-                .connection_manager
-                .flush()
+            quit |= !self.connection_manager.flush()
         }
 
         quit
@@ -353,21 +350,39 @@ impl Metascape {
             let a = fade * 0.8;
 
             if let Some(info) = self.entities_info.get(id) {
-                // TODO: Do something with the fleet info.
+                // Draw each ships.
+                if let EntityInfoType::Fleet(fleet_info) = &info.info_type {
+                    for (i, ship_base_id) in fleet_info.composition.iter().enumerate() {
+                        owner.draw_circle(
+                            (pos + Vec2::new(i as f32 * 0.1, 0.0)).to_godot_scaled(),
+                            (0.1 * GAME_TO_GODOT_RATIO).into(),
+                            Color {
+                                r: 1.0,
+                                g: 0.0,
+                                b: 1.0,
+                                a,
+                            },
+                        );
+                    }
+                }
             } else {
                 // We don't know who is this entity.
                 r = 1.0;
             }
 
             // Draw entity.
-            owner.draw_circle(pos.to_godot_scaled(), 8.0, Color { r, g, b, a });
+            owner.draw_circle(
+                pos.to_godot_scaled(),
+                (0.25 * GAME_TO_GODOT_RATIO).into(),
+                Color { r, g, b, a },
+            );
         }
 
         // Debug draw our entity.
         let pos = self.client_state.get_interpolated_pos(time);
         owner.draw_circle(
             pos.to_godot_scaled(),
-            8.0,
+            (0.25 * GAME_TO_GODOT_RATIO).into(),
             Color {
                 r: 1.0,
                 g: 1.0,
@@ -375,6 +390,25 @@ impl Metascape {
                 a: 0.8,
             },
         );
+        if let EntityInfoType::Fleet(fleet_info) = &self.client_info.info_type {
+            for (i, ship_base_id) in fleet_info.composition.iter().enumerate() {
+                owner.draw_circle(
+                    (pos + Vec2::new(i as f32 * 0.1, 0.0)).to_godot_scaled(),
+                    (0.1 * GAME_TO_GODOT_RATIO).into(),
+                    Color {
+                        r: 1.0,
+                        g: 0.0,
+                        b: 1.0,
+                        a: 0.8,
+                    },
+                );
+            }
+        } else {
+            error!(
+                "{:?} Client's entity info is not a fleet. Ignoring...",
+                &self.client_info
+            );
+        }
 
         // Debug draw systems.
         let screen_collider = Collider::new(self.configs.system_draw_distance, pos);

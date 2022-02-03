@@ -4,7 +4,6 @@ use common::{idx::*, net::packets::Packet};
 /// Register the events.
 pub fn add_event_res(world: &mut World) {
     world.insert_resource(EventRes::<ClientDisconnected>::new());
-    world.insert_resource(EventRes::<FleetIdle>::new());
     world.insert_resource(EventRes::<FleetDestroyed>::new());
 }
 
@@ -15,11 +14,6 @@ pub struct ClientDisconnected {
     pub fleet_entity: Entity,
     /// This can be used to try to send a packet to the client before dropping the connection.
     pub send_packet: Option<Packet>,
-}
-
-/// A fleet has been without velocity for some time and does not have an orbit.
-pub struct FleetIdle {
-    pub entity: Entity,
 }
 
 /// All ships from a fleet have been removed.

@@ -9,7 +9,7 @@ impl Time {
         self.total_tick += 1;
     }
 
-    pub fn as_time(self) -> f32 {
+    pub fn as_timef(self) -> f32 {
         self.tick as f32
     }
 }

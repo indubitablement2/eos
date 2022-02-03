@@ -49,7 +49,6 @@ pub fn add_systems(schedule: &mut Schedule) {
 
     schedule.add_system_to_stage("", handle_orbit);
     schedule.add_system_to_stage("", remove_orbit);
-    schedule.add_system_to_stage("", event_handler_fleet_idle);
 
     schedule.add_system_to_stage("", update_in_system);
 
@@ -296,9 +295,9 @@ fn handle_client_inputs(
                             Packet::Message { origin, content } => {
                                 // TODO: Broadcast the message.
                             }
-                            Packet::MetascapeWishPos { wish_pos } => {
+                            Packet::MetascapeWishPos { wish_pos, movement_multiplier } => {
                                 if intercepted.is_none() {
-                                    wish_position.set_wish_position(wish_pos, 1.0);
+                                    wish_position.set_wish_position(wish_pos, movement_multiplier.clamp(0.1, 1.0));
                                 }
                             }
                             Packet::BattlescapeInput {
@@ -341,10 +340,10 @@ fn handle_client_inputs(
 
 /// Change the position of entities that have an orbit.
 fn handle_orbit(mut query: Query<(&OrbitComp, &mut Position)>, time: Res<Time>) {
-    let time = time.as_time();
+    let timef = time.as_timef();
 
     query.for_each_mut(|(orbit_comp, mut position)| {
-        position.0 = orbit_comp.0.to_position(time);
+        position.0 = orbit_comp.0.to_position(timef);
     })
 }
 
@@ -359,56 +358,6 @@ fn remove_orbit(
             commands.entity(entity).remove::<OrbitComp>();
         }
     });
-}
-
-/// Add orbit to idle fleets.
-fn event_handler_fleet_idle(
-    mut commands: Commands,
-    query: Query<(&Position, &InSystem)>,
-    systems: Res<Systems>,
-    mut event_fleet_idle: ResMut<EventRes<FleetIdle>>,
-    time: Res<Time>,
-) {
-    let time = time.as_time();
-
-    while let Some(event) = event_fleet_idle.pop() {
-        if let Ok((position, in_system)) = query.get(event.entity) {
-            if let Some(system_id) = in_system.0 {
-                let system = &systems.systems[system_id];
-
-                let relative_position = position.0 - system.position;
-                let distance = relative_position.length();
-
-                let mut orbit_speed = 0.0;
-                // Check if there is a body nearby we should copy its orbit speed.
-                system.planets.iter().fold(999.0f32, |closest, planet| {
-                    let dif = (planet.relative_orbit.distance - distance).abs();
-                    if dif < closest {
-                        orbit_speed = planet.relative_orbit.orbit_speed;
-                        dif
-                    } else {
-                        closest
-                    }
-                });
-
-                // Add orbit as this entity has no velocity.
-                commands
-                    .entity(event.entity)
-                    .insert(OrbitComp(Orbit::from_relative_position(
-                        relative_position,
-                        time,
-                        system.position,
-                        distance,
-                        orbit_speed,
-                    )));
-            } else {
-                // Add a stationary orbit.
-                commands
-                    .entity(event.entity)
-                    .insert(OrbitComp(Orbit::stationary(position.0)));
-            }
-        }
-    }
 }
 
 fn handle_interceptions(
@@ -554,7 +503,7 @@ fn colony_guard_fleet_ai(
     systems: Res<Systems>,
     time: Res<Time>,
 ) {
-    let timef = time.as_time();
+    let timef = time.as_timef();
 
     query.for_each_mut(
         |(entity, mut colony_guard_fleet_ai, position, mut wish_position, entity_detected)| {
@@ -635,7 +584,7 @@ fn colonist_fleet_ai(
     mut colonies: ResMut<Colonies>,
     time: Res<Time>,
 ) {
-    let timef = time.as_time();
+    let timef = time.as_timef();
     let mut rng = Xoshiro128StarStar::seed_from_u64(time.total_tick.wrapping_mul(43627));
 
     query.for_each_mut(
@@ -721,18 +670,22 @@ fn colonist_fleet_ai(
 ///
 /// Intercepted entity aggregate.
 fn apply_fleet_movement(
+    mut commands: Commands,
     mut query: Query<(
         Entity,
         &mut Position,
         &mut WishPosition,
         &mut Velocity,
         &DerivedFleetStats,
+        &InSystem,
         &mut IdleCounter,
     )>,
     metascape_configs: Res<MetascapeConfigs>,
-    mut event_fleet_idle: ResMut<EventRes<FleetIdle>>,
+    systems: Res<Systems>,
+    time: Res<Time>,
 ) {
     let bound_squared = WORLD_BOUND.powi(2);
+    let timef = time.as_timef();
 
     query.for_each_mut(
         |(
@@ -741,6 +694,7 @@ fn apply_fleet_movement(
             mut wish_position,
             mut velocity,
             derived_fleet_stats,
+            in_system,
             mut idle_counter,
         )| {
             if let Some(target) = wish_position.target() {
@@ -778,8 +732,38 @@ fn apply_fleet_movement(
             } else {
                 idle_counter.increment();
                 if idle_counter.just_stated_idling() {
-                    // Fire idle event only once.
-                    event_fleet_idle.push(FleetIdle { entity });
+                    // Add orbit as this entity has no velocity.
+                    let orbit = if let Some(system_id) = in_system.0 {
+                        let system = &systems.systems[system_id];
+        
+                        let relative_position = position.0 - system.position;
+                        let distance = relative_position.length();
+        
+                        let mut orbit_speed = 0.0;
+                        // Check if there is a body nearby we should copy its orbit speed.
+                        system.planets.iter().fold(999.0f32, |closest, planet| {
+                            let dif = (planet.relative_orbit.distance - distance).abs();
+                            if dif < closest {
+                                orbit_speed = planet.relative_orbit.orbit_speed;
+                                dif
+                            } else {
+                                closest
+                            }
+                        });
+        
+                        Orbit::from_relative_position(
+                                relative_position,
+                                timef,
+                                system.position,
+                                distance,
+                                orbit_speed,
+                            )
+                    } else {
+                        // Add a stationary orbit.
+                        Orbit::stationary(position.0)
+                    };
+
+                    commands.entity(entity).insert(OrbitComp(orbit));
                 }
             }
 
