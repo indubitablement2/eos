@@ -5,7 +5,7 @@ use common::{
 };
 use glam::Vec2;
 use rand::Rng;
-use rand_xoshiro::Xoshiro256StarStar;
+use rand_xoshiro::Xoshiro128StarStar;
 
 //* bundle
 
@@ -363,7 +363,7 @@ impl FleetComposition {
         &mut self,
         fleet_state: &mut FleetState,
         mut attack: f32,
-        rng: &mut Xoshiro256StarStar,
+        rng: &mut Xoshiro128StarStar,
         time: u32,
     ) -> bool {
         if self.ships.is_empty() {

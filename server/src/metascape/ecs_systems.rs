@@ -24,9 +24,9 @@ use common::time::Time;
 use common::WORLD_BOUND;
 use glam::Vec2;
 use rand::seq::index::sample;
-use rand::thread_rng;
 use rand::Rng;
 use rand::SeedableRng;
+use rand_xoshiro::Xoshiro128StarStar;
 use std::f32::consts::TAU;
 
 const DETECTED_UPDATE_INTERVAL: u64 = 5;
@@ -427,7 +427,7 @@ fn handle_battlescape(
     time: Res<Time>,
 ) {
     let bases = &*bases;
-    let mut rng = rand_xoshiro::Xoshiro256StarStar::seed_from_u64(time.total_tick);
+    let mut rng = Xoshiro128StarStar::seed_from_u64(time.total_tick.wrapping_mul(5342679));
 
     let mut queue_terminated = Vec::new();
 
@@ -636,7 +636,7 @@ fn colonist_fleet_ai(
     time: Res<Time>,
 ) {
     let timef = time.as_time();
-    let mut rng = thread_rng();
+    let mut rng = Xoshiro128StarStar::seed_from_u64(time.total_tick.wrapping_mul(43627));
 
     query.for_each_mut(
         |(entity, position, in_system, mut colonist_fleet_ai, mut wish_position, reputations)| {
