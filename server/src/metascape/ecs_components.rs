@@ -343,7 +343,12 @@ pub struct FleetState {
 }
 impl Default for FleetState {
     fn default() -> Self {
-        Self { ships: vec![ShipState{ hp: 10000.0, state: 0.75 }] }
+        Self {
+            ships: vec![ShipState {
+                hp: 10000.0,
+                state: 0.75,
+            }],
+        }
     }
 }
 
@@ -410,7 +415,12 @@ impl FleetComposition {
 }
 impl Default for FleetComposition {
     fn default() -> Self {
-        Self { ships: vec![ShipInfo { ship: ShipBaseId::from_raw(0), weapons: Default::default() }] }
+        Self {
+            ships: vec![ShipInfo {
+                ship: ShipBaseId::from_raw(0),
+                weapons: Default::default(),
+            }],
+        }
     }
 }
 

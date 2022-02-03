@@ -278,11 +278,11 @@ fn fleet_sensor(
 
 /// Consume and apply the client's packets.
 fn handle_client_inputs(
-    mut query: Query<(Entity, &WrappedId<ClientId>, &mut WishPosition)>,
+    mut query: Query<(Entity, &WrappedId<ClientId>, &mut WishPosition, Option<&Intercepted>)>,
     clients_manager: Res<ClientsManager>,
     client_disconnected: Res<EventRes<ClientDisconnected>>,
 ) {
-    query.for_each_mut(|(entity, wrapped_client_id, mut wish_position)| {
+    query.for_each_mut(|(entity, wrapped_client_id, mut wish_position, intercepted)| {
         if let Some(connection) = clients_manager.get_connection(wrapped_client_id.id()) {
             loop {
                 match connection.try_recv() {
@@ -291,7 +291,9 @@ fn handle_client_inputs(
                             // TODO: Broadcast the message.
                         }
                         Packet::MetascapeWishPos { wish_pos } => {
-                            wish_position.set_wish_position(wish_pos, 1.0);
+                            if intercepted.is_none() {
+                                wish_position.set_wish_position(wish_pos, 1.0);
+                            } 
                         }
                         Packet::BattlescapeInput {
                             wish_input,
@@ -696,7 +698,8 @@ fn colonist_fleet_ai(
                     } else {
                         // Planet is already a colony.
                         // Start travelling again.
-                        colonist_fleet_ai.set_travel_until(ColonistFleetAI::DEFAULT_TRAVEL_DURATION, time.tick);
+                        colonist_fleet_ai
+                            .set_travel_until(ColonistFleetAI::DEFAULT_TRAVEL_DURATION, time.tick);
                         wish_position.stop();
                     }
                 }
@@ -1102,7 +1105,13 @@ fn event_handler_fleet_destroyed(
             if let Some(client_id) = wrapped_fleet_id.id().to_client_id() {
                 // TODO: Client's fleet should not be completely destroyable.
                 warn!("{:?}'s has been completely destroyed. This should not happen. Disconnecting...", client_id);
-                event_client_disconnected.push(ClientDisconnected { client_id, fleet_entity: event.entity, send_packet: Some(Packet::DisconnectedReason(DisconnectedReasonEnum::ServerError)) });
+                event_client_disconnected.push(ClientDisconnected {
+                    client_id,
+                    fleet_entity: event.entity,
+                    send_packet: Some(Packet::DisconnectedReason(
+                        DisconnectedReasonEnum::ServerError,
+                    )),
+                });
             } else {
                 fleets_manager.remove_spawned_fleet(&mut commands, wrapped_fleet_id.id());
             }
