@@ -90,12 +90,15 @@ pub enum DisconnectedReasonEnum {
     InvalidPacket,
     /// Someone else connected on the same account.
     ConnectionFromOther,
+    /// The server has encountered a fatal error through no fault of the client.
+    ServerError,
 }
 impl Display for DisconnectedReasonEnum {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DisconnectedReasonEnum::InvalidPacket => write!(f, "Server received an invalid packet."),
             DisconnectedReasonEnum::ConnectionFromOther => write!(f, "Someone else connected on the same account."),
+            DisconnectedReasonEnum::ServerError => write!(f, "The server has encountered a fatal error through no fault of the client."),
         }
     }
 }

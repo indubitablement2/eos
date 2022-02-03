@@ -6,6 +6,7 @@ use crossbeam::queue::SegQueue;
 pub fn add_event_res(world: &mut World) {
     world.insert_resource(EventRes::<ClientDisconnected>::new());
     world.insert_resource(EventRes::<FleetIdle>::new());
+    world.insert_resource(EventRes::<FleetDestroyed>::new());
 }
 
 /// A client just disconnected.
@@ -22,14 +23,28 @@ pub struct FleetIdle {
     pub entity: Entity,
 }
 
+/// All ships from a fleet have been removed.
+/// This could be a client or an ai fleet.
+pub struct FleetDestroyed {
+    pub entity: Entity,
+}
+
+/// Contain events triggered by preceding systems.
 pub struct EventRes<T> {
-    /// Contain events triggered by preceding systems.
-    pub events: SegQueue<T>,
+    events: SegQueue<T>,
 }
 impl<T> EventRes<T> {
     fn new() -> Self {
         Self {
             events: SegQueue::new(),
         }
+    }
+
+    pub fn push(&self, event: T) {
+        self.events.push(event);
+    }
+
+    pub fn pop(&self) -> Option<T> {
+        self.events.pop()
     }
 }

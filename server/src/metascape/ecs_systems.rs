@@ -74,6 +74,8 @@ pub fn add_systems(schedule: &mut Schedule) {
 
     schedule.add_system_to_stage("", disconnect_client);
     schedule.add_system_to_stage("", remove_fleet);
+
+    schedule.add_system_to_stage("", event_handler_fleet_destroyed);
 }
 
 /// Get new connection and insert client.
@@ -302,7 +304,7 @@ fn handle_client_inputs(
                                 "{:?} sent an invalid packet. Disconnecting...",
                                 wrapped_client_id.id()
                             );
-                            client_disconnected.events.push(ClientDisconnected {
+                            client_disconnected.push(ClientDisconnected {
                                 client_id: wrapped_client_id.id(),
                                 fleet_entity: entity,
                                 send_packet: Some(Packet::DisconnectedReason(
@@ -314,7 +316,7 @@ fn handle_client_inputs(
                     },
                     Err(err) => {
                         if err.is_disconnected() {
-                            client_disconnected.events.push(ClientDisconnected {
+                            client_disconnected.push(ClientDisconnected {
                                 client_id: wrapped_client_id.id(),
                                 fleet_entity: entity,
                                 send_packet: None,
@@ -360,7 +362,7 @@ fn handle_idle(
 ) {
     let time = time.as_time();
 
-    while let Some(event) = fleet_idle.events.pop() {
+    while let Some(event) = fleet_idle.pop() {
         if let Ok((position, in_system)) = query.get(event.entity) {
             if let Some(system_id) = in_system.0 {
                 let system = &systems.systems[system_id];
@@ -411,7 +413,7 @@ fn handle_battlescape(
     mut commands: Commands,
     mut query_fleet: Query<(&mut FleetComposition, &mut FleetState)>,
     mut battlescape_manager: ResMut<BattlescapeManager>,
-    mut fleets_manager: ResMut<FleetsManager>,
+    fleet_destroyed_event: Res<EventRes<FleetDestroyed>>,
     bases: Res<Bases>,
     time: Res<Time>,
 ) {
@@ -489,10 +491,10 @@ fn handle_battlescape(
                             ) {
                                 // Fleet is destroyed.
                                 queue_remove_fleet.push(i);
-                                // TODO: Fleet was destroyed. Handle it.
+                                fleet_destroyed_event.push(FleetDestroyed { entity });
                             }
                         } else {
-                            // Queue fleet to be removed from the battlescape.
+                            // Can not find fleet. Queue it to be removed from the battlescape.
                             queue_remove_fleet.push(i);
                         }
                     });
@@ -767,7 +769,7 @@ fn apply_fleet_movement(
                 idle_counter.increment();
                 if idle_counter.just_stated_idling() {
                     // Fire idle event only once.
-                    fleet_idle.events.push(FleetIdle { entity });
+                    fleet_idle.push(FleetIdle { entity });
                 }
             }
 
@@ -792,7 +794,7 @@ fn disconnect_client(
     client_disconnected: Res<EventRes<ClientDisconnected>>,
     time: Res<Time>,
 ) {
-    while let Some(client_disconnected) = client_disconnected.events.pop() {
+    while let Some(client_disconnected) = client_disconnected.pop() {
         let client_id = client_disconnected.client_id;
 
         // Remove connection.
@@ -1086,4 +1088,24 @@ fn send_detected_entity(
             }
         },
     );
+}
+
+fn event_handler_fleet_destroyed(
+    mut commands: Commands,
+    query: Query<&WrappedId<FleetId>>,
+    mut fleets_manager: ResMut<FleetsManager>,
+    event_fleet_destroyed: Res<EventRes<FleetDestroyed>>,
+    event_client_disconnected: Res<EventRes<ClientDisconnected>>,
+) {
+    while let Some(event) = event_fleet_destroyed.pop() {
+        if let Ok(wrapped_fleet_id) = query.get(event.entity) {
+            if let Some(client_id) = wrapped_fleet_id.id().to_client_id() {
+                // TODO: Client's fleet should not be completely destroyable.
+                warn!("{:?}'s has been completely destroyed. This should not happen. Disconnecting...", client_id);
+                event_client_disconnected.push(ClientDisconnected { client_id, fleet_entity: event.entity, send_packet: Some(Packet::DisconnectedReason(DisconnectedReasonEnum::ServerError)) });
+            } else {
+                fleets_manager.remove_spawned_fleet(&mut commands, wrapped_fleet_id.id());
+            }
+        }
+    }
 }

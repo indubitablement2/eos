@@ -341,6 +341,11 @@ pub struct DerivedFleetStats {
 pub struct FleetState {
     ships: Vec<ShipState>,
 }
+impl Default for FleetState {
+    fn default() -> Self {
+        Self { ships: vec![ShipState{ hp: 10000.0, state: 0.75 }] }
+    }
+}
 
 #[derive(Debug, Clone, Component)]
 pub struct FleetComposition {
@@ -401,6 +406,11 @@ impl FleetComposition {
     /// Get a reference to the fleet composition's ships.
     pub fn ships(&self) -> &[ShipInfo] {
         self.ships.as_ref()
+    }
+}
+impl Default for FleetComposition {
+    fn default() -> Self {
+        Self { ships: vec![ShipInfo { ship: ShipBaseId::from_raw(0), weapons: Default::default() }] }
     }
 }
 
