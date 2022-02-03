@@ -1,6 +1,5 @@
 use bevy_ecs::prelude::*;
 use common::{idx::*, net::packets::Packet};
-use crossbeam::queue::SegQueue;
 
 /// Register the events.
 pub fn add_event_res(world: &mut World) {
@@ -31,20 +30,18 @@ pub struct FleetDestroyed {
 
 /// Contain events triggered by preceding systems.
 pub struct EventRes<T> {
-    events: SegQueue<T>,
+    events: Vec<T>,
 }
 impl<T> EventRes<T> {
     fn new() -> Self {
-        Self {
-            events: SegQueue::new(),
-        }
+        Self { events: Vec::new() }
     }
 
-    pub fn push(&self, event: T) {
+    pub fn push(&mut self, event: T) {
         self.events.push(event);
     }
 
-    pub fn pop(&self) -> Option<T> {
+    pub fn pop(&mut self) -> Option<T> {
         self.events.pop()
     }
 }

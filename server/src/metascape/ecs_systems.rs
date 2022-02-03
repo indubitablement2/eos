@@ -49,7 +49,7 @@ pub fn add_systems(schedule: &mut Schedule) {
 
     schedule.add_system_to_stage("", handle_orbit);
     schedule.add_system_to_stage("", remove_orbit);
-    schedule.add_system_to_stage("", handle_idle);
+    schedule.add_system_to_stage("", event_handler_fleet_idle);
 
     schedule.add_system_to_stage("", update_in_system);
 
@@ -72,7 +72,7 @@ pub fn add_systems(schedule: &mut Schedule) {
 
     schedule.add_system_to_stage("", send_detected_entity.after(Label::Movement));
 
-    schedule.add_system_to_stage("", disconnect_client);
+    schedule.add_system_to_stage("", event_handler_client_disconnected);
     schedule.add_system_to_stage("", remove_fleet);
 
     schedule.add_system_to_stage("", event_handler_fleet_destroyed);
@@ -278,58 +278,65 @@ fn fleet_sensor(
 
 /// Consume and apply the client's packets.
 fn handle_client_inputs(
-    mut query: Query<(Entity, &WrappedId<ClientId>, &mut WishPosition, Option<&Intercepted>)>,
+    mut query: Query<(
+        Entity,
+        &WrappedId<ClientId>,
+        &mut WishPosition,
+        Option<&Intercepted>,
+    )>,
     clients_manager: Res<ClientsManager>,
-    client_disconnected: Res<EventRes<ClientDisconnected>>,
+    mut event_client_disconnected: ResMut<EventRes<ClientDisconnected>>,
 ) {
-    query.for_each_mut(|(entity, wrapped_client_id, mut wish_position, intercepted)| {
-        if let Some(connection) = clients_manager.get_connection(wrapped_client_id.id()) {
-            loop {
-                match connection.try_recv() {
-                    Ok(payload) => match Packet::deserialize(&payload) {
-                        Packet::Message { origin, content } => {
-                            // TODO: Broadcast the message.
-                        }
-                        Packet::MetascapeWishPos { wish_pos } => {
-                            if intercepted.is_none() {
-                                wish_position.set_wish_position(wish_pos, 1.0);
-                            } 
-                        }
-                        Packet::BattlescapeInput {
-                            wish_input,
-                            last_acknowledge_command,
-                        } => {
-                            // TODO: Handle battlescape inputs.
-                        }
-                        _ => {
-                            debug!(
-                                "{:?} sent an invalid packet. Disconnecting...",
-                                wrapped_client_id.id()
-                            );
-                            client_disconnected.push(ClientDisconnected {
-                                client_id: wrapped_client_id.id(),
-                                fleet_entity: entity,
-                                send_packet: Some(Packet::DisconnectedReason(
-                                    DisconnectedReasonEnum::InvalidPacket,
-                                )),
-                            });
+    query.for_each_mut(
+        |(entity, wrapped_client_id, mut wish_position, intercepted)| {
+            if let Some(connection) = clients_manager.get_connection(wrapped_client_id.id()) {
+                loop {
+                    match connection.try_recv() {
+                        Ok(payload) => match Packet::deserialize(&payload) {
+                            Packet::Message { origin, content } => {
+                                // TODO: Broadcast the message.
+                            }
+                            Packet::MetascapeWishPos { wish_pos } => {
+                                if intercepted.is_none() {
+                                    wish_position.set_wish_position(wish_pos, 1.0);
+                                }
+                            }
+                            Packet::BattlescapeInput {
+                                wish_input,
+                                last_acknowledge_command,
+                            } => {
+                                // TODO: Handle battlescape inputs.
+                            }
+                            _ => {
+                                debug!(
+                                    "{:?} sent an invalid packet. Disconnecting...",
+                                    wrapped_client_id.id()
+                                );
+                                event_client_disconnected.push(ClientDisconnected {
+                                    client_id: wrapped_client_id.id(),
+                                    fleet_entity: entity,
+                                    send_packet: Some(Packet::DisconnectedReason(
+                                        DisconnectedReasonEnum::InvalidPacket,
+                                    )),
+                                });
+                                break;
+                            }
+                        },
+                        Err(err) => {
+                            if err.is_disconnected() {
+                                event_client_disconnected.push(ClientDisconnected {
+                                    client_id: wrapped_client_id.id(),
+                                    fleet_entity: entity,
+                                    send_packet: None,
+                                });
+                            }
                             break;
                         }
-                    },
-                    Err(err) => {
-                        if err.is_disconnected() {
-                            client_disconnected.push(ClientDisconnected {
-                                client_id: wrapped_client_id.id(),
-                                fleet_entity: entity,
-                                send_packet: None,
-                            });
-                        }
-                        break;
                     }
                 }
             }
-        }
-    });
+        },
+    );
 }
 
 /// Change the position of entities that have an orbit.
@@ -354,17 +361,17 @@ fn remove_orbit(
     });
 }
 
-/// Add orbit to idle fleet.
-fn handle_idle(
+/// Add orbit to idle fleets.
+fn event_handler_fleet_idle(
     mut commands: Commands,
     query: Query<(&Position, &InSystem)>,
     systems: Res<Systems>,
-    fleet_idle: Res<EventRes<FleetIdle>>,
+    mut event_fleet_idle: ResMut<EventRes<FleetIdle>>,
     time: Res<Time>,
 ) {
     let time = time.as_time();
 
-    while let Some(event) = fleet_idle.pop() {
+    while let Some(event) = event_fleet_idle.pop() {
         if let Ok((position, in_system)) = query.get(event.entity) {
             if let Some(system_id) = in_system.0 {
                 let system = &systems.systems[system_id];
@@ -415,7 +422,7 @@ fn handle_battlescape(
     mut commands: Commands,
     mut query_fleet: Query<(&mut FleetComposition, &mut FleetState)>,
     mut battlescape_manager: ResMut<BattlescapeManager>,
-    fleet_destroyed_event: Res<EventRes<FleetDestroyed>>,
+    mut event_fleet_destroyed: ResMut<EventRes<FleetDestroyed>>,
     bases: Res<Bases>,
     time: Res<Time>,
 ) {
@@ -493,7 +500,7 @@ fn handle_battlescape(
                             ) {
                                 // Fleet is destroyed.
                                 queue_remove_fleet.push(i);
-                                fleet_destroyed_event.push(FleetDestroyed { entity });
+                                event_fleet_destroyed.push(FleetDestroyed { entity });
                             }
                         } else {
                             // Can not find fleet. Queue it to be removed from the battlescape.
@@ -723,7 +730,7 @@ fn apply_fleet_movement(
         &mut IdleCounter,
     )>,
     metascape_configs: Res<MetascapeConfigs>,
-    fleet_idle: Res<EventRes<FleetIdle>>,
+    mut event_fleet_idle: ResMut<EventRes<FleetIdle>>,
 ) {
     let bound_squared = WORLD_BOUND.powi(2);
 
@@ -772,7 +779,7 @@ fn apply_fleet_movement(
                 idle_counter.increment();
                 if idle_counter.just_stated_idling() {
                     // Fire idle event only once.
-                    fleet_idle.push(FleetIdle { entity });
+                    event_fleet_idle.push(FleetIdle { entity });
                 }
             }
 
@@ -791,13 +798,13 @@ fn apply_fleet_movement(
 }
 
 /// Remove a client from connected client map and queue his fleet to be removed.
-fn disconnect_client(
+fn event_handler_client_disconnected(
     mut commands: Commands,
     mut clients_manager: ResMut<ClientsManager>,
-    client_disconnected: Res<EventRes<ClientDisconnected>>,
+    mut event_client_disconnected: ResMut<EventRes<ClientDisconnected>>,
     time: Res<Time>,
 ) {
-    while let Some(client_disconnected) = client_disconnected.pop() {
+    while let Some(client_disconnected) = event_client_disconnected.pop() {
         let client_id = client_disconnected.client_id;
 
         // Remove connection.
@@ -1097,8 +1104,8 @@ fn event_handler_fleet_destroyed(
     mut commands: Commands,
     query: Query<&WrappedId<FleetId>>,
     mut fleets_manager: ResMut<FleetsManager>,
-    event_fleet_destroyed: Res<EventRes<FleetDestroyed>>,
-    event_client_disconnected: Res<EventRes<ClientDisconnected>>,
+    mut event_fleet_destroyed: ResMut<EventRes<FleetDestroyed>>,
+    mut event_client_disconnected: ResMut<EventRes<ClientDisconnected>>,
 ) {
     while let Some(event) = event_fleet_destroyed.pop() {
         if let Ok(wrapped_fleet_id) = query.get(event.entity) {

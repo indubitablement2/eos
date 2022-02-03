@@ -87,6 +87,7 @@ impl FleetsManager {
 
             if let Some(client_id) = fleet_id.to_client_id() {
                 // TODO: Save client's fleet.
+                // TODO: Check that fleet is not empty.
                 self.client_fleets.insert(client_id, ());
 
                 debug!("Removed and saved {:?}'s fleet.", client_id);
