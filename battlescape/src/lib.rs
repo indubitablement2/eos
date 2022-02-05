@@ -48,11 +48,11 @@ pub struct BattlescapeShip {
 
 pub struct HumanPlayer {
     ship_control: Option<usize>,
-    inputs: PlayerInput,
+    player_input: PlayerInput,
 }
 impl HumanPlayer {
     fn new() -> Self {
-        Self { ship_control: None, inputs: Default::default() }
+        Self { ship_control: None, player_input: Default::default() }
     }
 }
 
@@ -137,7 +137,7 @@ impl Battlescape {
 
                     let body_handle = self.bodies.insert(RigidBodyBuilder::new_dynamic().build());
                     self.colliders.insert_with_parent(
-                        ColliderBuilder::ball(1.0).build(),
+                        ColliderBuilder::cuboid(0.5, 1.0).build(),
                         body_handle,
                         &mut self.bodies,
                     );
@@ -166,8 +166,13 @@ impl Battlescape {
                     self.players.push(player);
                 }
                 BattlescapeCommand::PlayerInput(cmd) => {
-                    let player = &self.players[cmd.player as usize];
-                    // TODO
+                    let player = &mut self.players[cmd.player as usize];
+                    let player = if let PlayerType::HumanPlayer(player) = &mut player.player_type {
+                        player
+                    } else {
+                        continue;
+                    };
+                    player.player_input = cmd.player_input;
                 }
             }
         }
