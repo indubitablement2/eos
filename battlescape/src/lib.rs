@@ -6,6 +6,7 @@ extern crate log;
 extern crate nalgebra as na;
 
 use commands::BattlescapeCommand;
+use na::UnitComplex;
 use player_inputs::PlayerInput;
 use rand_xoshiro::Xoshiro128StarStar;
 use rapier2d::prelude::*;
@@ -29,10 +30,7 @@ impl BattlescapeCommandsQueue {
     //     self.commands.push((tick, command));
     // }
 
-    /// Return if there is any command queued for this tick.
-    ///
-    /// If a command is returned,
-    /// this should be called again as there could be multiple commands for the same tick.
+    /// Return the commands queued for this tick if any.
     fn get_next(&mut self, tick: u32) -> &[BattlescapeCommand] {
         let num_command = self.num_command[tick as usize] as usize;
         let slice = &self.commands[self.next_commands_index..num_command];
@@ -114,6 +112,7 @@ pub struct Battlescape {
 impl Battlescape {
     pub fn update(&mut self) {
         self.apply_commands();
+        self.ship_movement();
 
         self.physics_pipeline.step(
             &vector![0.0, 0.0],
@@ -227,6 +226,42 @@ impl Battlescape {
             }
         }
     }
+
+    fn ship_movement(&mut self) {
+        for ship in self.ships.iter_mut() {
+            if ship.controlled {
+                let human_player = if let PlayerType::HumanPlayer(human_player) =
+                    &self.players[ship.player_id as usize].player_type
+                {
+                    human_player
+                } else {
+                    continue;
+                };
+
+                if let Some(body) = self.bodies.get_mut(ship.body_handle) {
+                    // Apply wish dir.
+                    let wish_dir = human_player.player_input.uncompress_wish_dir();
+                    let force = UnitComplex::new(wish_dir.0) * vector![wish_dir.1, 0.0];
+                    body.apply_force(force, true);
+
+                    // Apply wish rot.
+                    match human_player.player_input.uncompressed_wish_rot() {
+                        player_inputs::WishRot::Relative(f) => {
+                            body.apply_torque(f, true);
+                        }
+                        player_inputs::WishRot::FaceWorldPositon(x, y) => {
+                            let wish_angle_cart = (vector![x, y] - *body.translation()).normalize();
+                            let wish_angle = UnitComplex::from_cos_sin_unchecked(wish_angle_cart.x, wish_angle_cart.y);
+                            let current_angle = body.rotation().angle_to(&wish_angle);
+                            body.apply_torque(current_angle.signum(), true);
+                        }
+                    }
+                }
+            } else {
+
+            }
+        }
+    }
 }
 // impl Default for Battlescape {
 //     fn default() -> Self {
@@ -249,8 +284,8 @@ impl Battlescape {
 
 #[test]
 fn a() {
-    let f = -0.5f32;
-    let u = (f * (u16::MAX / 2) as f32 + (u16::MAX / 2) as f32) as u16;
-    let fc = u as f32 / (u16::MAX / 2) as f32 - 1.0;
-    println!("{} {} {}", f, u, fc);
+    use glam::Vec2;
+    let b = UnitComplex::rotation_between(&vector![0.0, -1.0], &vector![1.0, -0.0]);
+    let a = vector![0.0, -1.0].angle(&vector![-10.0, 0.0]);
+    println!("{}", b);
 }
