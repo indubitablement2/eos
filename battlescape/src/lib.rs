@@ -42,17 +42,21 @@ impl BattlescapeCommandsQueue {
 }
 
 pub struct BattlescapeShip {
-    player: u16,
+    player_id: u16,
+    controlled: bool,
     body_handle: RigidBodyHandle,
 }
 
 pub struct HumanPlayer {
-    ship_control: Option<usize>,
+    ship_control: Option<Vec<u32>>,
     player_input: PlayerInput,
 }
 impl HumanPlayer {
     fn new() -> Self {
-        Self { ship_control: None, player_input: Default::default() }
+        Self {
+            ship_control: None,
+            player_input: Default::default(),
+        }
     }
 }
 
@@ -72,15 +76,15 @@ pub enum PlayerType {
 
 pub struct Player {
     player_type: PlayerType,
-    team: u16,
-    ships: Vec<u32>,
+    team_id: u16,
+    ship_idx: Vec<u32>,
 }
 impl Player {
-    fn new(player_type: PlayerType, team: u16) -> Self {
+    fn new(player_type: PlayerType, team_id: u16) -> Self {
         Self {
             player_type,
-            team,
-            ships: Vec::new(),
+            team_id,
+            ship_idx: Vec::new(),
         }
     }
 }
@@ -133,7 +137,7 @@ impl Battlescape {
         for command in self.battlescape_commands_queue.get_next(self.tick) {
             match command {
                 BattlescapeCommand::SpawnShip(cmd) => {
-                    debug_assert!(self.players.len() > cmd.player as usize);
+                    debug_assert!(self.players.len() > cmd.player_id as usize);
 
                     let body_handle = self.bodies.insert(RigidBodyBuilder::new_dynamic().build());
                     self.colliders.insert_with_parent(
@@ -142,7 +146,8 @@ impl Battlescape {
                         &mut self.bodies,
                     );
                     self.ships.push(BattlescapeShip {
-                        player: cmd.player,
+                        player_id: cmd.player_id,
+                        controlled: false,
                         body_handle,
                     });
                 }
@@ -155,7 +160,7 @@ impl Battlescape {
                         PlayerType::AiPlayer(AiPlayer::new())
                     };
 
-                    let team = cmd.team.unwrap_or_else(|| {
+                    let team = cmd.team_id.unwrap_or_else(|| {
                         // Create a new team.
                         self.teams.push(vec![player_id]);
                         self.teams.len() as u16 - 1
@@ -166,13 +171,58 @@ impl Battlescape {
                     self.players.push(player);
                 }
                 BattlescapeCommand::PlayerInput(cmd) => {
-                    let player = &mut self.players[cmd.player as usize];
+                    let player = &mut self.players[cmd.player_id as usize];
                     let player = if let PlayerType::HumanPlayer(player) = &mut player.player_type {
                         player
                     } else {
                         continue;
                     };
                     player.player_input = cmd.player_input;
+                }
+                BattlescapeCommand::PlayerControlShip(cmd) => {
+                    let human_player =
+                        if let Some(player) = self.players.get_mut(cmd.player_id as usize) {
+                            if let PlayerType::HumanPlayer(human_player) = &mut player.player_type {
+                                human_player
+                            } else {
+                                continue;
+                            }
+                        } else {
+                            continue;
+                        };
+
+                    // Set the previously controlled ships back to false.
+                    if let Some(ship_idx) = &human_player.ship_control {
+                        for ship_id in ship_idx.iter() {
+                            self.ships[*ship_id as usize].controlled = false;
+                        }
+                    }
+
+                    // Filter out ships that are not owned by the player.
+                    let ship_idx = if let Some(ship_idx) = &cmd.ship_idx {
+                        Some(
+                            ship_idx
+                                .iter()
+                                .filter(|&&ship_id| {
+                                    if let Some(ship) = self.ships.get_mut(ship_id as usize) {
+                                        if ship.player_id == cmd.player_id {
+                                            ship.controlled = true;
+                                            true
+                                        } else {
+                                            false
+                                        }
+                                    } else {
+                                        false
+                                    }
+                                })
+                                .copied()
+                                .collect(),
+                        )
+                    } else {
+                        None
+                    };
+
+                    human_player.ship_control = ship_idx;
                 }
             }
         }
