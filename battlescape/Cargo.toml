@@ -12,7 +12,7 @@ common = { path = "../common" }
 bevy_ecs = "0.6.0"
 
 rand = { version = "0.8.4", features = ["nightly", "simd_support"] }
-rand_xoshiro = "0.6.0"
+rand_xoshiro = {version = "0.6.0", features = ["serde1"]}
 weighted_rand = "0.3.2"
 
 crossbeam = "0.8.1"

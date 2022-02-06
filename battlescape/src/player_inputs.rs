@@ -1,5 +1,5 @@
-use std::f32::consts::TAU;
 use serde::{Deserialize, Serialize};
+use std::f32::consts::TAU;
 
 #[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
 pub enum WishRot {
@@ -11,9 +11,9 @@ pub enum WishRot {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct PlayerInput {
-    /// If `wish_rot.1` is nan detecmine if this is relative relative force
+    /// If `wish_rot.1` is nan determine if this is relative a relative force
     /// or a world position.
-    /// 
+    ///
     /// The direction (left/right) and force or
     /// the world position to face wanted to rotate the ship.
     wish_rot: (f32, f32),
@@ -22,7 +22,7 @@ pub struct PlayerInput {
 }
 
 impl PlayerInput {
-    /// Returned value is garanty to be valid (not nan or force above 1.0).
+    /// Returned value is garanty to be valid (not nan or force above 1.0 / less than 0.0).
     pub fn uncompressed_wish_rot(&self) -> WishRot {
         if self.wish_rot.0.is_nan() {
             WishRot::Relative(0.0)
@@ -38,9 +38,7 @@ impl PlayerInput {
             WishRot::Relative(r) => {
                 self.wish_rot = (r, f32::NAN);
             }
-            WishRot::FaceWorldPositon(x, y) => {
-                self.wish_rot = (x, y)
-            }
+            WishRot::FaceWorldPositon(x, y) => self.wish_rot = (x, y),
         }
     }
 
@@ -48,7 +46,7 @@ impl PlayerInput {
     pub fn uncompress_wish_dir(&self) -> (f32, f32) {
         (
             self.wish_dir.0 as f32 / u16::MAX as f32 * TAU,
-            self.wish_dir.1 as f32 / u8::MAX as f32
+            self.wish_dir.1 as f32 / u8::MAX as f32,
         )
     }
 
@@ -82,7 +80,8 @@ fn test_player_input() {
     }
 
     for _ in 0..1000 {
-        let a = WishRot::FaceWorldPositon(rng.gen_range(-128.0..128.0), rng.gen_range(-128.0..128.0));
+        let a =
+            WishRot::FaceWorldPositon(rng.gen_range(-128.0..128.0), rng.gen_range(-128.0..128.0));
         i.compress_wish_rot(a);
         assert!(i.uncompressed_wish_rot().eq(&a));
     }

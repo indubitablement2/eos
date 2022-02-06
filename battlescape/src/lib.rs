@@ -1,3 +1,5 @@
+#![feature(slice_as_chunks)]
+
 pub mod commands;
 pub mod player_inputs;
 
@@ -5,9 +7,11 @@ pub mod player_inputs;
 extern crate log;
 extern crate nalgebra as na;
 
+use bincode::Options;
 use commands::BattlescapeCommand;
 use na::UnitComplex;
 use player_inputs::PlayerInput;
+use rand::SeedableRng;
 use rand_xoshiro::Xoshiro128StarStar;
 use rapier2d::prelude::*;
 use serde::{self, Deserialize, Serialize};
@@ -20,15 +24,16 @@ pub struct BattlescapeCommandsQueue {
     next_commands_index: usize,
 }
 impl BattlescapeCommandsQueue {
-    // fn push_command(&mut self, command: BattlescapeCommand, tick: u32){
-    //     debug_assert!(if let Some((last_tick, _)) = self.commands.last() {
-    //         *last_tick <= tick
-    //     } else {
-    //         true
-    //     });
+    pub fn push_command(&mut self, commands: &[BattlescapeCommand], tick: u32) {
+        if self.num_command.len() as u32 <= tick {
+            self.num_command.resize(tick as usize + 1, 0);
+        }
+        if let Some(num) = self.num_command.get_mut(tick as usize) {
+            *num += commands.len() as u16;
+        }
 
-    //     self.commands.push((tick, command));
-    // }
+        self.commands.extend_from_slice(commands);
+    }
 
     /// Return the commands queued for this tick if any.
     fn get_next(&mut self, tick: u32) -> &[BattlescapeCommand] {
@@ -39,12 +44,14 @@ impl BattlescapeCommandsQueue {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct BattlescapeShip {
     player_id: u16,
     controlled: bool,
     body_handle: RigidBodyHandle,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct HumanPlayer {
     ship_control: Option<Vec<u32>>,
     player_input: PlayerInput,
@@ -58,6 +65,7 @@ impl HumanPlayer {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct AiPlayer {
     beep_boop: bool,
 }
@@ -67,11 +75,13 @@ impl AiPlayer {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum PlayerType {
     HumanPlayer(HumanPlayer),
     AiPlayer(AiPlayer),
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Player {
     player_type: PlayerType,
     team_id: u16,
@@ -87,6 +97,7 @@ impl Player {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Battlescape {
     bound: f32,
     tick: u32,
@@ -99,7 +110,9 @@ pub struct Battlescape {
 
     rng: Xoshiro128StarStar,
 
+    #[serde(skip)]
     physics_pipeline: PhysicsPipeline,
+    #[serde(skip)]
     integration_parameters: IntegrationParameters,
     islands: IslandManager,
     broad_phase: BroadPhase,
@@ -129,6 +142,14 @@ impl Battlescape {
         );
 
         self.tick += 1;
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        bincode::DefaultOptions::new().serialize(self).unwrap_or_default()
+    }
+
+    pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
+        bincode::DefaultOptions::new().deserialize(bytes)
     }
 
     /// Apply commands for the current tick if any.
@@ -251,7 +272,10 @@ impl Battlescape {
                         }
                         player_inputs::WishRot::FaceWorldPositon(x, y) => {
                             let wish_angle_cart = (vector![x, y] - *body.translation()).normalize();
-                            let wish_angle = UnitComplex::from_cos_sin_unchecked(wish_angle_cart.x, wish_angle_cart.y);
+                            let wish_angle = UnitComplex::from_cos_sin_unchecked(
+                                wish_angle_cart.x,
+                                wish_angle_cart.y,
+                            );
                             let current_angle = body.rotation().angle_to(&wish_angle);
                             body.apply_torque(current_angle.signum(), true);
                         }
@@ -263,24 +287,55 @@ impl Battlescape {
         }
     }
 }
-// impl Default for Battlescape {
-//     fn default() -> Self {
-//         Self {
-//             bound: 512.0,
-//             tick: Default::default(),
-//             teams: Default::default(),
-//             physics_pipeline: Default::default(),
-//             integration_parameters: Default::default(),
-//             islands: IslandManager::new(),
-//             broad_phase: BroadPhase::new(),
-//             narrow_phase: NarrowPhase::new(),
-//             bodies: RigidBodySet::new(),
-//             colliders: ColliderSet::new(),
-//             joints: JointSet::new(),
-//             ccd_solver: CCDSolver::new(),
-//         }
-//     }
-// }
+impl Default for Battlescape {
+    fn default() -> Self {
+        Self {
+            bound: 512.0,
+            tick: Default::default(),
+            teams: Default::default(),
+            physics_pipeline: Default::default(),
+            integration_parameters: Default::default(),
+            islands: IslandManager::new(),
+            broad_phase: BroadPhase::new(),
+            narrow_phase: NarrowPhase::new(),
+            bodies: RigidBodySet::new(),
+            colliders: ColliderSet::new(),
+            joints: JointSet::new(),
+            ccd_solver: CCDSolver::new(),
+            battlescape_commands_queue: Default::default(),
+            players: Default::default(),
+            ships: Default::default(),
+            rng: Xoshiro128StarStar::seed_from_u64(1377),
+        }
+    }
+}
+
+pub trait HashBattlescape {
+    fn simple_hash(&self) -> u64;
+}
+impl HashBattlescape for [u8] {
+    fn simple_hash(&self) -> u64 {
+        let (chunk, remainder) = self.as_chunks();
+        chunk.into_iter().fold(0u64, |acc, x| acc.wrapping_add(u64::from_le_bytes(*x))).wrapping_add(remainder.into_iter().fold(0u64, |acc, x| acc + *x as u64))
+    }
+}
+
+#[test]
+fn test_hash() {
+    let mut bc = Battlescape::default();
+    bc.colliders.insert(ColliderBuilder::ball(1.0).build());
+    bc.colliders.insert(ColliderBuilder::ball(2.0).build());
+    let first = bc.serialize().simple_hash();
+    let mut bc = Battlescape::default();
+    bc.colliders.insert(ColliderBuilder::ball(2.0).build());
+    bc.colliders.insert(ColliderBuilder::ball(1.0).build());
+    let second = bc.serialize().simple_hash();
+    let second_second = bc.serialize().simple_hash();
+
+    println!("{} - {} / {}", first, second, second_second);
+    assert_ne!(first, second);
+    assert_eq!(second, second_second);
+}
 
 #[test]
 fn a() {
