@@ -9,6 +9,7 @@ extern crate nalgebra as na;
 
 use bincode::Options;
 use commands::BattlescapeCommand;
+use indexmap::IndexMap;
 use na::UnitComplex;
 use player_inputs::PlayerInput;
 use rand::SeedableRng;
@@ -97,7 +98,9 @@ pub struct Battlescape {
 
     teams: Vec<Vec<u16>>,
     players: Vec<Player>,
-    ships: Vec<BattlescapeShip>,
+
+    next_ship_id: u32,
+    ships: IndexMap<u32, BattlescapeShip>,
 
     rng: Xoshiro128StarStar,
 
@@ -164,11 +167,18 @@ impl Battlescape {
                         body_handle,
                         &mut self.bodies,
                     );
-                    self.ships.push(BattlescapeShip {
-                        player_id: cmd.player_id,
-                        controlled: false,
-                        body_handle,
-                    });
+
+                    let ship_id = self.next_ship_id;
+                    self.next_ship_id += 1;
+
+                    self.ships.insert(
+                        ship_id,
+                        BattlescapeShip {
+                            player_id: cmd.player_id,
+                            controlled: false,
+                            body_handle,
+                        },
+                    );
                 }
                 BattlescapeCommand::AddPlayer(cmd) => {
                     let player_id = self.players.len() as u16;
@@ -222,7 +232,7 @@ impl Battlescape {
                         ship_idx
                             .iter()
                             .filter(|&&ship_id| {
-                                if let Some(ship) = self.ships.get_mut(ship_id as usize) {
+                                if let Some(ship) = self.ships.get_mut(&ship_id) {
                                     if ship.player_id == cmd.player_id {
                                         ship.controlled = true;
                                         true
@@ -244,7 +254,7 @@ impl Battlescape {
     }
 
     fn ship_movement(&mut self) {
-        for ship in self.ships.iter_mut() {
+        for ship in self.ships.values_mut() {
             if ship.controlled {
                 let human_player = if let PlayerType::HumanPlayer(human_player) =
                     &self.players[ship.player_id as usize].player_type
@@ -300,6 +310,7 @@ impl Default for Battlescape {
             players: Default::default(),
             ships: Default::default(),
             rng: Xoshiro128StarStar::seed_from_u64(1377),
+            next_ship_id: Default::default(),
         }
     }
 }
@@ -329,7 +340,13 @@ fn test_hash() {
     let second = bc.serialize().simple_hash();
     let second_second = bc.serialize().simple_hash();
 
-    println!("{} - {} / {} - dif: {}", first, second, second_second, (first as i128 - second as i128).abs());
+    println!(
+        "{} - {} / {} - dif: {}",
+        first,
+        second,
+        second_second,
+        (first as i128 - second as i128).abs()
+    );
     assert_ne!(first, second);
     assert_eq!(second, second_second);
 }
