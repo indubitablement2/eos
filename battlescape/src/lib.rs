@@ -117,6 +117,14 @@ pub struct Battlescape {
     ccd_solver: CCDSolver,
 }
 impl Battlescape {
+    pub fn new(bound: f32, seed: u64) -> Self {
+        Self {
+            bound,
+            rng: Xoshiro128StarStar::seed_from_u64(seed),
+            ..Default::default()
+        }
+    }
+
     pub fn update(&mut self) {
         self.apply_commands();
         self.ship_movement();
@@ -138,6 +146,11 @@ impl Battlescape {
         self.tick += 1;
     }
 
+    pub fn push_commands(&mut self, commands: &[BattlescapeCommand], tick: u32) {
+        assert!(self.tick <= tick, "Can not push commands for a previous tick.");
+        self.battlescape_commands_queue.push_commands(commands, tick)
+    }
+
     pub fn serialize(&self) -> Vec<u8> {
         bincode::DefaultOptions::new()
             .serialize(self)
@@ -146,6 +159,11 @@ impl Battlescape {
 
     pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
         bincode::DefaultOptions::new().deserialize(bytes)
+    }
+
+    /// Get a reference to the battlescape's ships.
+    pub fn ships(&self) -> &IndexMap<u32, BattlescapeShip> {
+        &self.ships
     }
 
     /// Apply commands for the current tick if any.
