@@ -3,8 +3,8 @@
 pub mod commands;
 pub mod player_inputs;
 
-#[macro_use]
-extern crate log;
+// #[macro_use]
+// extern crate log;
 extern crate nalgebra as na;
 
 use bincode::Options;
@@ -18,29 +18,20 @@ use serde::{self, Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BattlescapeCommandsQueue {
-    commands: Vec<BattlescapeCommand>,
-    num_command: Vec<u16>,
-    #[serde(skip)]
-    next_commands_index: usize,
+    commands: Vec<Vec<BattlescapeCommand>>,
 }
 impl BattlescapeCommandsQueue {
-    pub fn push_command(&mut self, commands: &[BattlescapeCommand], tick: u32) {
-        if self.num_command.len() as u32 <= tick {
-            self.num_command.resize(tick as usize + 1, 0);
-        }
-        if let Some(num) = self.num_command.get_mut(tick as usize) {
-            *num += commands.len() as u16;
+    pub fn push_commands(&mut self, commands: &[BattlescapeCommand], tick: u32) {
+        if self.commands.len() as u32 <= tick {
+            self.commands.resize(tick as usize + 1, Vec::new());
         }
 
-        self.commands.extend_from_slice(commands);
+        self.commands[tick as usize].extend_from_slice(commands);
     }
 
     /// Return the commands queued for this tick if any.
-    fn get_next(&mut self, tick: u32) -> &[BattlescapeCommand] {
-        let num_command = self.num_command[tick as usize] as usize;
-        let slice = &self.commands[self.next_commands_index..num_command];
-        self.next_commands_index += num_command;
-        slice
+    fn get_next(&mut self, tick: u32) -> Option<&Vec<BattlescapeCommand>> {
+        self.commands.get(tick as usize)
     }
 }
 
@@ -145,7 +136,9 @@ impl Battlescape {
     }
 
     pub fn serialize(&self) -> Vec<u8> {
-        bincode::DefaultOptions::new().serialize(self).unwrap_or_default()
+        bincode::DefaultOptions::new()
+            .serialize(self)
+            .unwrap_or_default()
     }
 
     pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
@@ -154,7 +147,13 @@ impl Battlescape {
 
     /// Apply commands for the current tick if any.
     fn apply_commands(&mut self) {
-        for command in self.battlescape_commands_queue.get_next(self.tick) {
+        let commands = if let Some(commands) = self.battlescape_commands_queue.get_next(self.tick) {
+            commands
+        } else {
+            return;
+        };
+
+        for command in commands {
             match command {
                 BattlescapeCommand::SpawnShip(cmd) => {
                     debug_assert!(self.players.len() > cmd.player_id as usize);
@@ -219,28 +218,24 @@ impl Battlescape {
                     }
 
                     // Filter out ships that are not owned by the player.
-                    let ship_idx = if let Some(ship_idx) = &cmd.ship_idx {
-                        Some(
-                            ship_idx
-                                .iter()
-                                .filter(|&&ship_id| {
-                                    if let Some(ship) = self.ships.get_mut(ship_id as usize) {
-                                        if ship.player_id == cmd.player_id {
-                                            ship.controlled = true;
-                                            true
-                                        } else {
-                                            false
-                                        }
+                    let ship_idx = cmd.ship_idx.as_ref().map(|ship_idx| {
+                        ship_idx
+                            .iter()
+                            .filter(|&&ship_id| {
+                                if let Some(ship) = self.ships.get_mut(ship_id as usize) {
+                                    if ship.player_id == cmd.player_id {
+                                        ship.controlled = true;
+                                        true
                                     } else {
                                         false
                                     }
-                                })
-                                .copied()
-                                .collect(),
-                        )
-                    } else {
-                        None
-                    };
+                                } else {
+                                    false
+                                }
+                            })
+                            .copied()
+                            .collect()
+                    });
 
                     human_player.ship_control = ship_idx;
                 }
@@ -282,7 +277,6 @@ impl Battlescape {
                     }
                 }
             } else {
-
             }
         }
     }
@@ -316,7 +310,10 @@ pub trait HashBattlescape {
 impl HashBattlescape for [u8] {
     fn simple_hash(&self) -> u64 {
         let (chunk, remainder) = self.as_chunks();
-        chunk.into_iter().fold(0u64, |acc, x| acc.wrapping_add(u64::from_le_bytes(*x))).wrapping_add(remainder.into_iter().fold(0u64, |acc, x| acc + *x as u64))
+        chunk
+            .iter()
+            .fold(0u64, |acc, x| acc.wrapping_add(u64::from_le_bytes(*x)))
+            .wrapping_add(remainder.iter().fold(0u64, |acc, x| acc + *x as u64))
     }
 }
 
@@ -332,15 +329,15 @@ fn test_hash() {
     let second = bc.serialize().simple_hash();
     let second_second = bc.serialize().simple_hash();
 
-    println!("{} - {} / {}", first, second, second_second);
+    println!("{} - {} / {} - dif: {}", first, second, second_second, (first as i128 - second as i128).abs());
     assert_ne!(first, second);
     assert_eq!(second, second_second);
 }
 
-#[test]
-fn a() {
-    use glam::Vec2;
-    let b = UnitComplex::rotation_between(&vector![0.0, -1.0], &vector![1.0, -0.0]);
-    let a = vector![0.0, -1.0].angle(&vector![-10.0, 0.0]);
-    println!("{}", b);
-}
+// #[test]
+// fn a() {
+//     use glam::Vec2;
+//     let b = UnitComplex::rotation_between(&vector![0.0, -1.0], &vector![1.0, -0.0]);
+//     let a = vector![0.0, -1.0].angle(&vector![-10.0, 0.0]);
+//     println!("{}", b);
+// }
