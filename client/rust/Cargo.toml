@@ -11,6 +11,7 @@ crate-type = ["cdylib", "staticlib"]
 log = { version = "0.4.14", features = ["release_max_level_off"] }
 
 common = { path = "../../common" }
+battlescape = { path = "../../battlescape"}
 
 gdnative = { git = "https://github.com/godot-rust/godot-rust.git" }
 bevy_ecs = "0.6.0"
