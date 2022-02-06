@@ -147,8 +147,12 @@ impl Battlescape {
     }
 
     pub fn push_commands(&mut self, commands: &[BattlescapeCommand], tick: u32) {
-        assert!(self.tick <= tick, "Can not push commands for a previous tick.");
-        self.battlescape_commands_queue.push_commands(commands, tick)
+        assert!(
+            self.tick <= tick,
+            "Can not push commands for a previous tick."
+        );
+        self.battlescape_commands_queue
+            .push_commands(commands, tick)
     }
 
     pub fn serialize(&self) -> Vec<u8> {
