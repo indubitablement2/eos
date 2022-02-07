@@ -3,7 +3,11 @@ use std::ops::{Index, IndexMut};
 use ahash::AHashSet;
 use serde::{Deserialize, Serialize};
 
-use crate::{factions::*, systems::System, ships::{ShipBase, WeaponBase}};
+use crate::{
+    factions::*,
+    ships::{ShipBase, WeaponBase},
+    systems::System,
+};
 
 /// Never recycled.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

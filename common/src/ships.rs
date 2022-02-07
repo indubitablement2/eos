@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
 use crate::idx::{ShipBaseId, WeaponBaseId};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShipState {
@@ -39,7 +39,7 @@ pub enum WeaponSize {
     Light,
     Medium,
     Heavy,
-    Experimental
+    Experimental,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,9 +69,15 @@ impl Default for Bases {
                 },
             ],
             weapons: vec![
-                WeaponBase { name: "Pee shooter".to_string(), size: WeaponSize::Light },
-                WeaponBase { name: "Potato laucher".to_string(), size: WeaponSize::Medium },
-            ]
+                WeaponBase {
+                    name: "Pee shooter".to_string(),
+                    size: WeaponSize::Light,
+                },
+                WeaponBase {
+                    name: "Potato laucher".to_string(),
+                    size: WeaponSize::Medium,
+                },
+            ],
         }
     }
 }

@@ -1,4 +1,5 @@
 use crate::{idx::*, orbit::Orbit};
+use bincode::Options;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -98,7 +99,10 @@ impl Display for DisconnectedReasonEnum {
         match self {
             DisconnectedReasonEnum::InvalidPacket => write!(f, "Server received an invalid packet."),
             DisconnectedReasonEnum::ConnectionFromOther => write!(f, "Someone else connected on the same account."),
-            DisconnectedReasonEnum::ServerError => write!(f, "The server has encountered a fatal error through no fault of the client."),
+            DisconnectedReasonEnum::ServerError => write!(
+                f,
+                "The server has encountered a fatal error through no fault of the client."
+            ),
         }
     }
 }
@@ -138,10 +142,10 @@ pub enum Packet {
 }
 impl Packet {
     pub fn serialize(&self) -> Vec<u8> {
-        bincode::serialize(self).unwrap_or_default()
+        bincode::DefaultOptions::new().serialize(self).unwrap_or_default()
     }
 
     pub fn deserialize(buffer: &[u8]) -> Self {
-        bincode::deserialize::<Self>(buffer).unwrap_or_default()
+        bincode::DefaultOptions::new().deserialize(buffer).unwrap_or_default()
     }
 }
