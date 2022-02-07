@@ -288,12 +288,12 @@ impl Battlescape {
 
                 if let Some(body) = self.bodies.get_mut(ship.body_handle) {
                     // Apply wish dir.
-                    let wish_dir = human_player.player_input.uncompress_wish_dir();
+                    let wish_dir = human_player.player_input.get_wish_dir();
                     let force = UnitComplex::new(wish_dir.0) * vector![wish_dir.1, 0.0];
                     body.apply_force(force, true);
 
                     // Apply wish rot.
-                    match human_player.player_input.uncompressed_wish_rot() {
+                    match human_player.player_input.get_wish_rot() {
                         player_inputs::WishRot::Relative(f) => {
                             body.apply_torque(f, true);
                         }

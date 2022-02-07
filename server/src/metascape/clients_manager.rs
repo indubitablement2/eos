@@ -76,8 +76,10 @@ impl ClientsManager {
 
                     // Send message to old client explaining why he got disconnected.
                     old_connection.send_packet_reliable(
-                        Packet::DisconnectedReason(DisconnectedReasonEnum::ConnectionFromOther)
-                            .serialize(),
+                        ServerPacket::DisconnectedReason(
+                            DisconnectedReasonEnum::ConnectionFromOther,
+                        )
+                        .serialize(),
                     );
                     old_connection.flush_tcp_stream();
 

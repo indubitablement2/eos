@@ -1,8 +1,8 @@
 use common::{
     idx::ClientId,
-    net::tcp_loops::*,
+    net::{tcp_loops::*, packets::ClientPacket},
     net::*,
-    net::{login_packets::*, packets::Packet},
+    net::{login_packets::*},
     Version,
 };
 use std::net::{Ipv6Addr, SocketAddrV6};
@@ -92,7 +92,7 @@ pub struct ConnectionManager {
     inbound_receiver: crossbeam::channel::Receiver<Vec<u8>>,
 }
 impl ConnectionManager {
-    pub fn send(&self, packet: &Packet) -> bool {
+    pub fn send(&self, packet: &ClientPacket) -> bool {
         self.tcp_outbound_event_sender
             .blocking_send(TcpOutboundEvent::PacketEvent(packet.serialize()))
             .is_ok()

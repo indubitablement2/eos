@@ -170,30 +170,29 @@ impl Metascape {
         // Handle server packets.
         loop {
             match self.connection_manager.try_recv() {
-                Ok(packet) => match Packet::deserialize(&packet) {
-                    Packet::BattlescapeCommands(new_commands) => todo!(),
-                    Packet::EntitiesState(new_states) => {
+                Ok(packet) => match ServerPacket::deserialize(&packet) {
+                    ServerPacket::Invalid => {
+                        warn!("Received an invalid packet from the server. Quitting...");
+                        quit = true;
+                        break;
+                    }
+                    ServerPacket::BattlescapeCommands(new_commands) => todo!(),
+                    ServerPacket::EntitiesState(new_states) => {
                         self.max_tick = self.max_tick.max(new_states.tick);
 
                         self.entities_state_buffer.push(new_states);
                     }
-                    Packet::EntitiesInfo(new_infos) => {
+                    ServerPacket::EntitiesInfo(new_infos) => {
                         self.entities_info_buffer.push(new_infos);
                     }
-                    Packet::DisconnectedReason(reason) => {
+                    ServerPacket::DisconnectedReason(reason) => {
                         debug!("Disconnected from the server. {}", reason);
                         // TODO: Send message to console.
                         quit = true;
                         break;
                     }
-                    Packet::EntitiesRemove(new_remove) => {
+                    ServerPacket::EntitiesRemove(new_remove) => {
                         self.entities_remove_buffer.push(new_remove);
-                    }
-                    Packet::Message { origin, content } => todo!(),
-                    _ => {
-                        warn!("Received an invalid packet from the server. Quitting...");
-                        quit = true;
-                        break;
                     }
                 },
                 Err(err) => {
@@ -317,7 +316,7 @@ impl Metascape {
 
         // Handle client inputs.
         if player_inputs.primary {
-            let packet = Packet::MetascapeWishPos {
+            let packet = ClientPacket::MetascapeWishPos {
                 wish_pos: player_inputs.global_mouse_position,
                 movement_multiplier: 1.0,
             };

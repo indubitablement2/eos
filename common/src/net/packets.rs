@@ -1,40 +1,13 @@
 use crate::{idx::*, orbit::Orbit};
+use battlescape::{commands::BattlescapeCommand, player_inputs::PlayerInput};
 use bincode::Options;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BattlescapeInput {
-    /// Toggle firing selected weapon group.
-    pub fire_toggle: bool,
-    /// The angle of the capital ship wish direction.
-    pub wish_dir: f32,
-    /// The angle of the capital ship's selected weapons wish direction.
-    pub aim_dir: f32,
-    /// The absolute force of the capital ship wish direction.
-    pub wish_dir_force: f32,
-}
-impl Default for BattlescapeInput {
-    fn default() -> Self {
-        Self {
-            fire_toggle: false,
-            wish_dir: 0.0,
-            aim_dir: 0.0,
-            wish_dir_force: 0.0,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BattlescapeCommand {
-    pub tick: u16,
-    pub clients_inputs: Vec<BattlescapeInput>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BattlescapeCommands {
-    pub commands: Vec<BattlescapeCommand>,
+    pub commands: Vec<(u32, Vec<BattlescapeCommand>)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,7 +81,7 @@ impl Display for DisconnectedReasonEnum {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub enum Packet {
+pub enum ServerPacket {
     /// Could not deserialize/serialize packet.
     #[default]
     Invalid,
@@ -123,24 +96,32 @@ pub enum Packet {
     EntitiesRemove(EntitiesRemove),
     /// Server send the reason why it disconnected the client.
     DisconnectedReason(DisconnectedReasonEnum),
+}
+impl ServerPacket {
+    pub fn serialize(&self) -> Vec<u8> {
+        bincode::DefaultOptions::new().serialize(self).unwrap_or_default()
+    }
 
-    Message {
-        /// Invalid ClientId means the origin is the server.
-        origin: ClientId,
-        content: String,
-    },
+    pub fn deserialize(buffer: &[u8]) -> Self {
+        bincode::DefaultOptions::new().deserialize(buffer).unwrap_or_default()
+    }
+}
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum ClientPacket {
+    /// Could not deserialize/serialize packet.
+    #[default]
+    Invalid,
     /// Client send this when he wants his fleet to move to a position.
     MetascapeWishPos { wish_pos: Vec2, movement_multiplier: f32 },
-    /// Client send his battlescape inputs and last acknowledged commands.
     BattlescapeInput {
-        wish_input: BattlescapeInput,
-        /// The last Battlescape command the client acknowledge to have received.
-        /// All commands before are implicitly acknowledged and will not be resent be the server.
-        last_acknowledge_command: u16,
+        wish_input: PlayerInput,
+        /// The last Battlescape commands the client acknowledge to have received.
+        /// All commands before are implicitely acknowledged and will not be resent be the server.
+        last_acknowledge_command: u32,
     },
 }
-impl Packet {
+impl ClientPacket {
     pub fn serialize(&self) -> Vec<u8> {
         bincode::DefaultOptions::new().serialize(self).unwrap_or_default()
     }

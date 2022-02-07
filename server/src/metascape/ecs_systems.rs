@@ -291,22 +291,8 @@ fn handle_client_inputs(
             if let Some(connection) = clients_manager.get_connection(wrapped_client_id.id()) {
                 loop {
                     match connection.try_recv() {
-                        Ok(payload) => match Packet::deserialize(&payload) {
-                            Packet::Message { origin, content } => {
-                                // TODO: Broadcast the message.
-                            }
-                            Packet::MetascapeWishPos { wish_pos, movement_multiplier } => {
-                                if intercepted.is_none() {
-                                    wish_position.set_wish_position(wish_pos, movement_multiplier.clamp(0.1, 1.0));
-                                }
-                            }
-                            Packet::BattlescapeInput {
-                                wish_input,
-                                last_acknowledge_command,
-                            } => {
-                                // TODO: Handle battlescape inputs.
-                            }
-                            _ => {
+                        Ok(payload) => match ClientPacket::deserialize(&payload) {
+                            ClientPacket::Invalid => {
                                 debug!(
                                     "{:?} sent an invalid packet. Disconnecting...",
                                     wrapped_client_id.id()
@@ -314,11 +300,28 @@ fn handle_client_inputs(
                                 event_client_disconnected.push(ClientDisconnected {
                                     client_id: wrapped_client_id.id(),
                                     fleet_entity: entity,
-                                    send_packet: Some(Packet::DisconnectedReason(
+                                    send_packet: Some(ServerPacket::DisconnectedReason(
                                         DisconnectedReasonEnum::InvalidPacket,
                                     )),
                                 });
                                 break;
+                            }
+                            ClientPacket::MetascapeWishPos {
+                                wish_pos,
+                                movement_multiplier,
+                            } => {
+                                if intercepted.is_none() {
+                                    wish_position.set_wish_position(
+                                        wish_pos,
+                                        movement_multiplier.clamp(0.1, 1.0),
+                                    );
+                                }
+                            }
+                            ClientPacket::BattlescapeInput {
+                                wish_input,
+                                last_acknowledge_command,
+                            } => {
+                                // TODO: Handle battlescape inputs.
                             }
                         },
                         Err(err) => {
@@ -735,10 +738,10 @@ fn apply_fleet_movement(
                     // Add orbit as this entity has no velocity.
                     let orbit = if let Some(system_id) = in_system.0 {
                         let system = &systems.systems[system_id];
-        
+
                         let relative_position = position.0 - system.position;
                         let distance = relative_position.length();
-        
+
                         let mut orbit_speed = 0.0;
                         // Check if there is a body nearby we should copy its orbit speed.
                         system.planets.iter().fold(999.0f32, |closest, planet| {
@@ -750,14 +753,14 @@ fn apply_fleet_movement(
                                 closest
                             }
                         });
-        
+
                         Orbit::from_relative_position(
-                                relative_position,
-                                timef,
-                                system.position,
-                                distance,
-                                orbit_speed,
-                            )
+                            relative_position,
+                            timef,
+                            system.position,
+                            distance,
+                            orbit_speed,
+                        )
                     } else {
                         // Add a stationary orbit.
                         Orbit::stationary(position.0)
@@ -1003,7 +1006,7 @@ fn send_detected_entity(
                 for temp_id in to_remove.iter() {
                     know_entities.recycle_id(temp_id.to_owned());
                 }
-                let packet = Packet::EntitiesRemove(EntitiesRemove {
+                let packet = ServerPacket::EntitiesRemove(EntitiesRemove {
                     tick: time.tick,
                     to_remove,
                 })
@@ -1043,7 +1046,7 @@ fn send_detected_entity(
                 }
 
                 // Send entities info.
-                let packet = Packet::EntitiesInfo(EntitiesInfo {
+                let packet = ServerPacket::EntitiesInfo(EntitiesInfo {
                     tick: time.tick,
                     client_info,
                     infos,
@@ -1053,7 +1056,7 @@ fn send_detected_entity(
 
                 // Send entities state.
                 // TODO: Limit the number of entity to not go over packet size limit.
-                let packet = Packet::EntitiesState(EntitiesState {
+                let packet = ServerPacket::EntitiesState(EntitiesState {
                     tick: time.tick,
                     client_entity_position: position.0,
                     relative_entities_position: know_entities
@@ -1099,7 +1102,7 @@ fn event_handler_fleet_destroyed(
                 event_client_disconnected.push(ClientDisconnected {
                     client_id,
                     fleet_entity: event.entity,
-                    send_packet: Some(Packet::DisconnectedReason(
+                    send_packet: Some(ServerPacket::DisconnectedReason(
                         DisconnectedReasonEnum::ServerError,
                     )),
                 });

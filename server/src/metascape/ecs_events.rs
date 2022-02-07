@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use common::{idx::*, net::packets::Packet};
+use common::{idx::*, net::packets::ServerPacket};
 
 /// Register the events.
 pub fn add_event_res(world: &mut World) {
@@ -13,7 +13,7 @@ pub struct ClientDisconnected {
     pub client_id: ClientId,
     pub fleet_entity: Entity,
     /// This can be used to try to send a packet to the client before dropping the connection.
-    pub send_packet: Option<Packet>,
+    pub send_packet: Option<ServerPacket>,
 }
 
 /// All ships from a fleet have been removed.
