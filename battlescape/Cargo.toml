@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 log = { version = "0.4.14", features = ["release_max_level_off"] }
 
-common = { path = "../common" }
+# common = { path = "../common" }
 
 bevy_ecs = "0.6.0"
 
