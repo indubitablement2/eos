@@ -104,7 +104,7 @@ impl Metascape {
         }
         let buffer = file.get_buffer(file.get_len());
         file.close();
-        let mut systems = if let Ok(mut systems) = bincode::deserialize::<Systems>(&buffer.read()) {
+        let systems = if let Ok(mut systems) = bincode::deserialize::<Systems>(&buffer.read()) {
             systems.update_all();
             systems
         } else {

@@ -32,13 +32,17 @@ impl Connection {
         }
     }
 
-    /// Send a packet to the connected peer over udp.
+    /// Send a packet to the connected with no delivery garanty.
+    /// If the packet is small enough, it is sent over udp otherwise tcp is used.
     ///
     /// Return if the packet could be sent.
-    pub fn send_packet_unreliable(&self, packet: &[u8]) -> bool {
+    pub fn send_packet_unreliable(&self, packet: Vec<u8>) -> bool {
         debug_assert!(packet.len() <= MAX_UDP_PACKET_SIZE);
-
-        self.socket.send_to(packet, self.peer_addr).is_err()
+        if packet.len() > MAX_UDP_PACKET_SIZE {
+            self.send_packet_reliable(packet)
+        } else{
+            self.socket.send_to(&packet, self.peer_addr).is_err()
+        }
     }
 
     /// Send a packet to the connected peer over tcp.

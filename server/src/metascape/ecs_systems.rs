@@ -1074,7 +1074,7 @@ fn send_detected_entity(
                 })
                 .serialize();
                 // TODO: Reuse this buffer to write entities infos.
-                connection.send_packet_unreliable(&packet);
+                connection.send_packet_unreliable(packet);
 
                 // Flush tcp buffer.
                 connection.flush_tcp_stream();
