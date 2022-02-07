@@ -7,6 +7,9 @@ pub struct CVec2 {
     pub y: u16,
 }
 impl CVec2 {
+    /// The range used for relative compressed metascape position sent by the server.
+    pub const METASCAPE_RANGE: f32 = 512.0;
+
     pub fn new(x: u16, y: u16) -> Self {
         Self { x, y }
     }

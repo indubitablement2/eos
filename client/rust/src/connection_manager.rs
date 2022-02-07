@@ -1,8 +1,8 @@
 use common::{
     idx::ClientId,
-    net::{tcp_loops::*, packets::ClientPacket},
+    net::login_packets::*,
     net::*,
-    net::{login_packets::*},
+    net::{packets::ClientPacket, tcp_loops::*},
     Version,
 };
 use std::net::{Ipv6Addr, SocketAddrV6};

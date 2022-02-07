@@ -12,6 +12,7 @@ use super::SystemsAccelerationStructure;
 use crate::server_configs::*;
 use bevy_ecs::prelude::*;
 use bevy_tasks::ComputeTaskPool;
+use common::compressed_vec2::CVec2;
 use common::factions::*;
 use common::idx::*;
 use common::intersection::*;
@@ -1064,7 +1065,7 @@ fn send_detected_entity(
                         .iter()
                         .filter_map(|(entity, temp_id)| {
                             if let Ok(entity_position) = query_state.get(*entity) {
-                                Some((*temp_id, entity_position.0 - position.0))
+                                Some((*temp_id, CVec2::from_vec2(entity_position.0 - position.0, CVec2::METASCAPE_RANGE)))
                             } else {
                                 None
                             }

@@ -1,4 +1,4 @@
-use crate::{idx::*, orbit::Orbit};
+use crate::{compressed_vec2::CVec2, idx::*, orbit::Orbit};
 use battlescape::{commands::BattlescapeCommand, player_inputs::PlayerInput};
 use bincode::Options;
 use glam::Vec2;
@@ -15,9 +15,7 @@ pub struct EntitiesState {
     pub tick: u32,
     pub client_entity_position: Vec2,
     /// Entity's id and position compressed and relative to client's position.
-    ///
-    /// TODO: Compressed to 16 + 32 bits
-    pub relative_entities_position: Vec<(u16, Vec2)>,
+    pub relative_entities_position: Vec<(u16, CVec2)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

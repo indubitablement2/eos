@@ -4,6 +4,7 @@ use crate::constants::*;
 use crate::input_handler::PlayerInputs;
 use crate::util::*;
 use ahash::AHashMap;
+use common::compressed_vec2::CVec2;
 use common::factions::*;
 use common::idx::*;
 use common::intersection::*;
@@ -302,10 +303,10 @@ impl Metascape {
             self.client_state.update(state.tick, state.client_entity_position);
 
             // Update each entities position.
-            for (id, mut position) in state.relative_entities_position.into_iter() {
+            for (id, position) in state.relative_entities_position.into_iter() {
                 if let Some(entity) = self.entities_state.get_mut(&id) {
-                    // Convert to world position.
-                    position += state.client_entity_position;
+                    // Convert from compressed relative position to world position.
+                    let position = position.to_vec2(CVec2::METASCAPE_RANGE) + state.client_entity_position;
                     entity.update(state.tick, position);
                 } else {
                     // Create new entity.
