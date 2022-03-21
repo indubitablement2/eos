@@ -5,7 +5,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BattlescapeCommands {
     pub commands: Vec<(u32, Vec<BattlescapeCommand>)>,
 }

@@ -2,6 +2,8 @@
 
 pub mod commands;
 pub mod player_inputs;
+pub mod replay;
+pub mod state_init;
 
 // #[macro_use]
 // extern crate log;
@@ -15,7 +17,9 @@ use player_inputs::PlayerInput;
 use rand::SeedableRng;
 use rand_xoshiro::Xoshiro128StarStar;
 use rapier2d::prelude::*;
+use replay::BattlescapeReplay;
 use serde::{self, Deserialize, Serialize};
+use state_init::BattlescapeInitialState;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BattlescapeCommandsQueue {
@@ -117,12 +121,18 @@ pub struct Battlescape {
     ccd_solver: CCDSolver,
 }
 impl Battlescape {
-    pub fn new(bound: f32, seed: u64) -> Self {
+    pub fn new(battlescape_initial_state: BattlescapeInitialState) -> Self {
         Self {
-            bound,
-            rng: Xoshiro128StarStar::seed_from_u64(seed),
+            bound: battlescape_initial_state.bound,
+            rng: Xoshiro128StarStar::seed_from_u64(battlescape_initial_state.seed),
             ..Default::default()
         }
+    }
+
+    pub fn new_from_replay(battlescape_replay: &BattlescapeReplay) -> Self {
+        let mut battlescape = Battlescape::new(battlescape_replay.battlescape_initial_state);
+        battlescape.battlescape_commands_queue = battlescape_replay.battlescape_commands_queue.to_owned();
+        battlescape
     }
 
     pub fn update(&mut self) {

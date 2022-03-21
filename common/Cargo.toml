@@ -8,7 +8,7 @@ log = { version = "0.4.14" }
 
 battlescape = { path = "../battlescape"}
 
-serde = { version = "1.0.133", features = ["derive"] }
+serde = { version = "1.0.136", features = ["derive"] }
 bincode = "1.3.3"
 serde_yaml = "0.8.23"
 # serde_json = "1.0.69"
@@ -22,5 +22,5 @@ ahash = {version = "0.7.6", features = ["serde"] }
 rand = { version = "0.8.4", features = ["nightly", "simd_support"] }
 rand_xoshiro = "0.6.0"
 
-tokio = { version = "1.15.0", features = ["full"] }
+tokio = { version = "1.16.1", features = ["full"] }
 crossbeam = "0.8.1"

@@ -1,14 +1,20 @@
 use super::ecs_components::*;
 use ahash::{AHashMap, AHashSet};
-use bevy_ecs::entity::Entity;
-use common::idx::InterceptionId;
+use bevy_ecs::{entity::Entity, system::{Commands, Query}};
+use common::idx::{InterceptionId, BattlescapeId};
 use glam::Vec2;
 use std::f32::consts::TAU;
+
+#[derive(Debug, Clone, Copy)]
+pub enum InterceptedReason {
+    Battle(BattlescapeId),
+}
 
 #[derive(Debug)]
 pub struct Interception {
     pub center: Vec2,
     pub entities: Vec<Entity>,
+    pub reason: InterceptedReason,
 }
 
 #[derive(Debug, Default)]
@@ -18,17 +24,42 @@ pub struct InterceptionManager {
     to_update: AHashSet<InterceptionId>,
 }
 impl InterceptionManager {
-    pub fn create_interception(&mut self, entities: Vec<Entity>, center: Vec2) -> InterceptionId {
-        let id = InterceptionId::from_raw(self.next_id);
-        self.next_id = self.next_id.wrapping_add(1);
+    /// Join or create an interception with the other entity.
+    /// # Panic
+    /// Both entities should be valid.
+    // pub fn join_interception(
+    //     &mut self,
+    //     commands: &mut Commands,
+    //     query_intercepted: Query<&WrappedId<InterceptionId>>,
+    //     initiator: Entity,
+    //     other: Entity,
+    //     center: Vec2,
+    //     reason: InterceptedReason
+    // ) -> InterceptionId {
+    //     debug_assert!(query_intercepted.get(initiator).is_err(), "Tryied to initiate an interception when already intercepted.");
 
-        self.interceptions
-            .insert(id, Interception { center, entities });
+    //     if let Ok(wrapped_interception_id) = query_intercepted.get(other) {
+    //         if let Some(interception) = self.get_interception_mut(wrapped_interception_id.id()) {
+    //             match interception.reason {
+    //                 InterceptedReason::Battle(battlescape_id) => {
+    //                     // Join this battlescape.
+    //                 }
+    //             }
+    //         }
+    //     } else {
+    //         // Create a new interception.
+    //     }
 
-        self.to_update.insert(id);
+    //     let id = InterceptionId::from_raw(self.next_id);
+    //     self.next_id = self.next_id.wrapping_add(1);
 
-        id
-    }
+    //     self.interceptions
+    //         .insert(id, Interception { center, entities, reason });
+
+    //     self.to_update.insert(id);
+
+    //     id
+    // }
 
     pub fn get_interception_mut(
         &mut self,

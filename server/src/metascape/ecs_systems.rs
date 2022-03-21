@@ -39,6 +39,7 @@ const UPDATE_IN_SYSTEM_INTERVAL: u64 = 20;
 enum Label {
     Movement,
     DetectedPipelineUpdate,
+    Battlescape,
 }
 
 pub fn add_systems(schedule: &mut Schedule) {
@@ -53,10 +54,15 @@ pub fn add_systems(schedule: &mut Schedule) {
 
     schedule.add_system_to_stage("", update_in_system);
 
-    schedule.add_system_to_stage("", handle_battlescape);
+    schedule.add_system_to_stage("", handle_battlescape.label(Label::Battlescape));
 
     schedule.add_system_to_stage("", handle_interceptions.before(Label::Movement));
-    schedule.add_system_to_stage("", handle_client_inputs.before(Label::Movement));
+    schedule.add_system_to_stage(
+        "",
+        handle_client_inputs
+            .before(Label::Movement)
+            .before(Label::Battlescape),
+    );
     schedule.add_system_to_stage("", colony_guard_fleet_ai.before(Label::Movement));
     schedule.add_system_to_stage("", colonist_fleet_ai.before(Label::Movement));
 
@@ -278,68 +284,68 @@ fn fleet_sensor(
 
 /// Consume and apply the client's packets.
 fn handle_client_inputs(
-    mut query: Query<(
-        Entity,
-        &WrappedId<ClientId>,
-        &mut WishPosition,
-        Option<&Intercepted>,
-    )>,
+    mut query: Query<(Entity, &WrappedId<ClientId>)>,
+    mut query_wish_position: Query<&mut WishPosition, Without<WrappedId<InterceptionId>>>,
+    mut query_battlescape_input: Query<&mut BattlescapeInputs>,
     clients_manager: Res<ClientsManager>,
     mut event_client_disconnected: ResMut<EventRes<ClientDisconnected>>,
 ) {
-    query.for_each_mut(
-        |(entity, wrapped_client_id, mut wish_position, intercepted)| {
-            if let Some(connection) = clients_manager.get_connection(wrapped_client_id.id()) {
-                loop {
-                    match connection.try_recv() {
-                        Ok(payload) => match ClientPacket::deserialize(&payload) {
-                            ClientPacket::Invalid => {
-                                debug!(
-                                    "{:?} sent an invalid packet. Disconnecting...",
-                                    wrapped_client_id.id()
-                                );
-                                event_client_disconnected.push(ClientDisconnected {
-                                    client_id: wrapped_client_id.id(),
-                                    fleet_entity: entity,
-                                    send_packet: Some(ServerPacket::DisconnectedReason(
-                                        DisconnectedReasonEnum::InvalidPacket,
-                                    )),
-                                });
-                                break;
-                            }
-                            ClientPacket::MetascapeWishPos {
-                                wish_pos,
-                                movement_multiplier,
-                            } => {
-                                if intercepted.is_none() {
-                                    wish_position.set_wish_position(
-                                        wish_pos,
-                                        movement_multiplier.clamp(0.1, 1.0),
-                                    );
-                                }
-                            }
-                            ClientPacket::BattlescapeInput {
-                                wish_input,
-                                last_acknowledge_command,
-                            } => {
-                                // TODO: Handle battlescape inputs.
-                            }
-                        },
-                        Err(err) => {
-                            if err.is_disconnected() {
-                                event_client_disconnected.push(ClientDisconnected {
-                                    client_id: wrapped_client_id.id(),
-                                    fleet_entity: entity,
-                                    send_packet: None,
-                                });
-                            }
+    query.for_each_mut(|(entity, wrapped_client_id)| {
+        if let Some(connection) = clients_manager.get_connection(wrapped_client_id.id()) {
+            loop {
+                match connection.try_recv() {
+                    Ok(payload) => match ClientPacket::deserialize(&payload) {
+                        ClientPacket::Invalid => {
+                            debug!(
+                                "{:?} sent an invalid packet. Disconnecting...",
+                                wrapped_client_id.id()
+                            );
+                            event_client_disconnected.push(ClientDisconnected {
+                                client_id: wrapped_client_id.id(),
+                                fleet_entity: entity,
+                                send_packet: Some(ServerPacket::DisconnectedReason(
+                                    DisconnectedReasonEnum::InvalidPacket,
+                                )),
+                            });
                             break;
                         }
+                        ClientPacket::MetascapeWishPos {
+                            wish_pos,
+                            movement_multiplier,
+                        } => {
+                            if let Ok(mut wish_position) = query_wish_position.get_mut(entity) {
+                                wish_position.set_wish_position(
+                                    wish_pos,
+                                    movement_multiplier.clamp(0.1, 1.0),
+                                );
+                            }
+                        }
+                        ClientPacket::BattlescapeInput {
+                            wish_input,
+                            last_acknowledge_command,
+                        } => {
+                            if let Ok(mut battlescape_input) =
+                                query_battlescape_input.get_mut(entity)
+                            {
+                                battlescape_input.acknowledge_commands(last_acknowledge_command);
+                                battlescape_input.set_player_input(wish_input);
+                            }
+                        }
+                    },
+                    Err(err) => {
+                        if err.is_disconnected() {
+                            event_client_disconnected.push(ClientDisconnected {
+                                client_id: wrapped_client_id.id(),
+                                fleet_entity: entity,
+                                send_packet: None,
+                            });
+                        }
+                        break;
                     }
                 }
             }
-        },
-    );
+        }
+    });
 }
 
 /// Change the position of entities that have an orbit.
@@ -371,9 +377,22 @@ fn handle_interceptions(
     interception_manager.update(query);
 }
 
+/// Add the client's inputs as a battlescape command.
+fn handle_client_battlescape_inputs(
+    query: Query<&BattlescapeInputs>,
+    mut battlescape_manager: ResMut<BattlescapeManager>,
+) {
+    // query.for_each(|battlescape_inputs| {
+    //     battlescape_inputs.current_battlescape_id().if
+    //     battlescape_manager.active_battlescape.get_mut(&)
+    //     battlescape_inputs.player_input()
+    // });
+}
+
 fn handle_battlescape(
     mut commands: Commands,
     mut query_fleet: Query<(&mut FleetComposition, &mut FleetState)>,
+    query_entity: Query<Entity>,
     mut battlescape_manager: ResMut<BattlescapeManager>,
     mut event_fleet_destroyed: ResMut<EventRes<FleetDestroyed>>,
     bases: Res<Bases>,
@@ -387,15 +406,14 @@ fn handle_battlescape(
     for (battlescape_id, battlescape) in battlescape_manager.active_battlescape.iter_mut() {
         battlescape.time += 1;
 
-        if battlescape.teams.len() < 2 {
+        if battlescape.teams.len() < 2 || !battlescape.auto_combat {
             if battlescape.time > 5 {
                 // Queue the battlescape to be terminated.
                 queue_terminated.push(*battlescape_id);
             }
             continue;
         }
-
-        // Simulate the battlescape.
+        // Simulate the battlescape with auto combat.
         if battlescape.time % 10 == 0 {
             while battlescape.teams.len() > 1 {
                 // Chose an attacker and a defender team.
@@ -411,9 +429,14 @@ fn handle_battlescape(
                 let attack = attacker_team
                     .into_iter()
                     .enumerate()
-                    .filter_map(|(i, entity)| {
-                        if let Ok((fleet_composition, fleet_state)) = query_fleet.get(entity) {
-                            Some(fleet_composition.compute_auto_combat_strenght(fleet_state, bases))
+                    .filter_map(|(i, player_id)| {
+                        if let Ok((fleet_composition, fleet_state)) =
+                            query_fleet.get(battlescape.players[player_id as usize])
+                        {
+                            Some(
+                                fleet_composition
+                                    .compute_auto_combat_strenght(fleet_state, bases),
+                            )
                         } else {
                             // Queue fleet to be removed from the battlescape.
                             queue_remove_fleet.push(i);
@@ -441,7 +464,8 @@ fn handle_battlescape(
                 defender_team
                     .into_iter()
                     .enumerate()
-                    .for_each(|(i, entity)| {
+                    .for_each(|(i, player_id)| {
+                        let entity = battlescape.players[player_id as usize];
                         if let Ok((mut fleet_composition, mut fleet_state)) =
                             query_fleet.get_mut(entity)
                         {
@@ -479,10 +503,11 @@ fn handle_battlescape(
             .active_battlescape
             .remove(&battlescape_id)
         {
-            for team in battlescape.teams.into_iter() {
-                for entity in team.into_iter() {
-                    commands.entity(entity).remove::<Intercepted>();
-                }
+            for entity in battlescape.players.into_iter() {
+                // TODO: Modify inteception as well.
+                // if query_entity.get(entity).is_ok() {
+                //     commands.entity(entity).remove::<Intercepted>();
+                // }
             }
         }
     }
@@ -499,9 +524,9 @@ fn colony_guard_fleet_ai(
             &mut WishPosition,
             &EntityDetected,
         ),
-        Without<Intercepted>,
+        Without<WrappedId<InterceptionId>>,
     >,
-    query_other: Query<&Position, Without<Intercepted>>,
+    query_other: Query<&Position, Without<WrappedId<InterceptionId>>>,
     mut interception_manager: ResMut<InterceptionManager>,
     mut battlescape_manager: ResMut<BattlescapeManager>,
     systems: Res<Systems>,
@@ -521,23 +546,25 @@ fn colony_guard_fleet_ai(
                     // Intercept and start a battlescape if target is close enough.
                     if target_position.0.distance_squared(position.0) < 1.0 {
                         // Create the battlescape.
-                        let battlescape_id = battlescape_manager
-                            .start_new_battlescape(vec![vec![entity], vec![target_entity]]);
+                        // let battlescape_id = battlescape_manager.join_battlescape(
+                        //     vec![entity, target_entity],
+                        //     vec![vec![0], vec![1]],
+                        // );
 
-                        // Create the intersection.
-                        let entities = vec![entity, target_entity];
-                        let center = (position.0 + target_position.0) * 0.5;
-                        let interception_id =
-                            interception_manager.create_interception(entities, center);
+                        // // Create the intersection.
+                        // let entities = vec![entity, target_entity];
+                        // let center = (position.0 + target_position.0) * 0.5;
+                        // let interception_id =
+                        //     interception_manager.create_interception(entities, center);
 
-                        commands.entity(entity).insert(Intercepted {
-                            interception_id,
-                            reason: InterceptedReason::Battle(battlescape_id),
-                        });
-                        commands.entity(target_entity).insert(Intercepted {
-                            interception_id,
-                            reason: InterceptedReason::Battle(battlescape_id),
-                        });
+                        // commands.entity(entity).insert(Intercepted {
+                        //     interception_id,
+                        //     reason: InterceptedReason::Battle(battlescape_id),
+                        // });
+                        // commands.entity(target_entity).insert(Intercepted {
+                        //     interception_id,
+                        //     reason: InterceptedReason::Battle(battlescape_id),
+                        // });
                     }
                 } else {
                     // Can not find target.
@@ -582,7 +609,7 @@ fn colonist_fleet_ai(
             &mut WishPosition,
             &Reputations,
         ),
-        Without<Intercepted>,
+        Without<WrappedId<InterceptionId>>,
     >,
     systems: Res<Systems>,
     mut colonies: ResMut<Colonies>,
@@ -621,8 +648,6 @@ fn colonist_fleet_ai(
                         );
 
                         wish_position.stop();
-
-                        debug!("Took planet.");
                     }
                 }
             } else if wish_position.target().is_none() {
@@ -1056,7 +1081,7 @@ fn send_detected_entity(
                 connection.send_packet_reliable(packet);
 
                 // Send entities state.
-                // TODO: Limit the number of entity to not go over packet size limit.
+                // TODO: Limit the number of entity to not go over packet size limit (~10000).
                 let packet = ServerPacket::EntitiesState(EntitiesState {
                     tick: time.tick,
                     client_entity_position: position.0,
@@ -1073,7 +1098,6 @@ fn send_detected_entity(
                         .collect(),
                 })
                 .serialize();
-                // TODO: Reuse this buffer to write entities infos.
                 connection.send_packet_unreliable(packet);
 
                 // Flush tcp buffer.

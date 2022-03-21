@@ -14,7 +14,7 @@ common = { path = "../../common" }
 battlescape = { path = "../../battlescape"}
 
 gdnative = { git = "https://github.com/godot-rust/godot-rust.git" }
-bevy_ecs = "0.6.0"
+# bevy_ecs = "0.6.0"
 
 rand = { version = "0.8.4", features = ["nightly", "simd_support"] }
 rand_xoshiro = "0.6.0"

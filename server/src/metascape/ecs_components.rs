@@ -1,7 +1,9 @@
 use ahash::AHashMap;
+use battlescape::player_inputs::PlayerInput;
 use bevy_ecs::prelude::*;
 use common::{
-    factions::Faction, idx::*, orbit::Orbit, reputation::Reputation, ships::*, WORLD_BOUND,
+    factions::Faction, idx::*, net::packets::BattlescapeCommands, orbit::Orbit,
+    reputation::Reputation, ships::*, WORLD_BOUND,
 };
 use glam::Vec2;
 use rand::Rng;
@@ -166,6 +168,48 @@ impl Default for KnowEntities {
     }
 }
 
+#[derive(Debug, Clone, Component)]
+pub struct BattlescapeInputs {
+    battlescape_id: BattlescapeId,
+    player_input: PlayerInput,
+    unacknowledged_commands: BattlescapeCommands,
+}
+impl BattlescapeInputs {
+    pub fn new(battlescape_id: BattlescapeId) -> Self {
+        Self {
+            battlescape_id,
+            player_input: Default::default(),
+            unacknowledged_commands: Default::default(),
+        }
+    }
+
+    /// Get a reference to the battlescape inputs's current battlescape id.
+    pub fn current_battlescape_id(&self) -> BattlescapeId {
+        self.battlescape_id
+    }
+
+    /// Set the battlescape inputs's player input.
+    pub fn set_player_input(&mut self, player_input: PlayerInput) {
+        self.player_input = player_input;
+    }
+
+    /// Get a reference to the battlescape inputs's player input.
+    pub fn player_input(&self) -> PlayerInput {
+        self.player_input
+    }
+
+    pub fn acknowledge_commands(&mut self, last_ack: u32) {
+        self.unacknowledged_commands
+            .commands
+            .drain_filter(|(tick, _)| last_ack >= *tick);
+    }
+
+    /// Get a reference to the battlescape inputs's unacknowledged commands.
+    pub fn unacknowledged_commands(&self) -> &BattlescapeCommands {
+        &self.unacknowledged_commands
+    }
+}
+
 // * Generic
 
 /// A standard position relative to the world origin.
@@ -235,16 +279,6 @@ impl Reputations {
 #[derive(Debug, Clone, Copy, Component)]
 pub struct Size {
     pub radius: f32,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum InterceptedReason {
-    Battle(BattlescapeId),
-}
-#[derive(Debug, Clone, Copy, Component)]
-pub struct Intercepted {
-    pub interception_id: InterceptionId,
-    pub reason: InterceptedReason,
 }
 
 //* Fleet
