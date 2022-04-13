@@ -9,6 +9,12 @@ pub enum WishRot {
     FaceWorldPositon(f32, f32),
 }
 
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
+pub struct WishDir {
+    pub angle: f32,
+    pub force: f32,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct PlayerInput {
     /// If `wish_rot.1` is nan determine if this is relative force
@@ -24,8 +30,16 @@ pub struct PlayerInput {
     /// Toggle firing selected weapon group.
     fire_toggle: bool,
 }
-
 impl PlayerInput {
+    pub fn set_wish_rot(&mut self, wish_rot: WishRot) {
+        match wish_rot {
+            WishRot::Relative(r) => {
+                self.wish_rot = (r, f32::NAN);
+            }
+            WishRot::FaceWorldPositon(x, y) => self.wish_rot = (x, y),
+        }
+    }
+
     /// Returned value is garanty to be valid (not nan or force above 1.0 / less than 0.0).
     pub fn get_wish_rot(&self) -> WishRot {
         if self.wish_rot.0.is_nan() {
@@ -37,32 +51,25 @@ impl PlayerInput {
         }
     }
 
-    pub fn set_wish_rot(&mut self, wish_rot: WishRot) {
-        match wish_rot {
-            WishRot::Relative(r) => {
-                self.wish_rot = (r, f32::NAN);
-            }
-            WishRot::FaceWorldPositon(x, y) => self.wish_rot = (x, y),
-        }
-    }
-
-    /// Return the angle `0.0..TAU` and force `0.0..1.0`.
-    pub fn get_wish_dir(&self) -> (f32, f32) {
-        (
-            self.wish_dir.0 as f32 / u16::MAX as f32 * TAU,
-            self.wish_dir.1 as f32 / u8::MAX as f32,
-        )
-    }
-
     pub fn set_wish_dir(&mut self, angle: f32, force: f32) {
         self.wish_dir.0 = ((angle / TAU) * u16::MAX as f32) as u16;
         self.wish_dir.1 = (force * u8::MAX as f32) as u8;
     }
 
+    /// Return the angle `0.0..TAU` and force `0.0..1.0`.
+    pub fn get_wish_dir(&self) -> WishDir {
+        WishDir {
+            angle: self.wish_dir.0 as f32 / u16::MAX as f32 * TAU,
+            force: self.wish_dir.1 as f32 / u8::MAX as f32,
+        }
+    }
+
+    /// Set the weapon aim position in world space.
     pub fn set_wish_aim(&mut self, x: f32, y: f32) {
         self.wish_aim = (x, y);
     }
 
+    /// Get the weapon aim position in world space.
     pub fn get_wish_aim(&self) -> (f32, f32) {
         if self.wish_aim.0.is_nan() || self.wish_aim.1.is_nan() {
             (0.0, 0.0)
@@ -71,13 +78,14 @@ impl PlayerInput {
         }
     }
 
-    pub fn fire_toggle(&self) -> bool {
-        self.fire_toggle
-    }
-
     /// Set the player input's fire toggle.
     pub fn set_fire_toggle(&mut self, fire_toggle: bool) {
         self.fire_toggle = fire_toggle;
+    }
+
+    /// Get the player input's fire toggle.
+    pub fn get_fire_toggle(&self) -> bool {
+        self.fire_toggle
     }
 }
 
@@ -114,10 +122,13 @@ fn test_player_input() {
     }
 
     for _ in 0..1000 {
-        let wish_dir = (rng.gen_range(0.0..TAU), rng.gen_range(0.0..1.0));
-        i.set_wish_dir(wish_dir.0, wish_dir.1);
+        let wish_dir = WishDir {
+            angle: rng.gen_range(0.0..TAU),
+            force: rng.gen_range(0.0..1.0),
+        };
+        i.set_wish_dir(wish_dir.angle, wish_dir.force);
         let r = i.get_wish_dir();
-        assert!((r.0 - wish_dir.0).abs() < 0.001);
-        assert!((r.1 - wish_dir.1).abs() < 0.01);
+        assert!((r.angle - wish_dir.angle).abs() < 0.001);
+        assert!((r.force - wish_dir.force).abs() < 0.01);
     }
 }

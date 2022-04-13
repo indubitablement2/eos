@@ -2,93 +2,49 @@
 
 pub mod commands;
 pub mod player_inputs;
-pub mod replay;
 pub mod state_init;
 
-// #[macro_use]
-// extern crate log;
 extern crate nalgebra as na;
 
+use ahash::AHashSet;
 use bincode::Options;
-use commands::BattlescapeCommand;
+use commands::{BattlescapeCommand, BattlescapeCommandsSet};
 use indexmap::IndexMap;
 use na::UnitComplex;
 use player_inputs::PlayerInput;
 use rand::SeedableRng;
 use rand_xoshiro::Xoshiro128StarStar;
 use rapier2d::prelude::*;
-use replay::BattlescapeReplay;
 use serde::{self, Deserialize, Serialize};
 use state_init::BattlescapeInitialState;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct BattlescapeCommandsQueue {
-    commands: Vec<Vec<BattlescapeCommand>>,
-}
-impl BattlescapeCommandsQueue {
-    pub fn push_commands(&mut self, commands: &[BattlescapeCommand], tick: u32) {
-        if self.commands.len() as u32 <= tick {
-            self.commands.resize(tick as usize + 1, Vec::new());
-        }
-
-        self.commands[tick as usize].extend_from_slice(commands);
-    }
-
-    /// Return the commands queued for this tick if any.
-    fn get_next(&mut self, tick: u32) -> Option<&Vec<BattlescapeCommand>> {
-        self.commands.get(tick as usize)
-    }
-}
+type ShipId = u32;
+type TeamId = u8;
+type ShipUserId = u32;
+type PlayerId = u8;
+type Tick = u32;
 
 #[derive(Serialize, Deserialize)]
 pub struct BattlescapeShip {
-    player_id: u16,
-    controlled: bool,
+    user_id: ShipUserId,
+    controller: Option<PlayerId>,
     body_handle: RigidBodyHandle,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct HumanPlayer {
-    ship_control: Option<Vec<u32>>,
-    player_input: PlayerInput,
-}
-impl HumanPlayer {
-    fn new() -> Self {
-        Self {
-            ship_control: None,
-            player_input: Default::default(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct AiPlayer {
-    beep_boop: bool,
-}
-impl AiPlayer {
-    fn new() -> Self {
-        Self { beep_boop: true }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub enum PlayerType {
-    HumanPlayer(HumanPlayer),
-    AiPlayer(AiPlayer),
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct Player {
-    player_type: PlayerType,
-    team_id: u16,
-    ship_idx: Vec<u32>,
+    player_id: PlayerId,
+    ship_control: Option<ShipId>,
+    player_input: PlayerInput,
+    team_id: TeamId,
 }
 impl Player {
-    fn new(player_type: PlayerType, team_id: u16) -> Self {
+    fn new(player_id: PlayerId, team_id: TeamId) -> Self {
         Self {
-            player_type,
+            player_id,
+            ship_control: None,
+            player_input: Default::default(),
             team_id,
-            ship_idx: Vec::new(),
         }
     }
 }
@@ -96,15 +52,14 @@ impl Player {
 #[derive(Serialize, Deserialize)]
 pub struct Battlescape {
     bound: f32,
-    tick: u32,
+    /// The next tick to be processed when `update()` is called.
+    tick: Tick,
 
-    battlescape_commands_queue: BattlescapeCommandsQueue,
+    next_ship_id: ShipId,
 
-    teams: Vec<Vec<u16>>,
-    players: Vec<Player>,
-
-    next_ship_id: u32,
-    ships: IndexMap<u32, BattlescapeShip>,
+    players: IndexMap<PlayerId, Player>,
+    ships: IndexMap<ShipId, BattlescapeShip>,
+    ships_team: IndexMap<TeamId, Vec<ShipId>>,
 
     rng: Xoshiro128StarStar,
 
@@ -119,6 +74,7 @@ pub struct Battlescape {
     colliders: ColliderSet,
     joints: JointSet,
     ccd_solver: CCDSolver,
+    query_pipeline: QueryPipeline,
 }
 impl Battlescape {
     pub fn new(battlescape_initial_state: BattlescapeInitialState) -> Self {
@@ -129,14 +85,46 @@ impl Battlescape {
         }
     }
 
-    pub fn new_from_replay(battlescape_replay: &BattlescapeReplay) -> Self {
-        let mut battlescape = Battlescape::new(battlescape_replay.battlescape_initial_state);
-        battlescape.battlescape_commands_queue = battlescape_replay.battlescape_commands_queue.to_owned();
-        battlescape
+    /// Used internally. Exposed for debug purpose.
+    pub fn spawn_ship(&mut self, team_id: TeamId, ship_user_id: ShipUserId) {
+        // Add body.
+        let body_handle = self.bodies.insert(RigidBodyBuilder::new_dynamic().build());
+        self.colliders.insert_with_parent(
+            ColliderBuilder::cuboid(0.5, 1.0).build(),
+            body_handle,
+            &mut self.bodies,
+        );
+
+        // Get a new ship id.
+        let ship_id = self.next_ship_id;
+        self.next_ship_id += 1;
+
+        // Add ship.
+        self.ships.insert(
+            ship_id,
+            BattlescapeShip {
+                user_id: ship_user_id,
+                controller: None,
+                body_handle,
+            },
+        );
+
+        // Add ship to team.
+        self.ships_team.entry(team_id).or_default().push(ship_id);
     }
 
-    pub fn update(&mut self) {
-        self.apply_commands();
+    pub fn serialize(&self) -> Vec<u8> {
+        bincode::DefaultOptions::new()
+            .serialize(self)
+            .unwrap_or_default()
+    }
+
+    pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
+        bincode::DefaultOptions::new().deserialize(bytes)
+    }
+
+    pub fn update(&mut self, cmd_set: &BattlescapeCommandsSet) {
+        self.apply_commands(cmd_set);
         self.ship_movement();
 
         self.physics_pipeline.step(
@@ -153,174 +141,150 @@ impl Battlescape {
             &(),
         );
 
+        self.query_pipeline.update(&self.islands, &self.bodies, &self.colliders);
+
         self.tick += 1;
     }
 
-    pub fn push_commands(&mut self, commands: &[BattlescapeCommand], tick: u32) {
-        assert!(
-            self.tick <= tick,
-            "Can not push commands for a previous tick."
-        );
-        self.battlescape_commands_queue
-            .push_commands(commands, tick)
-    }
-
-    pub fn serialize(&self) -> Vec<u8> {
-        bincode::DefaultOptions::new()
-            .serialize(self)
-            .unwrap_or_default()
-    }
-
-    pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
-        bincode::DefaultOptions::new().deserialize(bytes)
-    }
-
-    /// Get a reference to the battlescape's ships.
-    pub fn ships(&self) -> &IndexMap<u32, BattlescapeShip> {
-        &self.ships
-    }
-
-    /// Apply commands for the current tick if any.
-    fn apply_commands(&mut self) {
-        let commands = if let Some(commands) = self.battlescape_commands_queue.get_next(self.tick) {
-            commands
-        } else {
-            return;
-        };
-
-        for command in commands {
+    /// Apply the commands for the current tick if available.
+    fn apply_commands(&mut self, cmd_set: &BattlescapeCommandsSet) {
+        // Handle the commands.
+        for command in cmd_set.commands.iter() {
             match command {
-                BattlescapeCommand::SpawnShip(cmd) => {
-                    debug_assert!(self.players.len() > cmd.player_id as usize);
-
-                    let body_handle = self.bodies.insert(RigidBodyBuilder::new_dynamic().build());
-                    self.colliders.insert_with_parent(
-                        ColliderBuilder::cuboid(0.5, 1.0).build(),
-                        body_handle,
-                        &mut self.bodies,
-                    );
-
-                    let ship_id = self.next_ship_id;
-                    self.next_ship_id += 1;
-
-                    self.ships.insert(
-                        ship_id,
-                        BattlescapeShip {
-                            player_id: cmd.player_id,
-                            controlled: false,
-                            body_handle,
-                        },
-                    );
+                BattlescapeCommand::SpawnShip {
+                    team_id,
+                    ship_user_id,
+                } => {
+                    self.spawn_ship(*team_id, *ship_user_id);
                 }
-                BattlescapeCommand::AddPlayer(cmd) => {
-                    let player_id = self.players.len() as u16;
-
-                    let player_type = if cmd.human {
-                        PlayerType::HumanPlayer(HumanPlayer::new())
-                    } else {
-                        PlayerType::AiPlayer(AiPlayer::new())
-                    };
-
-                    let team = cmd.team_id.unwrap_or_else(|| {
-                        // Create a new team.
-                        self.teams.push(vec![player_id]);
-                        self.teams.len() as u16 - 1
-                    });
-
-                    let player = Player::new(player_type, team);
-
-                    self.players.push(player);
-                }
-                BattlescapeCommand::PlayerInput(cmd) => {
-                    let player = &mut self.players[cmd.player_id as usize];
-                    let player = if let PlayerType::HumanPlayer(player) = &mut player.player_type {
-                        player
-                    } else {
-                        continue;
-                    };
-                    player.player_input = cmd.player_input;
-                }
-                BattlescapeCommand::PlayerControlShip(cmd) => {
-                    let human_player =
-                        if let Some(player) = self.players.get_mut(cmd.player_id as usize) {
-                            if let PlayerType::HumanPlayer(human_player) = &mut player.player_type {
-                                human_player
-                            } else {
-                                continue;
+                BattlescapeCommand::PlayerControlShip { player_id, ship_id } => {
+                    if let Some(player) = self.players.get_mut(player_id) {
+                        // If the player was controlling a ship,
+                        // set its controller back to None.
+                        if let Some(ship_id) = &player.ship_control {
+                            if let Some(prev_ship) = self.ships.get_mut(ship_id) {
+                                prev_ship.controller = None;
                             }
-                        } else {
-                            continue;
-                        };
+                        }
 
-                    // Set the previously controlled ships back to false.
-                    if let Some(ship_idx) = &human_player.ship_control {
-                        for ship_id in ship_idx.iter() {
-                            self.ships[*ship_id as usize].controlled = false;
+                        // Set the player's controlled ship to None.
+                        player.ship_control = None;
+
+                        // Give the ship control to the player
+                        if let Some(ship_id) = ship_id {
+                            if let Some(ship) = self.ships.get_mut(ship_id) {
+                                match ship.controller {
+                                    Some(controlling_player_id) => {
+                                        // Ship already controlled.
+                                        log::info!(
+                                            "Player {} can not take control of ship {} as it is already controlled by {}. Ignoring...",
+                                            player_id, ship_id, controlling_player_id
+                                        );
+                                    }
+                                    None => {
+                                        ship.controller = Some(*player_id);
+                                        player.ship_control = Some(*ship_id);
+                                    }
+                                }
+                            } else {
+                                // Ship not found.
+                                log::warn!(
+                                    "Player {} requested control of ship {}, but it does not exist. Ignoring...", 
+                                    player_id, ship_id
+                                );
+                            }
+                        }
+                    } else {
+                        // Player not found.
+                        log::warn!(
+                            "Player {} requested to control a ship, but this player does not exist.", 
+                            player_id
+                        );
+                    }
+                }
+                BattlescapeCommand::AddPlayer { player_id, team_id } => {
+                    match self
+                        .players
+                        .insert(*player_id, Player::new(*player_id, *team_id))
+                    {
+                        Some(_) => {
+                            log::info!("Player {} was updated.", player_id);
+                        }
+                        None => {
+                            log::info!("Player {} was added.", player_id);
                         }
                     }
-
-                    // Filter out ships that are not owned by the player.
-                    let ship_idx = cmd.ship_idx.as_ref().map(|ship_idx| {
-                        ship_idx
-                            .iter()
-                            .filter(|&&ship_id| {
-                                if let Some(ship) = self.ships.get_mut(&ship_id) {
-                                    if ship.player_id == cmd.player_id {
-                                        ship.controlled = true;
-                                        true
-                                    } else {
-                                        false
-                                    }
-                                } else {
-                                    false
-                                }
-                            })
-                            .copied()
-                            .collect()
-                    });
-
-                    human_player.ship_control = ship_idx;
                 }
             }
+        }
+
+        // Set the player's new inputs.
+        let mut inactive_players: AHashSet<PlayerId> = self.players.keys().copied().collect();
+        for (player_id, player_input) in cmd_set.player_inputs.iter() {
+            if let Some(player) = self.players.get_mut(player_id) {
+                player.player_input = *player_input;
+                inactive_players.remove(player_id);
+            } else {
+                // Player not found.
+                log::warn!(
+                    "Commands set has input for player {}, but it does not exist. Ignoring...",
+                    player_id
+                );
+            }
+        }
+
+        // Remove inactive players.
+        for player_id in inactive_players.iter() {
+            self.players.shift_remove(player_id);
+            log::info!("Player {} is inactive and was removed.", player_id);
         }
     }
 
     fn ship_movement(&mut self) {
-        for ship in self.ships.values_mut() {
-            if ship.controlled {
-                let human_player = if let PlayerType::HumanPlayer(human_player) =
-                    &self.players[ship.player_id as usize].player_type
-                {
-                    human_player
-                } else {
-                    continue;
-                };
+        for (ship_id, ship) in self.ships.iter_mut() {
+            if let Some(player_id) = ship.controller {
+                if let Some(player) = self.players.get(&player_id) {
+                    if let Some(body) = self.bodies.get_mut(ship.body_handle) {
+                        // Apply wish dir.
+                        let wish_dir = player.player_input.get_wish_dir();
+                        let force = UnitComplex::new(wish_dir.angle) * vector![wish_dir.force, 0.0];
+                        body.apply_force(force, true);
 
-                if let Some(body) = self.bodies.get_mut(ship.body_handle) {
-                    // Apply wish dir.
-                    let wish_dir = human_player.player_input.get_wish_dir();
-                    let force = UnitComplex::new(wish_dir.0) * vector![wish_dir.1, 0.0];
-                    body.apply_force(force, true);
-
-                    // Apply wish rot.
-                    match human_player.player_input.get_wish_rot() {
-                        player_inputs::WishRot::Relative(f) => {
-                            body.apply_torque(f, true);
-                        }
-                        player_inputs::WishRot::FaceWorldPositon(x, y) => {
-                            let wish_angle_cart = (vector![x, y] - *body.translation()).normalize();
-                            let wish_angle = UnitComplex::from_cos_sin_unchecked(
-                                wish_angle_cart.x,
-                                wish_angle_cart.y,
-                            );
-                            let current_angle = body.rotation().angle_to(&wish_angle);
-                            body.apply_torque(current_angle.signum(), true);
+                        // Apply wish rot.
+                        match player.player_input.get_wish_rot() {
+                            player_inputs::WishRot::Relative(f) => {
+                                body.apply_torque(f, true);
+                            }
+                            player_inputs::WishRot::FaceWorldPositon(x, y) => {
+                                let wish_angle_cart =
+                                    (vector![x, y] - *body.translation()).normalize();
+                                let wish_angle = UnitComplex::from_cos_sin_unchecked(
+                                    wish_angle_cart.x,
+                                    wish_angle_cart.y,
+                                );
+                                let current_angle = body.rotation().angle_to(&wish_angle);
+                                body.apply_torque(current_angle.signum(), true);
+                            }
                         }
                     }
+                } else {
+                    // Controlling player not found.
+                    ship.controller = None;
+                    log::info!(
+                        "Ship {} is controlled by player {}, but it is not found. Removing control...", 
+                        ship_id, player_id
+                    );
                 }
             } else {
+                // TODO: Ship AI.
             }
         }
+    }
+
+    /// Get the next tick that will be processed when `update()` is called.
+    #[must_use]
+    pub fn tick(&self) -> u32 {
+        self.tick
     }
 }
 impl Default for Battlescape {
@@ -328,7 +292,6 @@ impl Default for Battlescape {
         Self {
             bound: 512.0,
             tick: Default::default(),
-            teams: Default::default(),
             physics_pipeline: Default::default(),
             integration_parameters: Default::default(),
             islands: IslandManager::new(),
@@ -338,11 +301,11 @@ impl Default for Battlescape {
             colliders: ColliderSet::new(),
             joints: JointSet::new(),
             ccd_solver: CCDSolver::new(),
-            battlescape_commands_queue: Default::default(),
             players: Default::default(),
             ships: Default::default(),
             rng: Xoshiro128StarStar::seed_from_u64(1377),
-            next_ship_id: Default::default(),
+            next_ship_id: 0,
+            ships_team: Default::default(),
         }
     }
 }
@@ -382,11 +345,3 @@ fn test_hash() {
     assert_ne!(first, second);
     assert_eq!(second, second_second);
 }
-
-// #[test]
-// fn a() {
-//     use glam::Vec2;
-//     let b = UnitComplex::rotation_between(&vector![0.0, -1.0], &vector![1.0, -0.0]);
-//     let a = vector![0.0, -1.0].angle(&vector![-10.0, 0.0]);
-//     println!("{}", b);
-// }
