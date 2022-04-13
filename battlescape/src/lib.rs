@@ -306,6 +306,7 @@ impl Default for Battlescape {
             rng: Xoshiro128StarStar::seed_from_u64(1377),
             next_ship_id: 0,
             ships_team: Default::default(),
+            query_pipeline: QueryPipeline::new(),
         }
     }
 }
