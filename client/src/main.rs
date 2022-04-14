@@ -1,4 +1,4 @@
-mod mpm;
+mod util;
 
 use wgpu::util::DeviceExt;
 use winit::{
@@ -6,17 +6,11 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
+use util::QUAD;
 
 const MIN_WINDOW_SIZE: winit::dpi::PhysicalSize<u32> = winit::dpi::PhysicalSize::new(64, 64);
 
-/// Bytes of 2 triangle strips making an unit sized centered quad.
-#[rustfmt::skip]
-const QUAD: [u8; 32] = [
-    0, 0, 0, 191, 0, 0, 0, 191,
-    0, 0, 0, 191, 0, 0, 0, 63,
-    0, 0, 0, 63, 0, 0, 0, 191,
-    0, 0, 0, 63, 0, 0, 0, 63,
-];
+
 
 struct MainState {
     surface: wgpu::Surface,
@@ -27,8 +21,6 @@ struct MainState {
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     instance_vertex_buffer: wgpu::Buffer,
-
-    mpm: mpm::MPM,
 }
 impl MainState {
     async fn new(window: &Window) -> Self {
@@ -141,7 +133,6 @@ impl MainState {
             render_pipeline,
             vertex_buffer,
             instance_vertex_buffer,
-            mpm: mpm::MPM::new(glam::uvec2(64, 64)),
         }
     }
 
@@ -155,11 +146,11 @@ impl MainState {
     // fn input(&mut self, event: &WindowEvent) {}
 
     fn update(&mut self) {
-        self.mpm.update();
-        let bytes: Vec<u8> = self.mpm.particles.iter().flat_map(|p| {
-            [(p.pos.x / self.mpm.dom.x as f32).to_ne_bytes(), (p.pos.y / self.mpm.dom.y as f32).to_ne_bytes()].concat().into_iter()
-        }).collect();
-        self.queue.write_buffer(&self.instance_vertex_buffer, 0, &bytes);
+        // self.mpm.update();
+        // let bytes: Vec<u8> = self.mpm.particles.iter().flat_map(|p| {
+        //     [(p.pos.x / self.mpm.dom.x as f32).to_ne_bytes(), (p.pos.y / self.mpm.dom.y as f32).to_ne_bytes()].concat().into_iter()
+        // }).collect();
+        // self.queue.write_buffer(&self.instance_vertex_buffer, 0, &bytes);
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
