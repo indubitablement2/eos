@@ -1,3 +1,46 @@
-[workspace]
-exclude = ["godot"]
-members = ["rust"]
+[package]
+name = "chaos-cascade"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = {  version = "0.4.16", features = ["release_max_level_off"] }
+env_logger = "0.9.0"
+
+winit = "0.26.1"
+wgpu = "0.12.0"
+
+# QoL
+bitflags = "1.3.2"
+anyhow = "1.0.56"
+bytemuck = { version = "1.8.0", features = [ "derive" ] }
+
+# Random
+rand = { version = "0.8.5", features = ["nightly", "simd_support"] }
+# Lightweight, fast & deterministic prng.
+rand_xoshiro = "0.6.0"
+# weighted_rand = "0.3.2"
+
+# Multithreading
+# rayon = "1.5.1"
+# crossbeam = "0.8.1"
+# parking_lot = { version = "0.12.0", features = ["nightly"] }
+pollster = "0.2.5"
+
+# Storage
+# ahash = "0.7.6"
+# indexmap = { version = "1.8.0", features = ["serde"] }
+
+# Serialisation
+# serde = { version = "1.0.136", features = ["derive"] }
+# bincode = "1.3.3"
+# serde_yaml = "0.8.23"
+
+# For dynamically packing sprites into a sprite sheet.
+# crunch = "0.3.3"
+image = {version = "0.24.1", default-features = false, features = ["png"]}
+
+# Math
+# ultraviolet = "0.9.0"
+glam = "0.20.3"
+
