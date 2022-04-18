@@ -1,16 +1,31 @@
+mod camera;
 mod util;
 
+extern crate nalgebra as na;
+
+use camera::Camera;
+use util::QUAD;
 use wgpu::util::DeviceExt;
 use winit::{
     event::WindowEvent,
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
-use util::QUAD;
 
-const MIN_WINDOW_SIZE: winit::dpi::PhysicalSize<u32> = winit::dpi::PhysicalSize::new(64, 64);
+// Ships
+// objects (turret, projectile)
+// gpu particles (debris, ammo casing, spark)
+// albedo + normal + roughness/metalness + ambiant occ
 
+// smoke
 
+// lights
+
+// bloom
+
+// bg
+// game
+// ui
 
 struct MainState {
     surface: wgpu::Surface,
@@ -18,9 +33,20 @@ struct MainState {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     surface_size: winit::dpi::PhysicalSize<u32>,
+
+    geometry_pipeline: wgpu::RenderPipeline,
     render_pipeline: wgpu::RenderPipeline,
+
     vertex_buffer: wgpu::Buffer,
     instance_vertex_buffer: wgpu::Buffer,
+
+    camera: Camera,
+
+    /// A small buffer of 4 floats representing 2 triangles strip making an unit sized centered quad.
+    quad_buffer: wgpu::Buffer,
+
+    albedo_g_buffer: wgpu::Buffer,
+    normal_g_buffer: wgpu::Buffer,
 }
 impl MainState {
     async fn new(window: &Window) -> Self {
@@ -124,6 +150,30 @@ impl MainState {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
+        let quad_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: &QUAD,
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        // Create geometry buffers.
+
+        let size = (surface_size.height * surface_size.width * 16) as u64;
+
+        let albedo_g_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Albedo Geometry Buffer"),
+            size,
+            usage: wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let normal_g_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Normal Geometry Buffer"),
+            size,
+            usage: wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
         Self {
             surface,
             device,
@@ -133,6 +183,11 @@ impl MainState {
             render_pipeline,
             vertex_buffer,
             instance_vertex_buffer,
+            quad_buffer,
+            albedo_g_buffer,
+            normal_g_buffer,
+            geometry_pipeline: todo!(),
+            camera: Default::default(),
         }
     }
 
@@ -141,17 +196,27 @@ impl MainState {
         self.config.width = new_size.width;
         self.config.height = new_size.height;
         self.surface.configure(&self.device, &self.config);
+
+        // Create geometry buffers.
+
+        let size = (self.surface_size.height * self.surface_size.width * 16) as u64;
+
+        self.albedo_g_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Albedo Geometry Buffer"),
+            size,
+            usage: wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        self.normal_g_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Normal Geometry Buffer"),
+            size,
+            usage: wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
     }
 
-    // fn input(&mut self, event: &WindowEvent) {}
-
-    fn update(&mut self) {
-        // self.mpm.update();
-        // let bytes: Vec<u8> = self.mpm.particles.iter().flat_map(|p| {
-        //     [(p.pos.x / self.mpm.dom.x as f32).to_ne_bytes(), (p.pos.y / self.mpm.dom.y as f32).to_ne_bytes()].concat().into_iter()
-        // }).collect();
-        // self.queue.write_buffer(&self.instance_vertex_buffer, 0, &bytes);
-    }
+    fn update(&mut self) {}
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
@@ -177,10 +242,22 @@ impl MainState {
             }],
             depth_stencil_attachment: None,
         });
+
+        // TODO: Draw ships.
+
+        render_pass.set_vertex_buffer(0, self.quad_buffer.slice(..));
+        for ship in 0..10 {
+            // tODO: Set the ship data.
+            render_pass.set_vertex_buffer(1, self.quad_buffer.slice(..));
+
+            render_pass.draw(0..4, 0..1);
+        }
+
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_vertex_buffer(1, self.instance_vertex_buffer.slice(..));
-        render_pass.draw(0..4, 0..256);
+        render_pass.draw(0..4, 0..1);
+
         drop(render_pass);
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -202,7 +279,7 @@ fn main() {
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
-    window.set_min_inner_size(Some(MIN_WINDOW_SIZE));
+    window.set_min_inner_size(Some(winit::dpi::PhysicalSize::new(64, 64)));
 
     let mut state = pollster::block_on(MainState::new(&window));
 

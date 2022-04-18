@@ -42,5 +42,6 @@ image = {version = "0.24.1", default-features = false, features = ["png"]}
 
 # Math
 # ultraviolet = "0.9.0"
-glam = "0.20.3"
-
+# glam = "0.20.3"
+nalgebra = "0.30.1"
+parry2d = "0.8.0"
