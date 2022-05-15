@@ -47,7 +47,7 @@ impl Collider {
         self.position.distance_squared(other.position) <= (self.radius - other.radius).powi(2)
     }
 
-    /// Return half of the biggest horizontal lenght within two (possibly) intersecting horizontal lines.
+    /// Return half of the biggest horizontal lenght within two possibly intersecting horizontal lines.
     ///
     /// This will return the collider radius if the collider's vertical position is within these lines.
     /// Both lines needs to be either above or bellow the coillider's vertical position for it not to.
@@ -81,7 +81,7 @@ impl Collider {
 /// _________ rows top + lenght * num row
 #[derive(Debug, Clone)]
 struct SAPRow {
-    /// The biggest radius found in this row.
+    /// The biggest distance found in this row.
     ///
     /// . / " \\ <- same radius, but smaller threshold in this row
     /// ___
@@ -142,9 +142,7 @@ where
 {
     fn extend<I: IntoIterator<Item = (Collider, T, F)>>(&mut self, iter: I) {
         for (collider, data, flag) in iter {
-            self.colliders.push(collider);
-            self.custom_data.push(data);
-            self.bit_flags.push(flag)
+            self.push(collider, data, flag);
         }
     }
 }
@@ -178,8 +176,8 @@ where
     }
 
     /// This function is expensive and warrant its own thread (see `IntersectionPipeline`).
-    /// # Safety
-    /// Will panic if any collider's position is not real.
+    /// # Panic
+    /// Will panic if any collider's position is not real (inf, nan).
     pub fn update(&mut self) {
         if self.colliders.is_empty() {
             self.rows.clear();
@@ -267,7 +265,7 @@ where
     ///
     /// If this is used with the top of a collider, it return the first row that this collider overlap.
     ///
-    /// This index is clamped to be within the valid part of this AccelerationStructure.
+    /// This index is NOT clamped to be within the valid part of this AccelerationStructure.
     fn find_row_at_position(&self, y_postion: f32) -> usize {
         ((y_postion.min(self.rows_bot) - self.rows_top) / self.rows_lenght) as usize
     }
@@ -335,7 +333,7 @@ where
     /// Return all colliders that intersect the provided collider
     /// and have at least one bit in common with filter.
     ///
-    /// See `intersect_collider_into_filtered()` if you want to reuse the buffer to store the result.
+    /// See `intersect_collider_into_filtered()` if you want to reuse a buffer to store the result.
     pub fn intersect_collider_filtered(&self, collider: Collider, filter: F) -> Vec<T> {
         let mut buffer = Vec::new();
         self.intersect_collider_into_filtered(collider, &mut buffer, filter);
@@ -660,7 +658,7 @@ fn test_random_colliders() {
     for _ in 0..10000 {
         let mut acc: AccelerationStructure<u32, NoFilter> = AccelerationStructure::new();
 
-        let og_collider = Collider::new(random::<f32>() * 16.0, random::<Vec2>() * 64.0 - 32.0);
+        let og_collider = Collider::new(random::<f32>() * 16.0, random::<Vec2>() * 96.0 - 48.0);
 
         let mut expected_result = Vec::new();
 
@@ -685,14 +683,12 @@ fn test_random_colliders() {
     }
 }
 
-/// v0.0.2 20 ms
-/// v0.0.3 16 ms (filered)
-#[bench]
-fn bench_intersect_collider(b: &mut test::Bencher) {
+/// Fill a large `AccelerationStructure` but does not update it.
+/// Used for benches.
+#[allow(dead_code)]
+fn fill_large_structure() -> AccelerationStructure<u32, u32> {
     use rand::Rng;
-    use test::black_box;
 
-    // Create a large random intersection pipeline.
     let mut rng = rand::thread_rng();
     let mut acc: AccelerationStructure<u32, u32> = AccelerationStructure::new();
     for i in 0..30000 {
@@ -702,6 +698,18 @@ fn bench_intersect_collider(b: &mut test::Bencher) {
             1 << rng.gen::<u32>() % 2,
         );
     }
+
+    acc
+}
+
+/// Previous benches with a 2Ghz laptop:
+/// - v0.0.2 20 ms
+/// - v0.0.3 16 ms (filered)
+#[bench]
+fn bench_intersect_collider(b: &mut test::Bencher) {
+    use test::black_box;
+
+    let mut acc = fill_large_structure();
     acc.update();
 
     b.iter(|| {
@@ -711,5 +719,17 @@ fn bench_intersect_collider(b: &mut test::Bencher) {
             acc.intersect_collider_into_filtered(*collider, &mut result, filter);
             result = black_box(result);
         }
+    });
+}
+
+/// Previous benches with a 2Ghz laptop:
+/// - v0.0.3 4 ms
+#[bench]
+fn bench_structure_update(b: &mut test::Bencher) {
+    use test::black_box;
+    let mut acc = fill_large_structure();
+    b.iter(|| {
+        acc.update();
+        black_box(&mut acc);
     });
 }
