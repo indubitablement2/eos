@@ -4,7 +4,6 @@
 #![feature(slice_split_at_unchecked)]
 #![feature(iter_advance_by)]
 #![feature(duration_constants)]
-#![feature(derive_default_enum)]
 #![feature(map_try_insert)]
 #![feature(mixed_integer_ops)]
 #![feature(map_entry_replace)]
