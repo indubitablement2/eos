@@ -1,6 +1,5 @@
 #![feature(test)]
 #![feature(duration_constants)]
-#![feature(derive_default_enum)]
 #![feature(slice_split_at_unchecked)]
 #![feature(slice_as_chunks)]
 #![feature(hash_drain_filter)]
