@@ -3,7 +3,6 @@ use common::{
     net::login_packets::*,
     net::*,
     net::{packets::ClientPacket, tcp_loops::*},
-    Version,
 };
 use std::net::{Ipv6Addr, SocketAddrV6};
 use tokio::{
@@ -136,7 +135,7 @@ async fn login(
     let login_packet = LoginPacket {
         credential_checker: CredentialChecker::Steam,
         token,
-        client_version: Version::CURRENT,
+        client_version: common::VERSION.to_string(),
     }
     .serialize();
 

@@ -1,6 +1,6 @@
 use common::{
     idx::ClientId, net::connection::Connection, net::login_packets::*, net::tcp_loops::*,
-    net::SERVER_PORT, Version,
+    net::SERVER_PORT,
 };
 use std::io::Result;
 use std::{
@@ -182,13 +182,13 @@ async fn handle_first_packet(
     };
 
     // Check client version.
-    if login_packet.client_version != Version::CURRENT {
+    if &login_packet.client_version != common::VERSION {
         debug!(
             "{} attempted to login with {} which does not match server. Aborting login...",
             client_addr, login_packet.client_version
         );
         return LoginResponsePacket::WrongVersion {
-            server_version: Version::CURRENT,
+            server_version: common::VERSION.to_string(),
         };
     }
 

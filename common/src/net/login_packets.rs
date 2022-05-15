@@ -1,4 +1,4 @@
-use crate::{idx::*, Version};
+use crate::idx::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -7,12 +7,12 @@ pub enum CredentialChecker {
     Epic,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LoginPacket {
     pub credential_checker: CredentialChecker,
     pub token: u64,
     /// Server/client version should match.
-    pub client_version: Version,
+    pub client_version: String,
 }
 impl LoginPacket {
     pub const FIXED_SIZE: usize = 18;
@@ -32,14 +32,14 @@ impl LoginPacket {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum LoginResponsePacket {
     Accepted {
         client_id: ClientId,
     },
     /// Client version does not match server version.
     WrongVersion {
-        server_version: Version,
+        server_version: String,
     },
     /// Selected server does not exist.
     UnknowServer,
@@ -75,7 +75,7 @@ fn test_login_packet() {
     let og = LoginPacket {
         credential_checker: CredentialChecker::Steam,
         token: 255,
-        client_version: Version::CURRENT,
+        client_version: crate::VERSION.to_string(),
     };
     assert_eq!(og, LoginPacket::deserialize(&og.serialize()).unwrap());
     assert_eq!(og.serialize().len(), LoginPacket::FIXED_SIZE);

@@ -1,7 +1,7 @@
 pub mod input;
 pub mod performance;
 
-use common::{Version, UPDATE_INTERVAL};
+use common::UPDATE_INTERVAL;
 use crossbeam::channel::*;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use performance::PerformanceMetrics;
@@ -273,7 +273,7 @@ impl Terminal {
                     }
                     TerminalTab::Info => {
                         let text = vec![
-                            Spans::from(format!("version: {}", Version::CURRENT)),
+                            Spans::from(format!("version: {}", common::VERSION)),
                             Spans::from(format!("port: {}", common::net::SERVER_PORT)),
                         ];
                         let paragraph = Paragraph::new(text)
