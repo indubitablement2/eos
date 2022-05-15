@@ -717,7 +717,7 @@ fn bench_intersect_collider(b: &mut test::Bencher) {
         for (collider, flag) in acc.colliders.iter().zip(acc.bit_flags.iter()) {
             let filter = !flag;
             acc.intersect_collider_into_filtered(*collider, &mut result, filter);
-            result = black_box(result);
+            black_box(&mut result);
         }
     });
 }
