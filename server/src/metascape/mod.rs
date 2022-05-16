@@ -7,6 +7,7 @@ mod ecs_events;
 mod ecs_systems;
 mod fleets_manager;
 mod interception_manager;
+mod utils;
 
 use bevy_ecs::prelude::*;
 use bevy_tasks::{ComputeTaskPool, TaskPool};
@@ -17,9 +18,7 @@ use common::systems::Systems;
 use common::time::Time;
 use common::{idx::SystemId, intersection::*};
 use std::{fs::File, io::prelude::*};
-
 use crate::server_configs::ServerConfigs;
-
 use self::battlescape_manager::BattlescapeManager;
 use self::clients_manager::ClientsManager;
 use self::colony::Colonies;
@@ -78,12 +77,12 @@ impl Metascape {
         systems.update_all();
 
         // Load factions.
-        let mut file = File::open("factions.yaml").expect("Could not open factions.bin");
-        let mut buffer = String::with_capacity(file.metadata().unwrap().len() as usize);
-        file.read_to_string(&mut buffer).unwrap();
-        let mut factions = serde_yaml::from_str::<Factions>(buffer.as_str())
+        let mut file = File::open("factions.bin").expect("Could not open factions.bin");
+        let mut buffer = Vec::with_capacity(file.metadata().unwrap().len() as usize);
+        file.read_to_end(&mut buffer).unwrap();
+        let mut factions = bincode::deserialize::<Factions>(&buffer)
             .expect("Could not deserialize factions.yaml");
-        factions.update_all();
+        world.insert_resource(factions);
 
         // Load colonies.
         // TODO: This should be loaded from file.
@@ -94,7 +93,6 @@ impl Metascape {
             systems.create_acceleration_structure(),
         ));
         world.insert_resource(systems);
-        world.insert_resource(factions);
 
         // Create schedule.
         let mut schedule = Schedule::default();
@@ -106,12 +104,6 @@ impl Metascape {
     /// Run the metascape's schedule once.
     pub fn update(&mut self) {
         self.schedule.run_once(&mut self.world);
-        unsafe {
-            self.world
-                .get_resource_unchecked_mut::<Time>()
-                .unwrap_unchecked()
-                .increment();
-        }
         self.world.clear_trackers();
     }
 }

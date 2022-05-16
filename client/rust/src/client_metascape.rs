@@ -122,8 +122,7 @@ impl Metascape {
         }
         let buffer = file.get_as_text().to_string();
         file.close();
-        let factions = if let Ok(mut factions) = serde_yaml::from_str::<Factions>(buffer.as_str()) {
-            factions.update_all();
+        let factions = if let Ok(factions) = serde_yaml::from_str::<Factions>(buffer.as_str()) {
             factions
         } else {
             return Err(std::io::Error::new(

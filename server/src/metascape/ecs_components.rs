@@ -1,15 +1,15 @@
 use ahash::AHashMap;
 use battlescape::player_inputs::PlayerInput;
 use bevy_ecs::prelude::*;
-use common::{
-    factions::Faction, idx::*, net::packets::BattlescapeCommands, orbit::Orbit,
-    reputation::Reputation, ships::*, WORLD_BOUND,
+use common::{idx::*, net::packets::BattlescapeCommands, orbit::Orbit, ships::*, WORLD_BOUND,
 };
 use glam::Vec2;
 use rand::Rng;
 use rand_xoshiro::Xoshiro128StarStar;
 
-//* bundle
+// --------------------------------------------------
+// Bundle
+// --------------------------------------------------
 
 #[derive(Bundle)]
 pub struct ClientFleetBundle {
@@ -21,18 +21,23 @@ pub struct ClientFleetBundle {
 impl ClientFleetBundle {
     pub fn new(
         client_id: ClientId,
-        fleet_id: FleetId,
         position: Vec2,
-        faction: Option<FactionId>,
+        faction_id: FactionId,
         ships: Vec<ShipInfo>,
     ) -> Self {
-        debug_assert_eq!(client_id.to_fleet_id(), fleet_id);
-
         Self {
             wrapped_client_id: WrappedId::new(client_id),
             know_entities: Default::default(),
-            fleet_bundle: FleetBundle::new(fleet_id, position, faction, ships),
+            fleet_bundle: FleetBundle::new(client_id.to_fleet_id(), position, faction_id, ships),
         }
+    }
+
+    pub fn client_id(&self) -> ClientId {
+        self.wrapped_client_id.id
+    }
+
+    pub fn fleet_bundle(&self) -> &FleetBundle {
+        &self.fleet_bundle
     }
 }
 
@@ -48,7 +53,7 @@ impl ColonistAIFleetBundle {
         travel_until: u32,
         fleet_id: FleetId,
         position: Vec2,
-        faction: Option<FactionId>,
+        faction_id: FactionId,
         ships: Vec<ShipInfo>,
     ) -> Self {
         Self {
@@ -56,7 +61,7 @@ impl ColonistAIFleetBundle {
                 target_planet: target,
                 travel_until,
             },
-            fleet_bundle: FleetBundle::new(fleet_id, position, faction, ships),
+            fleet_bundle: FleetBundle::new(fleet_id, position, faction_id, ships),
         }
     }
 }
@@ -65,16 +70,15 @@ impl ColonistAIFleetBundle {
 pub struct FleetBundle {
     pub name: Name,
     pub wrapped_fleet_id: WrappedId<FleetId>,
+    pub faction: WrappedId<FactionId>,
     pub position: Position,
     pub in_system: InSystem,
     pub wish_position: WishPosition,
     pub velocity: Velocity,
     pub idle_counter: IdleCounter,
     pub derived_fleet_stats: DerivedFleetStats,
-    pub reputations: Reputations,
     pub detected_radius: DetectedRadius,
-    pub detector_radius: DetectorRadius,
-    pub entity_detected: EntityDetected,
+    pub detector: Detector,
     pub fleet_composition: FleetComposition,
     pub fleet_state: FleetState,
     pub size: Size,
@@ -83,7 +87,7 @@ impl FleetBundle {
     pub fn new(
         fleet_id: FleetId,
         position: Vec2,
-        faction: Option<FactionId>,
+        faction_id: FactionId,
         ships: Vec<ShipInfo>,
     ) -> Self {
         debug_assert!(!ships.is_empty());
@@ -97,13 +101,8 @@ impl FleetBundle {
             velocity: Velocity::default(),
             idle_counter: IdleCounter::default(),
             derived_fleet_stats: DerivedFleetStats { acceleration: 0.04 },
-            reputations: Reputations {
-                faction,
-                common_reputation: Default::default(),
-            },
             detected_radius: DetectedRadius(10.0),
-            detector_radius: DetectorRadius(10.0),
-            entity_detected: EntityDetected::default(),
+            detector: Detector { radius: 10.0, detected: Default::default() },
             fleet_state: FleetState {
                 ships: vec![
                     ShipState {
@@ -115,11 +114,18 @@ impl FleetBundle {
             },
             fleet_composition: FleetComposition { ships },
             size: Size { radius: 0.2 },
+            faction: WrappedId::new(faction_id),
         }
+    }
+
+    pub fn fleet_id(&self) -> FleetId {
+        self.wrapped_fleet_id.id
     }
 }
 
-//* Client
+// --------------------------------------------------
+// Client
+// --------------------------------------------------
 
 /// Entity we have sent informations to the client.
 ///
@@ -137,7 +143,7 @@ pub struct KnowEntities {
     pub force_update_client_info: bool,
 }
 impl KnowEntities {
-    /// This will break if there are more than 65535 known entities,
+    /// This will break if there are more than 65536 known entities,
     /// but that should not happen.
     pub fn get_new_id(&mut self) -> u16 {
         self.free_idx.pop().unwrap_or_else(|| {
@@ -210,7 +216,9 @@ impl BattlescapeInputs {
     }
 }
 
-// * Generic
+// --------------------------------------------------
+// Generic
+// --------------------------------------------------
 
 /// A standard position relative to the world origin.
 #[derive(Debug, Clone, Copy, Component)]
@@ -227,61 +235,15 @@ pub struct Name(pub String);
 #[derive(Debug, Clone, Copy, Component, Default)]
 pub struct InSystem(pub Option<SystemId>);
 
-#[derive(Debug, Clone, Component, Default)]
-pub struct Reputations {
-    pub faction: Option<FactionId>,
-    pub common_reputation: Reputation,
-}
-impl Reputations {
-    /// Return the relative reputation between two reputations.
-    pub fn get_relative_reputation(
-        &self,
-        other: &Reputations,
-        self_fleet_id: FleetId,
-        other_fleet_id: FleetId,
-        factions: &[Faction; 32],
-    ) -> Reputation {
-        if let Some(fac_self) = self.faction {
-            if let Some(fac_other) = other.faction {
-                let (highest, lowest) = if fac_self > fac_other {
-                    (fac_self, fac_other)
-                } else if fac_other > fac_self {
-                    (fac_other, fac_self)
-                } else {
-                    return Reputation::MAX;
-                };
-
-                factions[highest].relations[lowest.0 as usize]
-            } else {
-                let faction = &factions[fac_self];
-                if let Some(reputation) = faction.reputations.get(&other_fleet_id) {
-                    reputation.to_owned()
-                } else {
-                    faction.default_reputation
-                }
-            }
-        } else {
-            if let Some(fac_other) = other.faction {
-                let faction = &factions[fac_other];
-                if let Some(reputation) = faction.reputations.get(&self_fleet_id) {
-                    reputation.to_owned()
-                } else {
-                    faction.default_reputation
-                }
-            } else {
-                self.common_reputation.min(other.common_reputation)
-            }
-        }
-    }
-}
-
 /// The size of an entity.
 #[derive(Debug, Clone, Copy, Component)]
 pub struct Size {
     pub radius: f32,
 }
 
-//* Fleet
+// --------------------------------------------------
+// Fleet
+// --------------------------------------------------
 
 /// How long this entity has been without velocity.
 #[derive(Debug, Clone, Copy, Component, Default)]
@@ -465,7 +427,9 @@ pub struct QueueRemove {
     pub when: u32,
 }
 
-//* AI
+// --------------------------------------------------
+// AI
+// --------------------------------------------------
 
 /// AI that wants to colonize a random factionless planet.
 #[derive(Debug, Clone, Copy, Component)]
@@ -521,21 +485,24 @@ pub struct ColonyGuardFleetAI {
     pub colony: PlanetId,
 }
 
-//* Detection
+// --------------------------------------------------
+// Detection
+// --------------------------------------------------
 
 /// Used to make an entity detectable.
 #[derive(Debug, Clone, Copy, Component)]
 pub struct DetectedRadius(pub f32);
 
 /// Used to detect entity that have a DetectedRadius.
-#[derive(Debug, Clone, Copy, Component)]
-pub struct DetectorRadius(pub f32);
+#[derive(Debug, Clone, Component)]
+pub struct Detector {
+    pub radius: f32,
+    pub detected: Vec<Entity>,
+}
 
-/// Entity id that are detected by this entity.
-#[derive(Debug, Clone, Default, Component)]
-pub struct EntityDetected(pub Vec<Entity>);
-
-//* Idx
+// --------------------------------------------------
+// Idx
+// --------------------------------------------------
 
 #[derive(Debug, Clone, Copy, Component)]
 pub struct WrappedId<T> {

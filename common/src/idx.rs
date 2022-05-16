@@ -1,10 +1,6 @@
 use std::ops::{Index, IndexMut};
-
-use ahash::AHashSet;
 use serde::{Deserialize, Serialize};
-
 use crate::{
-    factions::*,
     ships::{ShipBase, WeaponBase},
     systems::System,
 };
@@ -31,7 +27,6 @@ impl FleetId {
         }
     }
 }
-
 impl From<ClientId> for FleetId {
     fn from(client_id: ClientId) -> Self {
         Self(client_id.0 as u64)
@@ -43,39 +38,9 @@ impl FleetId {
     }
 }
 
+/// Never recycled.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct FactionId(pub u8);
-impl FactionId {
-    pub const MAX: u8 = u32::BITS as u8 - 1;
-
-    pub fn to_bit_flag(self) -> u32 {
-        1 << self.0
-    }
-}
-impl Index<FactionId> for [Faction; Factions::MAX_FACTIONS] {
-    type Output = Faction;
-
-    fn index(&self, index: FactionId) -> &Self::Output {
-        &self[index.0 as usize]
-    }
-}
-impl IndexMut<FactionId> for [Faction; Factions::MAX_FACTIONS] {
-    fn index_mut(&mut self, index: FactionId) -> &mut Self::Output {
-        &mut self[index.0 as usize]
-    }
-}
-impl Index<FactionId> for [AHashSet<PlanetId>; Factions::MAX_FACTIONS] {
-    type Output = AHashSet<PlanetId>;
-
-    fn index(&self, index: FactionId) -> &Self::Output {
-        &self[index.0 as usize]
-    }
-}
-impl IndexMut<FactionId> for [AHashSet<PlanetId>; Factions::MAX_FACTIONS] {
-    fn index_mut(&mut self, index: FactionId) -> &mut Self::Output {
-        &mut self[index.0 as usize]
-    }
-}
+pub struct FactionId(pub u64);
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SystemId(pub u16);
@@ -98,6 +63,7 @@ pub struct PlanetId {
     pub planets_offset: u8,
 }
 
+/// Never recycled.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct BattlescapeId(u64);
 impl BattlescapeId {
@@ -136,6 +102,7 @@ impl Index<WeaponBaseId> for Vec<WeaponBase> {
     }
 }
 
+/// TODO: What is that????
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct InterceptionId(u32);
 impl InterceptionId {

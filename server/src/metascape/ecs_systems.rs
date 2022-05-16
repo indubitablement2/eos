@@ -9,6 +9,7 @@ use super::fleets_manager::*;
 use super::interception_manager::InterceptionManager;
 use super::DetectedIntersectionPipeline;
 use super::SystemsAccelerationStructure;
+use super::utils::*;
 use crate::server_configs::*;
 use bevy_ecs::prelude::*;
 use bevy_tasks::ComputeTaskPool;
@@ -30,7 +31,7 @@ use rand::SeedableRng;
 use rand_xoshiro::Xoshiro128StarStar;
 use std::f32::consts::TAU;
 
-const DETECTED_UPDATE_INTERVAL: u64 = 5;
+const DETECTED_UPDATE_INTERVAL: u32 = 5;
 /// Minimum delay before a disconnected client's fleet get removed.
 const DISCONNECT_REMOVE_FLEET_DELAY: u32 = 200;
 const UPDATE_IN_SYSTEM_INTERVAL: u64 = 20;
@@ -47,8 +48,6 @@ pub fn add_systems(schedule: &mut Schedule) {
 
     schedule.add_system_to_stage("", get_new_clients);
 
-    schedule.add_system_to_stage("", spawn_colonist);
-
     schedule.add_system_to_stage("", handle_orbit);
     schedule.add_system_to_stage("", remove_orbit);
 
@@ -63,12 +62,10 @@ pub fn add_systems(schedule: &mut Schedule) {
             .before(Label::Movement)
             .before(Label::Battlescape),
     );
-    schedule.add_system_to_stage("", colony_guard_fleet_ai.before(Label::Movement));
-    schedule.add_system_to_stage("", colonist_fleet_ai.before(Label::Movement));
 
     schedule.add_system_to_stage("", apply_fleet_movement.label(Label::Movement));
 
-    schedule.add_system_to_stage("", fleet_sensor.before(Label::DetectedPipelineUpdate));
+    // schedule.add_system_to_stage("", fleet_sensor.before(Label::DetectedPipelineUpdate));
     schedule.add_system_to_stage(
         "",
         update_detected_intersection_pipeline
@@ -79,9 +76,10 @@ pub fn add_systems(schedule: &mut Schedule) {
     schedule.add_system_to_stage("", send_detected_entity.after(Label::Movement));
 
     schedule.add_system_to_stage("", event_handler_client_disconnected);
-    schedule.add_system_to_stage("", remove_fleet);
+}
 
-    schedule.add_system_to_stage("", event_handler_fleet_destroyed);
+fn increment_time(mut time: ResMut<Time>) {
+    time.increment()
 }
 
 /// Get new connection and insert client.
@@ -91,6 +89,7 @@ fn get_new_clients(
     mut clients_manager: ResMut<ClientsManager>,
     mut fleets_manager: ResMut<FleetsManager>,
     mut data_manager: ResMut<DataManager>,
+    mut factions: ResMut<Factions>,
     connection_handler_configs: Res<ConnectionHandlerConfigs>,
 ) {
     clients_manager.handle_pending_connections();
@@ -154,7 +153,11 @@ fn get_new_clients(
                 );
             }
         } else {
-            fleets_manager.spawn_default_client_fleet(&mut commands, client_id);
+            // Create a new default faction & fleet.
+            let faction_id = factions.create_faction(Faction::default());
+            let client_fleet_bundle = ClientFleetBundle::new(client_id, Vec2::ZERO, faction_id, Vec::new());
+            let new_entity = spawn_default_client_fleet(&mut fleets_manager, &mut commands, client_fleet_bundle);
+            // TODO: Add fleet to faction.
         }
 
         num_new_connection += 1;
@@ -164,119 +167,28 @@ fn get_new_clients(
     }
 }
 
-/// Spawn colonist fleet to reach faction's target colony.
-fn spawn_colonist(
-    mut commands: Commands,
-    factions: Res<Factions>,
-    colonies: Res<Colonies>,
-    mut fleets_manager: ResMut<FleetsManager>,
-    time: Res<Time>,
-) {
-    // TODO: Use run criteria.
-    if time.tick % 10 != 0 {
-        return;
-    }
-
-    for (faction, faction_id) in factions.factions.iter().zip(0u8..) {
-        if faction.disabled {
-            continue;
-        }
-
-        let faction_id = FactionId(faction_id);
-
-        let faction_colonies = colonies.get_faction_colonies(faction_id);
-
-        if faction_colonies.len() < faction.target_colonies {
-            fleets_manager.spawn_colonist_ai_fleet(
-                &mut commands,
-                None,
-                time.tick + ColonistFleetAI::DEFAULT_TRAVEL_DURATION,
-                Vec2::ZERO,
-                Some(faction_id),
-            )
-        }
-    }
-}
-
-/// Determine what each fleet can see.
-fn fleet_sensor(
+/// Determine what each sensor can see.
+fn update_detected_entity(
     mut query: Query<(
         Entity,
-        &WrappedId<FleetId>,
         &Position,
-        &DetectorRadius,
-        &mut EntityDetected,
-        &Reputations,
+        &mut Detector,
     )>,
-    query_reputation: Query<(&WrappedId<FleetId>, &Reputations)>,
     detected_intersection_pipeline: Res<DetectedIntersectionPipeline>,
     time: Res<Time>,
-    factions: Res<Factions>,
 ) {
     // We will only update one part every tick.
-    let turn = time.tick as u64 % DETECTED_UPDATE_INTERVAL;
+    let turn = time.tick % DETECTED_UPDATE_INTERVAL;
 
     query.for_each_mut(
         |(
             entity,
-            wrapped_fleet_id,
             position,
-            detector_radius,
-            mut entity_detected,
-            reputations,
+            mut detector,
         )| {
-            if wrapped_fleet_id.id().0 % DETECTED_UPDATE_INTERVAL == turn {
-                let detector_collider = Collider::new(detector_radius.0, position.0);
-
-                // Filter the result.
-                if wrapped_fleet_id.id().is_client() {
-                    detected_intersection_pipeline
-                        .0
-                        .snapshot
-                        .intersect_collider_into(detector_collider, &mut entity_detected.0);
-
-                    // Client fleet filter out themself.
-                    for i in 0..entity_detected.0.len() {
-                        if entity_detected.0[i] == entity {
-                            entity_detected.0.swap_remove(i);
-                            break;
-                        }
-                    }
-                } else {
-                    // AI fleet filter out non enemy faction fleet.
-                    let filter = if let Some(faction_id) = reputations.faction {
-                        faction_id.to_bit_flag()
-                    } else {
-                        u32::MAX
-                    };
-                    detected_intersection_pipeline
-                        .0
-                        .snapshot
-                        .intersect_collider_into_filtered(
-                            detector_collider,
-                            &mut entity_detected.0,
-                            filter,
-                        );
-
-                    // AI fleet filter out the remaining non enemy factionless fleet.
-                    entity_detected.0.drain_filter(|id| {
-                        if let Ok((other_wrapped_fleet_id, other_rep)) = query_reputation.get(*id) {
-                            // TODO: Unroll and remove uneeded logic.
-                            !reputations
-                                .get_relative_reputation(
-                                    other_rep,
-                                    wrapped_fleet_id.id(),
-                                    other_wrapped_fleet_id.id(),
-                                    &factions.factions,
-                                )
-                                .is_enemy()
-                        } else {
-                            // This can happen if the entity was removed,
-                            // but intersection pipeline was not updated yet.
-                            true
-                        }
-                    });
-                }
+            if entity.id() % DETECTED_UPDATE_INTERVAL == turn {
+                let detector_collider = Collider::new(detector.radius, position.0);
+                detected_intersection_pipeline.0.snapshot.intersect_collider_into(detector_collider, &mut detector.detected);
             }
         },
     );
@@ -513,185 +425,185 @@ fn handle_battlescape(
     }
 }
 
-/// Ai that control fleet guarding a colony.
-fn colony_guard_fleet_ai(
-    mut commands: Commands,
-    mut query: Query<
-        (
-            Entity,
-            &mut ColonyGuardFleetAI,
-            &Position,
-            &mut WishPosition,
-            &EntityDetected,
-        ),
-        Without<WrappedId<InterceptionId>>,
-    >,
-    query_other: Query<&Position, Without<WrappedId<InterceptionId>>>,
-    mut interception_manager: ResMut<InterceptionManager>,
-    mut battlescape_manager: ResMut<BattlescapeManager>,
-    systems: Res<Systems>,
-    time: Res<Time>,
-) {
-    let timef = time.as_timef();
+// /// Ai that control fleet guarding a colony.
+// fn colony_guard_fleet_ai(
+//     mut commands: Commands,
+//     mut query: Query<
+//         (
+//             Entity,
+//             &mut ColonyGuardFleetAI,
+//             &Position,
+//             &mut WishPosition,
+//             &EntityDetected,
+//         ),
+//         Without<WrappedId<InterceptionId>>,
+//     >,
+//     query_other: Query<&Position, Without<WrappedId<InterceptionId>>>,
+//     mut interception_manager: ResMut<InterceptionManager>,
+//     mut battlescape_manager: ResMut<BattlescapeManager>,
+//     systems: Res<Systems>,
+//     time: Res<Time>,
+// ) {
+//     let timef = time.as_timef();
 
-    query.for_each_mut(
-        |(entity, mut colony_guard_fleet_ai, position, mut wish_position, entity_detected)| {
-            if let Some(target_entity) = colony_guard_fleet_ai.target {
-                if let Ok(target_position) = query_other.get(target_entity) {
-                    // TODO: Check that atarget is still detected.
+//     query.for_each_mut(
+//         |(entity, mut colony_guard_fleet_ai, position, mut wish_position, entity_detected)| {
+//             if let Some(target_entity) = colony_guard_fleet_ai.target {
+//                 if let Ok(target_position) = query_other.get(target_entity) {
+//                     // TODO: Check that atarget is still detected.
 
-                    // Go toward target position.
-                    wish_position.set_wish_position(target_position.0, 1.0);
+//                     // Go toward target position.
+//                     wish_position.set_wish_position(target_position.0, 1.0);
 
-                    // Intercept and start a battlescape if target is close enough.
-                    if target_position.0.distance_squared(position.0) < 1.0 {
-                        // Create the battlescape.
-                        // let battlescape_id = battlescape_manager.join_battlescape(
-                        //     vec![entity, target_entity],
-                        //     vec![vec![0], vec![1]],
-                        // );
+//                     // Intercept and start a battlescape if target is close enough.
+//                     if target_position.0.distance_squared(position.0) < 1.0 {
+//                         // Create the battlescape.
+//                         // let battlescape_id = battlescape_manager.join_battlescape(
+//                         //     vec![entity, target_entity],
+//                         //     vec![vec![0], vec![1]],
+//                         // );
 
-                        // // Create the intersection.
-                        // let entities = vec![entity, target_entity];
-                        // let center = (position.0 + target_position.0) * 0.5;
-                        // let interception_id =
-                        //     interception_manager.create_interception(entities, center);
+//                         // // Create the intersection.
+//                         // let entities = vec![entity, target_entity];
+//                         // let center = (position.0 + target_position.0) * 0.5;
+//                         // let interception_id =
+//                         //     interception_manager.create_interception(entities, center);
 
-                        // commands.entity(entity).insert(Intercepted {
-                        //     interception_id,
-                        //     reason: InterceptedReason::Battle(battlescape_id),
-                        // });
-                        // commands.entity(target_entity).insert(Intercepted {
-                        //     interception_id,
-                        //     reason: InterceptedReason::Battle(battlescape_id),
-                        // });
-                    }
-                } else {
-                    // Can not find target.
-                    colony_guard_fleet_ai.target = None;
-                }
-            } else if !entity_detected.0.is_empty() {
-                // Chase the closest target.
-                for other_entity in entity_detected.0.iter() {
-                    if let Ok(other_position) = query_other.get(*other_entity) {
-                        if let Some(previous_target) = wish_position.target() {
-                            if previous_target.distance_squared(position.0)
-                                > other_position.0.distance_squared(position.0)
-                            {
-                                colony_guard_fleet_ai.target = Some(*other_entity);
-                                wish_position.set_wish_position(other_position.0, 1.0);
-                            }
-                        } else {
-                            colony_guard_fleet_ai.target = Some(*other_entity);
-                            wish_position.set_wish_position(other_position.0, 1.0);
-                        }
-                    }
-                }
-            } else if wish_position.target().is_none() {
-                // TODO: Wander around colony.
-                let (system, planet) = systems.get_system_and_planet(colony_guard_fleet_ai.colony);
-                let planet_position = planet.relative_orbit.to_position(timef, system.position);
+//                         // commands.entity(entity).insert(Intercepted {
+//                         //     interception_id,
+//                         //     reason: InterceptedReason::Battle(battlescape_id),
+//                         // });
+//                         // commands.entity(target_entity).insert(Intercepted {
+//                         //     interception_id,
+//                         //     reason: InterceptedReason::Battle(battlescape_id),
+//                         // });
+//                     }
+//                 } else {
+//                     // Can not find target.
+//                     colony_guard_fleet_ai.target = None;
+//                 }
+//             } else if !entity_detected.0.is_empty() {
+//                 // Chase the closest target.
+//                 for other_entity in entity_detected.0.iter() {
+//                     if let Ok(other_position) = query_other.get(*other_entity) {
+//                         if let Some(previous_target) = wish_position.target() {
+//                             if previous_target.distance_squared(position.0)
+//                                 > other_position.0.distance_squared(position.0)
+//                             {
+//                                 colony_guard_fleet_ai.target = Some(*other_entity);
+//                                 wish_position.set_wish_position(other_position.0, 1.0);
+//                             }
+//                         } else {
+//                             colony_guard_fleet_ai.target = Some(*other_entity);
+//                             wish_position.set_wish_position(other_position.0, 1.0);
+//                         }
+//                     }
+//                 }
+//             } else if wish_position.target().is_none() {
+//                 // TODO: Wander around colony.
+//                 let (system, planet) = systems.get_system_and_planet(colony_guard_fleet_ai.colony);
+//                 let planet_position = planet.relative_orbit.to_position(timef, system.position);
 
-                wish_position.set_wish_position(planet_position, 0.8);
-            }
-        },
-    );
-}
+//                 wish_position.set_wish_position(planet_position, 0.8);
+//             }
+//         },
+//     );
+// }
 
-fn colonist_fleet_ai(
-    mut commands: Commands,
-    mut query: Query<
-        (
-            Entity,
-            &Position,
-            &InSystem,
-            &mut ColonistFleetAI,
-            &mut WishPosition,
-            &Reputations,
-        ),
-        Without<WrappedId<InterceptionId>>,
-    >,
-    systems: Res<Systems>,
-    mut colonies: ResMut<Colonies>,
-    time: Res<Time>,
-) {
-    let timef = time.as_timef();
-    let mut rng = Xoshiro128StarStar::seed_from_u64(time.total_tick.wrapping_mul(43627));
+// fn colonist_fleet_ai(
+//     mut commands: Commands,
+//     mut query: Query<
+//         (
+//             Entity,
+//             &Position,
+//             &InSystem,
+//             &mut ColonistFleetAI,
+//             &mut WishPosition,
+//             &Reputations,
+//         ),
+//         Without<WrappedId<InterceptionId>>,
+//     >,
+//     systems: Res<Systems>,
+//     mut colonies: ResMut<Colonies>,
+//     time: Res<Time>,
+// ) {
+//     let timef = time.as_timef();
+//     let mut rng = Xoshiro128StarStar::seed_from_u64(time.total_tick.wrapping_mul(43627));
 
-    query.for_each_mut(
-        |(entity, position, in_system, mut colonist_fleet_ai, mut wish_position, reputations)| {
-            if let Some(planet_id) = colonist_fleet_ai.target_planet() {
-                // Go torward target planet.
-                let (system, planet) = systems.get_system_and_planet(planet_id);
-                let planet_position = planet.relative_orbit.to_position(timef, system.position);
-                wish_position.set_wish_position(
-                    planet_position,
-                    ColonistFleetAI::MOVEMENT_MULTIPLIER_COLONIZING,
-                );
+//     query.for_each_mut(
+//         |(entity, position, in_system, mut colonist_fleet_ai, mut wish_position, reputations)| {
+//             if let Some(planet_id) = colonist_fleet_ai.target_planet() {
+//                 // Go torward target planet.
+//                 let (system, planet) = systems.get_system_and_planet(planet_id);
+//                 let planet_position = planet.relative_orbit.to_position(timef, system.position);
+//                 wish_position.set_wish_position(
+//                     planet_position,
+//                     ColonistFleetAI::MOVEMENT_MULTIPLIER_COLONIZING,
+//                 );
 
-                if colonies.get_colony_faction(planet_id).is_some() {
-                    // Planet has already been colonized.
-                    colonist_fleet_ai.reset_target_planet();
-                } else {
-                    // Are we close enough to the planet to take it?
-                    if planet_position.distance_squared(position.0) < 1.0 {
-                        // Faction take control of the planet.
-                        // TODO: This should take time.
-                        colonies.give_colony_to_faction(planet_id, reputations.faction);
+//                 if colonies.get_colony_faction(planet_id).is_some() {
+//                     // Planet has already been colonized.
+//                     colonist_fleet_ai.reset_target_planet();
+//                 } else {
+//                     // Are we close enough to the planet to take it?
+//                     if planet_position.distance_squared(position.0) < 1.0 {
+//                         // Faction take control of the planet.
+//                         // TODO: This should take time.
+//                         colonies.give_colony_to_faction(planet_id, reputations.faction);
 
-                        // Change AI to guard the planet.
-                        commands.entity(entity).remove::<ColonistFleetAI>().insert(
-                            ColonyGuardFleetAI {
-                                target: None,
-                                colony: planet_id,
-                            },
-                        );
+//                         // Change AI to guard the planet.
+//                         commands.entity(entity).remove::<ColonistFleetAI>().insert(
+//                             ColonyGuardFleetAI {
+//                                 target: None,
+//                                 colony: planet_id,
+//                             },
+//                         );
 
-                        wish_position.stop();
-                    }
-                }
-            } else if wish_position.target().is_none() {
-                // Go to a random system.
-                // We aim for the system's bound instead of center where there can be a star or worse.
+//                         wish_position.stop();
+//                     }
+//                 }
+//             } else if wish_position.target().is_none() {
+//                 // Go to a random system.
+//                 // We aim for the system's bound instead of center where there can be a star or worse.
 
-                // Get a random system.
-                let system = &systems.systems[rng.gen::<usize>() % systems.systems.len()];
+//                 // Get a random system.
+//                 let system = &systems.systems[rng.gen::<usize>() % systems.systems.len()];
 
-                // Randomly compute the system bound direction.
-                let rot = rng.gen::<f32>() * TAU;
-                let random_system_bound =
-                    system.position + Vec2::new(rot.cos(), rot.sin()) * system.bound * 0.7;
+//                 // Randomly compute the system bound direction.
+//                 let rot = rng.gen::<f32>() * TAU;
+//                 let random_system_bound =
+//                     system.position + Vec2::new(rot.cos(), rot.sin()) * system.bound * 0.7;
 
-                wish_position.set_wish_position(
-                    random_system_bound,
-                    ColonistFleetAI::MOVEMENT_MULTIPLIER_TRAVELLING,
-                );
-            } else if colonist_fleet_ai.is_done_travelling(time.tick) {
-                // We are done travelling. Start searching for a planet.
-                if let Some(system_id) = in_system.0 {
-                    let system = &systems.systems[system_id];
+//                 wish_position.set_wish_position(
+//                     random_system_bound,
+//                     ColonistFleetAI::MOVEMENT_MULTIPLIER_TRAVELLING,
+//                 );
+//             } else if colonist_fleet_ai.is_done_travelling(time.tick) {
+//                 // We are done travelling. Start searching for a planet.
+//                 if let Some(system_id) = in_system.0 {
+//                     let system = &systems.systems[system_id];
 
-                    // Randomly chose a planet to colonize in this system.
-                    let planets_offset = (rng.gen::<u32>() % system.planets.len() as u32) as u8;
-                    let planet_id = PlanetId {
-                        system_id,
-                        planets_offset,
-                    };
+//                     // Randomly chose a planet to colonize in this system.
+//                     let planets_offset = (rng.gen::<u32>() % system.planets.len() as u32) as u8;
+//                     let planet_id = PlanetId {
+//                         system_id,
+//                         planets_offset,
+//                     };
 
-                    if colonies.get_colony_faction(planet_id).is_none() {
-                        colonist_fleet_ai.set_target_planet(planet_id);
-                    } else {
-                        // Planet is already a colony.
-                        // Start travelling again.
-                        colonist_fleet_ai
-                            .set_travel_until(ColonistFleetAI::DEFAULT_TRAVEL_DURATION, time.tick);
-                        wish_position.stop();
-                    }
-                }
-            }
-        },
-    );
-}
+//                     if colonies.get_colony_faction(planet_id).is_none() {
+//                         colonist_fleet_ai.set_target_planet(planet_id);
+//                     } else {
+//                         // Planet is already a colony.
+//                         // Start travelling again.
+//                         colonist_fleet_ai
+//                             .set_travel_until(ColonistFleetAI::DEFAULT_TRAVEL_DURATION, time.tick);
+//                         wish_position.stop();
+//                     }
+//                 }
+//             }
+//         },
+//     );
+// }
 
 /// Update velocity based on wish position and acceleration.
 ///
@@ -839,20 +751,6 @@ fn event_handler_client_disconnected(
     }
 }
 
-/// Remove fleet that are queued for deletion.
-fn remove_fleet(
-    mut commands: Commands,
-    query: Query<(&WrappedId<FleetId>, &QueueRemove)>,
-    mut fleets_manager: ResMut<FleetsManager>,
-    time: Res<Time>,
-) {
-    query.for_each(|(wrapped_fleet_id, queue_remove)| {
-        if queue_remove.when <= time.tick {
-            fleets_manager.remove_spawned_fleet(&mut commands, wrapped_fleet_id.id());
-        }
-    });
-}
-
 /// Update the system each entity is currently in.
 fn update_in_system(
     mut query: Query<(&WrappedId<FleetId>, &Position, &mut InSystem)>,
@@ -884,12 +782,13 @@ fn update_in_system(
     })
 }
 
+// TODO: Separate fleet from cargo.
+// TODO: Many separate acc struc for each system.
 /// Take a snapshot of the AccelerationStructure from the last update and request a new update on the runner thread.
 ///
 /// This effectively just swap the snapshots between the runner thread and this IntersectionPipeline.
 fn update_detected_intersection_pipeline(
-    query: Query<(Entity, &Position, &DetectedRadius, &Reputations)>,
-    mut factions: ResMut<Factions>,
+    query: Query<(Entity, &Position, &DetectedRadius)>, 
     mut detected_intersection_pipeline: ResMut<DetectedIntersectionPipeline>,
     mut last_update_delta: Local<u32>,
 ) {
@@ -912,28 +811,17 @@ fn update_detected_intersection_pipeline(
         }
     }
 
-    if *last_update_delta > DETECTED_UPDATE_INTERVAL as u32 {
+    if *last_update_delta > DETECTED_UPDATE_INTERVAL {
         if let Some(mut old_snapshot) = intersection_pipeline.outdated.take() {
-            // Update enemy masks.
-            factions.update_factions_enemy_mask();
-
             // Update all colliders.
             old_snapshot.clear();
             old_snapshot.extend(query.iter().map(
-                |(entity, position, detected_radius, reputations)| {
-                    if let Some(faction_id) = reputations.faction {
-                        (
-                            Collider::new(detected_radius.0, position.0),
-                            entity,
-                            factions.enemy_masks[faction_id.0 as usize],
-                        )
-                    } else {
-                        (
-                            Collider::new(detected_radius.0, position.0),
-                            entity,
-                            u32::MAX,
-                        )
-                    }
+                |(entity, position, detected_radius)| {
+                    (
+                        Collider::new(detected_radius.0, position.0),
+                        entity,
+                        u32::MAX,
+                    )
                 },
             ));
 
@@ -960,7 +848,7 @@ fn send_detected_entity(
         Entity,
         &WrappedId<ClientId>,
         &Position,
-        &EntityDetected,
+        &Detector,
         &mut KnowEntities,
     )>,
     query_changed: Query<
@@ -980,16 +868,16 @@ fn send_detected_entity(
 ) {
     query_client.par_for_each_mut(
         &task_pool,
-        1024,
-        |(entity, wrapped_client_id, position, entity_detected, mut know_entities)| {
+        256,
+        |(entity, wrapped_client_id, position, detector, mut know_entities)| {
             if let Some(connection) = clients_manager.get_connection(wrapped_client_id.id()) {
                 let know_entities = &mut *know_entities;
 
-                let mut updated = Vec::with_capacity(entity_detected.0.len());
+                let mut updated = Vec::with_capacity(detector.detected.len());
                 let mut infos = Vec::new();
 
-                entity_detected
-                    .0
+                detector
+                    .detected
                     .iter()
                     .filter_map(|detected_entity| {
                         if let Some(temp_id) = know_entities.known.remove(detected_entity) {
@@ -1022,8 +910,7 @@ fn send_detected_entity(
                                 },
                             ));
                         } else {
-                            // TODO: Try to query other type of entity.
-                            debug!("Unknow entity type. Ignoring...");
+                            debug!("Unknow entity. Ignoring...");
                         }
                     });
 
@@ -1110,30 +997,4 @@ fn send_detected_entity(
             }
         },
     );
-}
-
-fn event_handler_fleet_destroyed(
-    mut commands: Commands,
-    query: Query<&WrappedId<FleetId>>,
-    mut fleets_manager: ResMut<FleetsManager>,
-    mut event_fleet_destroyed: ResMut<EventRes<FleetDestroyed>>,
-    mut event_client_disconnected: ResMut<EventRes<ClientDisconnected>>,
-) {
-    while let Some(event) = event_fleet_destroyed.pop() {
-        if let Ok(wrapped_fleet_id) = query.get(event.entity) {
-            if let Some(client_id) = wrapped_fleet_id.id().to_client_id() {
-                // TODO: Client's fleet should not be completely destroyable.
-                warn!("{:?}'s has been completely destroyed. This should not happen. Disconnecting...", client_id);
-                event_client_disconnected.push(ClientDisconnected {
-                    client_id,
-                    fleet_entity: event.entity,
-                    send_packet: Some(ServerPacket::DisconnectedReason(
-                        DisconnectedReasonEnum::ServerError,
-                    )),
-                });
-            } else {
-                fleets_manager.remove_spawned_fleet(&mut commands, wrapped_fleet_id.id());
-            }
-        }
-    }
 }

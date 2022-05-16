@@ -1,110 +1,81 @@
 use crate::{idx::*, reputation::Reputation};
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Faction {
-    pub disabled: bool,
-
     pub name: String,
-    /// Reputation between factions.
-    /// The highest `FactionId` has the reputation of all lower `FactionId`.
-    ///
-    /// eg: fleet a has faction `2` and fleet b has faction `4`.
-    ///
-    /// Relation = `faction[4].reputation[2]`.
-    pub relations: Vec<Reputation>,
-    /// Reputation with individual fleet.
-    pub reputations: AHashMap<FleetId, Reputation>,
+    /// Reputation with other factions.
+    /// This is the unique id of the reputation.
+    pub reputations: AHashMap<FactionId, usize>,
+    /// Used when 2 faction don't have explicit reputation 
+    /// (eg. when they have never interacted before).
     pub default_reputation: Reputation,
-
-    pub target_colonies: usize,
+    // TODO: Keep track of Players/fleet in this faction.
+    // TODO: When empty, clean up the faction.
+    // pub players: AHashSet<PlanetId>,
 }
 impl Default for Faction {
     fn default() -> Self {
         Self {
-            disabled: true,
-            name: Default::default(),
-            relations: Default::default(),
+            name: "Independent".to_string(),
             reputations: Default::default(),
             default_reputation: Default::default(),
-            target_colonies: 0,
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Factions {
-    pub factions: [Faction; Self::MAX_FACTIONS],
-    /// The enemy mask of each factions.
-    #[serde(skip)]
-    pub enemy_masks: [u32; 32],
+    next_faction_id: FactionId,
+    factions: AHashMap<FactionId, Faction>,
+
+    next_reputation_id: usize,
+    free_reputation_id: Vec<usize>,
+    reputations: Vec<Reputation>,
 }
 impl Factions {
-    pub const MAX_FACTIONS: usize = 32;
+    pub fn create_faction(&mut self, faction: Faction) -> FactionId {
+        let faction_id = self.next_faction_id;
+        self.next_faction_id.0 += 1;
 
-    pub fn update_all(&mut self) {
-        for i in 0..self.factions.len() {
-            let current = &mut self.factions[i];
+        self.factions.insert(faction_id, faction);
 
-            // Add relations with other factions.
-            current.relations.resize(i, Reputation::NEUTRAL);
+        faction_id
+    }
+
+    /// Return the reputation between 2 factions.
+    /// 
+    /// If a faction does not exist, log an error and return a default value.
+    pub fn get_reputations_between(&self, a: FactionId, b: FactionId) -> Reputation {
+        if a == b {
+            return Reputation::MAX;
         }
-    }
 
-    /// Masks are stored in `enemy_masks`.
-    pub fn update_factions_enemy_mask(&mut self) {
-        let masks = &mut self.enemy_masks;
-
-        for (i, faction) in self.factions.iter().enumerate() {
-            let current = &mut masks[i];
-
-            // Add relation from lower faction.
-            for (j, rep) in faction.relations.iter().enumerate() {
-                *current += (rep.is_enemy() as u32) << j;
-            }
-
-            // Add relation from other higher factions.
-            for j in i + 1..self.factions.len() {
-                *current += (self.factions[j].relations[i].is_enemy() as u32) << j
-            }
-        }
-    }
-}
-
-#[test]
-fn test_get_factions_enemy_mask() {
-    let mut rng = rand::thread_rng();
-
-    let mut f = Factions::default();
-    f.update_all();
-
-    for faction in f.factions.iter_mut() {
-        for reputation in faction.relations.iter_mut() {
-            *reputation = Reputation(rand::Rng::gen_range(&mut rng, Reputation::MIN.0..Reputation::MAX.0));
-        }
-    }
-
-    f.update_factions_enemy_mask();
-
-    for (i, mask) in f.enemy_masks.iter().enumerate() {
-        println!("{:2} - {:032b}", i, mask);
-    }
-
-    for (i, mask) in f.enemy_masks.iter().enumerate() {
-        for j in 0..f.factions.len() {
-            let is_enemy = (mask & (1 << j)) != 0;
-
-            let (min, max) = if i > j {
-                (j, i)
-            } else if i < j {
-                (i, j)
+        if let Some(faction_a) = self.factions.get(&a) {
+            let id = if let Some(id) = faction_a.reputations.get(&b) {
+                id
             } else {
-                assert!(!is_enemy, "enemy with itself");
-                continue;
+                return Reputation::default();
             };
 
-            assert_eq!(is_enemy, f.factions[max].relations[min].is_enemy(), "{}, {}", min, max);
+            self.reputations.get(*id).copied().unwrap_or_default()
+        } else {
+            log::warn!("Unkow faction {:?} for `get_reputations_between`. Returning default...", a);
+            Reputation::default()
         }
+    }
+
+    pub fn get_faction(&self, faction_id: FactionId) -> Option<&Faction> {
+        self.factions.get(&faction_id)
+    }
+
+    pub fn get_reputation(&self, id: usize) -> Option<&Reputation> {
+        self.reputations.get(id)
+    }
+
+    /// Will return a default value if it does not exist. 
+    pub fn get_reputation_infaillible(&self, id: usize) -> Reputation {
+        self.reputations.get(id).copied().unwrap_or_default()
     }
 }

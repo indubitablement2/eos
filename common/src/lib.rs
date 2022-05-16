@@ -21,6 +21,7 @@ pub mod reputation;
 pub mod ships;
 pub mod systems;
 pub mod time;
+pub mod recyclable_container;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

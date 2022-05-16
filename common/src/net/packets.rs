@@ -25,6 +25,7 @@ pub struct FleetInfo {
     pub composition: Vec<ShipBaseId>,
 }
 
+// TODO: Separate fleet from cargo (only 2 type of entity with very different behavior).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EntityInfoType {
     Fleet(FleetInfo),

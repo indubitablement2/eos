@@ -11,8 +11,8 @@ pub enum ReputationState {
 }
 
 /// Good boy points.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
-pub struct Reputation(pub i8);
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct Reputation(i8);
 impl Reputation {
     pub const NEUTRAL: Reputation = Reputation(0);
     pub const ENEMY_THRESHOLD: Reputation = Reputation(-25);
@@ -59,5 +59,10 @@ impl Sub for Reputation {
 impl Display for Reputation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+impl Default for Reputation {
+    fn default() -> Self {
+        Self::NEUTRAL
     }
 }
