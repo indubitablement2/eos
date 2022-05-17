@@ -97,9 +97,9 @@ impl RecyclableRawTable<Fleet> for Fleets {
 
             // Mark the fleet as invalid.
             let cur_gen_ptr = start.add(index);
-            if cur_gen_ptr.read() != entity.generation() {
-                // Generation do not match.
-                log::debug!("Requested to remove entity, but its does not exist.");
+            if cur_gen_ptr.read() > entity.generation() {
+                // Fleet in table is newer.
+                log::debug!("Requested to remove entity, but it has been replaced already.");
                 return;
             }
             cur_gen_ptr.write(u32::MAX);
