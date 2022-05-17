@@ -3,20 +3,21 @@ use super::fleets_manager::FleetsManager;
 use bevy_ecs::prelude::*;
 use common::idx::*;
 
-pub fn spawn_default_client_fleet(fleets_manager: &mut FleetsManager, commands: &mut Commands, client_fleet_bundle: ClientFleetBundle) -> Entity {
+pub fn spawn_default_client_fleet(
+    fleets_manager: &mut FleetsManager,
+    commands: &mut Commands,
+    client_fleet_bundle: ClientFleetBundle,
+) -> Entity {
     let client_id = client_fleet_bundle.client_id();
     let fleet_id = client_fleet_bundle.fleet_bundle().fleet_id();
 
     // Add to ecs.
-    let new_entity = commands
-        .spawn_bundle(client_fleet_bundle)
-        .id();
+    let new_entity = commands.spawn_bundle(client_fleet_bundle).id();
 
     // Add to fleet manager.
     fleets_manager.add_spawned_fleet(fleet_id, new_entity);
 
     // TODO: Add to faction manager.
-
 
     log::debug!("Creating a new default fleet for {:?}.", client_id);
     new_entity
@@ -52,7 +53,11 @@ pub fn spawn_default_client_fleet(fleets_manager: &mut FleetsManager, commands: 
 
 // TODO: Spawn loot and what not.
 // TODO: Clean up faction as well.
-pub fn destroy_fleet(fleets_manager: &mut FleetsManager, commands: &mut Commands, fleet_id: FleetId) {
+pub fn destroy_fleet(
+    fleets_manager: &mut FleetsManager,
+    commands: &mut Commands,
+    fleet_id: FleetId,
+) {
     if let Some(client_id) = fleet_id.to_client_id() {
         // TODO: Handle client's fleet destruction.
         log::error!("Fleet destruction not implement for client...");

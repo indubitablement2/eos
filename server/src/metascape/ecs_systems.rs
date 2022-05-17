@@ -7,9 +7,9 @@ use super::ecs_components::*;
 use super::ecs_events::*;
 use super::fleets_manager::*;
 use super::interception_manager::InterceptionManager;
+use super::utils::*;
 use super::DetectedIntersectionPipeline;
 use super::SystemsAccelerationStructure;
-use super::utils::*;
 use crate::server_configs::*;
 use bevy_ecs::prelude::*;
 use bevy_tasks::ComputeTaskPool;
@@ -155,8 +155,10 @@ fn get_new_clients(
         } else {
             // Create a new default faction & fleet.
             let faction_id = factions.create_faction(Faction::default());
-            let client_fleet_bundle = ClientFleetBundle::new(client_id, Vec2::ZERO, faction_id, Vec::new());
-            let new_entity = spawn_default_client_fleet(&mut fleets_manager, &mut commands, client_fleet_bundle);
+            let client_fleet_bundle =
+                ClientFleetBundle::new(client_id, Vec2::ZERO, faction_id, Vec::new());
+            let new_entity =
+                spawn_default_client_fleet(&mut fleets_manager, &mut commands, client_fleet_bundle);
             // TODO: Add fleet to faction.
         }
 
@@ -169,29 +171,22 @@ fn get_new_clients(
 
 /// Determine what each sensor can see.
 fn update_detected_entity(
-    mut query: Query<(
-        Entity,
-        &Position,
-        &mut Detector,
-    )>,
+    mut query: Query<(Entity, &Position, &mut Detector)>,
     detected_intersection_pipeline: Res<DetectedIntersectionPipeline>,
     time: Res<Time>,
 ) {
     // We will only update one part every tick.
     let turn = time.tick % DETECTED_UPDATE_INTERVAL;
 
-    query.for_each_mut(
-        |(
-            entity,
-            position,
-            mut detector,
-        )| {
-            if entity.id() % DETECTED_UPDATE_INTERVAL == turn {
-                let detector_collider = Collider::new(detector.radius, position.0);
-                detected_intersection_pipeline.0.snapshot.intersect_collider_into(detector_collider, &mut detector.detected);
-            }
-        },
-    );
+    query.for_each_mut(|(entity, position, mut detector)| {
+        if entity.id() % DETECTED_UPDATE_INTERVAL == turn {
+            let detector_collider = Collider::new(detector.radius, position.0);
+            detected_intersection_pipeline
+                .0
+                .snapshot
+                .intersect_collider_into(detector_collider, &mut detector.detected);
+        }
+    });
 }
 
 /// Consume and apply the client's packets.
@@ -345,10 +340,7 @@ fn handle_battlescape(
                         if let Ok((fleet_composition, fleet_state)) =
                             query_fleet.get(battlescape.players[player_id as usize])
                         {
-                            Some(
-                                fleet_composition
-                                    .compute_auto_combat_strenght(fleet_state, bases),
-                            )
+                            Some(fleet_composition.compute_auto_combat_strenght(fleet_state, bases))
                         } else {
                             // Queue fleet to be removed from the battlescape.
                             queue_remove_fleet.push(i);
@@ -788,7 +780,7 @@ fn update_in_system(
 ///
 /// This effectively just swap the snapshots between the runner thread and this IntersectionPipeline.
 fn update_detected_intersection_pipeline(
-    query: Query<(Entity, &Position, &DetectedRadius)>, 
+    query: Query<(Entity, &Position, &DetectedRadius)>,
     mut detected_intersection_pipeline: ResMut<DetectedIntersectionPipeline>,
     mut last_update_delta: Local<u32>,
 ) {
@@ -815,15 +807,13 @@ fn update_detected_intersection_pipeline(
         if let Some(mut old_snapshot) = intersection_pipeline.outdated.take() {
             // Update all colliders.
             old_snapshot.clear();
-            old_snapshot.extend(query.iter().map(
-                |(entity, position, detected_radius)| {
-                    (
-                        Collider::new(detected_radius.0, position.0),
-                        entity,
-                        u32::MAX,
-                    )
-                },
-            ));
+            old_snapshot.extend(query.iter().map(|(entity, position, detected_radius)| {
+                (
+                    Collider::new(detected_radius.0, position.0),
+                    entity,
+                    u32::MAX,
+                )
+            }));
 
             // Send snapshot to be updated.
             if let Err(err) = intersection_pipeline

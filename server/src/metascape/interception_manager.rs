@@ -1,7 +1,10 @@
 use super::ecs_components::*;
 use ahash::{AHashMap, AHashSet};
-use bevy_ecs::{entity::Entity, system::{Commands, Query}};
-use common::idx::{InterceptionId, BattlescapeId};
+use bevy_ecs::{
+    entity::Entity,
+    system::{Commands, Query},
+};
+use common::idx::{BattlescapeId, InterceptionId};
 use glam::Vec2;
 use std::f32::consts::TAU;
 

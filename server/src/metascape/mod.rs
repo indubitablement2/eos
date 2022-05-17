@@ -7,8 +7,16 @@ mod ecs_events;
 mod ecs_systems;
 mod fleets_manager;
 mod interception_manager;
+mod system_manager;
 mod utils;
 
+use self::battlescape_manager::BattlescapeManager;
+use self::clients_manager::ClientsManager;
+use self::colony::Colonies;
+use self::data_manager::DataManager;
+use self::fleets_manager::FleetsManager;
+use self::interception_manager::InterceptionManager;
+use crate::server_configs::ServerConfigs;
 use bevy_ecs::prelude::*;
 use bevy_tasks::{ComputeTaskPool, TaskPool};
 use common::factions::Factions;
@@ -18,13 +26,6 @@ use common::systems::Systems;
 use common::time::Time;
 use common::{idx::SystemId, intersection::*};
 use std::{fs::File, io::prelude::*};
-use crate::server_configs::ServerConfigs;
-use self::battlescape_manager::BattlescapeManager;
-use self::clients_manager::ClientsManager;
-use self::colony::Colonies;
-use self::data_manager::DataManager;
-use self::fleets_manager::FleetsManager;
-use self::interception_manager::InterceptionManager;
 
 /// An acceleration structure that contain the systems bounds.
 /// It is never updated at runtime.
@@ -80,8 +81,8 @@ impl Metascape {
         let mut file = File::open("factions.bin").expect("Could not open factions.bin");
         let mut buffer = Vec::with_capacity(file.metadata().unwrap().len() as usize);
         file.read_to_end(&mut buffer).unwrap();
-        let mut factions = bincode::deserialize::<Factions>(&buffer)
-            .expect("Could not deserialize factions.yaml");
+        let mut factions =
+            bincode::deserialize::<Factions>(&buffer).expect("Could not deserialize factions.yaml");
         world.insert_resource(factions);
 
         // Load colonies.

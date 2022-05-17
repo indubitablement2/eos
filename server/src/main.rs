@@ -14,6 +14,7 @@ use server::Server;
 use std::{thread::sleep, time::Instant};
 
 mod connection_manager;
+mod meta;
 mod metascape;
 mod server;
 mod server_configs;

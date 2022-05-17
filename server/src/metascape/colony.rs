@@ -29,7 +29,7 @@ impl Colonies {
     pub fn give_colony_to_faction(&mut self, planet_id: PlanetId, new_faction: Option<FactionId>) {
         if let Some(colony) = self.colonies.get_mut(&planet_id) {
             // Colony is already owned.
-            
+
             debug_assert_ne!(
                 colony.faction, new_faction,
                 "Colony is already taken by the same faction."
@@ -51,11 +51,15 @@ impl Colonies {
 
             // Add PlanetId to new faction.
             if let Some(new_faction) = new_faction {
-                let result = self.faction_colonies.entry(new_faction).or_default().insert(planet_id);
+                let result = self
+                    .faction_colonies
+                    .entry(new_faction)
+                    .or_default()
+                    .insert(planet_id);
                 debug_assert!(
                     result,
                     "Faction should not have this PlanetId already in faction_colonies."
-                ); 
+                );
             }
         } else {
             // Create a new colony.
@@ -67,7 +71,11 @@ impl Colonies {
 
             // Add PlanetId to new faction.
             if let Some(new_faction) = new_faction {
-                let result = self.faction_colonies.entry(new_faction).or_default().insert(planet_id);
+                let result = self
+                    .faction_colonies
+                    .entry(new_faction)
+                    .or_default()
+                    .insert(planet_id);
                 debug_assert!(
                     result,
                     "Faction should not have this PlanetId already in faction_colonies."

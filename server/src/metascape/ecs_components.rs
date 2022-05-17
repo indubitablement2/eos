@@ -1,8 +1,7 @@
 use ahash::AHashMap;
 use battlescape::player_inputs::PlayerInput;
 use bevy_ecs::prelude::*;
-use common::{idx::*, net::packets::BattlescapeCommands, orbit::Orbit, ships::*, WORLD_BOUND,
-};
+use common::{idx::*, net::packets::BattlescapeCommands, orbit::Orbit, ships::*, WORLD_BOUND};
 use glam::Vec2;
 use rand::Rng;
 use rand_xoshiro::Xoshiro128StarStar;
@@ -102,7 +101,10 @@ impl FleetBundle {
             idle_counter: IdleCounter::default(),
             derived_fleet_stats: DerivedFleetStats { acceleration: 0.04 },
             detected_radius: DetectedRadius(10.0),
-            detector: Detector { radius: 10.0, detected: Default::default() },
+            detector: Detector {
+                radius: 10.0,
+                detected: Default::default(),
+            },
             fleet_state: FleetState {
                 ships: vec![
                     ShipState {

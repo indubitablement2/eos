@@ -1,9 +1,12 @@
+use super::{ecs_components::WrappedId, interception_manager::*};
+use crate::metascape::ecs_components::*;
 use ahash::AHashMap;
 use battlescape::replay::BattlescapeReplay;
-use bevy_ecs::{entity::Entity, system::{Query, Commands}};
+use bevy_ecs::{
+    entity::Entity,
+    system::{Commands, Query},
+};
 use common::idx::*;
-use crate::metascape::ecs_components::*;
-use super::{ecs_components::WrappedId, interception_manager::*};
 
 #[derive(Debug)]
 pub struct Battlescape {
@@ -39,7 +42,7 @@ pub struct BattlescapeManager {
 }
 impl BattlescapeManager {
     /// Try to join the other's battlescape or create a new one.
-    /// Initiator and other are asumed to be enemy. 
+    /// Initiator and other are asumed to be enemy.
     /// # Panic
     /// Both entities should be valid.
     pub fn join_battlescape(
@@ -51,14 +54,26 @@ impl BattlescapeManager {
         initiator: Entity,
         other: Entity,
     ) {
-        debug_assert!(query_intercepted.get(initiator).is_err(), "Intercepted fleet can not initiate a battlescape.");
+        debug_assert!(
+            query_intercepted.get(initiator).is_err(),
+            "Intercepted fleet can not initiate a battlescape."
+        );
 
-        if let Some((wrapped_interception_id, interception)) = query_intercepted.get(other).ok()
-        .and_then(|wrapped_interception_id| interception_manager.get_interception_mut(wrapped_interception_id.id()).map(|interception| (wrapped_interception_id ,interception))) {
+        if let Some((wrapped_interception_id, interception)) = query_intercepted
+            .get(other)
+            .ok()
+            .and_then(|wrapped_interception_id| {
+                interception_manager
+                    .get_interception_mut(wrapped_interception_id.id())
+                    .map(|interception| (wrapped_interception_id, interception))
+            })
+        {
             match interception.reason {
                 InterceptedReason::Battle(battlescape_id) => {
                     // Join this battlescape.
-                    commands.entity(initiator).insert(wrapped_interception_id.to_owned());
+                    commands
+                        .entity(initiator)
+                        .insert(wrapped_interception_id.to_owned());
                 }
             }
         } else {
