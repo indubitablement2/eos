@@ -88,7 +88,7 @@ impl RecyclableRawTable<Fleet> for Fleets {
 
         if index >= self.end {
             // Index was already removed or is oob.
-            log::debug!("Requested to remove a fleet entity with index >= end.");
+            log::debug!("Requested to remove a fleet with index >= end.");
             return;
         }
 
@@ -99,7 +99,7 @@ impl RecyclableRawTable<Fleet> for Fleets {
             let cur_gen_ptr = start.add(index);
             if cur_gen_ptr.read() > entity.generation() {
                 // Fleet in table is newer.
-                log::debug!("Requested to remove entity, but it has been replaced already.");
+                log::debug!("Requested to remove fleet, but it has been replaced already.");
                 return;
             }
             cur_gen_ptr.write(u32::MAX);
@@ -139,5 +139,14 @@ impl RecyclableRawTable<Fleet> for Fleets {
 
     fn end(&self) -> usize {
         self.end
+    }
+}
+
+#[test]
+fn test_fleets() {
+    let mut f = Fleets::new();
+
+    for i in 0..10 {
+        f.push(Fleet::d)
     }
 }
