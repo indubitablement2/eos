@@ -47,10 +47,11 @@ pub struct Fleets {
 }
 impl RecyclableRawTable<Fleet> for Fleets {
     fn new() -> Self {
+        let initial_capacity = 512;
         Self {
-            raw_table: RawTable::with_capacity(512),
+            raw_table: RawTable::with_capacity(initial_capacity),
             end: 0,
-            removed: (0..512).collect(),
+            removed: (0..initial_capacity).collect(),
         }
     }
 
@@ -61,23 +62,64 @@ impl RecyclableRawTable<Fleet> for Fleets {
             self.removed.pop_front().expect("oom")
         });
 
+        self.end = self.end.max(index + 1);
+
         let entity = Entity::new(index as u32, components.generation);
 
         // Move componments.
         unsafe {
-            *self.raw_table.ptr(Fleet::detected_radius).add(index) = components.detected_radius;
-            *self.raw_table.ptr(Fleet::detector_radius).add(index) = components.detector_radius;
-            *self.raw_table.ptr(Fleet::faction_id).add(index) = components.faction_id;
-            *self.raw_table.ptr(Fleet::fleet_detected).add(index) = components.fleet_detected;
-            *self.raw_table.ptr(Fleet::fleet_id).add(index) = components.fleet_id;
-            *self.raw_table.ptr(Fleet::generation).add(index) = components.generation;
-            *self.raw_table.ptr(Fleet::idle_counter).add(index) = components.idle_counter;
-            *self.raw_table.ptr(Fleet::in_system).add(index) = components.in_system;
-            *self.raw_table.ptr(Fleet::orbit).add(index) = components.orbit;
-            *self.raw_table.ptr(Fleet::position).add(index) = components.position;
-            *self.raw_table.ptr(Fleet::radius).add(index) = components.radius;
-            *self.raw_table.ptr(Fleet::velocity).add(index) = components.velocity;
-            *self.raw_table.ptr(Fleet::wish_position).add(index) = components.wish_position;
+            self.raw_table
+                .ptr(Fleet::detected_radius)
+                .add(index)
+                .write(components.detected_radius);
+            self.raw_table
+                .ptr(Fleet::detector_radius)
+                .add(index)
+                .write(components.detector_radius);
+            self.raw_table
+                .ptr(Fleet::faction_id)
+                .add(index)
+                .write(components.faction_id);
+            self.raw_table
+                .ptr(Fleet::fleet_detected)
+                .add(index)
+                .write(components.fleet_detected);
+            self.raw_table
+                .ptr(Fleet::fleet_id)
+                .add(index)
+                .write(components.fleet_id);
+            self.raw_table
+                .ptr(Fleet::generation)
+                .add(index)
+                .write(components.generation);
+            self.raw_table
+                .ptr(Fleet::idle_counter)
+                .add(index)
+                .write(components.idle_counter);
+            self.raw_table
+                .ptr(Fleet::in_system)
+                .add(index)
+                .write(components.in_system);
+            self.raw_table
+                .ptr(Fleet::orbit)
+                .add(index)
+                .write(components.orbit);
+            self.raw_table
+                .ptr(Fleet::position)
+                .add(index)
+                .write(components.position);
+            self.raw_table
+                .ptr(Fleet::radius)
+                .add(index)
+                .write(components.radius);
+            self.raw_table
+                .ptr(Fleet::velocity)
+                .add(index)
+                .write(components.velocity);
+            self.raw_table
+                .ptr(Fleet::wish_position)
+                .add(index)
+                .write(components.wish_position);
         }
 
         entity
@@ -144,9 +186,30 @@ impl RecyclableRawTable<Fleet> for Fleets {
 
 #[test]
 fn test_fleets() {
-    let mut f = Fleets::new();
+    use super::fleet::FleetBuilder;
+    use common::idx::*;
 
-    for i in 0..10 {
-        f.push(Fleet::d)
+    let num = 999;
+
+    let mut f = Fleets::new();
+    let entities: Vec<Entity<Fleet>> = (0..num as u64)
+        .map(|i| f.push(FleetBuilder::new(1, FleetId(i), FactionId(i), glam::Vec2::ZERO).build()))
+        .collect();
+
+    let mut expected_removed = 1024 - num;
+
+    assert_eq!(f.end(), num);
+    assert_eq!(f.raw_table.capacity(), 1024);
+
+    // Try to remove invalid entities.
+    f.remove(Entity::new(0, 0));
+    assert_eq!(f.removed.len(), expected_removed);
+    f.remove(Entity::new(1024, 1));
+    assert_eq!(f.removed.len(), expected_removed);
+
+    for entity in entities.into_iter() {
+        f.remove(entity);
+        expected_removed += 1;
+        assert_eq!(f.removed.len(), expected_removed);
     }
 }

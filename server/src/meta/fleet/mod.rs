@@ -40,13 +40,13 @@ pub struct Fleet {
 }
 
 pub struct FleetBuilder {
-        pub generation: u32,
-        pub fleet_id: FleetId,
-        pub faction_id: FactionId,
-        pub in_system: Option<SystemId>,
-        pub position: Vec2,
-        pub velocity: Vec2,
-        pub wish_position: WishPosition,
+    pub generation: u32,
+    pub fleet_id: FleetId,
+    pub faction_id: FactionId,
+    pub in_system: Option<SystemId>,
+    pub position: Vec2,
+    pub velocity: Vec2,
+    pub wish_position: WishPosition,
 }
 impl FleetBuilder {
     pub fn new(tick: u32, fleet_id: FleetId, faction_id: FactionId, position: Vec2) -> Self {
@@ -86,7 +86,7 @@ impl FleetBuilder {
             velocity: self.velocity,
             wish_position: self.wish_position,
             orbit: None,
-            radius: 1.0, // TODO: Compute this.
+            radius: 1.0,           // TODO: Compute this.
             detected_radius: 10.0, // TODO: Compute this.
             detector_radius: 10.0, // TODO: Compute this.
             fleet_detected: Default::default(),
