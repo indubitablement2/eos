@@ -16,33 +16,32 @@ impl<T> Entity<T> {
         }
     }
 
-    pub fn index(self) -> u32 {
+    pub fn index(&self) -> u32 {
         self.index
     }
 
-    pub fn generation(self) -> u32 {
+    pub fn generation(&self) -> u32 {
         self.generation
     }
 }
 
 pub trait RecyclableRawTable<T: soak::Columns> {
     fn new() -> Self;
-    /// # Invariants: 
+    /// # Invariants:
     /// Each element of T need to be manualy moved to the raw table.
     fn push(&mut self, components: T) -> Entity<T>;
-    /// # Invariants: 
+    /// # Invariants:
     /// Drop need to be manualy called for element of T.
-    fn remove(&mut self, index: usize);
+    fn remove(&mut self, entity: Entity<T>);
     /// Reserve space for count more elements.
     fn reserve(&mut self, count: usize);
     /// Similar to Vec's len, but may contain invalid object within len.
     /// Mark where no more object will be valid.
     fn end(&self) -> usize;
-    fn raw_table(&self) -> &RawTable<T>;
 }
 
 pub struct Fleets {
-    raw_table: RawTable<Fleet>,
+    pub raw_table: RawTable<Fleet>,
     end: usize,
     removed: std::collections::VecDeque<usize>,
 }
@@ -84,9 +83,12 @@ impl RecyclableRawTable<Fleet> for Fleets {
         entity
     }
 
-    fn remove(&mut self, mut index: usize) {
+    fn remove(&mut self, entity: Entity<Fleet>) {
+        let mut index = entity.index() as usize;
+
         if index >= self.end {
             // Index was already removed or is oob.
+            log::debug!("Requested to remove a fleet entity with index >= end.");
             return;
         }
 
@@ -94,10 +96,13 @@ impl RecyclableRawTable<Fleet> for Fleets {
             let start = self.raw_table.ptr(Fleet::generation);
 
             // Mark the fleet as invalid.
-            if start.add(index).replace(u32::MAX) == u32::MAX {
-                // Fleet is already invalid.
+            let cur_gen_ptr = start.add(index);
+            if cur_gen_ptr.read() != entity.generation() {
+                // Generation do not match.
+                log::debug!("Requested to remove entity, but its does not exist.");
                 return;
             }
+            cur_gen_ptr.write(u32::MAX);
 
             // Drop components that aren't copy.
             self.raw_table.ptr(Fleet::fleet_detected).drop_in_place();
@@ -134,9 +139,5 @@ impl RecyclableRawTable<Fleet> for Fleets {
 
     fn end(&self) -> usize {
         self.end
-    }
-
-    fn raw_table(&self) -> &RawTable<Fleet> {
-        &self.raw_table
     }
 }
