@@ -26,12 +26,12 @@ impl<T> Entity<T> {
 }
 
 pub trait RecyclableRawTable<T: soak::Columns> {
-    fn new() -> Self;
-    /// # Invariants:
-    /// Each element of T need to be manualy moved to the raw table.
+    fn new(initial_capacity: usize) -> Self;
+    // # Invariants:
+    // Each element of T need to be manualy moved to the raw table.
     fn push(&mut self, components: T) -> Entity<T>;
-    /// # Invariants:
-    /// Drop need to be manualy called for element of T.
+    // # Invariants:
+    // Drop need to be manualy called for element of T.
     fn remove(&mut self, entity: Entity<T>);
     /// Reserve space for count more elements.
     fn reserve(&mut self, count: usize);
@@ -46,8 +46,7 @@ pub struct Fleets {
     removed: std::collections::VecDeque<usize>,
 }
 impl RecyclableRawTable<Fleet> for Fleets {
-    fn new() -> Self {
-        let initial_capacity = 512;
+    fn new(initial_capacity: usize) -> Self {
         Self {
             raw_table: RawTable::with_capacity(initial_capacity),
             end: 0,
@@ -191,7 +190,7 @@ fn test_fleets() {
 
     let num = 999;
 
-    let mut f = Fleets::new();
+    let mut f = Fleets::new(512);
     let entities: Vec<Entity<Fleet>> = (0..num as u64)
         .map(|i| f.push(FleetBuilder::new(1, FleetId(i), FactionId(i), glam::Vec2::ZERO).build()))
         .collect();
