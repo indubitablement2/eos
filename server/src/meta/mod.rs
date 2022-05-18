@@ -3,13 +3,13 @@ mod recyclable_raw_table;
 
 use self::{fleet::Fleet, recyclable_raw_table::Fleets};
 use common::time::Time;
-use soak::RawTable;
 
 pub struct Metascape {
     time: Time,
 
     pub fleets: Fleets,
     pub fleet_queue_remove: (Vec<usize>, Vec<usize>),
+    // TODO: A way to queue new fleet and immediately get an Entity.
 }
 impl Metascape {
     // unsafe fn asd(&mut self) {
