@@ -30,6 +30,7 @@ use rand::Rng;
 use rand::SeedableRng;
 use rand_xoshiro::Xoshiro128StarStar;
 use std::f32::consts::TAU;
+use utils::*;
 
 const DETECTED_UPDATE_INTERVAL: u32 = 5;
 /// Minimum delay before a disconnected client's fleet get removed.

@@ -79,6 +79,13 @@ impl Display for DisconnectedReasonEnum {
     }
 }
 
+
+/// The lenght of the connection queue before you.
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub struct ConnectionQueueLen {
+    pub len: u32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum ServerPacket {
     /// Could not deserialize/serialize packet.
@@ -95,6 +102,7 @@ pub enum ServerPacket {
     EntitiesRemove(EntitiesRemove),
     /// Server send the reason why it disconnected the client.
     DisconnectedReason(DisconnectedReasonEnum),
+    ConnectionQueueLen(ConnectionQueueLen),
 }
 impl ServerPacket {
     pub fn serialize(&self) -> Vec<u8> {
@@ -112,7 +120,7 @@ pub enum ClientPacket {
     #[default]
     Invalid,
     /// Client send this when he wants his fleet to move to a position.
-    MetascapeWishPos { wish_pos: Vec2, movement_multiplier: f32 },
+    MetascapeWishPos { wish_pos: Vec2, movement_multiplier: f32 }, // TODO: Add sequence #
     BattlescapeInput {
         wish_input: PlayerInput,
         /// The last Battlescape commands the client acknowledge to have received.

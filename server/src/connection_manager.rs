@@ -16,10 +16,9 @@ use tokio::{
 
 pub struct ConnectionsManager {
     pub new_connection_receiver: crossbeam::channel::Receiver<Connection>,
-    pub rt: Runtime,
 }
 impl ConnectionsManager {
-    pub fn new(local: bool) -> Result<Self> {
+    pub fn new(local: bool, rt: &Runtime) -> Result<Self> {
         // Server uses ipv6.
         let addr = match local {
             true => SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, SERVER_PORT, 0, 0),
@@ -29,11 +28,6 @@ impl ConnectionsManager {
         // Start udp loops.
         let socket = Arc::new(UdpSocket::bind(addr)?);
         socket.set_nonblocking(true)?;
-
-        // Create tokio runtime.
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()?;
 
         // Start login loop.
         let listener = rt.block_on(async { TcpListener::bind(addr).await })?;
@@ -47,7 +41,6 @@ impl ConnectionsManager {
 
         Ok(Self {
             new_connection_receiver,
-            rt,
         })
     }
 }

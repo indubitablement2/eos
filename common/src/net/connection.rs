@@ -65,6 +65,7 @@ impl Connection {
             .is_err()
     }
 
+    /// Try to receive a single packet from this connection.
     pub fn try_recv(&self) -> Result<Vec<u8>, crossbeam::channel::TryRecvError> {
         self.inbound_receiver.try_recv()
     }

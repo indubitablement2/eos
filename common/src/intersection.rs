@@ -702,6 +702,20 @@ fn fill_large_structure() -> AccelerationStructure<u32, u32> {
     acc
 }
 
+#[allow(dead_code)]
+fn chungus() -> Vec<(Collider, u32)> {
+    use rand::prelude::*;
+    let mut rng = rand::thread_rng();
+
+    (0..30000).map(|i| {
+        (
+            Collider::new(rng.gen_range(0.0f32..32.0), rng.gen::<Vec2>() * 4096.0 * 2.0 - 4096.0),
+            i % 2
+        )
+        
+    }).collect()
+}
+
 /// Previous benches with a 2Ghz laptop:
 /// - v0.0.2 20 ms
 /// - v0.0.3 16 ms (filered)
@@ -709,14 +723,14 @@ fn fill_large_structure() -> AccelerationStructure<u32, u32> {
 fn bench_intersect_collider(b: &mut test::Bencher) {
     use test::black_box;
 
+    let to_test = chungus();
     let mut acc = fill_large_structure();
     acc.update();
 
     b.iter(|| {
         let mut result = Vec::new();
-        for (collider, flag) in acc.colliders.iter().zip(acc.bit_flags.iter()) {
-            let filter = !flag;
-            acc.intersect_collider_into_filtered(*collider, &mut result, filter);
+        for (collider, filter) in to_test.iter() {
+            acc.intersect_collider_into_filtered(*collider, &mut result, *filter);
             black_box(&mut result);
         }
     });

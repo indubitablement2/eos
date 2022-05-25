@@ -5,6 +5,8 @@ use common::idx::*;
 use common::net::connection::*;
 use common::net::packets::*;
 use std::collections::VecDeque;
+use std::sync::Arc;
+use tokio::runtime::Runtime;
 
 pub enum ConnectError {
     /// The pending queue is empty.
@@ -20,16 +22,20 @@ pub struct ClientsManager {
     last_pendings_update: u32,
     min_pending_for_update: usize,
     pendings_update_interval: u32,
+    rt: Arc<Runtime>,
 }
 impl ClientsManager {
     pub fn new(parameters: &ClientsManagerConfigs) -> std::io::Result<Self> {
+        let rt = Arc::new(Runtime::new().unwrap());
+
         Ok(Self {
-            connection_manager: ConnectionsManager::new(parameters.local)?,
+            connection_manager: ConnectionsManager::new(parameters.local, &rt)?,
             pendings: Default::default(),
             connected: Default::default(),
             last_pendings_update: Default::default(),
             min_pending_for_update: parameters.min_pending_for_update,
             pendings_update_interval: parameters.pendings_update_interval,
+            rt,
         })
     }
 

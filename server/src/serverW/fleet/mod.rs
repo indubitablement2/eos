@@ -1,18 +1,17 @@
+pub mod fleet_ai;
 pub mod idle_counter;
 pub mod wish_position;
 
 use common::idx::*;
-use dioptre::Fields;
 use glam::Vec2;
-use soak::Columns;
+use utils::*;
 
-use self::wish_position::WishPosition;
+pub use fleet_ai::*;
+pub use idle_counter::*;
+pub use wish_position::*;
 
-#[derive(Fields, Columns)]
+#[derive(Fields, Columns, Components)]
 pub struct Fleet {
-    /// Used internaly to mark invalid fleet and which tick this fleet was created.
-    pub generation: u32,
-
     pub fleet_id: FleetId,
     pub faction_id: FactionId,
 
@@ -21,6 +20,8 @@ pub struct Fleet {
 
     pub position: Vec2,
     pub velocity: Vec2,
+    /// How much velocity this fleet can gain each update.
+    pub acceleration: f32,
     /// Where the fleet wish to move.
     pub wish_position: WishPosition,
     pub orbit: Option<common::orbit::Orbit>,
@@ -37,27 +38,34 @@ pub struct Fleet {
 
     /// How long this entity has been without velocity.
     pub idle_counter: idle_counter::IdleCounter,
+
+    pub fleet_ai: FleetAi,
 }
 
 pub struct FleetBuilder {
-    pub generation: u32,
     pub fleet_id: FleetId,
     pub faction_id: FactionId,
     pub in_system: Option<SystemId>,
     pub position: Vec2,
     pub velocity: Vec2,
     pub wish_position: WishPosition,
+    pub fleet_ai: FleetAi,
 }
 impl FleetBuilder {
-    pub fn new(tick: u32, fleet_id: FleetId, faction_id: FactionId, position: Vec2) -> Self {
+    pub fn new(
+        fleet_id: FleetId,
+        faction_id: FactionId,
+        position: Vec2,
+        fleet_ai: FleetAi,
+    ) -> Self {
         Self {
-            generation: tick,
             fleet_id,
             faction_id,
             in_system: None,
             position,
             velocity: Vec2::ZERO,
             wish_position: Default::default(),
+            fleet_ai,
         }
     }
 
@@ -78,7 +86,6 @@ impl FleetBuilder {
 
     pub fn build(self) -> Fleet {
         Fleet {
-            generation: self.generation,
             fleet_id: self.fleet_id,
             faction_id: self.faction_id,
             in_system: self.in_system,
@@ -89,8 +96,10 @@ impl FleetBuilder {
             radius: 1.0,           // TODO: Compute this.
             detected_radius: 10.0, // TODO: Compute this.
             detector_radius: 10.0, // TODO: Compute this.
+            acceleration: 0.04,    // TODO: Compute this.
             fleet_detected: Default::default(),
             idle_counter: Default::default(),
+            fleet_ai: self.fleet_ai,
         }
     }
 }

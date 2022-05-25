@@ -67,7 +67,7 @@ pub struct Systems {
 impl Systems {
     pub fn create_acceleration_structure(&self) -> AccelerationStructure<SystemId, NoFilter> {
         let mut acc = AccelerationStructure::new();
-        acc.extend(self.systems.iter().zip(0u16..).map(|(system, id)| {
+        acc.extend(self.systems.iter().zip(0u32..).map(|(system, id)| {
             (
                 Collider::new(system.bound, system.position),
                 SystemId(id),
