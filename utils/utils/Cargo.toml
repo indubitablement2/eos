@@ -1,0 +1,14 @@
+[package]
+name = "utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+soak = "0.2.0"
+dioptre = "0.1.0"
+components_derive = {path = "../components_derive"}
+ahash = "0.7.6"
+glam = { version = "0.20.2", features = ["rand"] }
+
+[dev-dependencies]
+rand = "0.8.5"
