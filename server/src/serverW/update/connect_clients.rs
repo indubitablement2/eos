@@ -78,7 +78,7 @@ pub fn connect_clients(s: &mut Server) {
         // Check if fleet is already spawned.
         if let Some(index) = s.fleets.get_index(fleet_id) {
             // Change the fleet ai.
-            *query!(s.fleets.container(), index, mut Fleet::fleet_ai).0 = FleetAi::ClientControl;
+            *query!(s.fleets, index, mut Fleet::fleet_ai).0 = FleetAi::ClientControl;
         } else {
             // Create a new faction.
             let new_faction = FactionBuilder::new().with_clients(&[client_id]).build();

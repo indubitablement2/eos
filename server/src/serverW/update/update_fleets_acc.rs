@@ -6,7 +6,7 @@ pub fn update_fleets_detection_acceleration_structure(s: &mut Server) {
 
     // Grab the pointers to what we need to make a collider.
     let (position, detected_radius, in_system) = query_ptr!(
-        s.fleets.container(),
+        s.fleets,
         Fleet::position,
         Fleet::detected_radius,
         Fleet::in_system

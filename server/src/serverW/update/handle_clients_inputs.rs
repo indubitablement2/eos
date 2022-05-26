@@ -4,7 +4,7 @@ use crate::serverW::*;
 ///
 /// Handle disconnected clients.
 pub fn handle_clients_inputs(s: &mut Server) {
-    let connection = query_ptr!(s.clients.container(), Client::connection).0;
+    let connection = query_ptr!(s.clients, Client::connection).0;
 
     let mut disconnected = Vec::new();
 
@@ -42,7 +42,7 @@ pub fn handle_clients_inputs(s: &mut Server) {
                                 fleet_wish_position
                                     .set_wish_position(wish_pos, movement_multiplier);
                             } else {
-                                fleet_wish_position = Some(query!(s.fleets.container(), fleet_index, mut Fleet::wish_position).0);
+                                fleet_wish_position = Some(query!(s.fleets, fleet_index, mut Fleet::wish_position).0);
                             }
                         }
                         ClientPacket::BattlescapeInput {
@@ -72,6 +72,6 @@ pub fn handle_clients_inputs(s: &mut Server) {
             .expect("There should be a client");
 
         //TODO: Set the client's fleet ai to what he chose.
-        *&mut *query!(s.fleets.container(), fleet_index, mut Fleet::fleet_ai).0 = FleetAi::Idle;
+        *&mut *query!(s.fleets, fleet_index, mut Fleet::fleet_ai).0 = FleetAi::Idle;
     }
 }

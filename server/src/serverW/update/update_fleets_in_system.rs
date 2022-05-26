@@ -4,7 +4,7 @@ pub fn update_fleets_in_system(s: &mut Server) {
     // Grab the pointers to what we need to make an intersection test (just a point)
     // and update the in system component.
     let (position, in_system) =
-        query_ptr!(s.fleets.container(), Fleet::position, Fleet::in_system,);
+        query_ptr!(s.fleets, Fleet::position, Fleet::in_system,);
 
     for i in 0..s.fleets.len() {
         let (position, in_system) = unsafe { (&*position.add(i), &mut *in_system.add(i)) };
@@ -13,7 +13,7 @@ pub fn update_fleets_in_system(s: &mut Server) {
             // We are in a system. Simply check if we are still in this system.
             if let Some(index) = s.systems.get_index(*system_id) {
                 let (system_position, system_radius) = query!(
-                    s.systems.container(),
+                    s.systems,
                     index,
                     System::position,
                     System::radius

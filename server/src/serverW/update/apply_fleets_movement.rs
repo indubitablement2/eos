@@ -10,7 +10,7 @@ pub fn apply_fleets_movement(s: &mut Server) {
     let timef = s.time.as_timef();
 
     let (position, wish_position, velocity, in_system, idle_counter, acceleration, orbit) = query_ptr!(
-        s.fleets.container(),
+        s.fleets,
         Fleet::position,
         Fleet::wish_position,
         Fleet::velocity,
@@ -76,7 +76,7 @@ pub fn apply_fleets_movement(s: &mut Server) {
                 // Take an orbit as we are idle.
                 if let Some(system_id) = in_system {
                     let (system_position, system_planets) = query!(
-                        s.systems.container(),
+                        s.systems,
                         s.systems.get_index(*system_id).unwrap(),
                         System::position,
                         System::planets,
