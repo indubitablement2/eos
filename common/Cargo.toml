@@ -25,4 +25,4 @@ rand_xoshiro = "0.6.0"
 tokio = { version = "1.16.1", features = ["full"] }
 crossbeam = "0.8.1"
 
-utils = { path = "../../utils/utils" }
+utils = { path = "../utils/utils" }

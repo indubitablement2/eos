@@ -1,12 +1,10 @@
 use crate::serverW::*;
 
 /// Handle new connections.
-/// 
+///
 /// Add a default fleet/faction if client is new.
 /// Otherwise client simply retake control of his fleet.
-pub fn connect_clients(
-    s: &mut Server,
-) {
+pub fn connect_clients(s: &mut Server) {
     // Fetch new connection from the `ConnectionsManager`
     // and append them at the end of the pendings queue.
     while let Ok(new_connection) = s.connections_manager.new_connection_receiver.try_recv() {
@@ -14,8 +12,16 @@ pub fn connect_clients(
     }
 
     // Check if we should be updating the connection queue.
-    if s.pendings_connection.len() > s.server_configs.connection_configs.min_pending_queue_size_for_update
-    && s.time.tick % s.server_configs.connection_configs.connection_queue_update_interval == 0 {
+    if s.pendings_connection.len()
+        > s.server_configs
+            .connection_configs
+            .min_pending_queue_size_for_update
+        && s.time.tick
+            % s.server_configs
+                .connection_configs
+                .connection_queue_update_interval
+            == 0
+    {
         // Check for disconnect while sending queue size.
 
         let mut disconnected = Vec::new();
@@ -36,7 +42,8 @@ pub fn connect_clients(
     }
 
     // Handle a few connection from the pending queue.
-    for _ in 0..s.server_configs
+    for _ in 0..s
+        .server_configs
         .connection_configs
         .max_connection_handled_per_update
     {
@@ -60,10 +67,8 @@ pub fn connect_clients(
 
             // Send message to old connection explaining why he got disconnected.
             old_client.connection.send_packet_reliable(
-                ServerPacket::DisconnectedReason(
-                    DisconnectedReasonEnum::ConnectionFromOther,
-                )
-                .serialize(),
+                ServerPacket::DisconnectedReason(DisconnectedReasonEnum::ConnectionFromOther)
+                    .serialize(),
             );
             old_client.connection.flush_tcp_stream();
         }

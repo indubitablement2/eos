@@ -1,5 +1,5 @@
-use common::net::connection::*;
 use super::*;
+use common::net::connection::*;
 
 #[derive(Fields, Columns, Components)]
 pub struct Client {
@@ -11,12 +11,12 @@ pub struct ClientBuilder {
 }
 impl ClientBuilder {
     pub fn new(connection: Connection) -> Self {
-        Self {
-            connection,
-        }
+        Self { connection }
     }
 
     pub fn build(self) -> Client {
-        Client { connection: self.connection }
+        Client {
+            connection: self.connection,
+        }
     }
 }

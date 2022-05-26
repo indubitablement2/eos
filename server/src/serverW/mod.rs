@@ -1,22 +1,22 @@
+pub mod client;
 pub mod faction;
 pub mod fleet;
 pub mod server_configs;
 pub mod system;
 mod update;
-pub mod client;
 
-use std::sync::Arc;
-use std::collections::VecDeque;
-use common::net::connection::Connection;
 use crate::connection_manager::ConnectionsManager;
+use common::net::connection::Connection;
+use std::collections::VecDeque;
+use std::sync::Arc;
 
 pub use self::client::*;
 pub use self::fleet::*;
 pub use self::server_configs::*;
 pub use self::system::*;
 pub use common::idx::*;
-pub use common::time::*;
 pub use common::net::packets::*;
+pub use common::time::*;
 pub use faction::*;
 pub use glam::Vec2;
 pub use utils::{acc::*, *};
