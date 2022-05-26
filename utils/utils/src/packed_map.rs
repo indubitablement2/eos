@@ -137,3 +137,11 @@ impl<C: Container<T>, T: soak::Columns, I: Hash + Eq + Incrementable + Copy> Pac
         self.id_vec.as_ref()
     }
 }
+
+impl<T: soak::Columns + components::Components, I: Hash + Eq + Incrementable + Copy> PackedMap<Soa<T>, T, I> {
+    /// Shortcut for `this.container().raw_table()`. 
+    /// Allow using PackedMap<Soa<T>, T, I> in query!() directly.
+    pub fn raw_table(&mut self) -> &mut RawTable<T> {
+        &mut self.container.raw_table
+    }
+}
