@@ -5,40 +5,40 @@ use std::{hash::Hash, marker::PhantomData};
 /// A map where element are contiguous in memory.
 ///
 /// Similar to IndexMap, but generic over the underlying container.
-pub struct PackedMap<C: Container<T>, T: soak::Columns, I: Hash + Eq + Incrementable + Copy> {
+pub struct PackedMap<C: Container<T>, T: soak::Columns, I: Hash + Eq + Copy> {
     container: C,
     id_vec: Vec<I>,
     index_map: AHashMap<I, usize>,
-    next_id: I,
     _marker: PhantomData<T>,
 }
-impl<C: Container<T>, T: soak::Columns, I: Hash + Eq + Incrementable + Copy> PackedMap<C, T, I> {
+impl<C: Container<T>, T: soak::Columns, I: Hash + Eq + Copy> PackedMap<C, T, I> {
     /// Constructs a new, empty container with the specified capacity.
-    pub fn with_capacity(capacity: usize, initial: I) -> Self {
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
             container: C::with_capacity(capacity),
             id_vec: Vec::with_capacity(capacity),
             index_map: AHashMap::with_capacity(capacity),
-            next_id: initial,
             _marker: Default::default(),
         }
     }
 
-    /// Appends an element to the back of the container.
-    pub fn push(&mut self, value: T) -> (I, usize) {
-        let id = self.next_id;
-        self.next_id.increment();
+    // /// Appends an element to the back of the container.
+    // pub fn push(&mut self, value: T) -> (I, usize) {
+    //     let id = self.next_id;
+    //     self.next_id.increment();
 
-        let index = self.len();
+    //     let index = self.len();
 
-        self.container.push(value);
-        self.id_vec.push(id);
-        self.index_map.insert(id, index);
+    //     self.container.push(value);
+    //     self.id_vec.push(id);
+    //     self.index_map.insert(id, index);
 
-        (id, index)
-    }
+    //     (id, index)
+    // }
 
     /// Insert a value with a predefined id.
+    ///
+    /// Return the index it was insert at and the old value (if there was some).
     pub fn insert(&mut self, id: I, value: T) -> (usize, Option<T>) {
         if let Some(&index) = self.index_map.get(&id) {
             (index, Some(self.container.replace(index, value)))
@@ -138,8 +138,8 @@ impl<C: Container<T>, T: soak::Columns, I: Hash + Eq + Incrementable + Copy> Pac
     }
 }
 
-impl<T: soak::Columns + components::Components, I: Hash + Eq + Incrementable + Copy> PackedMap<Soa<T>, T, I> {
-    /// Shortcut for `this.container().raw_table()`. 
+impl<T: soak::Columns + components::Components, I: Hash + Eq + Copy> PackedMap<Soa<T>, T, I> {
+    /// Shortcut for `this.container().raw_table()`.
     /// Allow using PackedMap<Soa<T>, T, I> in query!() directly.
     pub fn raw_table(&mut self) -> &mut RawTable<T> {
         &mut self.container.raw_table

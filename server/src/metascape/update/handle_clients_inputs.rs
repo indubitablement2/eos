@@ -1,9 +1,9 @@
-use crate::serverW::*;
+use crate::metascape::*;
 
 /// Handle the clients inbound packets.
 ///
 /// Handle disconnected clients.
-pub fn handle_clients_inputs(s: &mut Server) {
+pub fn handle_clients_inputs(s: &mut Metascape) {
     let connection = query_ptr!(s.clients, Client::connection).0;
 
     let mut disconnected = Vec::new();

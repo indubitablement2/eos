@@ -34,15 +34,10 @@ impl Default for ConnectionConfigs {
 pub struct MetascapeConfigs {
     /// Multiply velocity every tick.
     pub friction: f32,
-    /// The maximum distance to the world's center.
-    pub bound: f32,
 }
 impl Default for MetascapeConfigs {
     fn default() -> Self {
-        Self {
-            friction: 0.95,
-            bound: u16::MAX as f32,
-        }
+        Self { friction: 0.95 }
     }
 }
 

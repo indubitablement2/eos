@@ -8,12 +8,12 @@ mod update_fleets_in_system;
 use self::apply_fleets_movement::*;
 use self::connect_clients::*;
 use self::handle_clients_inputs::*;
+use self::send_detected_entities::*;
 use self::update_fleets_acc::*;
 use self::update_fleets_in_system::*;
-use self::send_detected_entities::*;
 use super::*;
 
-impl Server {
+impl Metascape {
     pub fn update_internal(&mut self) {
         self.time.increment();
 
@@ -28,6 +28,7 @@ impl Server {
         update_fleets_detection_acceleration_structure(self);
         update_fleets_in_system(self);
 
+        // TODO: send factions infos the client request.
         send_detected_entities(self);
     }
 }

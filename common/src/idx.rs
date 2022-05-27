@@ -72,7 +72,7 @@ impl Incrementable for FactionId {
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub struct SystemId(pub u32);
 impl Index<SystemId> for Vec<System> {
     type Output = System;

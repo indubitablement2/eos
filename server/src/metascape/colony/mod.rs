@@ -1,6 +1,6 @@
-use common::idx::*;
+use super::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Fields, Columns, Components)]
 pub struct Colony {
     pub faction: Option<FactionId>,
     pub guards: Vec<FleetId>,

@@ -3,21 +3,24 @@ use utils::*;
 #[derive(Fields, Columns, Components, Default)]
 struct Data {
     name: String,
-    id: usize,
+    id: u64,
     position: (f32, f32),
     velocity: (f32, f32),
 }
 
 pub fn main() {
-    let mut map: PackedMap<Soa<Data>, Data, u64> = PackedMap::with_capacity(512, 0u64);
+    let mut map: PackedMap<Soa<Data>, Data, u64> = PackedMap::with_capacity(512);
 
     let idx: Vec<u64> = (0..512)
         .map(|id| {
-            map.push(Data {
+            map.insert(
                 id,
-                ..Default::default()
-            })
-            .0
+                Data {
+                    id,
+                    ..Default::default()
+                },
+            );
+            id
         })
         .collect();
     assert_eq!(map.len(), 512);

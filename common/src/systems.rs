@@ -1,10 +1,11 @@
 use crate::{
     idx::*,
-    intersection::{AccelerationStructure, Collider, NoFilter},
     orbit::RelativeOrbit,
 };
+use ahash::AHashMap;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
+use utils::*;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum StarType {
@@ -39,10 +40,10 @@ pub struct Planet {
     pub temperature: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Fields, Columns, Components)]
 pub struct System {
     /// Edge of the outtermost `CelestialBody` + `SYSTEM_PADDING`.
-    pub bound: f32,
+    pub radius: f32,
     /// The center of this `System` in world space.
     pub position: Vec2,
     pub star: Star,
@@ -59,24 +60,14 @@ impl System {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Systems {
-    pub systems: Vec<System>,
+    pub systems: AHashMap<SystemId, System>,
+    pub next_system_id: SystemId,
     /// The furthest system bound from the world origin.
     pub bound: f32,
     pub total_num_planet: usize,
 }
 impl Systems {
-    pub fn create_acceleration_structure(&self) -> AccelerationStructure<SystemId, NoFilter> {
-        let mut acc = AccelerationStructure::new();
-        acc.extend(self.systems.iter().zip(0u32..).map(|(system, id)| {
-            (
-                Collider::new(system.bound, system.position),
-                SystemId(id),
-                NoFilter::default(),
-            )
-        }));
-        acc.update();
-        acc
-    }
+    pub const BOUND_PADDING: f32 = 128.0;
 
     pub fn update_all(&mut self) {
         self.update_bound();
@@ -88,29 +79,29 @@ impl Systems {
     pub fn update_bound(&mut self) {
         self.bound = self
             .systems
-            .iter()
-            .fold(0.0f32, |acc, system| acc.max(system.position.length() + system.bound));
+            .values()
+            .fold(0.0f32, |acc, system| acc.max(system.position.length() + system.radius)) + Self::BOUND_PADDING;
     }
 
     /// Result is saved in `total_num_planet`.
     pub fn update_total_num_planet(&mut self) {
-        self.total_num_planet = self.systems.iter().fold(0, |acc, system| acc + system.planets.len())
+        self.total_num_planet = self.systems.values().fold(0, |acc, system| acc + system.planets.len())
     }
 
     // Update planets computed temperature.
     pub fn update_all_temperature(&mut self) {
-        for system in self.systems.iter_mut() {
+        for system in self.systems.values_mut() {
             system.compute_temperature()
         }
     }
 
-    pub fn get_system_and_planet(&self, planet_id: PlanetId) -> (&System, &Planet) {
-        let system = &self.systems[planet_id.system_id];
-        let planet = &system.planets[planet_id.planets_offset as usize];
-        (system, planet)
-    }
-
-    pub fn get_system(&self, system_id: SystemId) -> &System {
-        &self.systems[system_id]
+    pub fn get_system_and_planet(&self, planet_id: PlanetId) -> Option<(&System, &Planet)> {
+        if let Some(system) = self.systems.get(&planet_id.system_id) {
+            let planet = &system.planets[planet_id.planets_offset as usize];
+            Some((system, planet))
+        } else {
+            None
+        }
+        
     }
 }

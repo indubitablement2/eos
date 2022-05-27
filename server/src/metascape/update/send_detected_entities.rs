@@ -3,9 +3,9 @@ use std::iter::once;
 use ahash::AHashSet;
 use common::compressed_vec2::CVec2;
 
-use crate::serverW::*;
+use crate::metascape::*;
 
-/// ### This should be called after fleets are done changing.
+/// ### This should be called after entities are done changing.
 ///
 /// Update client's detected fleet.
 ///
@@ -14,7 +14,7 @@ use crate::serverW::*;
 /// Send detected fleets position.
 ///
 /// Flush tcp buffer.
-pub fn send_detected_entities(s: &mut Server) {
+pub fn send_detected_entities(s: &mut Metascape) {
     let (detected_fleets, connection) =
         query_ptr!(s.clients, Client::detected_fleets, Client::connection);
 

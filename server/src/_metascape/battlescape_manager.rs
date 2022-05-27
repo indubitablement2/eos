@@ -1,5 +1,5 @@
 use super::{ecs_components::WrappedId, interception_manager::*};
-use crate::metascape::ecs_components::*;
+use crate::_metascape::ecs_components::*;
 use ahash::AHashMap;
 use battlescape::replay::BattlescapeReplay;
 use bevy_ecs::{

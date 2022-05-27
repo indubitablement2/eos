@@ -6,6 +6,7 @@ use utils::*;
 // TODO: Faction trait/affinity that affect reputation with other faction.
 #[derive(Debug, Clone, Serialize, Deserialize, Fields, Columns, Components)]
 pub struct Faction {
+    pub faction_id: FactionId,
     pub name: String,
     /// Reputation with other factions.
     ///
@@ -22,20 +23,9 @@ pub struct Faction {
     /// Colonies that are part of this faction.
     pub colonies: AHashSet<PlanetId>,
 }
-impl Default for Faction {
-    fn default() -> Self {
-        Self {
-            name: "Independent".to_string(),
-            reputations: Default::default(),
-            fallback_reputation: Default::default(),
-            clients: Default::default(),
-            fleets: Default::default(),
-            colonies: Default::default(),
-        }
-    }
-}
 
 pub struct FactionBuilder {
+    pub faction_id: FactionId,
     pub name: String,
     pub reputations: AHashMap<FactionId, Reputation>,
     pub fallback_reputation: Reputation,
@@ -44,7 +34,7 @@ pub struct FactionBuilder {
     pub colonies: AHashSet<PlanetId>,
 }
 impl FactionBuilder {
-    pub fn new() -> Self {
+    pub fn new(faction_id: FactionId) -> Self {
         Self {
             name: "Independent".to_string(),
             reputations: Default::default(),
@@ -52,6 +42,7 @@ impl FactionBuilder {
             clients: Default::default(),
             fleets: Default::default(),
             colonies: Default::default(),
+            faction_id,
         }
     }
 
@@ -70,6 +61,7 @@ impl FactionBuilder {
 
     pub fn build(self) -> Faction {
         Faction {
+            faction_id: self.faction_id,
             name: self.name,
             reputations: self.reputations,
             fallback_reputation: self.fallback_reputation,

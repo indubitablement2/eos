@@ -1,10 +1,10 @@
-use crate::serverW::*;
+use crate::metascape::*;
 
 /// Handle new connections.
 ///
 /// Add a default fleet/faction if client is new.
 /// Otherwise client simply retake control of his fleet.
-pub fn connect_clients(s: &mut Server) {
+pub fn connect_clients(s: &mut Metascape) {
     // Fetch new connection from the `ConnectionsManager`
     // and append them at the end of the pendings queue.
     while let Ok(new_connection) = s.connections_manager.new_connection_receiver.try_recv() {
@@ -81,12 +81,15 @@ pub fn connect_clients(s: &mut Server) {
             *query!(s.fleets, index, mut Fleet::fleet_ai).0 = FleetAi::ClientControl;
         } else {
             // Create a new faction.
-            let new_faction = FactionBuilder::new().with_clients(&[client_id]).build();
-            let (faction_id, _) = s.factions.push(new_faction);
+            let faction_id = s.next_faction_id;
+            let new_faction = FactionBuilder::new(faction_id)
+                .with_clients(&[client_id])
+                .build();
+            s.next_faction_id.increment();
+            s.factions.insert(faction_id, new_faction);
 
             // Create a new fleet.
             let new_fleet = FleetBuilder::new(
-                fleet_id,
                 faction_id,
                 "insert name".to_string(),
                 Vec2::ZERO,

@@ -4,6 +4,7 @@ pub mod wish_position;
 
 use common::idx::*;
 use glam::Vec2;
+use serde::{Deserialize, Serialize};
 use utils::*;
 
 pub use fleet_ai::*;
@@ -12,7 +13,6 @@ pub use wish_position::*;
 
 #[derive(Fields, Columns, Components)]
 pub struct Fleet {
-    pub fleet_id: FleetId,
     pub faction_id: FactionId,
 
     pub name: String,
@@ -37,20 +37,18 @@ pub struct Fleet {
     pub detected_radius: f32,
     /// Radius this fleet will detect things.
     pub detector_radius: f32,
-    /// Fleet detected by this fleet.
-    pub fleet_detected: Vec<u32>,
 
     /// How long this entity has been without velocity.
     pub idle_counter: idle_counter::IdleCounter,
 
     pub fleet_ai: FleetAi,
 
-    /// The tick this fleet last changed (name, faction_id, composition). Used for networking.
+    /// The tick this fleet last changed (name, faction_id, composition).
+    /// Used for networking & recomputing fleet stats.
     pub last_change: u32,
 }
 
 pub struct FleetBuilder {
-    pub fleet_id: FleetId,
     pub faction_id: FactionId,
     pub name: String,
     pub in_system: Option<SystemId>,
@@ -62,7 +60,6 @@ pub struct FleetBuilder {
 }
 impl FleetBuilder {
     pub fn new(
-        fleet_id: FleetId,
         faction_id: FactionId,
         name: String,
         position: Vec2,
@@ -70,7 +67,6 @@ impl FleetBuilder {
         composition: Vec<ShipBaseId>,
     ) -> Self {
         Self {
-            fleet_id,
             faction_id,
             name,
             in_system: None,
@@ -99,7 +95,6 @@ impl FleetBuilder {
 
     pub fn build(self) -> Fleet {
         Fleet {
-            fleet_id: self.fleet_id,
             faction_id: self.faction_id,
             in_system: self.in_system,
             position: self.position,
@@ -110,7 +105,6 @@ impl FleetBuilder {
             detected_radius: 10.0, // TODO: Compute this.
             detector_radius: 10.0, // TODO: Compute this.
             acceleration: 0.04,    // TODO: Compute this.
-            fleet_detected: Default::default(),
             idle_counter: Default::default(),
             fleet_ai: self.fleet_ai,
             name: self.name,
@@ -118,4 +112,14 @@ impl FleetBuilder {
             last_change: 0,
         }
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FleetSave {
+    pub fleet_id: FleetId,
+    pub faction_id: FactionId,
+    pub name: String,
+    pub position: Vec2,
+    pub composition: Vec<ShipBaseId>,
+    pub fleet_ai: FleetAi,
 }

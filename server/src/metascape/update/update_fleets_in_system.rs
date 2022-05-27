@@ -1,6 +1,6 @@
-use crate::serverW::*;
+use crate::metascape::*;
 
-pub fn update_fleets_in_system(s: &mut Server) {
+pub fn update_fleets_in_system(s: &mut Metascape) {
     // Grab the pointers to what we need to make an intersection test (just a point)
     // and update the in system component.
     let (position, in_system) = query_ptr!(s.fleets, Fleet::position, Fleet::in_system,);

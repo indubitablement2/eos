@@ -1,5 +1,5 @@
 use crate::{idx::*, reputation::Reputation};
-use ahash::{AHashMap, AHashSet};
+use ahash::AHashMap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

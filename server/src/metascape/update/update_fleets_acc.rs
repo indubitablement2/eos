@@ -1,6 +1,6 @@
-use crate::serverW::*;
+use crate::metascape::*;
 
-pub fn update_fleets_detection_acceleration_structure(s: &mut Server) {
+pub fn update_fleets_detection_acceleration_structure(s: &mut Metascape) {
     // Remove the old colliders.
     s.fleets_detection_acceleration_structure.clear();
 

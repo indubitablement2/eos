@@ -12,7 +12,7 @@ pub struct Server {
 impl Server {
     pub fn new() -> Self {
         Self {
-            metascape: Metascape::new(),
+            metascape: Metascape::load(),
             terminal: Terminal::new().expect("Could not create Terminal."),
             metascape_performance: Default::default(),
         }

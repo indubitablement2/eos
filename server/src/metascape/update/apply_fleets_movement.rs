@@ -1,12 +1,12 @@
 use common::orbit::Orbit;
 
-use crate::serverW::*;
+use crate::metascape::*;
 
 /// Update velocity based on wish position and acceleration.
 ///
 /// Apply velocity, friction and orbit.
-pub fn apply_fleets_movement(s: &mut Server) {
-    let bound_squared = s.server_configs.metascape_configs.bound.powi(2);
+pub fn apply_fleets_movement(s: &mut Metascape) {
+    let bound_squared = s.bound.powi(2);
     let timef = s.time.as_timef();
 
     let (position, wish_position, velocity, in_system, idle_counter, acceleration, orbit) = query_ptr!(

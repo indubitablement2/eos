@@ -151,7 +151,7 @@ macro_rules! impl_Filter{
 impl_Filter! {u8, u16, u32, u64, i8, i16, i32, i64}
 
 /// Allow fast circle-circle and circle-point test.
-/// 
+///
 /// After `update()` is called, the current colliders are copied internaly.
 /// Modifying the colliders will not change the intersection result
 /// until `update()` is called again.
@@ -161,14 +161,14 @@ impl_Filter! {u8, u16, u32, u64, i8, i16, i32, i64}
 /// - Copy all colliders needed into this
 /// - Call `update()`
 /// - Do intersection tests
-/// 
+///
 /// ## Pro tips:
 /// - Use this.extend(iter<(collider, id)>) to insert many colliders
 /// - `intersection_test()` only takes references thus can be used in
 /// multithreaded code if you have many (10k+) colliders to test
 /// - Filter can be disabled by using `()`
 /// - Filter is already implemented for many int type as `self == rhs`
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AccelerationStructure<I, F>
 where
     I: Copy + Hash + Eq,
