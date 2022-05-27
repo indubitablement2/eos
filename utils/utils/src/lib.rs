@@ -1,3 +1,5 @@
+#![feature(test)]
+
 pub mod acc;
 pub mod components;
 pub mod container;
@@ -5,6 +7,8 @@ pub mod incrementable;
 pub mod packed_map;
 pub mod query;
 pub mod soa;
+pub mod compressed_vec2;
+pub mod array_difference;
 
 pub use components::Components;
 pub use components_derive::Components;

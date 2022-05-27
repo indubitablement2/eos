@@ -1,4 +1,5 @@
-use crate::{compressed_vec2::CVec2, idx::*, orbit::Orbit};
+use crate::{idx::*, orbit::Orbit};
+use utils::compressed_vec2::*;
 use battlescape::{commands::BattlescapeCommand, player_inputs::PlayerInput};
 use bincode::Options;
 use glam::Vec2;

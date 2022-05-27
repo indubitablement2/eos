@@ -9,24 +9,19 @@
 #[macro_use]
 extern crate log;
 
-pub mod array_difference;
-pub mod compressed_vec2;
 pub mod factions;
 pub mod idx;
-pub mod intersection;
-pub mod metascape_configs;
 pub mod net;
 pub mod orbit;
 pub mod reputation;
 pub mod ships;
 pub mod systems;
 pub mod time;
-pub mod recyclable_container;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// How long between each Battlescape/Metascape tick.
 pub const UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 
-/// The maximum distance to the center.
-pub const WORLD_BOUND: f32 = u16::MAX as f32;
+/// The range used for relative compressed metascape position sent by the server.
+pub const METASCAPE_RANGE: f32 = 512.0;

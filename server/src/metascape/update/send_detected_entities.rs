@@ -1,7 +1,7 @@
 use std::iter::once;
 
 use ahash::AHashSet;
-use common::compressed_vec2::CVec2;
+use utils::compressed_vec2::CVec2;
 
 use crate::metascape::*;
 
@@ -151,7 +151,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
                     .map(|fleet_id| {
                         let fleet_index = s.fleets.get_index(*fleet_id).unwrap();
                         let fleet_position = query!(s.fleets, fleet_index, Fleet::position).0;
-                        CVec2::from_vec2(*fleet_position, CVec2::METASCAPE_RANGE)
+                        CVec2::from_vec2(*fleet_position, common::METASCAPE_RANGE)
                     })
                     .collect(),
             })
