@@ -32,7 +32,7 @@ impl Connection {
         }
     }
 
-    /// Send a packet to the connected with no delivery garanty.
+    /// Send a packet to the connected peer with no delivery garanty.
     /// If the packet is small enough, it is sent over udp otherwise tcp is used.
     ///
     /// Return if the packet could be sent.

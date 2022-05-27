@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct ServerConfigs {
     pub connection_configs: ConnectionConfigs,
     pub metascape_configs: MetascapeConfigs,
+    pub performance_configs: PerformanceConfigs,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
@@ -41,6 +42,20 @@ impl Default for MetascapeConfigs {
         Self {
             friction: 0.95,
             bound: u16::MAX as f32,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct PerformanceConfigs {
+    /// How often is the client's detected entity list updated.
+    /// If it does not update for a tick, entity are assumed to still be detected.
+    pub client_detected_entity_update_interval: u32,
+}
+impl Default for PerformanceConfigs {
+    fn default() -> Self {
+        Self {
+            client_detected_entity_update_interval: 5,
         }
     }
 }

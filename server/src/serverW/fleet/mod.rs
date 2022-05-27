@@ -15,17 +15,21 @@ pub struct Fleet {
     pub fleet_id: FleetId,
     pub faction_id: FactionId,
 
+    pub name: String,
+
     /// If this fleet is within a system.
     pub in_system: Option<SystemId>,
 
     pub position: Vec2,
     pub velocity: Vec2,
-    /// How much velocity this fleet can gain each update.
-    pub acceleration: f32,
     /// Where the fleet wish to move.
     pub wish_position: WishPosition,
     pub orbit: Option<common::orbit::Orbit>,
 
+    pub composition: Vec<ShipBaseId>,
+
+    /// How much velocity this fleet can gain each update.
+    pub acceleration: f32,
     /// How much space this fleet takes.
     pub radius: f32,
 
@@ -40,32 +44,41 @@ pub struct Fleet {
     pub idle_counter: idle_counter::IdleCounter,
 
     pub fleet_ai: FleetAi,
+
+    /// The tick this fleet last changed (name, faction_id, composition). Used for networking.
+    pub last_change: u32,
 }
 
 pub struct FleetBuilder {
     pub fleet_id: FleetId,
     pub faction_id: FactionId,
+    pub name: String,
     pub in_system: Option<SystemId>,
     pub position: Vec2,
     pub velocity: Vec2,
     pub wish_position: WishPosition,
     pub fleet_ai: FleetAi,
+    pub composition: Vec<ShipBaseId>,
 }
 impl FleetBuilder {
     pub fn new(
         fleet_id: FleetId,
         faction_id: FactionId,
+        name: String,
         position: Vec2,
         fleet_ai: FleetAi,
+        composition: Vec<ShipBaseId>,
     ) -> Self {
         Self {
             fleet_id,
             faction_id,
+            name,
             in_system: None,
             position,
             velocity: Vec2::ZERO,
             wish_position: Default::default(),
             fleet_ai,
+            composition,
         }
     }
 
@@ -100,6 +113,9 @@ impl FleetBuilder {
             fleet_detected: Default::default(),
             idle_counter: Default::default(),
             fleet_ai: self.fleet_ai,
+            name: self.name,
+            composition: self.composition,
+            last_change: 0,
         }
     }
 }

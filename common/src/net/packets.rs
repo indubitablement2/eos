@@ -51,6 +51,37 @@ pub struct EntitiesInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FleetsPosition {
+    pub tick: u32,
+    /// Position in world space.
+    pub client_position: Vec2,
+    /// Detected fleets position compressed and relative to client's position.
+    /// Ordered by `FleetId`. 
+    /// See: `DetectedFleetsInfos`.
+    pub relative_fleets_position: Vec<CVec2>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FleetInfos {
+    pub fleet_id: FleetId,
+    pub name: String,
+    /// If this entity follow an orbit, its state will not be sent.
+    pub orbit: Option<Orbit>,
+    /// The ships composing the fleet.
+    pub composition: Vec<ShipBaseId>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DetectedFleetsInfos {
+    /// This is useful with orbit.
+    /// Any state before this tick can be discarded and apply the orbit instead.
+    /// Any state after this tick will remove the orbit.
+    pub tick: u32,
+    /// May include the client's
+    pub infos: Vec<FleetInfos>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntitiesRemove {
     pub tick: u32,
     /// Free these entities. Their idx will be reused in the future.
@@ -95,14 +126,19 @@ pub enum ServerPacket {
     /// Server send this for every commands that are not acknowledged by the client.
     BattlescapeCommands(BattlescapeCommands),
     /// Server send some entities's position.
-    EntitiesState(EntitiesState),
+    EntitiesState(EntitiesState), // TODO: Delete
     /// Server send some entities's infos.
-    EntitiesInfo(EntitiesInfo),
+    EntitiesInfo(EntitiesInfo), // TODO: Delete
     /// Server send entities that will not be updated anymore and should be removed.
-    EntitiesRemove(EntitiesRemove),
+    EntitiesRemove(EntitiesRemove), // TODO: Delete
     /// Server send the reason why it disconnected the client.
     DisconnectedReason(DisconnectedReasonEnum),
+    /// Lenght of the queue before the client.
     ConnectionQueueLen(ConnectionQueueLen),
+    /// Infoes about currently detected fleets
+    DetectedFleetsInfos(DetectedFleetsInfos),
+    /// Position of the client's fleet and detected fleets.
+    FleetsPosition(FleetsPosition),
 }
 impl ServerPacket {
     pub fn serialize(&self) -> Vec<u8> {

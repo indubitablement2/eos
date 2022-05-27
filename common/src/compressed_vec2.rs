@@ -1,6 +1,8 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+// TODO: Move this to utils
+/// Vec2 compressed to 4 bytes.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CVec2 {
     pub x: u16,
@@ -8,17 +10,20 @@ pub struct CVec2 {
 }
 impl CVec2 {
     /// The range used for relative compressed metascape position sent by the server.
+    /// TODO: use const generic
     pub const METASCAPE_RANGE: f32 = 512.0;
 
     pub fn new(x: u16, y: u16) -> Self {
         Self { x, y }
     }
 
+    // TODO: use const range
     pub fn from_vec2(v: Vec2, range: f32) -> Self {
         let v = (v / range + 0.5) * u16::MAX as f32;
         Self::new(v.x as u16, v.y as u16)
     }
 
+    // TODO: use const range
     pub fn to_vec2(self, range: f32) -> Vec2 {
         let v = Vec2::new(self.x as f32, self.y as f32);
         (v / u16::MAX as f32 - 0.5) * range

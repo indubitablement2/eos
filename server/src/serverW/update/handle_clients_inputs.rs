@@ -27,32 +27,30 @@ pub fn handle_clients_inputs(s: &mut Server) {
         // Handle the client's packets.
         loop {
             match connection.try_recv() {
-                Ok(buffer) => {
-                    match ClientPacket::deserialize(&buffer) {
-                        ClientPacket::Invalid => {
-                            debug!("{:?} sent an invalid packet. Disconnecting...", client_id);
-                            disconnected.push((client_id, fleet_index));
-                            break;
-                        }
-                        ClientPacket::MetascapeWishPos {
-                            wish_pos,
-                            movement_multiplier,
-                        } => {
-                            if let Some(fleet_wish_position) = &mut fleet_wish_position {
-                                fleet_wish_position
-                                    .set_wish_position(wish_pos, movement_multiplier);
-                            } else {
-                                fleet_wish_position = Some(query!(s.fleets, fleet_index, mut Fleet::wish_position).0);
-                            }
-                        }
-                        ClientPacket::BattlescapeInput {
-                            wish_input,
-                            last_acknowledge_command,
-                        } => {
-                            todo!()
+                Ok(buffer) => match ClientPacket::deserialize(&buffer) {
+                    ClientPacket::Invalid => {
+                        debug!("{:?} sent an invalid packet. Disconnecting...", client_id);
+                        disconnected.push((client_id, fleet_index));
+                        break;
+                    }
+                    ClientPacket::MetascapeWishPos {
+                        wish_pos,
+                        movement_multiplier,
+                    } => {
+                        if let Some(fleet_wish_position) = &mut fleet_wish_position {
+                            fleet_wish_position.set_wish_position(wish_pos, movement_multiplier);
+                        } else {
+                            fleet_wish_position =
+                                Some(query!(s.fleets, fleet_index, mut Fleet::wish_position).0);
                         }
                     }
-                }
+                    ClientPacket::BattlescapeInput {
+                        wish_input,
+                        last_acknowledge_command,
+                    } => {
+                        todo!()
+                    }
+                },
                 Err(err) => match err {
                     crossbeam::channel::TryRecvError::Empty => {
                         break;

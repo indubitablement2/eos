@@ -85,8 +85,15 @@ pub fn connect_clients(s: &mut Server) {
             let (faction_id, _) = s.factions.push(new_faction);
 
             // Create a new fleet.
-            let new_fleet =
-                FleetBuilder::new(fleet_id, faction_id, Vec2::ZERO, FleetAi::ClientControl).build();
+            let new_fleet = FleetBuilder::new(
+                fleet_id,
+                faction_id,
+                "insert name".to_string(),
+                Vec2::ZERO,
+                FleetAi::ClientControl,
+                vec![],
+            )
+            .build();
             s.fleets.insert(fleet_id, new_fleet);
         }
     }
