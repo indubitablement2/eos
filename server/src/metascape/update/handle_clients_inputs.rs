@@ -44,12 +44,6 @@ pub fn handle_clients_inputs(s: &mut Metascape) {
                                 Some(query!(s.fleets, fleet_index, mut Fleet::wish_position).0);
                         }
                     }
-                    ClientPacket::BattlescapeInput {
-                        wish_input,
-                        last_acknowledge_command,
-                    } => {
-                        todo!()
-                    }
                 },
                 Err(err) => match err {
                     crossbeam::channel::TryRecvError::Empty => {

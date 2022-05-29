@@ -1,15 +1,14 @@
 use crate::{idx::*, orbit::Orbit};
 use utils::compressed_vec2::*;
-use battlescape::{commands::BattlescapeCommand, player_inputs::PlayerInput};
 use bincode::Options;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct BattlescapeCommands {
-    pub commands: Vec<(u32, Vec<BattlescapeCommand>)>,
-}
+// #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+// pub struct BattlescapeCommands {
+//     pub commands: Vec<(u32, Vec<BattlescapeCommand>)>,
+// }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntitiesState {
@@ -124,8 +123,8 @@ pub enum ServerPacket {
     #[default]
     Invalid,
 
-    /// Server send this for every commands that are not acknowledged by the client.
-    BattlescapeCommands(BattlescapeCommands),
+    // /// Server send this for every commands that are not acknowledged by the client.
+    // BattlescapeCommands(BattlescapeCommands),
     /// Server send some entities's position.
     EntitiesState(EntitiesState), // TODO: Delete
     /// Server send some entities's infos.
@@ -158,12 +157,12 @@ pub enum ClientPacket {
     Invalid,
     /// Client send this when he wants his fleet to move to a position.
     MetascapeWishPos { wish_pos: Vec2, movement_multiplier: f32 }, // TODO: Add sequence #
-    BattlescapeInput {
-        wish_input: PlayerInput,
-        /// The last Battlescape commands the client acknowledge to have received.
-        /// All commands before are implicitely acknowledged and will not be resent be the server.
-        last_acknowledge_command: u32,
-    },
+    // BattlescapeInput {
+    //     wish_input: PlayerInput,
+    //     /// The last Battlescape commands the client acknowledge to have received.
+    //     /// All commands before are implicitely acknowledged and will not be resent be the server.
+    //     last_acknowledge_command: u32,
+    // },
 }
 impl ClientPacket {
     pub fn serialize(&self) -> Vec<u8> {
