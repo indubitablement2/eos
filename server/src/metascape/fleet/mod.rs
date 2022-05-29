@@ -2,10 +2,7 @@ pub mod fleet_ai;
 pub mod idle_counter;
 pub mod wish_position;
 
-use common::idx::*;
-use glam::Vec2;
-use serde::{Deserialize, Serialize};
-use utils::*;
+use super::*;
 
 pub use fleet_ai::*;
 pub use idle_counter::*;
@@ -93,24 +90,34 @@ impl FleetBuilder {
         self
     }
 
-    pub fn build(self) -> Fleet {
-        Fleet {
-            faction_id: self.faction_id,
-            in_system: self.in_system,
-            position: self.position,
-            velocity: self.velocity,
-            wish_position: self.wish_position,
-            orbit: None,
-            radius: 1.0,           // TODO: Compute this.
-            detected_radius: 10.0, // TODO: Compute this.
-            detector_radius: 10.0, // TODO: Compute this.
-            acceleration: 0.04,    // TODO: Compute this.
-            idle_counter: Default::default(),
-            fleet_ai: self.fleet_ai,
-            name: self.name,
-            composition: self.composition,
-            last_change: 0,
-        }
+    pub fn build_ai(self) -> FleetId {
+        let fleet_id = AI_FLEET_ID_DISPENSER.next();
+        FLEET_QUEUE.push((fleet_id, self));
+        fleet_id
+
+        // Fleet {
+        //     faction_id: self.faction_id,
+        //     in_system: self.in_system,
+        //     position: self.position,
+        //     velocity: self.velocity,
+        //     wish_position: self.wish_position,
+        //     orbit: None,
+        //     radius: 1.0,           // TODO: Compute this.
+        //     detected_radius: 10.0, // TODO: Compute this.
+        //     detector_radius: 10.0, // TODO: Compute this.
+        //     acceleration: 0.04,    // TODO: Compute this.
+        //     idle_counter: Default::default(),
+        //     fleet_ai: self.fleet_ai,
+        //     name: self.name,
+        //     composition: self.composition,
+        //     last_change: 0,
+        // }
+    }
+
+    pub fn build_client(self, client_id: ClientId) -> FleetId {
+        let fleet_id = client_id.to_fleet_id();
+        FLEET_QUEUE.push((fleet_id, self));
+        fleet_id
     }
 }
 

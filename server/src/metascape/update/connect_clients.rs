@@ -81,23 +81,17 @@ pub fn connect_clients(s: &mut Metascape) {
             *query!(s.fleets, index, mut Fleet::fleet_ai).0 = FleetAi::ClientControl;
         } else {
             // Create a new faction.
-            let faction_id = s.next_faction_id;
-            let new_faction = FactionBuilder::new(faction_id)
-                .with_clients(&[client_id])
-                .build();
-            s.next_faction_id.increment();
-            s.factions.insert(faction_id, new_faction);
+            let faction_id = FactionBuilder::new().with_clients(&[client_id]).build();
 
             // Create a new fleet.
-            let new_fleet = FleetBuilder::new(
+            FleetBuilder::new(
                 faction_id,
                 "insert name".to_string(),
                 Vec2::ZERO,
                 FleetAi::ClientControl,
                 vec![],
             )
-            .build();
-            s.fleets.insert(fleet_id, new_fleet);
+            .build_client(client_id);
         }
     }
 }

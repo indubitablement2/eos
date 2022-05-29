@@ -2,13 +2,13 @@ pub mod client;
 pub mod colony;
 pub mod faction;
 pub mod fleet;
+pub mod id_dispenser;
 pub mod server_configs;
 mod update;
 
 use crate::connection_manager::ConnectionsManager;
 use common::net::connection::Connection;
-use serde::Deserialize;
-use serde::Serialize;
+use crossbeam::queue::SegQueue;
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::Read;
@@ -16,6 +16,7 @@ use std::sync::Arc;
 
 pub use self::client::*;
 pub use self::fleet::*;
+pub use self::id_dispenser::*;
 pub use self::server_configs::*;
 pub use common::idx::*;
 pub use common::net::packets::*;
@@ -23,7 +24,14 @@ pub use common::systems::*;
 pub use common::time::*;
 pub use faction::*;
 pub use glam::Vec2;
+pub use serde::{Deserialize, Serialize};
 pub use utils::{acc::*, *};
+
+static FACTION_ID_DISPENSER: FactionIdDispenser = FactionIdDispenser::new();
+static FACTION_QUEUE: SegQueue<(FactionId, FactionBuilder)> = SegQueue::new();
+
+static AI_FLEET_ID_DISPENSER: AiFleetIdDispenser = AiFleetIdDispenser::new();
+static FLEET_QUEUE: SegQueue<(FleetId, FleetBuilder)> = SegQueue::new();
 
 pub struct Metascape {
     pub server_configs: ServerConfigs,
@@ -39,9 +47,6 @@ pub struct Metascape {
     pub systems_acceleration_structure: AccelerationStructure<SystemId, ()>,
     pub bound: f32,
 
-    pub next_ai_fleet_id: FleetId,
-    pub next_faction_id: FactionId,
-
     pub clients: PackedMap<Soa<Client>, Client, ClientId>,
     pub fleets: PackedMap<Soa<Fleet>, Fleet, FleetId>,
     pub systems: PackedMap<Soa<System>, System, SystemId>,
@@ -53,11 +58,11 @@ impl Metascape {
         let server_configs = ServerConfigs::default();
 
         // Load systems.
-        let mut file = File::open("systems.bin").expect("Could not open systems.bin");
+        let mut file = File::open("systems.bin").expect("could not open systems.bin");
         let mut buffer = Vec::with_capacity(file.metadata().unwrap().len() as usize);
         file.read_to_end(&mut buffer).unwrap();
         let mut systems_data = bincode::deserialize::<common::systems::Systems>(&buffer)
-            .expect("Could not deserialize systems.bin");
+            .expect("could not deserialize systems.bin");
         systems_data.update_all();
         let mut systems_acceleration_structure = AccelerationStructure::new();
         let mut systems = PackedMap::with_capacity(systems_data.systems.len());
@@ -108,8 +113,14 @@ impl Metascape {
 
         // Load factions.
         let mut factions = PackedMap::with_capacity(metascape_save.factions.len());
-        for faction in metascape_save.factions {
-            factions.insert(faction.faction_id, faction);
+        for (faction_id, faction) in metascape_save.factions {
+            factions.insert(faction_id, faction);
+        }
+
+        // Store statics variables.
+        unsafe {
+            AI_FLEET_ID_DISPENSER.set(metascape_save.next_ai_fleet_id);
+            FACTION_ID_DISPENSER.set(metascape_save.next_faction_id);
         }
 
         Self {
@@ -127,8 +138,6 @@ impl Metascape {
             fleets,
             systems,
             factions,
-            next_ai_fleet_id: metascape_save.next_ai_fleet_id,
-            next_faction_id: metascape_save.next_faction_id,
             bound: systems_data.bound,
         }
     }
@@ -165,9 +174,8 @@ impl Metascape {
         }
 
         let mut factions = Vec::with_capacity(self.factions.len());
-        let (faction_id, name, reputations, fallback_reputation, clients, fleets, colonies) = query_ptr!(
+        let (name, reputations, fallback_reputation, clients, fleets, colonies) = query_ptr!(
             self.factions,
-            Faction::faction_id,
             Faction::name,
             Faction::reputations,
             Faction::fallback_reputation,
@@ -175,10 +183,9 @@ impl Metascape {
             Faction::fleets,
             Faction::colonies,
         );
-        for i in 0..self.factions.len() {
-            let (faction_id, name, reputations, fallback_reputation, clients, fleets, colonies) = unsafe {
+        for (i, faction_id) in self.factions.id_vec().iter().enumerate() {
+            let (name, reputations, fallback_reputation, clients, fleets, colonies) = unsafe {
                 (
-                    &*faction_id.add(i),
                     &*name.add(i),
                     &*reputations.add(i),
                     &*fallback_reputation.add(i),
@@ -188,21 +195,23 @@ impl Metascape {
                 )
             };
 
-            factions.push(Faction {
-                faction_id: faction_id.to_owned(),
-                name: name.to_owned(),
-                reputations: reputations.to_owned(),
-                fallback_reputation: fallback_reputation.to_owned(),
-                clients: clients.to_owned(),
-                fleets: fleets.to_owned(),
-                colonies: colonies.to_owned(),
-            });
+            factions.push((
+                faction_id.to_owned(),
+                Faction {
+                    name: name.to_owned(),
+                    reputations: reputations.to_owned(),
+                    fallback_reputation: fallback_reputation.to_owned(),
+                    clients: clients.to_owned(),
+                    fleets: fleets.to_owned(),
+                    colonies: colonies.to_owned(),
+                },
+            ));
         }
 
         MetascapeSave {
             total_tick: self.time.total_tick,
-            next_ai_fleet_id: self.next_ai_fleet_id,
-            next_faction_id: self.next_faction_id,
+            next_ai_fleet_id: unsafe { AI_FLEET_ID_DISPENSER.current() },
+            next_faction_id: unsafe { FACTION_ID_DISPENSER.current() },
             fleetsaves,
             factions,
         }
@@ -214,18 +223,18 @@ impl Metascape {
 }
 
 #[derive(Serialize, Deserialize)]
-struct MetascapeSave {
+pub struct MetascapeSave {
     pub total_tick: u64,
     pub next_ai_fleet_id: FleetId,
     pub next_faction_id: FactionId,
     pub fleetsaves: Vec<FleetSave>,
-    pub factions: Vec<Faction>,
+    pub factions: Vec<(FactionId, Faction)>,
 }
 impl Default for MetascapeSave {
     fn default() -> Self {
         Self {
             total_tick: Default::default(),
-            next_ai_fleet_id: FleetId(u32::MAX as u64),
+            next_ai_fleet_id: FleetId(u32::MAX as u64 + 1),
             next_faction_id: FactionId(0),
             fleetsaves: Default::default(),
             factions: Default::default(),

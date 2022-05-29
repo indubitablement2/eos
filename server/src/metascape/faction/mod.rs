@@ -1,12 +1,12 @@
+use super::*;
 use ahash::{AHashMap, AHashSet};
-use common::{idx::*, reputation::Reputation};
+use common::reputation::Reputation;
 use serde::{Deserialize, Serialize};
 use utils::*;
 
 // TODO: Faction trait/affinity that affect reputation with other faction.
 #[derive(Debug, Clone, Serialize, Deserialize, Fields, Columns, Components)]
 pub struct Faction {
-    pub faction_id: FactionId,
     pub name: String,
     /// Reputation with other factions.
     ///
@@ -25,7 +25,6 @@ pub struct Faction {
 }
 
 pub struct FactionBuilder {
-    pub faction_id: FactionId,
     pub name: String,
     pub reputations: AHashMap<FactionId, Reputation>,
     pub fallback_reputation: Reputation,
@@ -34,7 +33,7 @@ pub struct FactionBuilder {
     pub colonies: AHashSet<PlanetId>,
 }
 impl FactionBuilder {
-    pub fn new(faction_id: FactionId) -> Self {
+    pub fn new() -> Self {
         Self {
             name: "Independent".to_string(),
             reputations: Default::default(),
@@ -42,7 +41,6 @@ impl FactionBuilder {
             clients: Default::default(),
             fleets: Default::default(),
             colonies: Default::default(),
-            faction_id,
         }
     }
 
@@ -59,15 +57,9 @@ impl FactionBuilder {
         self
     }
 
-    pub fn build(self) -> Faction {
-        Faction {
-            faction_id: self.faction_id,
-            name: self.name,
-            reputations: self.reputations,
-            fallback_reputation: self.fallback_reputation,
-            clients: self.clients,
-            fleets: self.fleets,
-            colonies: self.colonies,
-        }
+    pub fn build(self) -> FactionId {
+        let faction_id = FACTION_ID_DISPENSER.next();
+        FACTION_QUEUE.push((faction_id, self));
+        faction_id
     }
 }
