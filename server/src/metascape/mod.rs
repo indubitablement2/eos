@@ -27,9 +27,11 @@ pub use glam::Vec2;
 pub use serde::{Deserialize, Serialize};
 pub use utils::{acc::*, *};
 
+/// Dispense unique and never recycled `FactionId`.
 static FACTION_ID_DISPENSER: FactionIdDispenser = FactionIdDispenser::new();
 static FACTION_QUEUE: SegQueue<(FactionId, FactionBuilder)> = SegQueue::new();
 
+/// Dispense unique and never recycled `FleetId` for ai fleet.
 static AI_FLEET_ID_DISPENSER: AiFleetIdDispenser = AiFleetIdDispenser::new();
 static FLEET_QUEUE: SegQueue<(FleetId, FleetBuilder)> = SegQueue::new();
 
