@@ -16,7 +16,7 @@ pub fn connect_clients(s: &mut Metascape) {
         > s.server_configs
             .connection_configs
             .min_pending_queue_size_for_update
-        && s.time.tick
+        && time().tick
             % s.server_configs
                 .connection_configs
                 .connection_queue_update_interval

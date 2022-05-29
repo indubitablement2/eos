@@ -35,7 +35,10 @@ static FACTION_QUEUE: SegQueue<(FactionId, FactionBuilder)> = SegQueue::new();
 static AI_FLEET_ID_DISPENSER: AiFleetIdDispenser = AiFleetIdDispenser::new();
 static FLEET_QUEUE: SegQueue<(FleetId, FleetBuilder)> = SegQueue::new();
 
-static TIME: Time = Time {
+pub fn time() -> Time {
+    unsafe{_TIME.clone()}
+}
+static mut _TIME: Time = Time {
     tick: 0,
     total_tick: 0,
 };
@@ -47,7 +50,6 @@ pub struct Metascape {
     pub connections_manager: ConnectionsManager,
     pub pendings_connection: VecDeque<Connection>,
 
-    pub time: Time,
     /// Use the fleet's Current system id as filter or u32::MAX no fleet not in a system.
     pub fleets_detection_acceleration_structure: AccelerationStructure<FleetId, u32>,
     /// System don't move. Never updated at runtime.
@@ -127,6 +129,7 @@ impl Metascape {
         unsafe {
             AI_FLEET_ID_DISPENSER.set(metascape_save.next_ai_fleet_id);
             FACTION_ID_DISPENSER.set(metascape_save.next_faction_id);
+            _TIME.total_tick = metascape_save.total_tick;
         }
 
         Self {
@@ -134,10 +137,6 @@ impl Metascape {
             rt,
             connections_manager,
             pendings_connection: Default::default(),
-            time: Time {
-                tick: 0,
-                total_tick: metascape_save.total_tick,
-            },
             fleets_detection_acceleration_structure: AccelerationStructure::new(),
             systems_acceleration_structure,
             clients: PackedMap::with_capacity(256),
@@ -215,7 +214,7 @@ impl Metascape {
         }
 
         MetascapeSave {
-            total_tick: self.time.total_tick,
+            total_tick: time().total_tick,
             next_ai_fleet_id: unsafe { AI_FLEET_ID_DISPENSER.current() },
             next_faction_id: unsafe { FACTION_ID_DISPENSER.current() },
             fleetsaves,

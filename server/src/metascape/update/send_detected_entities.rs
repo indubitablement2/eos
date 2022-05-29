@@ -87,7 +87,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
                 let fleet_index = s.fleets.get_index(fleet_id).unwrap();
                 let last_change = query!(s.fleets, fleet_index, Fleet::last_change).0;
 
-                if *last_change + interval > s.time.tick {
+                if *last_change + interval > time().tick {
                     Some(fleet_id)
                 } else {
                     None
@@ -103,7 +103,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
                     let fleet_index = s.fleets.get_index(fleet_id).unwrap();
                     let last_change = query!(s.fleets, fleet_index, Fleet::last_change).0;
 
-                    if *last_change == s.time.tick {
+                    if *last_change == time().tick {
                         Some(fleet_id)
                     } else {
                         None
@@ -115,10 +115,10 @@ pub fn send_detected_entities(s: &mut Metascape) {
         // Send detected fleets & client's fleet infos the client does not know.
         connection.send_packet_reliable(
             ServerPacket::DetectedFleetsInfos(DetectedFleetsInfos {
-                tick: s.time.tick,
+                tick: time().tick,
                 infos: changed
                     .into_iter()
-                    .chain(once(client_fleet_id).filter(|_| s.time.tick == *client_last_change))
+                    .chain(once(client_fleet_id).filter(|_| time().tick == *client_last_change))
                     .map(|fleet_id| {
                         let fleet_index = s.fleets.get_index(fleet_id).unwrap();
                         let (name, orbit, composition) = query!(
@@ -144,7 +144,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
         // Send detected fleets position.
         connection.send_packet_unreliable(
             ServerPacket::FleetsPosition(FleetsPosition {
-                tick: s.time.tick,
+                tick: time().tick,
                 client_position: *client_position,
                 relative_fleets_position: detected_fleets
                     .iter()

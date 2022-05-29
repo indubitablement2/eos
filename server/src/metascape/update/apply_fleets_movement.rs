@@ -7,7 +7,7 @@ use crate::metascape::*;
 /// Apply velocity, friction and orbit.
 pub fn apply_fleets_movement(s: &mut Metascape) {
     let bound_squared = s.bound.powi(2);
-    let timef = s.time.as_timef();
+    let timef = time().as_timef();
 
     let (position, wish_position, velocity, in_system, idle_counter, acceleration, orbit) = query_ptr!(
         s.fleets,
