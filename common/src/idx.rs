@@ -1,9 +1,8 @@
-use std::ops::{Index, IndexMut, AddAssign};
+use std::ops::{Index, AddAssign};
 use utils::{Incrementable, acc::Filter};
 use serde::{Deserialize, Serialize};
 use crate::{
     ships::{ShipBase, WeaponBase},
-    systems::System,
 };
 
 /// Never recycled.
@@ -74,18 +73,6 @@ impl Incrementable for FactionId {
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub struct SystemId(pub u32);
-impl Index<SystemId> for Vec<System> {
-    type Output = System;
-
-    fn index(&self, index: SystemId) -> &Self::Output {
-        &self[index.0 as usize]
-    }
-}
-impl IndexMut<SystemId> for Vec<System> {
-    fn index_mut(&mut self, index: SystemId) -> &mut Self::Output {
-        &mut self[index.0 as usize]
-    }
-}
 impl AddAssign for SystemId {
     fn add_assign(&mut self, rhs: Self) {
         self.0 += rhs.0;

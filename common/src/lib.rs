@@ -15,7 +15,7 @@ pub mod net;
 pub mod orbit;
 pub mod reputation;
 pub mod ships;
-pub mod systems;
+pub mod system;
 pub mod time;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

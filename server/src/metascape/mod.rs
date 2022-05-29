@@ -20,7 +20,7 @@ pub use self::id_dispenser::*;
 pub use self::server_configs::*;
 pub use common::idx::*;
 pub use common::net::packets::*;
-pub use common::systems::*;
+pub use common::system::*;
 pub use common::time::*;
 pub use faction::*;
 pub use glam::Vec2;
@@ -34,6 +34,11 @@ static FACTION_QUEUE: SegQueue<(FactionId, FactionBuilder)> = SegQueue::new();
 /// Dispense unique and never recycled `FleetId` for ai fleet.
 static AI_FLEET_ID_DISPENSER: AiFleetIdDispenser = AiFleetIdDispenser::new();
 static FLEET_QUEUE: SegQueue<(FleetId, FleetBuilder)> = SegQueue::new();
+
+static TIME: Time = Time {
+    tick: 0,
+    total_tick: 0,
+};
 
 pub struct Metascape {
     pub server_configs: ServerConfigs,
@@ -63,9 +68,8 @@ impl Metascape {
         let mut file = File::open("systems.bin").expect("could not open systems.bin");
         let mut buffer = Vec::with_capacity(file.metadata().unwrap().len() as usize);
         file.read_to_end(&mut buffer).unwrap();
-        let mut systems_data = bincode::deserialize::<common::systems::Systems>(&buffer)
-            .expect("could not deserialize systems.bin");
-        systems_data.update_all();
+        let systems_data =
+            bincode::deserialize::<Systems>(&buffer).expect("could not deserialize systems.bin");
         let mut systems_acceleration_structure = AccelerationStructure::new();
         let mut systems = PackedMap::with_capacity(systems_data.systems.len());
         for (system_id, system) in systems_data.systems {
