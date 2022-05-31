@@ -308,7 +308,10 @@ where
     /// Return all colliders that intersect the provided collider.
     ///
     /// Take a closure with the intersecting collider
-    /// which return if we should stop the query (true) or not (false).
+    /// which return if we should stop the query.
+    /// 
+    /// - `true` -> stop query
+    /// - `false` -> continue query
     pub fn intersect_collider(
         &self,
         collider: Collider<F>,
@@ -360,7 +363,10 @@ where
     /// Return all colliders that intersect the provided point.
     ///
     /// Take a closure with the intersecting collider
-    /// which return if we should stop the query (true) or not (false).
+    /// which return if we should stop the query.
+    /// 
+    /// - `true` -> stop query
+    /// - `false` -> continue query
     pub fn intersect_point(
         &self,
         point: Vec2,

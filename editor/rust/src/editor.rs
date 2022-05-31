@@ -1,18 +1,21 @@
+use ::utils::acc::*;
 use common::idx::SystemId;
-use common::intersection::*;
-use common::systems::*;
-use common::time::Time;
+use common::system::*;
+
 use gdnative::api::*;
 use gdnative::prelude::*;
 use glam::Vec2;
 use rand::Rng;
 
 use crate::generation::generate_system;
-use crate::util::glam_to_godot;
-use crate::util::godot_to_glam;
+use crate::util::*;
 
 enum Selected {
-    System { system_id: SystemId },
+    System {
+        system_id: SystemId,
+        moving: bool,
+        current_pos_valid: bool,
+    },
     Nothing,
 }
 
@@ -22,25 +25,22 @@ enum Selected {
 pub struct Editor {
     camera: Option<Ref<Camera2D>>,
     time_multiplier: f32,
-    delta: f32,
-    time: Time,
+    timef: f32,
     data: Systems,
-    systems_acc: AccelerationStructure<SystemId, NoFilter>,
+    systems_acc: AccelerationStructure<SystemId, ()>,
     selected: Selected,
-    /// is_moving, new_pos_valid
-    moving_selected: (bool, bool),
+    mouse_pos: Vec2,
 }
 impl Default for Editor {
     fn default() -> Self {
         Self {
             camera: None,
             time_multiplier: 1.0,
-            delta: 0.0,
-            time: Time::default(),
+            timef: 0.0,
             data: Systems::default(),
             systems_acc: AccelerationStructure::new(),
             selected: Selected::Nothing,
-            moving_selected: (false, true),
+            mouse_pos: Vec2::ZERO,
         }
     }
 }
@@ -55,158 +55,159 @@ impl Editor {
         Editor::default()
     }
 
-    #[export]
-    unsafe fn _ready(&mut self, _owner: &Node2D) {}
-
-    #[export]
-    unsafe fn _exit_tree(&mut self, _owner: &Node2D) {}
-
-    #[export]
-    unsafe fn _process(&mut self, owner: &Node2D, delta: f32) {
+    #[godot]
+    unsafe fn _process(&mut self, #[base] owner: &Node2D, delta: f32) {
         // Increment time.
-        self.delta += delta * self.time_multiplier / common::UPDATE_INTERVAL.as_secs_f32();
-        if self.delta >= 1.0 {
-            let more = self.delta.floor();
-            self.delta -= more;
-            self.time.tick += more as u32;
-        }
+        self.timef += delta * self.time_multiplier;
 
-        if self.moving_selected.0 {
-            // Check if new position is valid.
-            match self.selected {
-                Selected::System { system_id } => {
-                    let mouse_pos = godot_to_glam(owner.get_global_mouse_position());
-                    let collider = Collider::new(self.data.systems[system_id].bound, mouse_pos);
-                    self.moving_selected.1 = true;
+        // Get mouse pos.
+        self.mouse_pos = godot_to_glam(owner.get_global_mouse_position());
+
+        match &mut self.selected {
+            Selected::System {
+                system_id,
+                moving,
+                current_pos_valid,
+            } => {
+                if *moving {
+                    // Check if new position is valid.
+                    let system = self.data.systems.get(system_id).unwrap();
+                    let collider = Collider::new(self.mouse_pos, system.radius, ());
+                    *current_pos_valid = true;
 
                     // Check that new system position does not intersect any other system.
-                    if self
-                        .systems_acc
-                        .intersect_collider(collider)
-                        .into_iter()
-                        .any(|id| id != system_id)
-                    {
-                        self.moving_selected.1 = false;
-                    }
-                }
-                Selected::Nothing => {
-                    self.moving_selected = (false, true);
+                    self.systems_acc.intersect_collider(collider, |other| {
+                        if other.id != *system_id {
+                            *current_pos_valid = false;
+                            true
+                        } else {
+                            false
+                        }
+                    });
                 }
             }
+            Selected::Nothing => {}
         }
 
         owner.update();
     }
 
-    #[export]
-    unsafe fn _draw(&mut self, owner: &Node2D) {
+    #[godot]
+    unsafe fn _draw(&mut self, #[base] owner: &Node2D) {
         render(self, owner);
     }
 
-    #[export]
-    unsafe fn set_tick(&mut self, _owner: &Node2D, tick: u32) {
-        self.time.tick = tick;
+    #[godot]
+    unsafe fn set_tick(&mut self, timef: f32) {
+        self.timef = timef;
     }
 
-    #[export]
-    unsafe fn get_tick(&mut self, _owner: &Node2D) -> i64 {
-        self.time.tick as i64
+    #[godot]
+    unsafe fn get_tick(&mut self) -> f32 {
+        self.timef
     }
 
-    #[export]
-    unsafe fn get_num_system(&mut self, _owner: &Node2D) -> i64 {
+    #[godot]
+    unsafe fn get_num_system(&mut self) -> i64 {
         self.data.systems.len() as i64
     }
 
-    #[export]
-    unsafe fn get_bound(&mut self, _owner: &Node2D) -> f32 {
+    #[godot]
+    unsafe fn get_bound(&mut self) -> f32 {
         self.data.bound
     }
 
-    #[export]
-    unsafe fn get_total_num_planet(&mut self, _owner: &Node2D) -> i64 {
+    #[godot]
+    unsafe fn get_total_num_planet(&mut self) -> i64 {
         self.data.total_num_planet as i64
     }
 
-    #[export]
-    unsafe fn set_time_multiplier(&mut self, _owner: &Node2D, time_multiplier: f32) {
+    #[godot]
+    unsafe fn set_time_multiplier(&mut self, time_multiplier: f32) {
         self.time_multiplier = time_multiplier;
     }
 
-    #[export]
-    unsafe fn set_camera(&mut self, _owner: &Node2D, camera: Ref<Camera2D>) {
+    #[godot]
+    unsafe fn set_camera(&mut self, camera: Ref<Camera2D>) {
         self.camera = Some(camera);
     }
 
-    /// Select something for editing.
-    #[export]
-    unsafe fn select(&mut self, owner: &Node2D) {
-        let mouse_pos = godot_to_glam(owner.get_global_mouse_position());
-
-        if let Some(system_id) = self.systems_acc.intersect_point_first(mouse_pos) {
-            self.selected = Selected::System { system_id };
-            godot_print!("selected a system.");
-        } else {
-            // We select nothing.
-            godot_print!("selected nothing!");
-            self.selected = Selected::Nothing;
-        }
-    }
-
-    #[export]
-    unsafe fn delete_selected(&mut self, _owner: &Node2D) {
-        match self.selected {
-            Selected::System { system_id } => {
-                self.data.systems.swap_remove(system_id.0 as usize);
-
-                update_internals(self);
-            }
-            Selected::Nothing => {}
-        }
-        self.selected = Selected::Nothing;
-    }
-
-    #[export]
-    unsafe fn toggle_moving_selected(&mut self, owner: &Node2D, toggle: bool) {
-        if self.moving_selected.0 == toggle {
-            return;
-        }
-
-        if self.moving_selected.0 && self.moving_selected.1 {
-            match self.selected {
-                Selected::System { system_id } => {
-                    let mouse_pos = godot_to_glam(owner.get_global_mouse_position());
-                    let collider = Collider::new(self.data.systems[system_id].bound, mouse_pos);
-
-                    // Check that new system position does not intersect any other system.
-                    if !self
-                        .systems_acc
-                        .intersect_collider(collider)
-                        .into_iter()
-                        .any(|id| id != system_id)
-                    {
-                        let system = &mut self.data.systems[system_id];
-
-                        // Update selected system position.
-                        system.position = mouse_pos;
-
-                        update_internals(self);
-                    }
+    /// (De)select something for editing.
+    #[godot]
+    unsafe fn select(&mut self) {
+        match &self.selected {
+            Selected::System { system_id, moving: _, current_pos_valid: _ } => {
+                // Try to deselect our current system.
+                let system = self.data.systems.get(system_id).unwrap();
+                let collider = Collider::new(system.position, system.radius, ());
+                if !collider.intersection_test_point(self.mouse_pos) {
+                    self.selected = Selected::Nothing;
+                    godot_print!("Deselected system.");
                 }
-                Selected::Nothing => {}
             }
-
-            self.selected = Selected::Nothing;
+            Selected::Nothing => {
+                // Try to select a new system.
+                self.systems_acc.intersect_point(self.mouse_pos, (), |other| {
+                    self.selected = Selected::System {
+                        system_id: other.id,
+                        moving: false,
+                        current_pos_valid: false,
+                    };
+                    godot_print!("Selected a system.");
+                    false
+                });
+            }
         }
-
-        self.moving_selected.0 = toggle;
-        godot_print!("Moving: {}", self.moving_selected.0);
     }
 
-    #[export]
+    #[godot]
+    unsafe fn delete_selected(&mut self) {
+        if let Selected::System {
+            system_id,
+            moving: _,
+            current_pos_valid: _,
+        } = self.selected
+        {
+            self.data.systems.remove(&system_id);
+            self.selected = Selected::Nothing;
+            godot_print!("Deleted selected system.");
+            update_internals(self);
+        }
+    }
+
+    #[godot]
+    unsafe fn toggle_moving_selected(&mut self, toggle: bool) {
+        if let Selected::System {
+            system_id,
+            moving,
+            current_pos_valid,
+        } = &mut self.selected
+        {
+            if *moving == toggle {
+                return;
+            }
+
+            *moving = toggle;
+            godot_print!("Moving: {}", toggle);
+
+            if !*moving {
+                // Move system to new position.
+                if *current_pos_valid {
+                    let system = self.data.systems.get_mut(system_id).unwrap();
+                    system.position = self.mouse_pos;
+                    update_internals(self);
+                    godot_print!("Moved system.")
+                } else {
+                    godot_print!("Could not move system.")
+                }
+            }
+        }
+    }
+
+    #[godot]
     unsafe fn generate(
         &mut self,
-        owner: &Node2D,
+        #[base] owner: &Node2D,
         min_size: f32,
         max_size: f32,
         num_try: u32,
@@ -218,20 +219,21 @@ impl Editor {
 
         let mut new_systems: Vec<System> = Vec::new();
         'outter: for _ in 0..num_try {
-            let position =
-                center_position + rng.gen::<Vec2>() * brush_radius * 2.0 - Vec2::new(brush_radius, brush_radius);
+            let position = center_position + rng.gen::<Vec2>() * brush_radius * 2.0
+                - Vec2::new(brush_radius, brush_radius);
             if position.distance(center_position) > brush_radius {
                 // We are outside the brush.
                 continue;
             }
-            let new_system = generate_system(position, rng.gen_range(min_size..max_size) * 1.20);
-            let collider = Collider::new(new_system.bound + min_distance, new_system.position);
+            let new_system = generate_system(position, rng.gen_range(min_size..max_size));
+            let collider = Collider::new(new_system.position, new_system.radius + min_distance, ());
 
+            // Check if we collide we the other systems we have just generated.
             for other in new_systems
                 .iter()
-                .map(|system| Collider::new(system.bound, system.position))
+                .map(|system| Collider::new(system.position, system.radius, ()))
             {
-                if collider.intersection_test(other) {
+                if collider.intersection_test(&other) {
                     continue 'outter;
                 }
             }
@@ -239,24 +241,31 @@ impl Editor {
             new_systems.push(new_system);
         }
 
+        // Check if the systems we generated collide with any already placed system.
         for new_system in new_systems.into_iter() {
-            let collider = Collider::new(new_system.bound + min_distance, new_system.position);
-            if self.systems_acc.intersect_collider_first(collider).is_none() {
-                self.data.systems.push(new_system);
+            let collider = Collider::new(new_system.position, new_system.radius + min_distance, ());
+            let mut valid = true;
+            self.systems_acc.intersect_collider(collider, |_| {
+                valid = false;
+                true
+            });
+            if valid {
+                let system_id = self.data.next_system_id;
+                self.data.next_system_id.0 += 1;
+                self.data.systems.insert(system_id, new_system);
             }
         }
 
         update_internals(self);
     }
 
-    /// Load only the systems from file.
-    #[export]
-    unsafe fn load_systems(&mut self, _owner: &Node2D, data: PoolArray<u8>) -> bool {
+    /// Load the systems from file.
+    #[godot]
+    unsafe fn load_systems(&mut self, data: PoolArray<u8>) -> bool {
         self.selected = Selected::Nothing;
         match load_data(data) {
             Ok(data) => {
-                self.data.systems = data.systems;
-                self.data.bound = data.bound;
+                self.data = data;
                 update_internals(self);
                 true
             }
@@ -268,8 +277,8 @@ impl Editor {
     }
 
     /// Return a bin the data.
-    #[export]
-    unsafe fn export_systems(&mut self, _owner: &Node2D) -> PoolArray<u8> {
+    #[godot]
+    unsafe fn export_systems(&mut self) -> PoolArray<u8> {
         export_data(&self.data)
     }
 }
@@ -284,11 +293,10 @@ fn update_internals(editor: &mut Editor) {
     editor.systems_acc.clear();
     editor
         .systems_acc
-        .extend(editor.data.systems.iter().zip(0u16..).map(|(system, system_id)| {
+        .extend(editor.data.systems.iter().map(|(system_id, system)| {
             (
-                Collider::new(system.bound, system.position),
-                SystemId(system_id),
-                NoFilter::default(),
+                Collider::new(system.position, system.radius, ()),
+                *system_id,
             )
         }));
     editor.systems_acc.update();
@@ -309,7 +317,6 @@ fn export_data(data: &Systems) -> PoolArray<u8> {
 }
 
 fn render(editor: &Editor, owner: &Node2D) {
-    let time = editor.time.tick as f32 + editor.delta;
     let cam = if let Some(c) = editor.camera {
         c
     } else {
@@ -333,8 +340,8 @@ fn render(editor: &Editor, owner: &Node2D) {
 
     // Draw systems bound.
     let part = std::f64::consts::TAU / 64.0;
-    for i in 0..32 {
-        let start = part * f64::from(i) * 2.0;
+    for i in (0..64).step_by(2) {
+        let start = part * f64::from(i);
         owner.draw_arc(
             Vector2::ZERO,
             editor.data.bound.into(),
@@ -352,12 +359,14 @@ fn render(editor: &Editor, owner: &Node2D) {
         );
     }
 
-    for system in editor.data.systems.iter() {
+    for system in editor.data.systems.values() {
+        let timef = editor.timef;
+
         // Do not draw system that are not on screen.
-        if system.position.x + system.bound < rect.position.x
-            || system.position.x - system.bound > rect.position.x + rect.size.x
-            || system.position.y + system.bound < rect.position.y
-            || system.position.y - system.bound > rect.position.y + rect.size.y
+        if system.position.x + system.radius < rect.position.x
+            || system.position.x - system.radius > rect.position.x + rect.size.x
+            || system.position.y + system.radius < rect.position.y
+            || system.position.y - system.radius > rect.position.y + rect.size.y
         {
             continue;
         }
@@ -365,7 +374,7 @@ fn render(editor: &Editor, owner: &Node2D) {
         // Draw system bound.
         owner.draw_circle(
             glam_to_godot(system.position),
-            system.bound.into(),
+            system.radius.into(),
             Color {
                 r: 1.0,
                 g: 1.0,
@@ -396,7 +405,7 @@ fn render(editor: &Editor, owner: &Node2D) {
             }
             // Draw bodies.
             owner.draw_circle(
-                glam_to_godot(planet.relative_orbit.to_position(time, system.position)),
+                glam_to_godot(planet.relative_orbit.to_position(timef, system.position)),
                 planet.radius.into(),
                 Color {
                     r: 1.0,
@@ -409,47 +418,53 @@ fn render(editor: &Editor, owner: &Node2D) {
     }
 
     // Draw selected.
-    let (pos, radius) = match editor.selected {
-        Selected::System { system_id } => {
-            let system = &editor.data.systems[system_id];
-            (system.position, system.bound)
-        }
-        Selected::Nothing => {
-            return;
-        }
-    };
-    owner.draw_arc(
-        glam_to_godot(pos),
-        radius as f64,
-        0.0,
-        std::f64::consts::TAU,
-        32,
-        Color {
-            r: 1.0,
-            g: 0.0,
-            b: 0.0,
-            a: 0.8,
-        },
-        0.5,
-        false,
-    );
+    if let Selected::System {
+        system_id,
+        moving,
+        current_pos_valid,
+    } = &editor.selected
+    {
+        let system = editor.data.systems.get(system_id).unwrap();
 
-    // Draw moving selected.
-    if editor.moving_selected.0 {
-        let (r, g) = if editor.moving_selected.1 {
-            (0.0, 1.0)
-        } else {
-            (1.0, 0.0)
-        };
+        // Draw selected highlight.
         owner.draw_arc(
-            owner.get_global_mouse_position(),
-            radius as f64,
+            glam_to_godot(system.position),
+            system.radius as f64,
             0.0,
             std::f64::consts::TAU,
             32,
-            Color { r, g, b: 0.0, a: 0.8 },
+            Color {
+                r: 1.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.8,
+            },
             0.5,
             false,
         );
+
+        // Draw moving selected.
+        if *moving {
+            let (r, g) = if *current_pos_valid {
+                (0.0, 1.0)
+            } else {
+                (1.0, 0.0)
+            };
+            owner.draw_arc(
+                glam_to_godot(editor.mouse_pos),
+                system.radius as f64,
+                0.0,
+                std::f64::consts::TAU,
+                32,
+                Color {
+                    r,
+                    g,
+                    b: 0.0,
+                    a: 0.8,
+                },
+                0.5,
+                false,
+            );
+        }
     }
 }

@@ -327,8 +327,8 @@ size_flags_vertical = 3
 popup_exclusive = true
 dialog_hide_on_ok = true
 access = 2
-current_dir = "/home/username/dev/eos/editor/godot"
-current_path = "/home/username/dev/eos/editor/godot/"
+current_dir = "/home/username/Dev/eos/editor/godot"
+current_path = "/home/username/Dev/eos/editor/godot/"
 __meta__ = {
 "_edit_use_anchors_": false
 }
@@ -351,8 +351,8 @@ dialog_hide_on_ok = true
 mode = 0
 access = 2
 filters = PoolStringArray( "*.bin" )
-current_dir = "/home/username/dev/eos/editor/godot"
-current_path = "/home/username/dev/eos/editor/godot/"
+current_dir = "/home/username/Dev/eos/editor/godot"
+current_path = "/home/username/Dev/eos/editor/godot/"
 __meta__ = {
 "_edit_use_anchors_": false
 }

@@ -9,6 +9,7 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 common = { path = "../../common" }
+utils = { path = "../../utils/utils" }
 
 gdnative = { git = "https://github.com/godot-rust/godot-rust.git" }
 

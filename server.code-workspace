@@ -1,7 +1,13 @@
 {
 	"folders": [
 		{
+			"path": "server"
+		},
+		{
 			"path": "common"
+		},
+		{
+			"path": "utils/utils"
 		}
 	],
 	"settings": {}
