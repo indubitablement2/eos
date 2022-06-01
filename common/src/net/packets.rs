@@ -55,15 +55,16 @@ pub struct FleetsPosition {
     pub tick: u32,
     /// Position in world space.
     pub client_position: Vec2,
-    /// Detected fleets position compressed and relative to client's position.
-    /// Ordered by `FleetId`. 
+    /// Detected fleets `small_id` and position compressed and relative to client's position.
     /// See: `DetectedFleetsInfos`.
-    pub relative_fleets_position: Vec<CVec2>,
+    pub relative_fleets_position: Vec<(u16, CVec2)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FleetInfos {
     pub fleet_id: FleetId,
+    /// TODO: Client's fleet is always 0.
+    pub small_id: u16,
     pub name: String,
     /// If this entity follow an orbit, its state will not be sent.
     pub orbit: Option<Orbit>,
@@ -72,13 +73,20 @@ pub struct FleetInfos {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DetectedFleetsInfos {
+pub struct FleetsInfos {
     /// This is useful with orbit.
     /// Any state before this tick can be discarded and apply the orbit instead.
     /// Any state after this tick will remove the orbit.
     pub tick: u32,
-    /// May include the client's
+    /// May include the client's fleet.
     pub infos: Vec<FleetInfos>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FleetsForget {
+    pub tick: u32,
+    /// Forget these fleets. Their small_idx will be reused in the future.
+    pub to_forget: Vec<u16>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,20 +133,15 @@ pub enum ServerPacket {
 
     // /// Server send this for every commands that are not acknowledged by the client.
     // BattlescapeCommands(BattlescapeCommands),
-    /// Server send some entities's position.
-    EntitiesState(EntitiesState), // TODO: Delete
-    /// Server send some entities's infos.
-    EntitiesInfo(EntitiesInfo), // TODO: Delete
-    /// Server send entities that will not be updated anymore and should be removed.
-    EntitiesRemove(EntitiesRemove), // TODO: Delete
     /// Server send the reason why it disconnected the client.
     DisconnectedReason(DisconnectedReasonEnum),
     /// Lenght of the queue before the client.
     ConnectionQueueLen(ConnectionQueueLen),
-    /// Infoes about currently detected fleets
-    DetectedFleetsInfos(DetectedFleetsInfos),
+    /// Infos about currently detected fleets
+    FleetsInfos(FleetsInfos),
     /// Position of the client's fleet and detected fleets.
     FleetsPosition(FleetsPosition),
+    FleetsForget(FleetsForget),
 }
 impl ServerPacket {
     pub fn serialize(&self) -> Vec<u8> {
@@ -150,13 +153,14 @@ impl ServerPacket {
     }
 }
 
+/// Client can only send packet through tcp.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum ClientPacket {
     /// Could not deserialize/serialize packet.
     #[default]
     Invalid,
     /// Client send this when he wants his fleet to move to a position.
-    MetascapeWishPos { wish_pos: Vec2, movement_multiplier: f32 }, // TODO: Add sequence #
+    MetascapeWishPos { wish_pos: Vec2, movement_multiplier: f32 },
     // BattlescapeInput {
     //     wish_input: PlayerInput,
     //     /// The last Battlescape commands the client acknowledge to have received.

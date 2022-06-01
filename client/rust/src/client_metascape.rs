@@ -3,44 +3,61 @@ use crate::connection_manager::ConnectionManager;
 use crate::constants::*;
 use crate::input_handler::PlayerInputs;
 use crate::util::*;
+use ::utils::acc::*;
 use ahash::AHashMap;
-use common::compressed_vec2::CVec2;
-use common::factions::*;
 use common::idx::*;
-use common::intersection::*;
 use common::net::packets::*;
-use common::orbit::Orbit;
-use common::systems::*;
+use common::system::*;
 use common::UPDATE_INTERVAL;
 use gdnative::api::*;
 use gdnative::prelude::*;
 use glam::Vec2;
 
-#[derive(Debug, Clone, Copy, Default)]
-struct EntityState {
+#[derive(Debug, Clone)]
+struct FleetState {
     /// The tick we first learned about this entity.
     discovered_tick: u32,
     previous_tick: u32,
     current_tick: u32,
     previous_position: Vec2,
     current_position: Vec2,
-    /// The tick the orbit was added.
-    /// The entity currently has an orbit if this is more than `current_tick`.
-    orbit_added_tick: u32,
-    orbit: Orbit,
+    fleet_infos: FleetInfos,
 }
-impl EntityState {
-    pub fn get_interpolated_pos(&self, time: f32) -> Vec2 {
-        if self.orbit_added_tick >= self.current_tick {
-            self.orbit.to_position(time)
+impl FleetState {
+    pub fn new(discovered_tick: u32) -> Self {
+        Self {
+            discovered_tick,
+            previous_tick: 0,
+            current_tick: 0,
+            previous_position: Vec2::ZERO,
+            current_position: Vec2::ZERO,
+            fleet_infos: FleetInfos {
+                fleet_id: FleetId(0),
+                small_id: 0,
+                name: "".to_string(),
+                orbit: None,
+                composition: Vec::new(),
+            },
+        }
+    }
+
+    pub fn get_interpolated_pos(&self, timef: f32) -> Vec2 {
+        if let Some(orbit) = self.fleet_infos.orbit {
+            orbit.to_position(timef)
         } else {
-            let interpolation = time - 1.0 - self.previous_tick as f32;
+            let interpolation = timef - 1.0 - self.previous_tick as f32;
             self.previous_position.lerp(self.current_position, interpolation)
         }
     }
 
     fn update(&mut self, new_tick: u32, new_position: Vec2) {
-        if new_tick > self.current_tick {
+        if self.current_tick == 0 {
+            // Fresh fleet.
+            self.current_tick = new_tick;
+            self.current_position = new_position;
+            self.previous_tick = new_tick;
+            self.previous_position = new_position;
+        } else if new_tick > self.current_tick {
             self.previous_tick = self.current_tick;
             self.previous_position = self.current_position;
             self.current_tick = new_tick;
@@ -50,7 +67,7 @@ impl EntityState {
             self.previous_position = new_position;
         } else {
             debug!(
-                "Received useless state. state: {} entity: {}. Ignoring...",
+                "Received useless state. received state tick: {} current tick: {}. Ignoring...",
                 new_tick, self.current_tick
             );
         }
@@ -59,9 +76,8 @@ impl EntityState {
 
 pub struct Metascape {
     configs: Configs,
-    factions: Factions,
     systems: Systems,
-    systems_acceleration: AccelerationStructure<SystemId, NoFilter>,
+    systems_acceleration: AccelerationStructure<SystemId, ()>,
 
     /// Send input to server. Receive command from server.
     connection_manager: ConnectionManager,
@@ -79,87 +95,44 @@ pub struct Metascape {
     pub current_tick_buffer: i64,
     /// The last tick received from the server.
     max_tick: u32,
+    /// The minimum tick delta of the 10 previous tick.
     min_buffer_short: [i64; 10],
+    /// The minimum of the 30 previous `min_buffer_short`.
     min_buffer_long: [i64; 30],
 
-    client_state: EntityState,
-    entities_state: AHashMap<u16, EntityState>,
-    entities_state_buffer: Vec<EntitiesState>,
-
-    client_info: EntityInfo,
-    entities_info: AHashMap<u16, EntityInfo>,
-    entities_info_buffer: Vec<EntitiesInfo>,
-    entities_remove_buffer: Vec<EntitiesRemove>,
+    /// Client has `small_id` 0.
+    fleets_state: AHashMap<u16, FleetState>,
+    fleets_position_buffer: Vec<FleetsPosition>,
+    fleets_infos_buffer: Vec<FleetsInfos>,
+    fleets_forget_buffer: Vec<FleetsForget>,
 }
 impl Metascape {
-    pub fn new(connection_manager: ConnectionManager, configs: Configs) -> std::io::Result<Self> {
-        let client_id = connection_manager.client_id;
-
+    pub fn new(connection_manager: ConnectionManager, configs: Configs) -> anyhow::Result<Self> {
         // Load systems from file.
         let file = File::new();
-        if let Err(err) = file.open(SYSTEMS_FILE_PATH, File::READ) {
-            error!("{:?} can not open ({})", err, SYSTEMS_FILE_PATH);
-            file.close();
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, "Can not open file."));
-        }
+        file.open(SYSTEMS_FILE_PATH, File::READ)?;
         let buffer = file.get_buffer(file.get_len());
         file.close();
-        let systems = if let Ok(mut systems) = bincode::deserialize::<Systems>(&buffer.read()) {
-            systems.update_all();
-            systems
-        } else {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Can not deserialize systems data file.",
-            ));
-        };
-
-        // Load factions from file.
-        if let Err(err) = file.open(FACTIONS_FILE_PATH, File::READ) {
-            error!("{:?} can not open ({})", err, FACTIONS_FILE_PATH);
-            file.close();
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, "Can not open file."));
-        }
-        let buffer = file.get_as_text().to_string();
-        file.close();
-        let factions = if let Ok(factions) = serde_yaml::from_str::<Factions>(buffer.as_str()) {
-            factions
-        } else {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Can not deserialize factions data file.",
-            ));
-        };
+        let systems = bincode::deserialize::<Systems>(&buffer.read())?;
 
         Ok(Self {
             configs,
             systems_acceleration: systems.create_acceleration_structure(),
             systems,
-            factions,
             connection_manager,
             send_timer: 0.0,
             tick: 0,
             delta: 0.0,
             time_dilation: 1.0,
-            client_state: EntityState::default(),
-            entities_state: AHashMap::new(),
-            entities_info_buffer: Vec::new(),
-            entities_state_buffer: Vec::new(),
             max_tick: 0,
-            client_info: EntityInfo {
-                info_type: EntityInfoType::Fleet(FleetInfo {
-                    fleet_id: FleetId::from(client_id),
-                    composition: Vec::new(),
-                }),
-                name: String::new(),
-                orbit: None,
-            },
-            entities_info: AHashMap::new(),
-            entities_remove_buffer: Vec::new(),
             target_tick_buffer: 1,
             min_buffer_short: [1; 10],
             min_buffer_long: [1; 30],
             current_tick_buffer: 1,
+            fleets_state: Default::default(),
+            fleets_position_buffer: Default::default(),
+            fleets_infos_buffer: Default::default(),
+            fleets_forget_buffer: Default::default(),
         })
     }
 
@@ -176,23 +149,22 @@ impl Metascape {
                         quit = true;
                         break;
                     }
-                    ServerPacket::BattlescapeCommands(new_commands) => todo!(),
-                    ServerPacket::EntitiesState(new_states) => {
-                        self.max_tick = self.max_tick.max(new_states.tick);
-
-                        self.entities_state_buffer.push(new_states);
-                    }
-                    ServerPacket::EntitiesInfo(new_infos) => {
-                        self.entities_info_buffer.push(new_infos);
-                    }
                     ServerPacket::DisconnectedReason(reason) => {
                         debug!("Disconnected from the server. {}", reason);
                         // TODO: Send message to console.
                         quit = true;
                         break;
                     }
-                    ServerPacket::EntitiesRemove(new_remove) => {
-                        self.entities_remove_buffer.push(new_remove);
+                    ServerPacket::ConnectionQueueLen(_) => todo!(),
+                    ServerPacket::FleetsInfos(fleets_infos) => {
+                        self.fleets_infos_buffer.push(fleets_infos);
+                    }
+                    ServerPacket::FleetsPosition(fleet_position) => {
+                        self.max_tick = self.max_tick.max(fleet_position.tick);
+                        self.fleets_position_buffer.push(fleet_position);
+                    }
+                    ServerPacket::FleetsForget(fleets_forget) => {
+                        self.fleets_forget_buffer.push(fleets_forget);
                     }
                 },
                 Err(err) => {
@@ -205,7 +177,7 @@ impl Metascape {
             }
         }
 
-        // Hard catch up if we are too beind in tick.
+        // Hard catch up if we are too out of sync in tick.
         let tick_delta = self.max_tick as i64 - self.tick as i64;
         if tick_delta > 10 {
             let previous_tick = self.tick;
@@ -225,7 +197,7 @@ impl Metascape {
             );
         }
 
-        // Compute target tick buffer.
+        // Compute target tick buffer. (how large we want the tick buffer)
         self.current_tick_buffer = self.max_tick as i64 - self.tick as i64;
         let i = self.tick as usize % self.min_buffer_short.len();
         self.min_buffer_short[i] = self.min_buffer_short[i].min(self.current_tick_buffer);
@@ -238,7 +210,7 @@ impl Metascape {
         let delta_target_tick_buffer = self.current_tick_buffer - self.target_tick_buffer as i64;
 
         // Speedup/slowdown time to get to target tick buffer.
-        // For every tick above/below target tick we speedup/slowdown time by 1% (additif).
+        // For every tick above/below target tick we speedup/slowdown time by 2% (additif).
         self.time_dilation = (delta_target_tick_buffer as f32).mul_add(0.02, 1.0);
         self.delta += (delta / UPDATE_INTERVAL.as_secs_f32()) * self.time_dilation;
 
@@ -250,83 +222,68 @@ impl Metascape {
 
         let current_tick = self.tick;
 
-        // Remove obselete entities.
-        for remove_update in self
-            .entities_remove_buffer
-            .drain_filter(|update| update.tick <= current_tick)
+        // Remove obselete fleet states.
+        for fleets_forget in self
+            .fleets_forget_buffer
+            .drain_filter(|fleets_forget| fleets_forget.tick <= current_tick)
         {
-            for id in remove_update.to_remove.into_iter() {
-                if self.entities_info.remove(&id).is_none() || self.entities_state.remove(&id).is_none() {
-                    warn!("Got order to remove {}, but it is not added. Ignoring...", id);
+            for small_id in fleets_forget.to_forget.into_iter() {
+                if self.fleets_state.remove(&small_id).is_none() || self.fleets_state.remove(&small_id).is_none() {
+                    warn!("Got order to remove {}, but it is not added. Ignoring...", small_id);
                 }
             }
         }
 
-        // Consume infos.
-        for infos_update in self.entities_info_buffer.drain_filter(|info| info.tick <= current_tick) {
-            // Handle client info update.
-            if let Some(info) = infos_update.client_info {
-                if let Some(orbit) = info.orbit {
-                    self.client_state.orbit = orbit;
-                    self.client_state.orbit_added_tick = infos_update.tick;
-                }
-                self.client_info = info;
-            }
-            // Handle entities info update.
-            for (id, info) in infos_update.infos.into_iter() {
-                if !self.entities_state.contains_key(&id) {
-                    self.entities_state.insert(
-                        id,
-                        EntityState {
-                            discovered_tick: current_tick,
-                            ..Default::default()
-                        },
-                    );
-                }
-                if let Some(orbit) = info.orbit {
-                    if let Some(state) = self.entities_state.get_mut(&id) {
-                        state.orbit = orbit;
-                        state.orbit_added_tick = infos_update.tick;
-                    }
-                }
-                self.entities_info.insert(id, info);
+        // Consume fleets infos.
+        for fleets_infos in self
+            .fleets_infos_buffer
+            .drain_filter(|fleets_infos| fleets_infos.tick <= current_tick)
+        {
+            for fleet_infos in fleets_infos.infos {
+                let small_id = fleet_infos.small_id;
+                self.fleets_state
+                    .entry(small_id)
+                    .or_insert(FleetState::new(current_tick))
+                    .fleet_infos = fleet_infos;
             }
         }
 
-        // Consume states.
-        for state in self
-            .entities_state_buffer
-            .drain_filter(|state| state.tick <= current_tick)
+        // Consume fleets positions.
+        for fleets_position in self
+            .fleets_position_buffer
+            .drain_filter(|fleets_position| fleets_position.tick <= current_tick)
         {
             // Update the client state.
-            self.client_state.update(state.tick, state.client_entity_position);
+            if let Some(fleet_state) = self.fleets_state.get_mut(&0) {
+                fleet_state.update(fleets_position.tick, fleets_position.client_position);
+            }
 
             // Update each entities position.
-            for (id, position) in state.relative_entities_position.into_iter() {
-                if let Some(entity) = self.entities_state.get_mut(&id) {
+            for (small_id, position) in fleets_position.relative_fleets_position {
+                if let Some(fleet_state) = self.fleets_state.get_mut(&small_id) {
                     // Convert from compressed relative position to world position.
-                    let position = position.to_vec2(CVec2::METASCAPE_RANGE) + state.client_entity_position;
-                    entity.update(state.tick, position);
+                    let position = position.to_vec2(common::METASCAPE_RANGE) + fleets_position.client_position;
+                    fleet_state.update(fleets_position.tick, position);
                 } else {
-                    // Create new entity.
-                    debug!("missing entity.");
+                    debug!("missing fleet state.");
                 }
             }
-        }
-
-        // Handle client inputs.
-        if player_inputs.primary {
-            let packet = ClientPacket::MetascapeWishPos {
-                wish_pos: player_inputs.global_mouse_position,
-                movement_multiplier: 1.0,
-            };
-            quit |= !self.connection_manager.send(&packet);
         }
 
         // Send client packets to server.
         self.send_timer -= delta;
         if self.send_timer <= 0.0 {
             self.send_timer = 0.010;
+
+            // Send wish position.
+            if player_inputs.primary {
+                self.connection_manager.send(&ClientPacket::MetascapeWishPos {
+                    wish_pos: player_inputs.global_mouse_position,
+                    movement_multiplier: 1.0,
+                });
+            }
+
+            // Flush packets.
             quit |= !self.connection_manager.flush()
         }
 
@@ -334,94 +291,63 @@ impl Metascape {
     }
 
     pub fn render(&mut self, owner: &Node2D) {
-        let time = self.tick as f32 + self.delta;
+        let timef = self.tick as f32 + self.delta;
 
-        // Debug draw entities.
-        for (id, entity) in self.entities_state.iter_mut() {
-            let fade = ((self.tick as f32 - entity.discovered_tick as f32) * 0.1).min(1.0);
+        // Get the position of our fleet.
+        let pos = self
+            .fleets_state
+            .get(&0)
+            .map(|fleet_state| fleet_state.current_position)
+            .unwrap_or_default();
+
+        // Debug draw fleets.
+        for (small_id, fleet_state) in self.fleets_state.iter_mut() {
+            let fade = ((self.tick as f32 - fleet_state.discovered_tick as f32) * 0.1).min(1.0);
 
             // Interpolate position.
-            let pos = entity.get_interpolated_pos(time);
+            let pos = fleet_state.get_interpolated_pos(timef);
 
-            let mut r = 0.0;
-            let g = 0.0;
-            let b = (*id % 10) as f32 / 10.0;
-            let a = fade * 0.8;
+            let r = (*small_id % 7) as f32 / 7.0;
+            let g = (*small_id % 11) as f32 / 11.0;
+            let b = (*small_id % 13) as f32 / 13.0;
+            let a = fade * 0.5;
 
-            if let Some(info) = self.entities_info.get(id) {
-                // Draw each ships.
-                if let EntityInfoType::Fleet(fleet_info) = &info.info_type {
-                    for (i, ship_base_id) in fleet_info.composition.iter().enumerate() {
-                        owner.draw_circle(
-                            (pos + Vec2::new(i as f32 * 0.1, 0.0)).to_godot_scaled(),
-                            (0.1 * GAME_TO_GODOT_RATIO).into(),
-                            Color {
-                                r: 1.0,
-                                g: 0.0,
-                                b: 1.0,
-                                a,
-                            },
-                        );
-                    }
-                }
-            } else {
-                // We don't know who is this entity.
-                r = 1.0;
-            }
-
-            // Draw entity.
-            owner.draw_circle(
+            // Draw fleet radius.
+            owner.draw_arc(
                 pos.to_godot_scaled(),
                 (0.25 * GAME_TO_GODOT_RATIO).into(),
+                0.0,
+                std::f64::consts::TAU,
+                16,
                 Color { r, g, b, a },
+                1.0,
+                false,
             );
-        }
 
-        // Debug draw our entity.
-        let pos = self.client_state.get_interpolated_pos(time);
-        owner.draw_circle(
-            pos.to_godot_scaled(),
-            (0.25 * GAME_TO_GODOT_RATIO).into(),
-            Color {
-                r: 1.0,
-                g: 1.0,
-                b: 1.0,
-                a: 0.8,
-            },
-        );
-        if let EntityInfoType::Fleet(fleet_info) = &self.client_info.info_type {
-            for (i, ship_base_id) in fleet_info.composition.iter().enumerate() {
+            // Draw each ships.
+            for (i, ship_base_id) in fleet_state.fleet_infos.composition.iter().enumerate() {
                 owner.draw_circle(
                     (pos + Vec2::new(i as f32 * 0.1, 0.0)).to_godot_scaled(),
                     (0.1 * GAME_TO_GODOT_RATIO).into(),
                     Color {
                         r: 1.0,
-                        g: 0.0,
+                        g: 1.0,
                         b: 1.0,
-                        a: 0.8,
+                        a,
                     },
                 );
             }
-        } else {
-            error!(
-                "{:?} Client's entity info is not a fleet. Ignoring...",
-                &self.client_info
-            );
         }
 
         // Debug draw systems.
-        let screen_collider = Collider::new(self.configs.system_draw_distance, pos);
-        for system_id in self
-            .systems_acceleration
-            .intersect_collider(screen_collider)
-            .into_iter()
-        {
-            let system = &self.systems.systems[system_id];
+        let screen_collider = Collider::new(pos, self.configs.system_draw_distance, ());
+        self.systems_acceleration.intersect_collider(screen_collider, |other| {
+            let system = self.systems.systems.get(&other.id).unwrap();
 
             // Draw system bound.
             owner.draw_arc(
                 system.position.to_godot_scaled(),
-                (system.bound * GAME_TO_GODOT_RATIO).into(),
+                (system.radius * GAME_TO_GODOT_RATIO).into(),
                 0.0,
                 std::f64::consts::TAU,
                 32,
@@ -437,9 +363,9 @@ impl Metascape {
 
             // Draw star.
             let (r, g, b) = match system.star.star_type {
-                common::systems::StarType::Star => (1.0, 0.2, 0.0),
-                common::systems::StarType::BlackHole => (0.0, 0.0, 0.0),
-                common::systems::StarType::Nebula => (0.0, 0.0, 0.0),
+                common::system::StarType::Star => (1.0, 0.2, 0.0),
+                common::system::StarType::BlackHole => (0.0, 0.0, 0.0),
+                common::system::StarType::Nebula => (0.0, 0.0, 0.0),
             };
             owner.draw_circle(
                 system.position.to_godot_scaled(),
@@ -452,7 +378,7 @@ impl Metascape {
                 owner.draw_circle(
                     planet
                         .relative_orbit
-                        .to_position(time, system.position)
+                        .to_position(timef, system.position)
                         .to_godot_scaled(),
                     (planet.radius * GAME_TO_GODOT_RATIO).into(),
                     Color {
@@ -463,6 +389,8 @@ impl Metascape {
                     },
                 );
             }
-        }
+
+            false
+        });
     }
 }

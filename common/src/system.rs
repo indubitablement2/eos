@@ -5,7 +5,7 @@ use crate::{
 use ahash::AHashMap;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
-use utils::*;
+use utils::{*, acc::*};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum StarType {
@@ -82,5 +82,12 @@ impl Systems {
         } else {
             None
         }
+    }
+
+    pub fn create_acceleration_structure(&self) -> AccelerationStructure<SystemId, ()> {
+        let mut acc = AccelerationStructure::new();
+        acc.extend(self.systems.iter().map(|(system_id, system)| (Collider::new(system.position, system.radius, ()), *system_id)));
+        acc.update();
+        acc
     }
 }
