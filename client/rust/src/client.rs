@@ -40,22 +40,22 @@ impl Client {
         }
     }
 
-    #[export]
-    unsafe fn _unhandled_input(&mut self, _owner: &Node2D, event: Ref<InputEvent>) {
+    #[godot]
+    unsafe fn _unhandled_input(&mut self, event: Ref<InputEvent>) {
         let event = event.assume_safe();
         self.player_inputs.handle_input(event);
     }
 
-    #[export]
-    unsafe fn _ready(&mut self, owner: &Node2D) {
+    #[godot]
+    unsafe fn _ready(&mut self, #[base] owner: &Node2D) {
         owner.add_user_signal("ConnectionResult", VariantArray::new_shared());
     }
 
-    #[export]
-    unsafe fn _exit_tree(&mut self, _owner: &Node2D) {}
+    #[godot]
+    unsafe fn _exit_tree(&mut self) {}
 
-    #[export]
-    unsafe fn _process(&mut self, owner: &Node2D, mut delta: f32) {
+    #[godot]
+    unsafe fn _process(&mut self, #[base] owner: &Node2D, mut delta: f32) {
         // Connection attempt.
         if let Some(attempt) = self.connection_attempt.take() {
             match attempt.try_receive_result() {
@@ -108,8 +108,8 @@ impl Client {
         owner.update();
     }
 
-    #[export]
-    unsafe fn _draw(&mut self, owner: &Node2D) {
+    #[godot]
+    unsafe fn _draw(&mut self, #[base] owner: &Node2D) {
         if let Some(metascape) = &mut self.metascape {
             metascape.render(owner);
         }
@@ -118,8 +118,8 @@ impl Client {
     /// Try to connect to the server.
     /// Return true if already connected.
     /// TODO: We may have to split token into two godot "int".
-    #[export]
-    unsafe fn connect_to_server(&mut self, _owner: &Node2D, addr: String, token: u64) -> bool {
+    #[godot]
+    unsafe fn connect_to_server(&mut self, addr: String, token: u64) -> bool {
         if self.metascape.is_some() {
             return true;
         } else {
@@ -140,13 +140,13 @@ impl Client {
         false
     }
 
-    #[export]
-    unsafe fn _on_draw_time_dilation(&mut self, _owner: &Node2D, control: Ref<Control>) {
+    #[godot]
+    unsafe fn _on_draw_time_dilation(&mut self, control: Ref<Control>) {
         self.debug_infos.draw_time_dilation(control);
     }
 
-    #[export]
-    unsafe fn _on_draw_tick_buffer(&mut self, _owner: &Node2D, control: Ref<Control>) {
+    #[godot]
+    unsafe fn _on_draw_tick_buffer(&mut self, control: Ref<Control>) {
         self.debug_infos.draw_tick_buffer(control);
     }
 }
