@@ -1,54 +1,9 @@
-use crate::{idx::*, orbit::Orbit};
+use crate::{idx::*, orbit::Orbit, fleet::FleetComposition};
 use bincode::Options;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use utils::compressed_vec2::*;
-
-// #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-// pub struct BattlescapeCommands {
-//     pub commands: Vec<(u32, Vec<BattlescapeCommand>)>,
-// }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EntitiesState {
-    pub tick: u32,
-    pub client_entity_position: Vec2,
-    /// Entity's id and position compressed and relative to client's position.
-    pub relative_entities_position: Vec<(u16, CVec2)>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FleetInfo {
-    pub fleet_id: FleetId,
-    /// The ships composing the fleet.
-    pub composition: Vec<ShipBaseId>,
-}
-
-// TODO: Separate fleet from cargo (only 2 type of entity with very different behavior).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum EntityInfoType {
-    Fleet(FleetInfo),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EntityInfo {
-    pub info_type: EntityInfoType,
-    pub name: String,
-    /// If this entity follow an orbit, its state will not be sent.
-    pub orbit: Option<Orbit>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EntitiesInfo {
-    /// This is useful with orbit.
-    /// Any state before this tick can be discarded and apply the orbit instead.
-    /// Any state after this tick will remove the orbit.
-    pub tick: u32,
-    /// The client's (fleet) info, if it has changed.
-    pub client_info: Option<EntityInfo>,
-    pub infos: Vec<(u16, EntityInfo)>,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FleetsPosition {
@@ -63,13 +18,12 @@ pub struct FleetsPosition {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FleetInfos {
     pub fleet_id: FleetId,
-    /// TODO: Client's fleet is always 0.
+    /// Client's fleet is always 0.
     pub small_id: u16,
     pub name: String,
     /// If this entity follow an orbit, its state will not be sent.
     pub orbit: Option<Orbit>,
-    /// The ships composing the fleet.
-    pub composition: Vec<ShipBaseId>,
+    pub fleet_composition: FleetComposition,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,13 +41,6 @@ pub struct FleetsForget {
     pub tick: u32,
     /// Forget these fleets. Their small_idx will be reused in the future.
     pub to_forget: Vec<u16>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EntitiesRemove {
-    pub tick: u32,
-    /// Free these entities. Their idx will be reused in the future.
-    pub to_remove: Vec<u16>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

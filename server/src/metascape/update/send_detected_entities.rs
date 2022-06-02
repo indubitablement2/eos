@@ -144,7 +144,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
                     .chain(once((client_fleet_id, 0)).filter(|_| time().tick == client_last_change))
                     .filter_map(|(fleet_id, small_id)| {
                         if let Some(fleet_index) = s.fleets.get_index(fleet_id) {
-                            let (name, orbit, composition) = query!(
+                            let (name, orbit, fleet_inner) = query!(
                                 s.fleets,
                                 fleet_index,
                                 Fleet::name,
@@ -156,12 +156,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
                                 fleet_id,
                                 name: name.to_owned(),
                                 orbit: orbit.to_owned(),
-                                composition: composition
-                                    .fleet_composition()
-                                    .ships
-                                    .iter()
-                                    .map(|ship_infos| ship_infos.ship_base)
-                                    .collect(),
+                                fleet_composition: fleet_inner.fleet_composition().to_owned(),
                                 small_id,
                             })
                         } else {
