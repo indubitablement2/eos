@@ -3,6 +3,7 @@ use crate::connection_manager::ConnectionManager;
 use crate::constants::*;
 use crate::input_handler::PlayerInputs;
 use crate::util::*;
+use common::fleet::*;
 use ::utils::acc::*;
 use ahash::AHashMap;
 use common::idx::*;
@@ -36,7 +37,7 @@ impl FleetState {
                 small_id: 0,
                 name: "".to_string(),
                 orbit: None,
-                composition: Vec::new(),
+                fleet_composition: FleetComposition::default(),
             },
         }
     }
@@ -325,7 +326,7 @@ impl Metascape {
             );
 
             // Draw each ships.
-            for (i, ship_base_id) in fleet_state.fleet_infos.composition.iter().enumerate() {
+            for (i, ship_infos) in fleet_state.fleet_infos.fleet_composition.ships.iter().enumerate() {
                 owner.draw_circle(
                     (pos + Vec2::new(i as f32 * 0.1, 0.0)).to_godot_scaled(),
                     (0.1 * GAME_TO_GODOT_RATIO).into(),

@@ -27,7 +27,7 @@ pub struct FleetStats {
     pub detector_radius: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FleetComposition {
     pub ships: Vec<ShipInfos>,
 }
