@@ -5,6 +5,15 @@ pub struct Soa<T: soak::Columns + Components> {
     pub raw_table: RawTable<T>,
     len: usize,
 }
+impl<T: components::Components> Drop for Soa<T> {
+    fn drop(&mut self) {
+        for i in 0..self.len {
+            unsafe {
+                T::move_from_table(&mut self.raw_table, i);
+            }
+        }
+    }
+}
 impl<T: soak::Columns + Components> Soa<T> {
     pub fn raw_table(&mut self) -> &mut RawTable<T> {
         &mut self.raw_table
