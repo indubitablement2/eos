@@ -1,9 +1,7 @@
-use std::ops::{Index, AddAssign};
-use utils::{Incrementable, acc::Filter};
+use crate::data::{ship::*, weapon::*};
 use serde::{Deserialize, Serialize};
-use crate::{
-    ships::{ShipBase, WeaponBase},
-};
+use std::ops::{AddAssign, Index};
+use utils::{acc::Filter, Incrementable};
 
 /// Never recycled.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -131,14 +129,5 @@ impl Index<WeaponBaseId> for Vec<WeaponBase> {
 
     fn index(&self, index: WeaponBaseId) -> &Self::Output {
         &self[index.0 as usize]
-    }
-}
-
-/// TODO: What is that????
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct InterceptionId(u32);
-impl InterceptionId {
-    pub fn from_raw(id: u32) -> Self {
-        Self(id)
     }
 }

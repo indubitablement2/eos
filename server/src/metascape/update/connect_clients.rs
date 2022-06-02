@@ -1,3 +1,5 @@
+use common::fleet::FleetComposition;
+
 use crate::metascape::*;
 
 /// Handle new connections.
@@ -89,7 +91,7 @@ pub fn connect_clients(s: &mut Metascape) {
                 "insert name".to_string(),
                 Vec2::ZERO,
                 FleetAi::ClientControl,
-                vec![],
+                FleetComposition::new_debug(),
             )
             .build_client(client_id);
         }

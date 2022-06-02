@@ -40,7 +40,7 @@ impl Connection {
         debug_assert!(packet.len() <= MAX_UDP_PACKET_SIZE);
         if packet.len() > MAX_UDP_PACKET_SIZE {
             self.send_packet_reliable(packet)
-        } else{
+        } else {
             self.socket.send_to(&packet, self.peer_addr).is_err()
         }
     }

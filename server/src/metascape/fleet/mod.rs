@@ -1,10 +1,13 @@
 pub mod fleet_ai;
+pub mod fleet_inner;
 pub mod idle_counter;
 pub mod wish_position;
 
 use super::*;
 
+use common::fleet::FleetComposition;
 pub use fleet_ai::*;
+pub use fleet_inner::*;
 pub use idle_counter::*;
 pub use wish_position::*;
 
@@ -13,6 +16,8 @@ pub struct Fleet {
     pub faction_id: FactionId,
 
     pub name: String,
+
+    pub fleet_inner: FleetInner,
 
     /// If this fleet is within a system.
     pub in_system: Option<SystemId>,
@@ -23,26 +28,10 @@ pub struct Fleet {
     pub wish_position: WishPosition,
     pub orbit: Option<common::orbit::Orbit>,
 
-    pub composition: Vec<ShipBaseId>,
-
-    /// How much velocity this fleet can gain each update.
-    pub acceleration: f32,
-    /// How much space this fleet takes.
-    pub radius: f32,
-
-    /// Extra radius this fleet will get detected.
-    pub detected_radius: f32,
-    /// Radius this fleet will detect things.
-    pub detector_radius: f32,
-
     /// How long this entity has been without velocity.
     pub idle_counter: idle_counter::IdleCounter,
 
     pub fleet_ai: FleetAi,
-
-    /// The tick this fleet last changed (name, faction_id, composition).
-    /// Used for networking & recomputing fleet stats.
-    pub last_change: u32,
 }
 
 pub struct FleetBuilder {
@@ -53,7 +42,7 @@ pub struct FleetBuilder {
     pub velocity: Vec2,
     pub wish_position: WishPosition,
     pub fleet_ai: FleetAi,
-    pub composition: Vec<ShipBaseId>,
+    pub fleet_composition: FleetComposition,
 }
 impl FleetBuilder {
     pub fn new(
@@ -61,7 +50,7 @@ impl FleetBuilder {
         name: String,
         position: Vec2,
         fleet_ai: FleetAi,
-        composition: Vec<ShipBaseId>,
+        fleet_composition: FleetComposition,
     ) -> Self {
         Self {
             faction_id,
@@ -71,7 +60,7 @@ impl FleetBuilder {
             velocity: Vec2::ZERO,
             wish_position: Default::default(),
             fleet_ai,
-            composition,
+            fleet_composition,
         }
     }
 
@@ -127,6 +116,6 @@ pub struct FleetSave {
     pub faction_id: FactionId,
     pub name: String,
     pub position: Vec2,
-    pub composition: Vec<ShipBaseId>,
+    pub fleet_composition: FleetComposition,
     pub fleet_ai: FleetAi,
 }

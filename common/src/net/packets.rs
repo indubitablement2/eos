@@ -1,9 +1,9 @@
 use crate::{idx::*, orbit::Orbit};
-use utils::compressed_vec2::*;
 use bincode::Options;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
+use utils::compressed_vec2::*;
 
 // #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 // pub struct BattlescapeCommands {
@@ -117,7 +117,6 @@ impl Display for DisconnectedReasonEnum {
         }
     }
 }
-
 
 /// The lenght of the connection queue before you.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]

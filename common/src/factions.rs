@@ -8,7 +8,7 @@ pub struct Faction {
     /// Reputation with other factions.
     /// This is the unique id of the reputation.
     pub reputations: AHashMap<FactionId, usize>,
-    /// Used when 2 faction don't have explicit reputation 
+    /// Used when 2 faction don't have explicit reputation
     /// (eg. when they have never interacted before).
     pub default_reputation: Reputation,
     // TODO: Keep track of Players/fleet in this faction.
@@ -45,7 +45,7 @@ impl Factions {
     }
 
     /// Return the reputation between 2 factions.
-    /// 
+    ///
     /// If a faction does not exist, log an error and return a default value.
     pub fn get_reputations_between(&self, a: FactionId, b: FactionId) -> Reputation {
         if a == b {
@@ -61,7 +61,10 @@ impl Factions {
 
             self.reputations.get(*id).copied().unwrap_or_default()
         } else {
-            log::warn!("Unkow faction {:?} for `get_reputations_between`. Returning default...", a);
+            log::warn!(
+                "Unkow faction {:?} for `get_reputations_between`. Returning default...",
+                a
+            );
             Reputation::default()
         }
     }
@@ -74,7 +77,7 @@ impl Factions {
         self.reputations.get(id)
     }
 
-    /// Will return a default value if it does not exist. 
+    /// Will return a default value if it does not exist.
     pub fn get_reputation_infaillible(&self, id: usize) -> Reputation {
         self.reputations.get(id).copied().unwrap_or_default()
     }

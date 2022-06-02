@@ -14,7 +14,7 @@ use self::update_fleets_in_system::*;
 use super::*;
 
 impl Metascape {
-    pub fn update_internal(&mut self) { 
+    pub fn update_internal(&mut self) {
         unsafe {
             _TIME.tick += 1;
             _TIME.total_tick += 1;

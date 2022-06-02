@@ -7,7 +7,11 @@ pub struct KnowFleets {
 }
 impl Default for KnowFleets {
     fn default() -> Self {
-        Self { fleets: Default::default(), next_small_id: 1, recycled_small_id: Default::default() }
+        Self {
+            fleets: Default::default(),
+            next_small_id: 1,
+            recycled_small_id: Default::default(),
+        }
     }
 }
 impl KnowFleets {
@@ -20,7 +24,9 @@ impl KnowFleets {
     }
 
     pub fn reuse_small_id(&mut self) {
-        self.recycled_small_id.0.append(&mut self.recycled_small_id.1);
+        self.recycled_small_id
+            .0
+            .append(&mut self.recycled_small_id.1);
     }
 
     pub fn recycle_small_id(&mut self, small_id: u16) {

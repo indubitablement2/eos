@@ -9,7 +9,6 @@ pub struct Client {
     pub connection: Connection,
     /// Exclude the client's fleet.
     pub know_fleets: KnowFleets,
-
 }
 
 pub struct ClientBuilder {

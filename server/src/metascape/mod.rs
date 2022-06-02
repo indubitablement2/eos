@@ -22,6 +22,7 @@ pub use common::idx::*;
 pub use common::net::packets::*;
 pub use common::system::*;
 pub use common::time::*;
+pub use common::*;
 pub use faction::*;
 pub use glam::Vec2;
 pub use serde::{Deserialize, Serialize};
@@ -36,7 +37,7 @@ static AI_FLEET_ID_DISPENSER: AiFleetIdDispenser = AiFleetIdDispenser::new();
 static FLEET_QUEUE: SegQueue<(FleetId, FleetBuilder)> = SegQueue::new();
 
 pub fn time() -> Time {
-    unsafe{_TIME.clone()}
+    unsafe { _TIME.clone() }
 }
 static mut _TIME: Time = Time {
     tick: 0,
@@ -107,14 +108,9 @@ impl Metascape {
                     velocity: Default::default(),
                     wish_position: Default::default(),
                     orbit: Default::default(),
-                    composition: fleet_save.composition,
-                    acceleration: Default::default(),
-                    radius: Default::default(),
-                    detected_radius: Default::default(),
-                    detector_radius: Default::default(),
                     idle_counter: Default::default(),
                     fleet_ai: fleet_save.fleet_ai,
-                    last_change: 1, // This will cause a recompute
+                    fleet_inner: FleetInner::new(fleet_save.fleet_composition),
                 },
             );
         }
@@ -149,21 +145,21 @@ impl Metascape {
 
     pub fn save(&mut self) -> MetascapeSave {
         let mut fleetsaves = Vec::with_capacity(self.fleets.len());
-        let (faction_id, name, position, composition, fleet_ai) = query_ptr!(
+        let (faction_id, name, position, fleet_inner, fleet_ai) = query_ptr!(
             self.fleets,
             Fleet::faction_id,
             Fleet::name,
             Fleet::position,
-            Fleet::composition,
+            Fleet::fleet_inner,
             Fleet::fleet_ai
         );
         for (i, fleet_id) in self.fleets.id_vec().iter().enumerate() {
-            let (faction_id, name, position, composition, fleet_ai) = unsafe {
+            let (faction_id, name, position, fleet_inner, fleet_ai) = unsafe {
                 (
                     &*faction_id.add(i),
                     &*name.add(i),
                     &*position.add(i),
-                    &*composition.add(i),
+                    &*fleet_inner.add(i),
                     &*fleet_ai.add(i),
                 )
             };
@@ -173,7 +169,7 @@ impl Metascape {
                 faction_id: faction_id.to_owned(),
                 name: name.to_owned(),
                 position: position.to_owned(),
-                composition: composition.to_owned(),
+                fleet_composition: fleet_inner.fleet_composition().to_owned(),
                 fleet_ai: fleet_ai.to_owned(),
             });
         }

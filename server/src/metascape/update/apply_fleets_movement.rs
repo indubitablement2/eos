@@ -9,29 +9,31 @@ pub fn apply_fleets_movement(s: &mut Metascape) {
     let bound_squared = s.bound.powi(2);
     let timef = time().as_timef();
 
-    let (position, wish_position, velocity, in_system, idle_counter, acceleration, orbit) = query_ptr!(
+    let (position, wish_position, velocity, in_system, idle_counter, fleet_inner, orbit) = query_ptr!(
         s.fleets,
         Fleet::position,
         Fleet::wish_position,
         Fleet::velocity,
         Fleet::in_system,
         Fleet::idle_counter,
-        Fleet::acceleration,
+        Fleet::fleet_inner,
         Fleet::orbit,
     );
 
     for i in 0..s.fleets.len() {
-        let (position, wish_position, velocity, in_system, idle_counter, acceleration, orbit) = unsafe {
+        let (position, wish_position, velocity, in_system, idle_counter, fleet_inner, orbit) = unsafe {
             (
                 &mut *position.add(i),
                 &mut *wish_position.add(i),
                 &mut *velocity.add(i),
                 &*in_system.add(i),
                 &mut *idle_counter.add(i),
-                &*acceleration.add(i),
+                &*fleet_inner.add(i),
                 &mut *orbit.add(i),
             )
         };
+
+        let acceleration = fleet_inner.fleet_stats().acceleration;
 
         if let Some(target) = wish_position.target() {
             // Go toward our target.
@@ -41,11 +43,11 @@ pub fn apply_fleets_movement(s: &mut Metascape) {
 
             // Seek target.
             *velocity +=
-                wish_vel.clamp_length_max(*acceleration * wish_position.movement_multiplier());
+                wish_vel.clamp_length_max(acceleration * wish_position.movement_multiplier());
 
             // Stop if we are near the target.
             // TODO: Test this stop threshold.
-            if wish_vel_lenght < *acceleration {
+            if wish_vel_lenght < acceleration {
                 wish_position.stop();
             }
 
@@ -54,7 +56,7 @@ pub fn apply_fleets_movement(s: &mut Metascape) {
         } else if velocity.x != 0.0 || velocity.y != 0.0 {
             // Go against our current velocity.
 
-            let vel_change = -velocity.clamp_length_max(*acceleration);
+            let vel_change = -velocity.clamp_length_max(acceleration);
             *velocity += vel_change;
 
             // Set velocity to zero if we have nearly no velocity.

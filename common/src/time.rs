@@ -19,9 +19,6 @@ impl AddAssign for Time {
 }
 impl Incrementable for Time {
     fn one() -> Self {
-        Self {
-            tick: 1,
-            total_tick: 1,
-        }
+        Self { tick: 1, total_tick: 1 }
     }
 }

@@ -9,14 +9,17 @@
 #[macro_use]
 extern crate log;
 
+pub mod data;
 pub mod factions;
+pub mod fleet;
 pub mod idx;
 pub mod net;
 pub mod orbit;
 pub mod reputation;
-pub mod ships;
 pub mod system;
 pub mod time;
+
+pub use data::*;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
