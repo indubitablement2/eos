@@ -64,6 +64,9 @@ pub struct Metascape {
 }
 impl Metascape {
     pub fn load() -> Self {
+        // TODO: Load data.
+        common::data::Data::default().init();
+
         // TODO: Load server configs.
         let server_configs = ServerConfigs::default();
 

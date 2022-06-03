@@ -16,8 +16,14 @@ pub struct Data {
     pub weapons: Vec<WeaponBase>,
 }
 impl Data {
+    /// Store this `Data` in a global static variable. 
+    /// Accessed through `common::data()`
     pub fn init(self) {
         unsafe {
+            // Drop the previous data.
+            if !DATA.is_null() {
+                Box::from_raw(DATA);
+            }
             DATA = Box::into_raw(Box::new(self));
         }
     }
