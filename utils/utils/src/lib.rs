@@ -1,4 +1,6 @@
 #![feature(test)]
+#![feature(ptr_const_cast)]
+#![feature(macro_metavar_expr)]
 
 pub mod acc;
 pub mod components;
