@@ -15,10 +15,12 @@ pub struct LoginPacket {
     pub client_version: String,
 }
 impl LoginPacket {
-    pub const FIXED_SIZE: usize = 18;
+    pub const FIXED_SIZE: usize = 1000;
 
     pub fn serialize(&self) -> Vec<u8> {
-        bincode::serialize(self).expect("could not serialize LoginPacket")
+        let mut v = bincode::serialize(self).expect("could not serialize LoginPacket");
+        v.resize(Self::FIXED_SIZE, 0);
+        v
     }
 
     pub fn deserialize(buffer: &[u8]) -> Option<Self> {
