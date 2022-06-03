@@ -6,9 +6,12 @@ pub mod weapon;
 
 static mut DATA: *mut Data = std::ptr::null_mut();
 
-/// Data should be initialized.
+/// ## Panic: 
+/// Data should be initialised.
 pub fn data() -> &'static Data {
-    unsafe { &*DATA }
+    unsafe { 
+        DATA.as_ref().expect("DATA is not initialised")
+    }
 }
 
 pub struct Data {
