@@ -19,7 +19,12 @@ pub fn send_detected_entities(s: &mut Metascape) {
         let (connection, know_fleets) = unsafe { (&*connection.add(i), &mut *know_fleets.add(i)) };
 
         let client_fleet_id = connection.client_id().to_fleet_id();
-        let client_fleet_index = s.fleets.get_index(client_fleet_id).unwrap();
+        let client_fleet_index = if let Some(client_fleet_index) = s.fleets.get_index(client_fleet_id) {
+            client_fleet_index
+        } else {
+            debug!("Client has no fleet or can not find its index.");
+            continue;
+        };
         let (client_position, client_fleet_inner) = query!(
             s.fleets,
             client_fleet_index,
