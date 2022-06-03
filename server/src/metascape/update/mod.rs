@@ -6,6 +6,7 @@ mod update_fleets_acc;
 mod update_fleets_in_system;
 mod handle_fleet_queue;
 mod handle_changed_fleet;
+mod handle_faction_queue;
 
 use super::*;
 use self::apply_fleets_movement::*;
@@ -16,6 +17,7 @@ use self::update_fleets_acc::*;
 use self::update_fleets_in_system::*;
 use self::handle_fleet_queue::*;
 use self::handle_changed_fleet::*;
+use self::handle_faction_queue::*;
 
 impl Metascape {
     pub fn update_internal(&mut self) {
@@ -26,6 +28,7 @@ impl Metascape {
 
         connect_clients(self);
 
+        handle_faction_queue(self);
         handle_fleet_queue(self);
 
         handle_clients_inputs(self);
