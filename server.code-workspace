@@ -8,6 +8,9 @@
 		},
 		{
 			"path": "utils/utils"
+		},
+		{
+			"path": "client/rust"
 		}
 	],
 	"settings": {}

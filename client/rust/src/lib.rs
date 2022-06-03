@@ -24,6 +24,9 @@ fn init(handle: gdnative::prelude::InitHandle) {
         .map(|()| log::set_max_level(log::LevelFilter::Trace))
         .expect("can not start logger");
 
+    // TODO: Init data.
+    common::data::Data::default().init();
+
     handle.add_class::<client::Client>();
 }
 
