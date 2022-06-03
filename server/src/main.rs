@@ -9,6 +9,7 @@
 #![feature(map_entry_replace)]
 #![feature(duration_consts_float)]
 #![feature(is_sorted)]
+#![feature(macro_metavar_expr)]
 
 use server::Server;
 use std::{thread::sleep, time::Instant};

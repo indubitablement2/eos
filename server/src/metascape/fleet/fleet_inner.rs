@@ -65,4 +65,8 @@ impl FleetInner {
     pub fn last_change(&self) -> u32 {
         self.last_change
     }
+
+    pub fn update_stats(&mut self) {
+        self.fleet_stats = self.fleet_composition.compute_stats();
+    }
 }

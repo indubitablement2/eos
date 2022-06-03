@@ -83,24 +83,6 @@ impl FleetBuilder {
         let fleet_id = AI_FLEET_ID_DISPENSER.next();
         FLEET_QUEUE.push((fleet_id, self));
         fleet_id
-
-        // Fleet {
-        //     faction_id: self.faction_id,
-        //     in_system: self.in_system,
-        //     position: self.position,
-        //     velocity: self.velocity,
-        //     wish_position: self.wish_position,
-        //     orbit: None,
-        //     radius: 1.0,           // TODO: Compute this.
-        //     detected_radius: 10.0, // TODO: Compute this.
-        //     detector_radius: 10.0, // TODO: Compute this.
-        //     acceleration: 0.04,    // TODO: Compute this.
-        //     idle_counter: Default::default(),
-        //     fleet_ai: self.fleet_ai,
-        //     name: self.name,
-        //     composition: self.composition,
-        //     last_change: 0,
-        // }
     }
 
     pub fn build_client(self, client_id: ClientId) -> FleetId {
