@@ -46,7 +46,7 @@ fn into_acc(chungus: &[(Circle, u32)]) -> AccelerationStructure<Circle, u32> {
 /// - v0.0.4 20 + 4 ms (no copy to SAPRow)
 /// - v0.0.4 16 + 4 ms (copy to SAPRow)
 /// - v0.0.5 10 + 6 ms (use aabb, no filter, draft!)
-/// - v0.0.5 10 + 6 ms (pre-alocate)
+/// - v0.0.5 10 + 6 (3ms sort + 3ms copy) ms (pre-alocate)
 #[bench]
 fn bench_intersect_collider(b: &mut Bencher) {
     let to_test = chungus();
