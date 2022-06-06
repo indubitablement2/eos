@@ -92,7 +92,7 @@ macro_rules! query_ptr {
 }
 
 /// Needs `#![feature(ptr_const_cast)]`
-/// 
+///
 /// `query_slice!(container, field)`
 /// - `container`: Something that implement `raw_table()` returning a `&mut RawTable` and `len()`.
 /// - `field`: 0 or more field to query. Will return a pointer to the first value of the raw table.
@@ -103,7 +103,7 @@ macro_rules! query_slice {
     ( $container:expr, $( mut $fieldmut:expr ),* , $( $field:expr ),* $(,)? ) => {
         unsafe {(
             $( std::slice::from_raw_parts_mut($container.raw_table().ptr($fieldmut), $container.len()) , )*
-            $( std::slice::from_raw_parts($container.raw_table().ptr($field).as_const(), $container.len()) , )* 
+            $( std::slice::from_raw_parts($container.raw_table().ptr($field).as_const(), $container.len()) , )*
         )}
     };
     ( $container:expr, $( mut $fieldmut:expr ),* $(,)? ) => {
@@ -119,15 +119,15 @@ macro_rules! query_slice {
 }
 
 /// Needs `#![feature(macro_metavar_expr)]`
-/// 
+///
 /// `query_closure!(container, closure, field)`
 /// - `container`: Something that implement `raw_table()` returning a `&mut RawTable` and len().
-/// - `closure`: A closure with the provided fields and starting with an index field. 
-/// Return a bool to break early (true). 
+/// - `closure`: A closure with the provided fields and starting with an index field.
+/// Return a bool to break early (true).
 /// - `field`: 0 or more field to query. Will return a pointer to the first value of the raw table.
-/// 
+///
 /// Fastest iteration.
-/// 
+///
 /// # Example:
 /// ```ignore
 /// let closure = |i: usize, pos: &mut Vec2, vel: &Vec2| {
@@ -135,7 +135,7 @@ macro_rules! query_slice {
 ///     false
 /// };
 /// query_closure!($countainer, closure, $Struct::pos, $Struct::vel);
-/// 
+///
 /// ```
 #[macro_export]
 macro_rules! query_closure {
@@ -167,7 +167,7 @@ fn test_query() {
         }
 
         unsafe fn move_from_table(raw_table: &mut RawTable<Self>, index: usize) -> Self {
-            Self { 
+            Self {
                 a: *raw_table.ptr(C::a).add(index),
                 b: *raw_table.ptr(C::b).add(index),
             }
@@ -175,14 +175,8 @@ fn test_query() {
     }
 
     let mut s: Soa<C> = Soa::with_capacity(10);
-    s.push(C {
-        a: 5.0,
-        b: 6,
-    });
-    s.push(C {
-        a: 8.0,
-        b: 9,
-    });
+    s.push(C { a: 5.0, b: 6 });
+    s.push(C { a: 8.0, b: 9 });
 
     let mut c = 0;
     let mut closure = |i: usize, a: &mut f32, b: &i32| {

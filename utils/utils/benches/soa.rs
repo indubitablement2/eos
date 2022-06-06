@@ -235,7 +235,14 @@ fn soa_query_closure_math_50k(b: &mut Bencher) {
     v.extend(chungus(NUM).into_iter());
 
     b.iter(|| {
-        let closure = |_i: usize, x_vel: &mut f32, y_vel: &mut f32, x_pos: &f32, y_pos: &f32, acceleration: &f32, x_wish_pos: &f32, y_wish_pos: &f32| {
+        let closure = |_i: usize,
+                       x_vel: &mut f32,
+                       y_vel: &mut f32,
+                       x_pos: &f32,
+                       y_pos: &f32,
+                       acceleration: &f32,
+                       x_wish_pos: &f32,
+                       y_wish_pos: &f32| {
             let x_wish_dir = *x_pos - *x_wish_pos;
             let y_wish_dir = *y_pos - *y_wish_pos;
             let len_wish_dir = (x_wish_dir.powi(2) + y_wish_dir.powi(2)).sqrt();
@@ -248,7 +255,17 @@ fn soa_query_closure_math_50k(b: &mut Bencher) {
 
             false
         };
-        query_closure!(v, closure, C::x_vel, C::y_vel, C::x_pos, C::y_pos, C::acceleration, C::x_wish_pos, C::y_wish_pos);
+        query_closure!(
+            v,
+            closure,
+            C::x_vel,
+            C::y_vel,
+            C::x_pos,
+            C::y_pos,
+            C::acceleration,
+            C::x_wish_pos,
+            C::y_wish_pos
+        );
 
         let closure = |_i: usize, x_pos: &mut f32, y_pos: &mut f32, x_vel: &f32, y_vel: &f32| {
             *x_pos += *x_vel;

@@ -108,8 +108,16 @@ where
     let hash_old: AHashSet<T> = old.iter().copied().collect();
 
     ArrayDifferenceSubAdd {
-        add: new.iter().filter(|v| !hash_old.contains(*v)).copied().collect(),
-        sub: old.iter().filter(|v| !hash_new.contains(*v)).copied().collect(),
+        add: new
+            .iter()
+            .filter(|v| !hash_old.contains(*v))
+            .copied()
+            .collect(),
+        sub: old
+            .iter()
+            .filter(|v| !hash_new.contains(*v))
+            .copied()
+            .collect(),
     }
 }
 
@@ -277,7 +285,10 @@ fn bench_arrays_sub_add(b: &mut test::Bencher) {
     let mut olds_iter = olds.iter().cycle();
 
     b.iter(|| {
-        test::black_box(arrays_sub_add(olds_iter.next().unwrap(), &news_iter.next().unwrap()));
+        test::black_box(arrays_sub_add(
+            olds_iter.next().unwrap(),
+            &news_iter.next().unwrap(),
+        ));
     });
 }
 
@@ -345,6 +356,12 @@ fn test_arrays_add() {
         let result = sorted_arrays_add(&old, &new);
 
         assert_eq!(answer, result, "\nold: {:?}\nnew: {:?}", old, new);
-        assert_eq!(new != old, result.has_changed, "\nold: {:?}\nnew: {:?}", old, new);
+        assert_eq!(
+            new != old,
+            result.has_changed,
+            "\nold: {:?}\nnew: {:?}",
+            old,
+            new
+        );
     }
 }

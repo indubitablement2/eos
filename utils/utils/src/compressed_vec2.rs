@@ -35,6 +35,12 @@ fn test_cvec2() {
         let cvec2 = CVec2::from_vec2(vec2, range);
         let other = cvec2.to_vec2(range);
 
-        assert!(vec2.abs_diff_eq(other, 0.5), "{}: {:?}, {:?}", i, vec2, other);
+        assert!(
+            vec2.abs_diff_eq(other, 0.5),
+            "{}: {:?}, {:?}",
+            i,
+            vec2,
+            other
+        );
     }
 }
