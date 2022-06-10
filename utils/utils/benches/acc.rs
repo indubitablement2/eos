@@ -58,7 +58,7 @@ fn bench_intersect_collider(b: &mut Bencher) {
 
     b.iter(|| {
         for (collider, _) in to_test.iter() {
-            acc.intersect_collider(collider, |_, i| {
+            acc.intersect(collider, |_, i| {
                 black_box(i);
                 false
             });

@@ -1,7 +1,7 @@
 use crate::data::{ship::*, weapon::*};
 use serde::{Deserialize, Serialize};
 use std::ops::{AddAssign, Index};
-use utils::{acc::Filter, Incrementable};
+use utils::Incrementable;
 
 /// Never recycled.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -79,11 +79,6 @@ impl AddAssign for SystemId {
 impl Incrementable for SystemId {
     fn one() -> Self {
         Self(1)
-    }
-}
-impl Filter for SystemId {
-    fn compare(&self, rhs: &Self) -> bool {
-        self.0 == rhs.0
     }
 }
 

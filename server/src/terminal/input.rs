@@ -11,7 +11,7 @@ pub fn input_loop(input_sender: Sender<Key>) {
                 }
             }
             Err(err) => {
-                debug!("Error while reading keys from stdin: {:?}", err);
+                log::debug!("Error while reading keys from stdin: {:?}", err);
             }
         }
     }

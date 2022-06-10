@@ -104,7 +104,7 @@ impl Terminal {
             if self.need_redraw {
                 if self.last_input > Self::IDLE_DELAY {
                     self.need_redraw = false;
-                    info!("Disabled terminal to save cpu time. Press any key to re-enable.");
+                    log::info!("Disabled terminal to save cpu time. Press any key to re-enable.");
                 }
                 self.draw(performance);
             } else {

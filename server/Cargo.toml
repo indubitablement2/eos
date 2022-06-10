@@ -14,11 +14,11 @@ tui = { version = "0.17.0", default-features = false, features = ['termion'] }
 common = { path = "../common" }
 battlescape = { path = "../battlescape"}
 
-# bevy_ecs = "0.6.0"
-# bevy_tasks = "0.6.0"
+# bevy_ecs = "0.7.0"
+# bevy_tasks = "0.7.0"
 
 ahash = "0.7.6"
-indexmap = {version = "1.8.0", features = ["serde"] }
+# indexmap = {version = "1.8.0", features = ["serde"] }
 
 num_enum = "0.5.6"
 
@@ -38,6 +38,6 @@ reqwest = { version = "0.11.9", features = ["json"] }
 
 crossbeam = "0.8.1"
 
-soak = "0.2.0"
-dioptre = "0.1.0"
 utils = { path = "../utils/utils" }
+soa_derive = { path = "../utils/soa_derive" }
+

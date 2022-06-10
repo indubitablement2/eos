@@ -10,17 +10,15 @@
 #![feature(duration_consts_float)]
 #![feature(is_sorted)]
 #![feature(macro_metavar_expr)]
+#![feature(is_some_with)]
 
 use server::Server;
 use std::{thread::sleep, time::Instant};
 
+mod _metascape2;
 mod connection_manager;
-mod metascape;
 mod server;
 mod terminal;
-
-#[macro_use]
-extern crate log;
 
 fn main() {
     tui_logger::init_logger(log::LevelFilter::Trace).expect("Could not init logger.");

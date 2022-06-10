@@ -1,45 +1,44 @@
 use crate::*;
 use ahash::AHashMap;
-use std::{hash::Hash, marker::PhantomData};
+use std::hash::Hash;
 
 /// A map where element are contiguous in memory.
 ///
 /// Similar to IndexMap, but generic over the underlying container.
-pub struct PackedMap<C: Container<T>, T: soak::Columns, I: Hash + Eq + Copy> {
-    container: C,
-    id_vec: Vec<I>,
-    index_map: AHashMap<I, usize>,
-    _marker: PhantomData<T>,
+pub struct PackedMap<C, I>
+where
+    C: Container,
+    I: Hash + Eq + Copy,
+{
+    /// Elements order (push, pop, swap, etc.) should not be changed manualy.
+    pub container: C,
+    /// The idx of the elements at the same index.
+    pub id_vec: Vec<I>,
+    /// The index of the idx.
+    pub index_map: AHashMap<I, usize>,
 }
-impl<C: Container<T>, T: soak::Columns, I: Hash + Eq + Copy> PackedMap<C, T, I> {
+impl<C, I> PackedMap<C, I>
+where
+    C: Container,
+    I: Hash + Eq + Copy,
+{
+    pub fn new() -> Self {
+        Self::with_capacity(0)
+    }
+
     /// Constructs a new, empty container with the specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             container: C::with_capacity(capacity),
             id_vec: Vec::with_capacity(capacity),
             index_map: AHashMap::with_capacity(capacity),
-            _marker: Default::default(),
         }
     }
 
-    // /// Appends an element to the back of the container.
-    // pub fn push(&mut self, value: T) -> (I, usize) {
-    //     let id = self.next_id;
-    //     self.next_id.increment();
-
-    //     let index = self.len();
-
-    //     self.container.push(value);
-    //     self.id_vec.push(id);
-    //     self.index_map.insert(id, index);
-
-    //     (id, index)
-    // }
-
     /// Insert a value with a predefined id.
     ///
-    /// Return the index it was insert at and the old value (if there was some).
-    pub fn insert(&mut self, id: I, value: T) -> (usize, Option<T>) {
+    /// Return the index it was inserted at and the old value (if there was some).
+    pub fn insert(&mut self, id: I, value: C::Item) -> (usize, Option<C::Item>) {
         if let Some(&index) = self.index_map.get(&id) {
             (index, Some(self.container.replace(index, value)))
         } else {
@@ -52,7 +51,7 @@ impl<C: Container<T>, T: soak::Columns, I: Hash + Eq + Copy> PackedMap<C, T, I> 
     }
 
     /// Removes the last element and returns it, or None if it is empty.
-    pub fn pop(&mut self) -> Option<(T, I, usize)> {
+    pub fn pop(&mut self) -> Option<(C::Item, I, usize)> {
         if let Some(id) = self.id_vec.pop() {
             let index = self.index_map.remove(&id).unwrap();
             let value = self.container.pop().unwrap();
@@ -62,25 +61,13 @@ impl<C: Container<T>, T: soak::Columns, I: Hash + Eq + Copy> PackedMap<C, T, I> 
         }
     }
 
-    /// Removes an element from the container and returns it.
-    ///
-    /// The removed element is replaced by the last element.
-    ///
-    /// This does not preserve ordering, but is O(1).
-    pub fn swap_remove_by_index(&mut self, index: usize) -> Option<(T, I)> {
-        if index >= self.len() {
-            None
-        } else {
-            let id = self.id_vec.swap_remove(index);
-            self.index_map.remove(&id).unwrap();
-            let value = self.container.swap_remove(index);
-
-            if let Some(moved_id) = self.id_vec.get(index) {
-                *self.index_map.get_mut(moved_id).unwrap() = index;
-            }
-
-            Some((value, id))
-        }
+    /// ## Panic:
+    /// If indices are out of bound.
+    pub fn swap_by_index(&mut self, a: usize, b: usize) {
+        self.container.swap_elements(a, b);
+        *self.index_map.get_mut(&self.id_vec[a]).unwrap() = b;
+        *self.index_map.get_mut(&self.id_vec[b]).unwrap() = a;
+        self.id_vec.swap(a, b);
     }
 
     /// Removes an element from the container and returns it.
@@ -88,7 +75,27 @@ impl<C: Container<T>, T: soak::Columns, I: Hash + Eq + Copy> PackedMap<C, T, I> 
     /// The removed element is replaced by the last element.
     ///
     /// This does not preserve ordering, but is O(1).
-    pub fn swap_remove_by_id(&mut self, id: I) -> Option<(T, usize)> {
+    ///
+    /// ## Panic:
+    /// Panic if index is out of bound.
+    pub fn swap_remove_by_index(&mut self, index: usize) -> (C::Item, I) {
+        let id = self.id_vec.swap_remove(index);
+        self.index_map.remove(&id).unwrap();
+        let value = self.container.swap_remove(index);
+
+        if let Some(moved_id) = self.id_vec.get(index) {
+            *self.index_map.get_mut(moved_id).unwrap() = index;
+        }
+
+        (value, id)
+    }
+
+    /// Removes an element from the container and returns it.
+    ///
+    /// The removed element is replaced by the last element.
+    ///
+    /// This does not preserve ordering, but is O(1).
+    pub fn swap_remove_by_id(&mut self, id: I) -> Option<(C::Item, usize)> {
         if let Some(index) = self.index_map.remove(&id) {
             self.id_vec.swap_remove(index);
             let value = self.container.swap_remove(index);
@@ -127,21 +134,51 @@ impl<C: Container<T>, T: soak::Columns, I: Hash + Eq + Copy> PackedMap<C, T, I> 
     pub fn reserve(&mut self, additional: usize) {
         self.container.reserve(additional);
         self.id_vec.reserve(additional);
-    }
-
-    pub fn container(&mut self) -> &mut C {
-        &mut self.container
+        self.index_map.reserve(additional);
     }
 
     pub fn id_vec(&self) -> &[I] {
         self.id_vec.as_ref()
     }
+
+    /// Sorts the slice with a comparator function, but might not preserve the order of equal elements.
+    pub fn sort_unstable_by(
+        &mut self,
+        mut compare: impl FnMut(&Self, &usize, &usize) -> std::cmp::Ordering,
+    ) {
+        let mut sorted: Vec<usize> = (0..self.len()).collect();
+        sorted.sort_unstable_by(|a, b| compare(&self, a, b));
+        for (new_index, current_index) in sorted.into_iter().enumerate() {
+            if current_index > new_index {
+                self.swap_by_index(current_index, new_index);
+            }
+        }
+    }
 }
 
-impl<T: soak::Columns + components::Components, I: Hash + Eq + Copy> PackedMap<Soa<T>, T, I> {
-    /// Shortcut for `this.container().raw_table()`.
-    /// Allow using PackedMap<Soa<T>, T, I> in query!() directly.
-    pub fn raw_table(&mut self) -> &mut RawTable<T> {
-        &mut self.container.raw_table
+impl<C, I> Extend<(I, C::Item)> for PackedMap<C, I>
+where
+    C: Container,
+    I: Hash + Eq + Copy,
+{
+    fn extend<T: IntoIterator<Item = (I, C::Item)>>(&mut self, iter: T) {
+        let iter = iter.into_iter();
+        let hint = iter.size_hint();
+        self.reserve(hint.1.unwrap_or(hint.0));
+        for (id, value) in iter {
+            self.insert(id, value);
+        }
+    }
+}
+
+impl<C, I> FromIterator<(I, C::Item)> for PackedMap<C, I>
+where
+    C: Container,
+    I: Hash + Eq + Copy,
+{
+    fn from_iter<T: IntoIterator<Item = (I, C::Item)>>(iter: T) -> Self {
+        let mut s = Self::new();
+        s.extend(iter);
+        s
     }
 }

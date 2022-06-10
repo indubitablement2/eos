@@ -4,6 +4,7 @@ use std::{hash::Hash, ops::RangeInclusive};
 
 pub trait Collider {
     fn intersection_test(&self, other: &Self) -> bool;
+    fn intersection_test_point(&self, point: Vec2) -> bool;
     fn left(&self) -> f32;
     fn right(&self) -> f32;
     /// Up is negative.
@@ -21,6 +22,10 @@ pub struct Circle {
 impl Collider for Circle {
     fn intersection_test(&self, other: &Self) -> bool {
         self.center.distance_squared(other.center) <= (self.radius + other.radius).powi(2)
+    }
+
+    fn intersection_test_point(&self, point: Vec2) -> bool {
+        self.center.distance_squared(point) <= self.radius.powi(2)
     }
 
     fn left(&self) -> f32 {
@@ -45,6 +50,11 @@ impl Collider for Circle {
             center: Vec2::new(left, top) + radius,
             radius,
         }
+    }
+}
+impl Circle {
+    pub fn new(center: Vec2, radius: f32) -> Self {
+        Self { center, radius }
     }
 }
 
@@ -147,7 +157,7 @@ impl<C: Copy + Collider, I: Copy> Default for SAPRow<C, I> {
 /// - Use this.extend(iter<(collider, id)>) to insert many colliders
 /// - `intersection_test()` only takes references thus can be used in
 /// multithreaded code if you have many (10k+) colliders to test
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct AccelerationStructure<C: Collider + Copy, I: Copy + Hash + Eq> {
     /// The collider/idx pairs to use for the next call to `update()`.
     data: Vec<(AABB<C>, I)>,
@@ -254,6 +264,10 @@ impl<C: Collider + Copy, I: Copy + Hash + Eq> AccelerationStructure<C, I> {
             ..=(((aabb.bot - self.rows_top) / self.rows_height) as usize).min(self.row_end_index)
     }
 
+    fn find_row_unbounded(&self, y: f32) -> usize {
+        ((y - self.rows_top) / self.rows_height) as usize
+    }
+
     /// Brute test a collider against every colliders until one return true.
     /// Useful for debug.
     pub fn intersect_collider_brute(&self, collider: C) -> bool {
@@ -272,7 +286,7 @@ impl<C: Collider + Copy, I: Copy + Hash + Eq> AccelerationStructure<C, I> {
     ///
     /// - `true` -> stop query
     /// - `false` -> continue query
-    pub fn intersect_collider(&self, collider: &C, mut closure: impl FnMut(&C, &I) -> bool) {
+    pub fn intersect(&self, collider: &C, mut closure: impl FnMut(&C, &I) -> bool) {
         if self.rows.is_empty() {
             return;
         }
@@ -316,6 +330,52 @@ impl<C: Collider + Copy, I: Copy + Hash + Eq> AccelerationStructure<C, I> {
         }
     }
 
+    /// Return all colliders that intersect the provided point.
+    ///
+    /// Take a closure with the collider and its id of the intersecting collider
+    /// which return if we should stop the query early.
+    ///
+    /// - `true` -> stop query
+    /// - `false` -> continue query
+    pub fn intersect_point(&self, point: Vec2, mut closure: impl FnMut(&C, &I) -> bool) {
+        let mut seen = AHashSet::new();
+        let row_index = self.find_row_unbounded(point.y);
+
+        if let Some(row) = self.rows.get(row_index) {
+            // The furthest we should look to the right.
+            let right_threshold = row.biggest_width;
+
+            // Where we will start our search.
+            // The first collider with right >= our left.
+            let start_index = row
+                .aabbs
+                .partition_point(|other_aabb| other_aabb.right < point.x);
+
+            // Look from left to right.
+            for (other_aabb, other_id) in row.aabbs[start_index..]
+                .iter()
+                .zip(row.idx[start_index..].iter())
+            {
+                if other_aabb.right > right_threshold {
+                    break;
+                }
+
+                if other_aabb.left <= point.x
+                    && other_aabb.bot >= point.x
+                    && other_aabb.top <= point.x
+                    && seen.insert(*other_id)
+                {
+                    let other_collider = other_aabb.collider();
+                    if other_collider.intersection_test_point(point) {
+                        if closure(&other_collider, other_id) {
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// Get the separation line between each row. Useful for debug.
     pub fn get_rows_separation(&self) -> Vec<f32> {
         (0..=self.rows.len())
@@ -329,5 +389,10 @@ impl<C: Collider + Copy, I: Copy + Hash + Eq> Extend<(C, I)> for AccelerationStr
             iter.into_iter()
                 .map(|(collider, id)| (AABB::new(&collider), id)),
         )
+    }
+}
+impl<C: Collider + Copy, I: Copy + Hash + Eq> Default for AccelerationStructure<C, I> {
+    fn default() -> Self {
+        Self::new()
     }
 }

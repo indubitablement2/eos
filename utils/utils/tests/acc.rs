@@ -5,7 +5,7 @@ use utils::acc::*;
 #[test]
 fn test_empty_acc() {
     let acc: AccelerationStructure<Circle, usize> = AccelerationStructure::new();
-    acc.intersect_collider(&Circle::default(), |_, i| {
+    acc.intersect(&Circle::default(), |_, i| {
         assert!(*i > 0);
         false
     });
@@ -44,7 +44,7 @@ fn test_random_colliders_acc() {
         acc.update();
 
         let mut result = Vec::new();
-        acc.intersect_collider(&og_collider, |_, i| {
+        acc.intersect(&og_collider, |_, i| {
             result.push(*i);
             false
         });

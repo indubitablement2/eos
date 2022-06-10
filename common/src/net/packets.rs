@@ -12,7 +12,7 @@ pub struct FleetsPosition {
     pub client_position: Vec2,
     /// Detected fleets `small_id` and position compressed and relative to client's position.
     /// See: `DetectedFleetsInfos`.
-    pub relative_fleets_position: Vec<(u16, CVec2)>,
+    pub relative_fleets_position: Vec<(u16, CVec2<512>)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

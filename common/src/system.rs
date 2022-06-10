@@ -2,7 +2,7 @@ use crate::{idx::*, orbit::RelativeOrbit};
 use ahash::AHashMap;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
-use utils::{acc::*, *};
+use utils::acc::*;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum StarType {
@@ -34,7 +34,7 @@ pub struct Planet {
     pub relative_orbit: RelativeOrbit,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Fields, Columns, Components)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct System {
     /// Edge of the outtermost `CelestialBody` + (normaly) some padding.
     pub radius: f32,
@@ -81,12 +81,12 @@ impl Systems {
         }
     }
 
-    pub fn create_acceleration_structure(&self) -> AccelerationStructure<SystemId, ()> {
+    pub fn create_acceleration_structure(&self) -> AccelerationStructure<Circle, SystemId> {
         let mut acc = AccelerationStructure::new();
         acc.extend(
             self.systems
                 .iter()
-                .map(|(system_id, system)| (Collider::new(system.position, system.radius, ()), *system_id)),
+                .map(|(system_id, system)| (Circle::new(system.position, system.radius), *system_id)),
         );
         acc.update();
         acc

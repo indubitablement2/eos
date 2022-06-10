@@ -34,7 +34,7 @@ impl ConnectionsManager {
         let (new_connection_sender, new_connection_receiver) = crossbeam::channel::unbounded();
         rt.spawn(login_loop(local, listener, new_connection_sender, socket));
 
-        info!(
+        log::info!(
             "Connection manager ready. Accepting login on {}.",
             SERVER_PORT
         );
@@ -69,12 +69,12 @@ pub async fn login_loop(
     loop {
         match listener.accept().await {
             Ok((new_stream, generic_client_addr)) => {
-                debug!("{} is attempting to login.", generic_client_addr);
+                log::debug!("{} is attempting to login.", generic_client_addr);
 
                 // Convert generic address to v6.
                 let client_addr = match generic_client_addr {
                     std::net::SocketAddr::V4(v4) => {
-                        debug!(
+                        log::debug!(
                             "{:?} attempted to connect with an ipv4 address. Ignoring...",
                             v4
                         );
@@ -84,7 +84,7 @@ pub async fn login_loop(
                 };
 
                 if let Err(err) = new_stream.set_nodelay(true) {
-                    debug!("{:?} while setting stream nodelay. Aborting login...", err);
+                    log::debug!("{:?} while setting stream nodelay. Aborting login...", err);
                     continue;
                 }
 
@@ -96,7 +96,7 @@ pub async fn login_loop(
                 ));
             }
             Err(err) => {
-                debug!(
+                log::debug!(
                     "{:?} while listening for new tcp connection. Ignoring...",
                     err
                 );
@@ -114,7 +114,7 @@ async fn try_login(
     // Get the first packet.
     let mut first_packet_buffer = [0u8; LoginPacket::FIXED_SIZE];
     if let Err(err) = stream.read_exact(&mut first_packet_buffer).await {
-        debug!(
+        log::debug!(
             "{:?} while attempting to login a client. Aborting login...",
             err
         );
@@ -126,7 +126,7 @@ async fn try_login(
 
     // Send login response.
     if let Err(err) = stream.write_all(&login_response.serialize()).await {
-        debug!(
+        log::debug!(
             "{:?} while writing login response to stream. Aborting login...",
             err
         );
@@ -142,7 +142,7 @@ async fn try_login(
             })
             .await
         {
-            debug!(
+            log::debug!(
                 "{:?} while sending login result to successful login handler. Aborting login...",
                 err
             );
@@ -159,14 +159,14 @@ async fn handle_first_packet(
     // Deserialize first packet.
     let login_packet = match LoginPacket::deserialize(&first_packet_buffer) {
         Some(p) => {
-            trace!(
+            log::trace!(
                 "Received a valid LoginPacket from {:?}. Attempting login...",
                 client_addr
             );
             p
         }
         None => {
-            debug!(
+            log::debug!(
                 "Error while deserializing LoginPacket from {:?}. Aborting login...",
                 client_addr
             );
@@ -176,9 +176,10 @@ async fn handle_first_packet(
 
     // Check client version.
     if &login_packet.client_version != common::VERSION {
-        debug!(
+        log::debug!(
             "{} attempted to login with {} which does not match server. Aborting login...",
-            client_addr, login_packet.client_version
+            client_addr,
+            login_packet.client_version
         );
         return LoginResponsePacket::WrongVersion {
             server_version: common::VERSION.to_string(),
@@ -188,7 +189,7 @@ async fn handle_first_packet(
     // Check credential.
     let client_id = match local {
         true => {
-            debug!("{} logged-in localy.", client_addr);
+            log::debug!("{} logged-in localy.", client_addr);
             ClientId(login_packet.token as u32)
         }
         false => match login_packet.credential_checker {
@@ -200,9 +201,10 @@ async fn handle_first_packet(
     // Check selected server.
     // login_packet.selected_server
 
-    debug!(
+    log::debug!(
         "{} successfully identified as {:?}.",
-        client_addr, client_id
+        client_addr,
+        client_id
     );
     LoginResponsePacket::Accepted { client_id }
 }
