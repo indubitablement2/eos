@@ -5,7 +5,7 @@ mod handle_clients_inputs;
 mod handle_faction_queue;
 mod handle_fleet_queue;
 mod send_detected_entities;
-mod update_fleets_acc;
+mod update_fleets_detected_acc;
 mod update_fleets_in_system;
 
 use self::apply_fleets_movement::*;
@@ -15,7 +15,7 @@ use self::handle_clients_inputs::*;
 use self::handle_faction_queue::*;
 use self::handle_fleet_queue::*;
 use self::send_detected_entities::*;
-use self::update_fleets_acc::*;
+use self::update_fleets_detected_acc::*;
 use self::update_fleets_in_system::*;
 use super::*;
 
@@ -41,8 +41,9 @@ impl Metascape {
 
         apply_fleets_movement(self);
 
-        // update_fleets_detection_acceleration_structure(self);
         update_fleets_in_system(self);
+
+        update_fleets_detected_acc(self);
 
         // TODO: send factions infos the client request.
         send_detected_entities(self);

@@ -191,6 +191,17 @@ impl<C: Collider + Copy, I: Copy + Hash + Eq> AccelerationStructure<C, I> {
         self.data.clear();
     }
 
+    /// Return if the data to be used when calling `update()` is empty.
+    pub fn is_future_data_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    /// Return if the data curently in use is empty.
+    /// All intersection test will return nothing in this case.
+    pub fn is_snapshot_empty(&self) -> bool {
+        self.rows.is_empty()
+    }
+
     /// # Panic
     /// Will panic if any collider's position is not real (inf, nan).
     pub fn update(&mut self) {

@@ -41,13 +41,13 @@ static FACTION_QUEUE: SegQueue<(FactionId, FactionBuilder)> = SegQueue::new();
 static AI_FLEET_ID_DISPENSER: AiFleetIdDispenser = AiFleetIdDispenser::new();
 static FLEET_QUEUE: SegQueue<(FleetId, FleetBuilder)> = SegQueue::new();
 
-pub fn time() -> Time {
-    unsafe { _TIME.clone() }
-}
 static mut _TIME: Time = Time {
     tick: 0,
     total_tick: 0,
 };
+pub fn time() -> Time {
+    unsafe { _TIME }
+} 
 
 pub struct Metascape {
     pub server_configs: ServerConfigs,
@@ -56,8 +56,11 @@ pub struct Metascape {
     pub connections_manager: ConnectionsManager,
     pub pendings_connection: VecDeque<Connection>,
 
-    /// Use the fleet's Current system id as filter or u32::MAX no fleet not in a system.
-    // pub fleets_detection_acceleration_structure: AccelerationStructure<FleetId, u32>,
+    /// For fleets **outside** a system.
+    pub fleets_out_detection_acc: AccelerationStructure<Circle, FleetId>,
+    /// For fleets **inside** a system.
+    pub fleets_in_detection_acc: AHashMap<SystemId, AccelerationStructure<Circle, FleetId>>,
+
     pub systems: Systems,
     /// System don't change. Never updated at runtime.
     pub systems_acceleration_structure: AccelerationStructure<Circle, SystemId>,
@@ -80,9 +83,6 @@ impl Metascape {
         file.read_to_end(&mut buffer).unwrap();
         let systems =
             bincode::deserialize::<Systems>(&buffer).expect("could not deserialize systems.bin");
-
-        // Create systems acceleration structure.
-        let mut systems_acceleration_structure = systems.create_acceleration_structure();
 
         // Create async runtime.
         let rt = Arc::new(
@@ -120,11 +120,13 @@ impl Metascape {
             rt,
             connections_manager,
             pendings_connection: Default::default(),
-            systems_acceleration_structure,
+            systems_acceleration_structure: systems.create_acceleration_structure(),
             clients: PackedMap::with_capacity(256),
             fleets,
             systems,
             factions,
+            fleets_out_detection_acc: Default::default(),
+            fleets_in_detection_acc: Default::default(),
         }
     }
 

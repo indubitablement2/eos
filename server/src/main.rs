@@ -11,6 +11,7 @@
 #![feature(is_sorted)]
 #![feature(macro_metavar_expr)]
 #![feature(is_some_with)]
+#![feature(hash_drain_filter)]
 
 use server::Server;
 use std::{thread::sleep, time::Instant};
