@@ -47,7 +47,7 @@ static mut _TIME: Time = Time {
 };
 pub fn time() -> Time {
     unsafe { _TIME }
-} 
+}
 
 pub struct Metascape {
     pub server_configs: ServerConfigs,

@@ -10,10 +10,18 @@ pub fn update_fleets_detected_acc(s: &mut Metascape) {
     let fleets_in_detection_acc = &mut s.fleets_in_detection_acc;
 
     // Add the colliders to their acc.
-    for (((position, fleet_inner), in_system), fleet_id) in fleets_position.iter().zip(fleets_fleet_inner).zip(fleets_in_system).zip(fleets_fleet_id) {
+    for (((position, fleet_inner), in_system), fleet_id) in fleets_position
+        .iter()
+        .zip(fleets_fleet_inner)
+        .zip(fleets_in_system)
+        .zip(fleets_fleet_id)
+    {
         let collider = Circle::new(*position, fleet_inner.fleet_stats().detected_radius);
         if let Some(system_id) = in_system {
-            fleets_in_detection_acc.entry(*system_id).or_default().push(&collider, *fleet_id);
+            fleets_in_detection_acc
+                .entry(*system_id)
+                .or_default()
+                .push(&collider, *fleet_id);
         } else {
             fleets_out_detection_acc.push(&collider, *fleet_id);
         }
