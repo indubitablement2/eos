@@ -78,7 +78,7 @@ impl FleetState {
 pub struct Metascape {
     configs: Configs,
     systems: Systems,
-    systems_acceleration: AccelerationStructure<SystemId, ()>,
+    systems_acceleration: AccelerationStructure<Circle, SystemId>,
 
     /// Send input to server. Receive command from server.
     connection_manager: ConnectionManager,
@@ -263,7 +263,7 @@ impl Metascape {
             for (small_id, position) in fleets_position.relative_fleets_position {
                 if let Some(fleet_state) = self.fleets_state.get_mut(&small_id) {
                     // Convert from compressed relative position to world position.
-                    let position = position.to_vec2(common::METASCAPE_RANGE) + fleets_position.client_position;
+                    let position = position.to_vec2() + fleets_position.client_position;
                     fleet_state.update(fleets_position.tick, position);
                 } else {
                     debug!("missing fleet state.");
@@ -341,9 +341,9 @@ impl Metascape {
         }
 
         // Debug draw systems.
-        let screen_collider = Collider::new(pos, self.configs.system_draw_distance, ());
-        self.systems_acceleration.intersect_collider(screen_collider, |other| {
-            let system = self.systems.systems.get(&other.id).unwrap();
+        let screen_collider = Circle::new(pos, self.configs.system_draw_distance);
+        self.systems_acceleration.intersect(&screen_collider, |_, system_id| {
+            let system = self.systems.systems.get(system_id).unwrap();
 
             // Draw system bound.
             owner.draw_arc(
