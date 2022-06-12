@@ -2,10 +2,9 @@ use crate::_metascape2::*;
 
 /// Update velocity based on wish position and acceleration.
 ///
-/// Apply velocity, friction and orbit.
+/// Apply velocity and orbit.
 pub fn apply_fleets_movement(s: &mut Metascape) {
-    // TODO: Add a static amount to systems's bound. Store it in configs.
-    let bound_squared = s.systems.bound.powi(2);
+    let bound_squared = (s.systems.bound + s.server_configs.metascape_configs.systems_bound_padding).powi(2);
     let timef = time().as_timef();
     let break_acceleration_multiplier = s.server_configs.metascape_configs.break_acceleration_multiplier;
     let absolute_max_speed = s.server_configs.metascape_configs.absolute_max_speed;

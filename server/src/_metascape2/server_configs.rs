@@ -36,10 +36,12 @@ pub struct MetascapeConfigs {
     pub break_acceleration_multiplier: f32,
     /// Object can never go above this speed.
     pub absolute_max_speed: f32,
+    /// Add a static amount to systems's bound.
+    pub systems_bound_padding: f32,
 }
 impl Default for MetascapeConfigs {
     fn default() -> Self {
-        Self { break_acceleration_multiplier: 1.5, absolute_max_speed: 2.0 }
+        Self { break_acceleration_multiplier: 1.5, absolute_max_speed: 2.0, systems_bound_padding: 100.0 }
     }
 }
 
