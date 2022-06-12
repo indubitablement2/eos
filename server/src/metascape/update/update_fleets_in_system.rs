@@ -1,4 +1,4 @@
-use crate::_metascape2::*;
+use crate::metascape::*;
 
 pub fn update_fleets_in_system(s: &mut Metascape) {
     let position = s.fleets.container.position.iter();

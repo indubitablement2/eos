@@ -1,4 +1,4 @@
-use crate::_metascape2::*;
+use crate::metascape::*;
 
 pub fn update_fleets_detected_acc(s: &mut Metascape) {
     let fleets_position = s.fleets.container.position.as_slice();

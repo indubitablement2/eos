@@ -1,4 +1,4 @@
-use crate::_metascape2::*;
+use crate::metascape::*;
 use ahash::AHashMap;
 use std::iter::once;
 use utils::compressed_vec2::CVec2;

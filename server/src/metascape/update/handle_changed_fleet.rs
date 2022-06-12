@@ -1,4 +1,4 @@
-use crate::_metascape2::*;
+use crate::metascape::*;
 
 pub fn handle_changed_fleet(s: &mut Metascape) {
     let tick = time().tick;

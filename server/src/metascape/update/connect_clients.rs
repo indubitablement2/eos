@@ -1,6 +1,6 @@
 use common::fleet::FleetComposition;
 
-use crate::_metascape2::*;
+use crate::metascape::*;
 
 /// Handle new connections.
 ///

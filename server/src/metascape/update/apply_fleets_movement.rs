@@ -1,4 +1,4 @@
-use crate::_metascape2::*;
+use crate::metascape::*;
 
 /// Update velocity based on wish position and acceleration.
 ///

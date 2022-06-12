@@ -1,4 +1,4 @@
-use crate::_metascape2::*;
+use crate::metascape::*;
 
 /// Handle the clients inbound packets.
 ///

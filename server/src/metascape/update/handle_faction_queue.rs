@@ -1,4 +1,4 @@
-use crate::_metascape2::*;
+use crate::metascape::*;
 
 /// Insert factions that were queued.
 pub fn handle_faction_queue(s: &mut Metascape) {

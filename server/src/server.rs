@@ -1,5 +1,5 @@
 use crate::{
-    _metascape2::Metascape,
+    metascape::Metascape,
     terminal::{performance::PerformanceMetrics, Terminal},
 };
 use std::time::Instant;

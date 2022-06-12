@@ -1,4 +1,4 @@
-use crate::_metascape2::*;
+use crate::metascape::*;
 
 /// Insert fleets that were queued.
 pub fn handle_fleet_queue(s: &mut Metascape) {
