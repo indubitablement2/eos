@@ -32,12 +32,14 @@ impl Default for ConnectionConfigs {
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct MetascapeConfigs {
-    /// Multiply velocity every tick.
-    pub friction: f32,
+    /// When breaking, acceleration is multiplied by this.
+    pub break_acceleration_multiplier: f32,
+    /// Object can never go above this speed.
+    pub absolute_max_speed: f32,
 }
 impl Default for MetascapeConfigs {
     fn default() -> Self {
-        Self { friction: 0.95 }
+        Self { break_acceleration_multiplier: 1.5, absolute_max_speed: 2.0 }
     }
 }
 

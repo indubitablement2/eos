@@ -4,8 +4,11 @@ use crate::_metascape2::*;
 ///
 /// Apply velocity, friction and orbit.
 pub fn apply_fleets_movement(s: &mut Metascape) {
+    // TODO: Add a static amount to systems's bound. Store it in configs.
     let bound_squared = s.systems.bound.powi(2);
     let timef = time().as_timef();
+    let break_acceleration_multiplier = s.server_configs.metascape_configs.break_acceleration_multiplier;
+    let absolute_max_speed = s.server_configs.metascape_configs.absolute_max_speed;
 
     let position = s.fleets.container.position.iter_mut();
     let wish_position = s.fleets.container.wish_position.iter_mut();
@@ -26,31 +29,36 @@ pub fn apply_fleets_movement(s: &mut Metascape) {
         .zip(fleet_inner)
         .zip(orbit)
     {
+        let max_speed = fleet_inner.fleet_stats().max_speed;
         let acceleration = fleet_inner.fleet_stats().acceleration;
+        let radius = fleet_inner.fleet_stats().radius;
 
-        if let Some(target) = wish_position.target() {
+        if let Some(relative_target) = wish_position.target().and_then(|target| {
+            let relative_target = target - *position;
+
+            if relative_target.length_squared() <= radius.powi(2) {
+                wish_position.stop();
+                None
+            } else {
+                Some(relative_target)
+            }
+        }) {
             // Go toward our target.
 
-            let wish_vel = target - *position - *velocity;
-            let wish_vel_lenght = wish_vel.length();
+            let velocity_len = velocity.length();
+            let time_to_break = velocity_len / (acceleration * break_acceleration_multiplier * 1.1);
 
-            // Seek target.
-            *velocity +=
-                wish_vel.clamp_length_max(acceleration * wish_position.movement_multiplier());
+            let wish_vel = relative_target - *velocity * time_to_break;
+            *velocity += wish_vel.clamp_length_max(acceleration * wish_position.movement_multiplier());
 
-            // Stop if we are near the target.
-            // TODO: Test this stop threshold.
-            if wish_vel_lenght < acceleration {
-                wish_position.stop();
-            }
+            *velocity = velocity.clamp_length_max(velocity_len.max(max_speed).min(absolute_max_speed));
 
             idle_counter.reset();
             *orbit = None;
         } else if velocity.x != 0.0 || velocity.y != 0.0 {
             // Go against our current velocity.
 
-            let vel_change = -velocity.clamp_length_max(acceleration);
-            *velocity += vel_change;
+            *velocity -= velocity.clamp_length_max(acceleration * break_acceleration_multiplier);
 
             // Set velocity to zero if we have nearly no velocity.
             if velocity.x.abs() < 0.001 {
@@ -111,9 +119,6 @@ pub fn apply_fleets_movement(s: &mut Metascape) {
             if position.length_squared() > bound_squared {
                 *velocity -= position.normalize() * 8.0;
             }
-
-            // Apply friction.
-            *velocity *= s.server_configs.metascape_configs.friction;
 
             // Apply velocity.
             *position += *velocity;

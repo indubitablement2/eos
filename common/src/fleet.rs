@@ -17,9 +17,14 @@ pub struct ShipInfos {
 /// The stats derived from the fleet's ships.
 #[derive(Debug, Clone, Copy)]
 pub struct FleetStats {
+    /// Fleet will not accelerate above this speed.
+    /// Is never `<= 0`.
+    pub max_speed: f32,
     /// How much velocity this fleet can gain each update.
+    /// Is never `<= 0`.
     pub acceleration: f32,
     /// How much space this fleet takes.
+    /// Is never `<= 0`.
     pub radius: f32,
     /// Extra radius this fleet will get detected.
     pub detected_radius: f32,
@@ -42,8 +47,9 @@ impl FleetComposition {
     pub fn compute_stats(&self) -> FleetStats {
         // TODO: Compute fleet's stats
         FleetStats {
-            acceleration: 0.04,
-            radius: self.ships.len() as f32 * 0.1,
+            max_speed: 1.0,
+            acceleration: 0.02,
+            radius: self.ships.len().max(1) as f32 * 0.1,
             detected_radius: 10.0,
             detector_radius: 10.0,
         }
