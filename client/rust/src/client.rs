@@ -3,6 +3,7 @@ use crate::configs::Configs;
 use crate::connection_manager::ConnectionAttempt;
 use crate::debug_infos::DebugInfos;
 use crate::input_handler::PlayerInputs;
+use common::idx::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
 
@@ -23,7 +24,15 @@ impl Client {
     fn register_builder(builder: &ClassBuilder<Self>) {
         builder
             .signal("ConnectionResult")
-            .with_param("Result", VariantType::Bool)
+            .with_param("result", VariantType::Bool)
+            .done();
+        builder
+            .signal("Disconnected")
+            .with_param("reason", VariantType::GodotString)
+            .done();
+        builder
+            .signal("HasFleetChanged")
+            .with_param("has_fleet", VariantType::Bool)
             .done();
     }
 
@@ -98,9 +107,18 @@ impl Client {
         if let Some(metascape) = &mut self.metascape {
             self.debug_infos.update(metascape);
 
-            if metascape.update(delta, &self.player_inputs) {
-                info!("Terminated metascape as signaled.");
-                self.metascape = None;
+            for metascape_signal in metascape.update(delta, &self.player_inputs) {
+                match metascape_signal {
+                    crate::client_metascape::MetascapeSignal::Disconnected { reason } => {
+                        let reason_str = reason.to_string();
+                        log::info!("Disconnected: {}", &reason_str);
+                        owner.emit_signal("Disconnected", &[reason_str.to_variant()]);
+                    }
+                    crate::client_metascape::MetascapeSignal::HasFleetChanged { has_fleet } => {
+                        log::info!("Has fleet changed: {}", has_fleet);
+                        owner.emit_signal("HasFleetChanged", &[has_fleet.to_variant()]);
+                    }
+                }
             }
         }
 
@@ -138,6 +156,28 @@ impl Client {
         }
 
         false
+    }
+
+    #[godot]
+    unsafe fn starting_fleet_spawn_request(&mut self, starting_fleet_id: u32, system_id: u32, planets_offset: u32) {
+        if let Some(metascape) = &self.metascape {
+            let starting_fleet_id = StartingFleetId::from_raw(starting_fleet_id);
+            let location = PlanetId {
+                system_id: SystemId(system_id),
+                planets_offset,
+            };
+
+            metascape
+                .connection_manager
+                .send(&common::net::packets::ClientPacket::CreateStartingFleet {
+                    starting_fleet_id,
+                    location,
+                });
+
+            log::debug!("Sent spawn request for {:?}.", starting_fleet_id);
+        } else {
+            log::warn!("Can not send starting fleet spawn request without a metascape. Aborting...");
+        }
     }
 
     #[godot]

@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::ops::{AddAssign, Index};
 use utils::Incrementable;
 
+// TODO: Id shared trait.
+
 /// Never recycled.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ClientId(pub u32);
@@ -18,7 +20,7 @@ impl AddAssign for ClientId {
 }
 impl Incrementable for ClientId {
     fn one() -> Self {
-        ClientId(0)
+        ClientId(1)
     }
 }
 
@@ -124,5 +126,17 @@ impl Index<WeaponBaseId> for Vec<WeaponBase> {
 
     fn index(&self, index: WeaponBaseId) -> &Self::Output {
         &self[index.0 as usize]
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct StartingFleetId(u32);
+impl StartingFleetId {
+    pub fn from_raw(id: u32) -> Self {
+        Self(id)
+    }
+
+    pub fn id(self) -> u32 {
+        self.0
     }
 }

@@ -1,6 +1,7 @@
 use super::*;
 
 pub struct KnowFleets {
+    pub force_update_client_fleet: bool,
     pub fleets: Vec<(FleetId, u16)>,
     next_small_id: u16,
     recycled_small_id: (Vec<u16>, Vec<u16>),
@@ -8,6 +9,7 @@ pub struct KnowFleets {
 impl Default for KnowFleets {
     fn default() -> Self {
         Self {
+            force_update_client_fleet: true,
             fleets: Default::default(),
             next_small_id: 1,
             recycled_small_id: Default::default(),

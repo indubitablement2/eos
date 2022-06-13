@@ -1,5 +1,3 @@
-use common::fleet::FleetComposition;
-
 use crate::metascape::*;
 
 /// Handle new connections.
@@ -7,6 +5,8 @@ use crate::metascape::*;
 /// Add a default fleet/faction if client is new.
 /// Otherwise client simply retake control of his fleet.
 pub fn connect_clients(s: &mut Metascape) {
+    let fleets_index_map = &s.fleets.index_map;
+
     // Fetch new connection from the `ConnectionsManager`
     // and append them at the end of the pendings queue.
     while let Ok(new_connection) = s.connections_manager.new_connection_receiver.try_recv() {
@@ -58,6 +58,12 @@ pub fn connect_clients(s: &mut Metascape) {
 
         let client_id = connection.client_id();
 
+        // Notice the client if he does not have a fleet.
+        if !fleets_index_map.contains_key(&client_id.to_fleet_id()) {
+            connection.send_packet_reliable(ServerPacket::NoFleet.serialize());
+            log::debug!("{:?} has no fleet. Sending notification...", client_id);
+        }
+
         // Insert client.
         let client = ClientBuilder::new(connection).build();
         if let Some(old_client) = s.clients.insert(client_id, client).1 {
@@ -73,28 +79,6 @@ pub fn connect_clients(s: &mut Metascape) {
                     .serialize(),
             );
             old_client.connection.flush_tcp_stream();
-        }
-
-        let fleet_id = client_id.to_fleet_id();
-
-        // TODO: Making fleet should not be the job of the connector system.
-        // Check if fleet is already spawned.
-        if let Some(index) = s.fleets.get_index(fleet_id) {
-            // Change the fleet ai.
-            s.fleets.container.fleet_ai[index] = FleetAi::ClientControl;
-        } else {
-            // Create a new faction.
-            let faction_id = FactionBuilder::new().with_clients(&[client_id]).build();
-
-            // Create a new fleet.
-            FleetBuilder::new(
-                faction_id,
-                "insert name".to_string(),
-                Vec2::ZERO,
-                FleetAi::ClientControl,
-                FleetComposition::new_debug(),
-            )
-            .build_client(client_id);
         }
     }
 }

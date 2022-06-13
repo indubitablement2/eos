@@ -28,10 +28,12 @@ impl Metascape {
 
         connect_clients(self);
 
+        handle_clients_inputs(self);
+
         handle_faction_queue(self);
         handle_fleet_queue(self);
 
-        handle_clients_inputs(self);
+        // No more add/remove fleet from this point.
 
         // TODO: AI
 

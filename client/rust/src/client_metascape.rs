@@ -3,9 +3,9 @@ use crate::connection_manager::ConnectionManager;
 use crate::constants::*;
 use crate::input_handler::PlayerInputs;
 use crate::util::*;
-use common::fleet::*;
 use ::utils::acc::*;
 use ahash::AHashMap;
+use common::fleet::*;
 use common::idx::*;
 use common::net::packets::*;
 use common::system::*;
@@ -13,6 +13,16 @@ use common::UPDATE_INTERVAL;
 use gdnative::api::*;
 use gdnative::prelude::*;
 use glam::Vec2;
+
+pub enum MetascapeSignal {
+    /// Disconnected from the server.
+    Disconnected {
+        reason: DisconnectedReasonEnum,
+    },
+    HasFleetChanged {
+        has_fleet: bool,
+    },
+}
 
 #[derive(Debug, Clone)]
 struct FleetState {
@@ -81,7 +91,7 @@ pub struct Metascape {
     systems_acceleration: AccelerationStructure<Circle, SystemId>,
 
     /// Send input to server. Receive command from server.
-    connection_manager: ConnectionManager,
+    pub connection_manager: ConnectionManager,
     send_timer: f32,
 
     /// The current tick.
@@ -97,7 +107,7 @@ pub struct Metascape {
     /// The last tick received from the server.
     max_tick: u32,
     /// The minimum tick delta of the 10 previous tick.
-    min_buffer_short: [i64; 10],
+    min_buffer_short: [i64; 10], // TODO: Add ring buffer to utils then use that instead.
     /// The minimum of the 30 previous `min_buffer_short`.
     min_buffer_long: [i64; 30],
 
@@ -106,6 +116,9 @@ pub struct Metascape {
     fleets_position_buffer: Vec<FleetsPosition>,
     fleets_infos_buffer: Vec<FleetsInfos>,
     fleets_forget_buffer: Vec<FleetsForget>,
+
+    /// If we have a fleet.
+    pub has_fleet: bool,
 }
 impl Metascape {
     pub fn new(connection_manager: ConnectionManager, configs: Configs) -> anyhow::Result<Self> {
@@ -134,31 +147,37 @@ impl Metascape {
             fleets_position_buffer: Default::default(),
             fleets_infos_buffer: Default::default(),
             fleets_forget_buffer: Default::default(),
+            has_fleet: false,
         })
     }
 
     /// Return true if we should quit.
-    pub fn update(&mut self, delta: f32, player_inputs: &PlayerInputs) -> bool {
-        let mut quit = false;
+    pub fn update(&mut self, delta: f32, player_inputs: &PlayerInputs) -> Vec<MetascapeSignal> {
+        let mut signals = Vec::new();
 
         // Handle server packets.
         loop {
             match self.connection_manager.try_recv() {
                 Ok(packet) => match ServerPacket::deserialize(&packet) {
                     ServerPacket::Invalid => {
-                        warn!("Received an invalid packet from the server. Quitting...");
-                        quit = true;
+                        signals.push(MetascapeSignal::Disconnected {
+                            reason: DisconnectedReasonEnum::DeserializeError,
+                        });
                         break;
                     }
                     ServerPacket::DisconnectedReason(reason) => {
-                        debug!("Disconnected from the server. {}", reason);
-                        // TODO: Send message to console.
-                        quit = true;
+                        signals.push(MetascapeSignal::Disconnected { reason });
                         break;
                     }
                     ServerPacket::ConnectionQueueLen(_) => todo!(),
                     ServerPacket::FleetsInfos(fleets_infos) => {
                         self.fleets_infos_buffer.push(fleets_infos);
+
+                        // Maybe switch has_fleet.
+                        if !self.has_fleet {
+                            self.has_fleet = true;
+                            signals.push(MetascapeSignal::HasFleetChanged { has_fleet: true });
+                        }
                     }
                     ServerPacket::FleetsPosition(fleet_position) => {
                         self.max_tick = self.max_tick.max(fleet_position.tick);
@@ -167,11 +186,16 @@ impl Metascape {
                     ServerPacket::FleetsForget(fleets_forget) => {
                         self.fleets_forget_buffer.push(fleets_forget);
                     }
+                    ServerPacket::NoFleet => {
+                        self.has_fleet = false;
+                        signals.push(MetascapeSignal::HasFleetChanged { has_fleet: false });
+                    }
                 },
                 Err(err) => {
                     if err.is_disconnected() {
-                        warn!("Disconnected from the server. Quitting...");
-                        quit = true;
+                        signals.push(MetascapeSignal::Disconnected {
+                            reason: DisconnectedReasonEnum::LostConnection,
+                        });
                     }
                     break;
                 }
@@ -285,10 +309,10 @@ impl Metascape {
             }
 
             // Flush packets.
-            quit |= !self.connection_manager.flush()
+            self.connection_manager.flush();
         }
 
-        quit
+        signals
     }
 
     pub fn render(&mut self, owner: &Node2D) {

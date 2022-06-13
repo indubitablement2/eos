@@ -1,5 +1,4 @@
 use crate::metascape::*;
-use ahash::AHashMap;
 use std::iter::once;
 use utils::compressed_vec2::CVec2;
 
@@ -36,8 +35,27 @@ pub fn send_detected_entities(s: &mut Metascape) {
             if let Some(client_fleet_index) = fleets_index_map.get(&client_fleet_id) {
                 *client_fleet_index
             } else {
-                // TODO: Make client not have fleet valid.
-                log::debug!("Client has no fleet or can not find its index.");
+                // Client has no fleet thus can not detect nearby entities.
+
+                // Clear what the client know.
+                let to_forget =
+                    Vec::from_iter(know_fleets.fleets.drain(..).map(|(_, small_id)| small_id));
+                if !to_forget.is_empty() {
+                    // Recycle small idx.
+                    to_forget
+                        .iter()
+                        .for_each(|small_id| know_fleets.recycle_small_id(*small_id));
+
+                    connection.send_packet_reliable(
+                        ServerPacket::FleetsForget(FleetsForget {
+                            tick: time().tick,
+                            to_forget,
+                        })
+                        .serialize(),
+                    );
+                }
+
+                connection.flush_tcp_stream();
                 continue;
             };
 
@@ -53,7 +71,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
             rest.extend(know_fleets.fleets.drain(..));
             let mut no_know = Vec::new();
 
-            // Detect nearby fleets.
+            // TODO: Detect nearby fleets.
             let client_detector_radius = client_fleet_inner.fleet_stats().detector_radius;
             if let Some(system_id) = fleets_in_system[client_fleet_index] {
                 // let collider = Collider::new(
@@ -150,12 +168,17 @@ pub fn send_detected_entities(s: &mut Metascape) {
         };
 
         // Send detected fleets & client's fleet infos the client does not know.
+        let force_update_client_fleet = know_fleets.force_update_client_fleet;
         connection.send_packet_reliable(
             ServerPacket::FleetsInfos(FleetsInfos {
                 tick: time().tick,
                 infos: changed
                     .into_iter()
-                    .chain(once((client_fleet_id, 0)).filter(|_| time().tick == client_last_change))
+                    .chain(
+                        once((client_fleet_id, 0)).filter(|_| {
+                            time().tick == client_last_change || force_update_client_fleet
+                        }),
+                    )
                     .filter_map(|(fleet_id, small_id)| {
                         if let Some(&fleet_index) = fleets_index_map.get(&fleet_id) {
                             Some(FleetInfos {

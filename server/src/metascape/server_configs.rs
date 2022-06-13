@@ -41,7 +41,11 @@ pub struct MetascapeConfigs {
 }
 impl Default for MetascapeConfigs {
     fn default() -> Self {
-        Self { break_acceleration_multiplier: 1.5, absolute_max_speed: 2.0, systems_bound_padding: 100.0 }
+        Self {
+            break_acceleration_multiplier: 1.5,
+            absolute_max_speed: 2.0,
+            systems_bound_padding: 100.0,
+        }
     }
 }
 

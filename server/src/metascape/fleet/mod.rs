@@ -34,61 +34,93 @@ pub struct Fleet {
     pub fleet_ai: FleetAi,
 }
 
+/// ## Defaults:
+/// - faction_id: A new faction will be created.
+/// - name: A random name will be generated.
+/// - fleet_ai: Idle for npc, but always set to ClientControlled for client.
 pub struct FleetBuilder {
-    pub faction_id: FactionId,
-    pub name: String,
-    pub in_system: Option<SystemId>,
+    /// Default to creating a new faction.
+    pub faction_id: Option<FactionId>,
+    /// Default to a generated name.
+    pub name: Option<String>,
     pub position: Vec2,
     pub velocity: Vec2,
     pub wish_position: WishPosition,
-    pub fleet_ai: FleetAi,
+    /// Default to idle. Always set to ClientControlled for client.
+    pub fleet_ai: Option<FleetAi>,
     pub fleet_composition: FleetComposition,
 }
 impl FleetBuilder {
-    pub fn new(
-        faction_id: FactionId,
-        name: String,
-        position: Vec2,
-        fleet_ai: FleetAi,
-        fleet_composition: FleetComposition,
-    ) -> Self {
+    pub fn new(position: Vec2, fleet_composition: FleetComposition) -> Self {
         Self {
-            faction_id,
-            name,
-            in_system: None,
+            faction_id: None,
+            name: None,
             position,
             velocity: Vec2::ZERO,
             wish_position: Default::default(),
-            fleet_ai,
+            fleet_ai: None,
             fleet_composition,
         }
     }
 
-    pub fn with_in_system(mut self, system_id: SystemId) -> Self {
-        self.in_system = Some(system_id);
+    pub fn with_name(&mut self, name: String) -> &mut Self {
+        self.name = Some(name);
         self
     }
 
-    pub fn with_velocity(mut self, velocity: Vec2) -> Self {
+    pub fn with_faction(&mut self, faction_id: FactionId) -> &mut Self {
+        self.faction_id = Some(faction_id);
+        self
+    }
+
+    pub fn with_velocity(&mut self, velocity: Vec2) -> &mut Self {
         self.velocity = velocity;
         self
     }
 
-    pub fn with_wish_position(mut self, wish_position: WishPosition) -> Self {
+    pub fn with_wish_position(&mut self, wish_position: WishPosition) -> &mut Self {
         self.wish_position = wish_position;
         self
     }
 
-    pub fn build_ai(self) -> FleetId {
+    pub fn with_fleet_ai(&mut self, fleet_ai: FleetAi) -> &mut Self {
+        self.fleet_ai = Some(fleet_ai);
+        self
+    }
+
+    /// Create a fleet meant for a npc.
+    pub fn build_npc(self) -> FleetId {
         let fleet_id = AI_FLEET_ID_DISPENSER.next();
-        FLEET_QUEUE.push((fleet_id, self));
+
+        FLEET_QUEUE.push((fleet_id, self.to_fleet()));
         fleet_id
     }
 
-    pub fn build_client(self, client_id: ClientId) -> FleetId {
+    /// Create a fleet meant for a client.
+    pub fn build_client(mut self, client_id: ClientId) -> FleetId {
         let fleet_id = client_id.to_fleet_id();
-        FLEET_QUEUE.push((fleet_id, self));
+
+        self.fleet_ai = Some(FleetAi::ClientControl);
+
+        FLEET_QUEUE.push((fleet_id, self.to_fleet()));
         fleet_id
+    }
+
+    fn to_fleet(self) -> Fleet {
+        Fleet {
+            faction_id: self
+                .faction_id
+                .unwrap_or_else(|| FACTION_ID_DISPENSER.next()),
+            name: self.name.unwrap_or_else(|| "todo!".to_string()), // TODO: Random name generation.
+            fleet_inner: FleetInner::new(self.fleet_composition),
+            in_system: None,
+            position: self.position,
+            velocity: self.velocity,
+            wish_position: self.wish_position,
+            orbit: None,
+            idle_counter: Default::default(),
+            fleet_ai: self.fleet_ai.unwrap_or_default(),
+        }
     }
 }
 

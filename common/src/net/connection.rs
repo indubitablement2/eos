@@ -59,6 +59,7 @@ impl Connection {
     /// Send buffered packets.
     ///
     /// Call this when you don't expect to send new packet for a while.
+    // TODO: This should just be an atomic bool.
     pub fn flush_tcp_stream(&self) -> bool {
         self.tcp_outbound_event_sender
             .blocking_send(TcpOutboundEvent::FlushEvent)

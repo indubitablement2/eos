@@ -4,9 +4,13 @@ use crate::metascape::*;
 ///
 /// Apply velocity and orbit.
 pub fn apply_fleets_movement(s: &mut Metascape) {
-    let bound_squared = (s.systems.bound + s.server_configs.metascape_configs.systems_bound_padding).powi(2);
+    let bound_squared =
+        (s.systems.bound + s.server_configs.metascape_configs.systems_bound_padding).powi(2);
     let timef = time().as_timef();
-    let break_acceleration_multiplier = s.server_configs.metascape_configs.break_acceleration_multiplier;
+    let break_acceleration_multiplier = s
+        .server_configs
+        .metascape_configs
+        .break_acceleration_multiplier;
     let absolute_max_speed = s.server_configs.metascape_configs.absolute_max_speed;
 
     let position = s.fleets.container.position.iter_mut();
@@ -48,9 +52,11 @@ pub fn apply_fleets_movement(s: &mut Metascape) {
             let time_to_break = velocity_len / (acceleration * break_acceleration_multiplier * 1.1);
 
             let wish_vel = relative_target - *velocity * time_to_break;
-            *velocity += wish_vel.clamp_length_max(acceleration * wish_position.movement_multiplier());
+            *velocity +=
+                wish_vel.clamp_length_max(acceleration * wish_position.movement_multiplier());
 
-            *velocity = velocity.clamp_length_max(velocity_len.max(max_speed).min(absolute_max_speed));
+            *velocity =
+                velocity.clamp_length_max(velocity_len.max(max_speed).min(absolute_max_speed));
 
             idle_counter.reset();
             *orbit = None;

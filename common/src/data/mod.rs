@@ -1,25 +1,26 @@
 use self::ship::*;
 use self::weapon::*;
+use crate::fleet::*;
+use crate::idx::*;
 
 pub mod ship;
 pub mod weapon;
 
 static mut DATA: *mut Data = std::ptr::null_mut();
 
-/// ## Panic: 
+/// ## Panic:
 /// Data should be initialised.
 pub fn data() -> &'static Data {
-    unsafe { 
-        DATA.as_ref().expect("DATA is not initialised")
-    }
+    unsafe { DATA.as_ref().expect("DATA is not initialised") }
 }
 
 pub struct Data {
+    pub starting_fleets: Vec<FleetComposition>,
     pub ships: Vec<ShipBase>,
     pub weapons: Vec<WeaponBase>,
 }
 impl Data {
-    /// Store this `Data` in a global static variable. 
+    /// Store this `Data` in a global static variable.
     /// Accessed through `common::data()`
     pub fn init(self) {
         unsafe {
@@ -56,6 +57,14 @@ impl Default for Data {
                     size: WeaponSize::Medium,
                 },
             ],
+            starting_fleets: vec![FleetComposition {
+                ships: vec![ShipInfos {
+                    ship_base: ShipBaseId::from_raw(0),
+                    hp: 1.0,
+                    state: 1.0,
+                    weapon_bases: vec![WeaponBaseId::from_raw(0)],
+                }],
+            }],
         }
     }
 }

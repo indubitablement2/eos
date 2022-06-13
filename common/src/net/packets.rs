@@ -1,4 +1,4 @@
-use crate::{idx::*, orbit::Orbit, fleet::FleetComposition};
+use crate::{fleet::FleetComposition, idx::*, orbit::Orbit};
 use bincode::Options;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
@@ -43,7 +43,7 @@ pub struct FleetsForget {
     pub to_forget: Vec<u16>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum DisconnectedReasonEnum {
     /// Server received an invalid packet.
     InvalidPacket,
@@ -51,6 +51,11 @@ pub enum DisconnectedReasonEnum {
     ConnectionFromOther,
     /// The server has encountered a fatal error through no fault of the client.
     ServerError,
+    
+    /// Client could not deserialize a server packet.
+    DeserializeError,
+    /// Client lost connection to the server.
+    LostConnection,
 }
 impl Display for DisconnectedReasonEnum {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -60,6 +65,14 @@ impl Display for DisconnectedReasonEnum {
             DisconnectedReasonEnum::ServerError => write!(
                 f,
                 "The server has encountered a fatal error through no fault of the client."
+            ),
+            DisconnectedReasonEnum::DeserializeError => write!(
+                f,
+                "Client could not deserialize a server packet."
+            ),
+            DisconnectedReasonEnum::LostConnection => write!(
+                f,
+                "Client lost connection to the server."
             ),
         }
     }
@@ -88,6 +101,9 @@ pub enum ServerPacket {
     /// Position of the client's fleet and detected fleets.
     FleetsPosition(FleetsPosition),
     FleetsForget(FleetsForget),
+    /// If the client does not have a fleet.
+    /// If the client receive `FleetsInfos`, it has a fleet.
+    NoFleet,
 }
 impl ServerPacket {
     pub fn serialize(&self) -> Vec<u8> {
@@ -107,6 +123,13 @@ pub enum ClientPacket {
     Invalid,
     /// Client send this when he wants his fleet to move to a position.
     MetascapeWishPos { wish_pos: Vec2, movement_multiplier: f32 },
+    /// Client ask to create a starting fleet to take control of it.
+    CreateStartingFleet {
+        starting_fleet_id: StartingFleetId,
+        /// Where the fleet should spawn.
+        location: PlanetId,
+    },
+    // TODO: Take control of fleet request.
     // BattlescapeInput {
     //     wish_input: PlayerInput,
     //     /// The last Battlescape commands the client acknowledge to have received.

@@ -16,8 +16,8 @@
 use server::Server;
 use std::{thread::sleep, time::Instant};
 
-mod metascape;
 mod connection_manager;
+mod metascape;
 mod server;
 mod terminal;
 

@@ -28,6 +28,7 @@ pub use faction::*;
 pub use fleet::*;
 pub use glam::Vec2;
 pub use id_dispenser::*;
+pub use rand::prelude::*;
 pub use serde::{Deserialize, Serialize};
 pub use server_configs::*;
 pub use soa_derive::*;
@@ -39,7 +40,7 @@ static FACTION_QUEUE: SegQueue<(FactionId, FactionBuilder)> = SegQueue::new();
 
 /// Dispense unique and never recycled `FleetId` for ai fleet.
 static AI_FLEET_ID_DISPENSER: AiFleetIdDispenser = AiFleetIdDispenser::new();
-static FLEET_QUEUE: SegQueue<(FleetId, FleetBuilder)> = SegQueue::new();
+static FLEET_QUEUE: SegQueue<(FleetId, Fleet)> = SegQueue::new();
 
 static mut _TIME: Time = Time {
     tick: 0,
@@ -52,6 +53,7 @@ pub fn time() -> Time {
 pub struct Metascape {
     pub server_configs: ServerConfigs,
     pub rt: Arc<tokio::runtime::Runtime>,
+    pub rng: rand_xoshiro::Xoshiro256StarStar,
 
     pub connections_manager: ConnectionsManager,
     pub pendings_connection: VecDeque<Connection>,
@@ -127,6 +129,7 @@ impl Metascape {
             factions,
             fleets_out_detection_acc: Default::default(),
             fleets_in_detection_acc: Default::default(),
+            rng: rand_xoshiro::Xoshiro256StarStar::from_entropy(),
         }
     }
 

@@ -47,9 +47,6 @@ rect_min_size = Vector2( 0, 80 )
 mouse_filter = 2
 custom_constants/separation = 18
 script = ExtResource( 2 )
-__meta__ = {
-"_edit_use_anchors_": false
-}
 
 [node name="TimeDilation" type="Control" parent="CanvasLayer/Debug"]
 margin_right = 200.0
