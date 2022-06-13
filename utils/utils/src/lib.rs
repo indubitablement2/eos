@@ -6,6 +6,7 @@ pub mod compressed_vec2;
 pub mod container;
 pub mod incrementable;
 pub mod packed_map;
+pub mod ring_buffer;
 
 pub use container::*;
 pub use incrementable::*;
