@@ -113,7 +113,7 @@ fn test_ring_buffer_float() {
     let mut r: RingBufferF<10> = RingBufferF::default();
 
     for i in 0..9 {
-        r.set_next(i as f32);
+        assert!(!r.set_next(i as f32));
     }
     assert!(r.set_next(9.0));
     assert!(!r.set_next(10.0));
@@ -134,7 +134,7 @@ fn test_ring_buffer_generic_int() {
     let mut r: RingBufferI<i32, 10> = RingBufferI::default();
 
     for i in 0..9 {
-        r.set_next(i);
+        assert!(!r.set_next(i));
     }
     assert!(r.set_next(9));
     assert!(!r.set_next(10));
