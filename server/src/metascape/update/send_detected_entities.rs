@@ -169,6 +169,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
 
         // Send detected fleets & client's fleet infos the client does not know.
         let force_update_client_fleet = know_fleets.force_update_client_fleet;
+        know_fleets.force_update_client_fleet = false;
         connection.send_packet_reliable(
             ServerPacket::FleetsInfos(FleetsInfos {
                 tick: time().tick,

@@ -266,6 +266,12 @@ impl Metascape {
         {
             for fleet_infos in fleets_infos.infos {
                 let small_id = fleet_infos.small_id;
+
+                // TODO: Remove this. Just for testing.
+                if self.fleets_state.contains_key(&small_id) {
+                    log::error!("Already have {}", small_id);
+                }
+
                 self.fleets_state
                     .entry(small_id)
                     .or_insert(FleetState::new(current_tick))
