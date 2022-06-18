@@ -51,7 +51,7 @@ pub enum DisconnectedReasonEnum {
     ConnectionFromOther,
     /// The server has encountered a fatal error through no fault of the client.
     ServerError,
-    
+
     /// Client could not deserialize a server packet.
     DeserializeError,
     /// Client lost connection to the server.
@@ -66,14 +66,8 @@ impl Display for DisconnectedReasonEnum {
                 f,
                 "The server has encountered a fatal error through no fault of the client."
             ),
-            DisconnectedReasonEnum::DeserializeError => write!(
-                f,
-                "Client could not deserialize a server packet."
-            ),
-            DisconnectedReasonEnum::LostConnection => write!(
-                f,
-                "Client lost connection to the server."
-            ),
+            DisconnectedReasonEnum::DeserializeError => write!(f, "Client could not deserialize a server packet."),
+            DisconnectedReasonEnum::LostConnection => write!(f, "Client lost connection to the server."),
         }
     }
 }

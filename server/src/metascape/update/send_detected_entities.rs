@@ -48,7 +48,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
 
                     connection.send_packet_reliable(
                         ServerPacket::FleetsForget(FleetsForget {
-                            tick: time().tick,
+                            tick: tick(),
                             to_forget,
                         })
                         .serialize(),
@@ -112,7 +112,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
             know_fleets.fleets.drain_filter(|(fleet_id, small_id)| {
                 if let Some(fleet_index) = fleets_index_map.get(fleet_id) {
                     // TODO: make sure this does not send duplicates.
-                    if fleets_inner[*fleet_index].last_change() + interval > time().tick {
+                    if fleets_inner[*fleet_index].last_change() + interval > tick() {
                         changed.push((*fleet_id, *small_id));
                     }
                     false
@@ -132,7 +132,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
             // Send fleets to forget to client.
             connection.send_packet_reliable(
                 ServerPacket::FleetsForget(FleetsForget {
-                    tick: time().tick,
+                    tick: tick(),
                     to_forget,
                 })
                 .serialize(),
@@ -153,7 +153,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
                 .iter()
                 .filter_map(|(fleet_id, small_id)| {
                     if let Some(fleet_index) = fleets_index_map.get(fleet_id) {
-                        if fleets_inner[*fleet_index].last_change() == time().tick {
+                        if fleets_inner[*fleet_index].last_change() == tick() {
                             Some((*fleet_id, *small_id))
                         } else {
                             None
@@ -172,12 +172,12 @@ pub fn send_detected_entities(s: &mut Metascape) {
         know_fleets.force_update_client_fleet = false;
         connection.send_packet_reliable(
             ServerPacket::FleetsInfos(FleetsInfos {
-                tick: time().tick,
+                tick: tick(),
                 infos: changed
                     .into_iter()
                     .chain(
                         once((client_fleet_id, 0)).filter(|_| {
-                            time().tick == client_last_change || force_update_client_fleet
+                            tick() == client_last_change || force_update_client_fleet
                         }),
                     )
                     .filter_map(|(fleet_id, small_id)| {
@@ -204,7 +204,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
         // Send detected fleets position.
         connection.send_packet_unreliable(
             ServerPacket::FleetsPosition(FleetsPosition {
-                tick: time().tick,
+                tick: tick(),
                 client_position: *client_fleet_position,
                 relative_fleets_position: know_fleets
                     .fleets

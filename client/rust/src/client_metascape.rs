@@ -52,11 +52,13 @@ impl FleetState {
         }
     }
 
-    pub fn get_interpolated_pos(&self, timef: f32) -> Vec2 {
+    pub fn get_interpolated_pos(&self, tick: u32, tick_frac: f32, orbit_time: f32) -> Vec2 {
         if let Some(orbit) = self.fleet_infos.orbit {
-            orbit.to_position(timef)
+            orbit.to_position(orbit_time)
         } else {
-            let interpolation = timef - 1.0 - self.previous_tick as f32;
+            let elapsed = (tick - self.previous_tick) as f32 + tick_frac;
+            let range = (self.current_tick - self.previous_tick) as f32;
+            let interpolation = elapsed / range;
             self.previous_position.lerp(self.current_position, interpolation)
         }
     }
@@ -260,7 +262,9 @@ impl Metascape {
     }
 
     pub fn render(&mut self, owner: &Node2D) {
-        let timef = self.time_manager.tick as f32 + self.time_manager.delta;
+        let orbit_time = self.time_manager.orbit_time();
+        let tick = self.time_manager.tick;
+        let tick_frac = self.time_manager.tick_frac;
 
         // Get the position of our fleet.
         let pos = self
@@ -271,10 +275,10 @@ impl Metascape {
 
         // Debug draw fleets.
         for (small_id, fleet_state) in self.fleets_state.iter_mut() {
-            let fade = ((timef - fleet_state.discovered_tick as f32) * 0.1).min(1.0);
+            let fade = ((tick - fleet_state.discovered_tick)  as f32 * 0.1).min(1.0);
 
             // Interpolate position.
-            let pos = fleet_state.get_interpolated_pos(timef);
+            let pos = fleet_state.get_interpolated_pos(tick, tick_frac, orbit_time);
 
             let r = (*small_id % 7) as f32 / 7.0;
             let g = (*small_id % 11) as f32 / 11.0;
@@ -347,7 +351,7 @@ impl Metascape {
                 owner.draw_circle(
                     planet
                         .relative_orbit
-                        .to_position(timef, system.position)
+                        .to_position(orbit_time, system.position)
                         .to_godot_scaled(),
                     (planet.radius * GAME_TO_GODOT_RATIO).into(),
                     Color {

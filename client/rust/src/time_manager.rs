@@ -1,4 +1,6 @@
+use common::timef::TimeF;
 use utils::ring_buffer::*;
+use common::TICK_DURATION;
 
 #[derive(Debug, Clone, Copy)]
 pub struct TimeManagerConfigs {
@@ -13,21 +15,18 @@ pub struct TimeManagerConfigs {
     pub max_buffer_size: u32,
     /// Target buffer will never go under this.
     pub min_target_buffer: u32,
-
-    /// Tick duration in real seconds.
-    pub tick_interval: f32,
 }
 impl Default for TimeManagerConfigs {
     fn default() -> Self {
-        Self { threshold: 0.15, period: 10.0, max_buffer_size: 10, min_target_buffer: 1, tick_interval: common::UPDATE_INTERVAL.as_secs_f32() }
+        Self { threshold: 0.15, period: 10.0, max_buffer_size: 10, min_target_buffer: 1 }
     }
 }
 
 pub struct TimeManager {
     pub max_tick: u32,
     pub tick: u32,
-    /// How far we are from current to next tick.
-    pub delta: f32,
+    /// Factionnal part of a tick.
+    pub tick_frac: f32,
 
     current_period: f32,
     num_empty: f32,
@@ -43,7 +42,7 @@ impl TimeManager {
         Self {
             max_tick: 0,
             tick: 0,
-            delta: 0.0,
+            tick_frac: 0.0,
             current_period: 0.0,
             num_empty: 0.0,
             time_dilation: 1.0,
@@ -58,19 +57,18 @@ impl TimeManager {
     }
 
     pub fn update(&mut self, real_delta: f32) {
-        let delta = real_delta * self.time_dilation;
-        self.delta += delta;
+        self.tick_frac += real_delta * self.time_dilation;
 
-        let advance = (self.delta / self.configs.tick_interval) as u32;
+        let advance = (self.tick_frac / TICK_DURATION.as_secs_f32()) as u32;
 
         let buffer_size = match self.max_tick.checked_sub(self.tick) {
             Some(buffer_size) => {
                 self.tick += advance;
-                self.delta -= advance as f32;
+                self.tick_frac -= advance as f32 * TICK_DURATION.as_secs_f32();
                 buffer_size
             },
             None => {
-                self.delta = self.configs.tick_interval * 0.99;
+                self.tick_frac = TICK_DURATION.as_secs_f32() * 0.99;
                 0
             },
         };
@@ -112,6 +110,10 @@ impl TimeManager {
         };
         self.recent_time_dilation.set_next(new_time_dilation);
         self.time_dilation = self.recent_time_dilation.buffer.iter().fold(0.0, |i, t| i+t) / self.recent_time_dilation.buffer.len() as f32;
+    }
+
+    pub fn orbit_time(&self) -> f32 {
+        TimeF{ tick: self.tick, tick_frac: self.tick_frac }.to_orbit_time()
     }
 
     fn new_period(&mut self) {

@@ -1,3 +1,5 @@
+use common::timef::TimeF;
+
 use crate::metascape::*;
 
 /// Handle the clients inbound packets.
@@ -8,7 +10,7 @@ pub fn handle_clients_inputs(s: &mut Metascape) {
     let rng = &mut s.rng;
     let systems = &s.systems;
     let data = data();
-    let timef = time().as_timef();
+    let orbit_time = TimeF::tick_to_orbit_time(tick());
 
     let fleets_wish_position = s.fleets.container.wish_position.as_mut_slice();
     let fleets_index_map = &s.fleets.index_map;
@@ -65,7 +67,7 @@ pub fn handle_clients_inputs(s: &mut Metascape) {
                         };
 
                         // We will spawn the fleet near the requested planet.
-                        let position = planet.relative_orbit.to_position(timef, system.position)
+                        let position = planet.relative_orbit.to_position(orbit_time, system.position)
                             + rng.gen::<Vec2>() * 6.0
                             - 3.0;
 

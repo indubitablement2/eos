@@ -22,7 +22,7 @@ impl DerefMut for FleetCompositionMut<'_> {
 impl Drop for FleetCompositionMut<'_> {
     fn drop(&mut self) {
         if self.changed {
-            self.inner.last_change = time().tick;
+            self.inner.last_change = tick();
             self.inner.fleet_stats = self.inner.fleet_composition.compute_stats();
         }
     }
@@ -42,7 +42,7 @@ impl FleetInner {
         Self {
             fleet_stats: fleet_composition.compute_stats(),
             fleet_composition,
-            last_change: time().tick,
+            last_change: tick(),
         }
     }
 

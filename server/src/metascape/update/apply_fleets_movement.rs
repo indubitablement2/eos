@@ -1,3 +1,5 @@
+use common::timef::TimeF;
+
 use crate::metascape::*;
 
 /// Update velocity based on wish position and acceleration.
@@ -6,7 +8,7 @@ use crate::metascape::*;
 pub fn apply_fleets_movement(s: &mut Metascape) {
     let bound_squared =
         (s.systems.bound + s.server_configs.metascape_configs.systems_bound_padding).powi(2);
-    let timef = time().as_timef();
+    let orbit_time = TimeF::tick_to_orbit_time(tick());
     let break_acceleration_multiplier = s
         .server_configs
         .metascape_configs
@@ -103,7 +105,7 @@ pub fn apply_fleets_movement(s: &mut Metascape) {
 
                     *orbit = Some(Orbit::from_relative_position(
                         relative_position,
-                        timef,
+                        orbit_time,
                         system.position,
                         distance,
                         orbit_speed,
@@ -118,7 +120,7 @@ pub fn apply_fleets_movement(s: &mut Metascape) {
         // Update position.
         if let Some(orbit) = orbit {
             // Apply orbit.
-            *position = orbit.to_position(timef);
+            *position = orbit.to_position(orbit_time);
         } else {
             // Fleets are pushed away from the world's bound.
             if position.length_squared() > bound_squared {

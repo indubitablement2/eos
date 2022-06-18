@@ -31,11 +31,11 @@ impl DebugInfos {
 
     pub fn update(&mut self, metascape: &Metascape) {
         // Tick buffer.
-        self.current_tick_buffer = metascape.current_tick_buffer;
-        self.target_tick_buffer = metascape.target_tick_buffer as i64;
+        // self.current_tick_buffer = metascape.current_tick_buffer;
+        // self.target_tick_buffer = metascape.target_tick_buffer as i64;
 
         // Debug time multiplier.
-        self.time_dilations[self.time_dilations_cursor] = metascape.time_dilation;
+        // self.time_dilations[self.time_dilations_cursor] = metascape.time_dilation;
         self.time_dilations_cursor = (self.time_dilations_cursor + 1) % self.time_dilations.len();
     }
 

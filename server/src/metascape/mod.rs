@@ -22,7 +22,6 @@ pub use common::net::packets::*;
 pub use common::orbit::*;
 pub use common::reputation::*;
 pub use common::system::*;
-pub use common::time::*;
 pub use common::*;
 pub use faction::*;
 pub use fleet::*;
@@ -42,12 +41,10 @@ static FACTION_QUEUE: SegQueue<(FactionId, FactionBuilder)> = SegQueue::new();
 static AI_FLEET_ID_DISPENSER: AiFleetIdDispenser = AiFleetIdDispenser::new();
 static FLEET_QUEUE: SegQueue<(FleetId, Fleet)> = SegQueue::new();
 
-static mut _TIME: Time = Time {
-    tick: 0,
-    total_tick: 0,
-};
-pub fn time() -> Time {
-    unsafe { _TIME }
+static mut _TICK: u32 = 0;
+static  mut _TOTAL_TICK: u64 = 0;
+pub fn tick() -> u32 {
+    unsafe { _TICK }
 }
 
 pub struct Metascape {
@@ -114,7 +111,7 @@ impl Metascape {
         unsafe {
             AI_FLEET_ID_DISPENSER.set(save.next_ai_fleet_id);
             FACTION_ID_DISPENSER.set(save.next_faction_id);
-            _TIME.total_tick = save.total_tick;
+            _TOTAL_TICK = save.total_tick;
         }
 
         Self {

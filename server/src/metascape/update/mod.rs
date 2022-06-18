@@ -22,8 +22,8 @@ use super::*;
 impl Metascape {
     pub fn update_internal(&mut self) {
         unsafe {
-            _TIME.tick += 1;
-            _TIME.total_tick += 1;
+            _TICK += 1;
+            _TOTAL_TICK += 1;
         }
 
         connect_clients(self);
