@@ -14,6 +14,7 @@ mod debug_infos;
 mod godot_logger;
 mod input_handler;
 mod util;
+mod time_manager;
 
 static LOGGER: godot_logger::GodotLogger = godot_logger::GodotLogger;
 

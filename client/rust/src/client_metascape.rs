@@ -2,6 +2,7 @@ use crate::configs::Configs;
 use crate::connection_manager::ConnectionManager;
 use crate::constants::*;
 use crate::input_handler::PlayerInputs;
+use crate::time_manager::*;
 use crate::util::*;
 use ::utils::acc::*;
 use ahash::AHashMap;
@@ -9,7 +10,6 @@ use common::fleet::*;
 use common::idx::*;
 use common::net::packets::*;
 use common::system::*;
-use common::UPDATE_INTERVAL;
 use gdnative::api::*;
 use gdnative::prelude::*;
 use glam::Vec2;
@@ -86,7 +86,6 @@ impl FleetState {
 }
 
 pub struct Metascape {
-    configs: Configs,
     systems: Systems,
     systems_acceleration: AccelerationStructure<Circle, SystemId>,
 
@@ -94,22 +93,7 @@ pub struct Metascape {
     pub connection_manager: ConnectionManager,
     send_timer: f32,
 
-    /// The current tick.
-    tick: u32,
-    /// How far are from current to next tick.
-    delta: f32,
-    /// How much time dilation we have applied last update.
-    pub time_dilation: f32,
-    /// Last frame target buffer.
-    pub target_tick_buffer: u32,
-    /// Last frame tick buffer.
-    pub current_tick_buffer: i64,
-    /// The last tick received from the server.
-    max_tick: u32,
-    /// The minimum tick delta of the 10 previous tick.
-    min_buffer_short: [i64; 10], // TODO: Add ring buffer to utils then use that instead.
-    /// The minimum of the 30 previous `min_buffer_short`.
-    min_buffer_long: [i64; 30],
+    pub time_manager: TimeManager,
 
     /// Client has `small_id` 0.
     fleets_state: AHashMap<u16, FleetState>,
@@ -119,6 +103,8 @@ pub struct Metascape {
 
     /// If we have a fleet.
     pub has_fleet: bool,
+
+    configs: Configs,
 }
 impl Metascape {
     pub fn new(connection_manager: ConnectionManager, configs: Configs) -> anyhow::Result<Self> {
@@ -130,28 +116,22 @@ impl Metascape {
         let systems = bincode::deserialize::<Systems>(&buffer.read())?;
 
         Ok(Self {
-            configs,
             systems_acceleration: systems.create_acceleration_structure(),
             systems,
             connection_manager,
             send_timer: 0.0,
-            tick: 0,
-            delta: 0.0,
-            time_dilation: 1.0,
-            max_tick: 0,
-            target_tick_buffer: 1,
-            min_buffer_short: [1; 10],
-            min_buffer_long: [1; 30],
-            current_tick_buffer: 1,
+            time_manager: TimeManager::new(configs.time_manager_configs.to_owned()),
+
             fleets_state: Default::default(),
             fleets_position_buffer: Default::default(),
             fleets_infos_buffer: Default::default(),
             fleets_forget_buffer: Default::default(),
             has_fleet: false,
+            configs,
         })
     }
 
-    /// Return true if we should quit.
+    /// Return the signals triggered from this update.
     pub fn update(&mut self, delta: f32, player_inputs: &PlayerInputs) -> Vec<MetascapeSignal> {
         let mut signals = Vec::new();
 
@@ -180,7 +160,7 @@ impl Metascape {
                         }
                     }
                     ServerPacket::FleetsPosition(fleet_position) => {
-                        self.max_tick = self.max_tick.max(fleet_position.tick);
+                        self.time_manager.maybe_max_tick(fleet_position.tick);
                         self.fleets_position_buffer.push(fleet_position);
                     }
                     ServerPacket::FleetsForget(fleets_forget) => {
@@ -202,50 +182,8 @@ impl Metascape {
             }
         }
 
-        // Hard catch up if we are too out of sync in tick.
-        let tick_delta = self.max_tick as i64 - self.tick as i64;
-        if tick_delta > 10 {
-            let previous_tick = self.tick;
-            self.tick = self.max_tick.saturating_sub(5);
-            self.delta = 0.0;
-            debug!(
-                "Client metascape state is behind by {}. Catching up from tick {} to {}...",
-                tick_delta, previous_tick, self.tick
-            );
-        } else if tick_delta < -1 {
-            let previous_tick = self.tick;
-            self.tick = self.max_tick;
-            self.delta = 0.0;
-            debug!(
-                "Client metascape state is forward by {}. Catching up from tick {} to {}...",
-                tick_delta, previous_tick, self.tick
-            );
-        }
-
-        // Compute target tick buffer. (how large we want the tick buffer)
-        self.current_tick_buffer = self.max_tick as i64 - self.tick as i64;
-        let i = self.tick as usize % self.min_buffer_short.len();
-        self.min_buffer_short[i] = self.min_buffer_short[i].min(self.current_tick_buffer);
-        let short_reduce = *self.min_buffer_short.iter().reduce(|acc, x| acc.min(x)).unwrap();
-        let j = (self.tick as usize / self.min_buffer_short.len()) % self.min_buffer_long.len();
-        self.min_buffer_long[j] = short_reduce;
-        let long_reduce = *self.min_buffer_long.iter().reduce(|acc, x| acc.min(x)).unwrap();
-        self.target_tick_buffer = long_reduce.min(0).abs() as u32 + 1; // The negative part + 1.
-
-        let delta_target_tick_buffer = self.current_tick_buffer - self.target_tick_buffer as i64;
-
-        // Speedup/slowdown time to get to target tick buffer.
-        // For every tick above/below target tick we speedup/slowdown time by 2% (additif).
-        self.time_dilation = (delta_target_tick_buffer as f32).mul_add(0.02, 1.0);
-        self.delta += (delta / UPDATE_INTERVAL.as_secs_f32()) * self.time_dilation;
-
-        // Increment tick.
-        while self.delta >= 1.0 {
-            self.tick += 1;
-            self.delta -= 1.0;
-        }
-
-        let current_tick = self.tick;
+        self.time_manager.update(delta);
+        let current_tick = self.time_manager.tick;
 
         // Remove obselete fleet states.
         for fleets_forget in self
@@ -322,7 +260,7 @@ impl Metascape {
     }
 
     pub fn render(&mut self, owner: &Node2D) {
-        let timef = self.tick as f32 + self.delta;
+        let timef = self.time_manager.tick as f32 + self.time_manager.delta;
 
         // Get the position of our fleet.
         let pos = self
@@ -333,7 +271,7 @@ impl Metascape {
 
         // Debug draw fleets.
         for (small_id, fleet_state) in self.fleets_state.iter_mut() {
-            let fade = ((self.tick as f32 - fleet_state.discovered_tick as f32) * 0.1).min(1.0);
+            let fade = ((timef - fleet_state.discovered_tick as f32) * 0.1).min(1.0);
 
             // Interpolate position.
             let pos = fleet_state.get_interpolated_pos(timef);

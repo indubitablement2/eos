@@ -2,6 +2,7 @@ use num_traits::{NumAssignOps, PrimInt};
 
 pub trait RingBufferTrait {
     type Item;
+    fn new(init: Self::Item) -> Self;
     /// Set the next value in the buffer
     /// and return if we are back at the beginning.
     fn set_next(&mut self, value: Self::Item) -> bool;
@@ -25,6 +26,10 @@ pub struct RingBufferF<const N: usize> {
 }
 impl<const N: usize> RingBufferTrait for RingBufferF<N> {
     type Item = f32;
+
+    fn new(init: Self::Item) -> Self {
+        Self { buffer: [init; N], cursor: 0 }
+    }
 
     fn set_next(&mut self, value: Self::Item) -> bool {
         self.buffer[self.cursor] = value;
@@ -72,6 +77,10 @@ where
     T: Default + PrimInt + NumAssignOps,
 {
     type Item = T;
+
+    fn new(init: Self::Item) -> Self {
+        Self { buffer: [init; N], cursor: 0 }
+    }
 
     fn set_next(&mut self, value: Self::Item) -> bool {
         self.buffer[self.cursor] = value;
