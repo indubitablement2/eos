@@ -61,8 +61,8 @@ pub struct Terminal {
 impl Terminal {
     /// Only draw once for every DRAW_INTERVAL update.
     const DRAW_INTERVAL: i32 = 2;
-    /// Stop drawing if we did get any input for that many update.
-    const IDLE_DELAY: u32 = 600;
+    /// Stop drawing if we did not get any input for that many update.
+    const IDLE_DELAY: u32 = 60 * 10 * 15;
 
     pub fn new() -> io::Result<Self> {
         let stdout = io::stdout().into_raw_mode()?;
