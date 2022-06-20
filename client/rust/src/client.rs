@@ -178,7 +178,7 @@ impl Client {
         if let Some(metascape) = &self.metascape {
             debug_infos(metascape)
         } else {
-            "No metascape".to_string()
+            "Not connected...".to_string()
         }
     }
 }
@@ -187,10 +187,10 @@ pub fn debug_infos(metascape: &Metascape) -> String {
     format!(
         "TIME:
         Tick: {}
-        Buffer time remaining: {}
-        Min buffer time remaining recently: {}
-        Time dilation: {}
-        Orbit time: {:.2}",
+        Buffer remaining: {:.5}
+        Min buffer remaining recently: {:.5}
+        Time dilation: {:.4}
+        Orbit time: {:.1}",
         metascape.time_manager.tick,
         metascape.time_manager.buffer_time_remaining(),
         metascape.time_manager.min_over_period,

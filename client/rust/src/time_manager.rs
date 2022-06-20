@@ -4,28 +4,31 @@ use common::TICK_DURATION;
 #[derive(Debug, Clone, Copy)]
 pub struct TimeManagerConfigs {
     /// Amount of real time in each period.
-    /// If we have a full period without any empty buffer, we will try to decrease the target buffer size.
+    /// Time dilation is updated by using the performance from the previous period.
     pub period: f32,
-    /// We will hard catch up if the buffer size is above this.
-    pub max_buffer_size: u32,
-    /// Amount of buffer left we should try to not go under.
-    pub wish_min_buffer: f32,
-    /// Multiply the final time change amount when adding time.
-    pub add_time_change_strenght: f32,
-    /// Multiply the final time change amount when removing time.
-    pub sub_time_change_strenght: f32,
-    /// How much time (forward/backward) change can occur over one period.
+    /// How much total time change (forward/backward) can occur over one period.
     pub max_time_change: f32,
+    /// We will hard catch up if the buffered time is above this.
+    pub max_buffer: f32,
+    /// We will hard catch up if the buffered time is under this.
+    pub min_buffer: f32,
+    /// Amount of buffer we try reach by changing time dilation.
+    pub wish_buffer: f32,
+    /// Multiply time dilation when speeding up time.
+    pub increase_change_strenght: f32,
+    /// Multiply time dilation when slowing down time.
+    pub decrease_change_strenght: f32,
 }
 impl Default for TimeManagerConfigs {
     fn default() -> Self {
         Self {
-            period: 10.0,
-            max_time_change: 0.05,
-            max_buffer_size: 10,
-            wish_min_buffer: 0.01,
-            add_time_change_strenght: 0.1,
-            sub_time_change_strenght: 1.0,
+            period: 4.0,
+            max_time_change: 0.08,
+            max_buffer: 1.0,
+            min_buffer: -0.1,
+            wish_buffer: 0.05,
+            increase_change_strenght: 0.1,
+            decrease_change_strenght: 1.0,
         }
     }
 }
@@ -77,38 +80,39 @@ impl TimeManager {
         self.tick += advance;
         self.tick_frac -= advance as f32 * TICK_DURATION.as_secs_f32();
 
-        let buffer_size = self.max_tick - self.tick;
+        let remaining = self.buffer_time_remaining();
+        self.min_over_period = self.min_over_period.min(remaining);
 
         // Hard catch up if we are too far behind.
-        if buffer_size > self.configs.max_buffer_size {
+        if remaining > self.configs.max_buffer {
+            let buffer_size = self.max_tick - self.tick;
             self.tick += buffer_size - 1;
             self.tick_frac = 0.0;
             self.new_period();
             log::info!(
-                "Tick buffer size ({}) over limit of {}. Catching up...",
-                buffer_size,
-                self.configs.max_buffer_size
+                "Buffer time ({:.2}) over limit of {}. Catching up...",
+                buffer_size as f32 * TICK_DURATION.as_secs_f32(),
+                self.configs.max_buffer
             );
             return;
+        } else if remaining < self.configs.min_buffer {
+            self.tick_frac = 0.0;
         }
 
-        let remaining = self.buffer_time_remaining();
-        self.min_over_period = self.min_over_period.min(remaining);
-
         // Stop accelerating time if we have no buffer remaining.
-        if self.time_dilation > 1.0 && remaining < self.configs.wish_min_buffer {
+        if self.time_dilation > 1.0 && remaining < self.configs.wish_buffer {
             self.time_dilation = 1.0;
         }
 
         // Compute new time dilation.
         if self.current_period >= self.configs.period {
-            let mut time_change = (self.min_over_period - self.configs.wish_min_buffer)
+            let mut time_change = (self.min_over_period - self.configs.wish_buffer)
                 .clamp(-self.configs.max_time_change, self.configs.max_time_change);
 
             if time_change > 0.0 {
-                time_change *= self.configs.add_time_change_strenght;
+                time_change *= self.configs.increase_change_strenght;
             } else {
-                time_change *= self.configs.sub_time_change_strenght;
+                time_change *= self.configs.decrease_change_strenght;
             }
 
             self.time_dilation = (time_change + self.configs.period) / self.configs.period;
