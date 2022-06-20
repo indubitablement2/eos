@@ -189,16 +189,12 @@ pub fn debug_infos(metascape: &Metascape) -> String {
         Tick: {}
         Buffer time remaining: {}
         Min buffer time remaining recently: {}
-        Time change over next {} seconds: {}
         Time dilation: {}
-        Orbit time: {}",
+        Orbit time: {:.2}",
         metascape.time_manager.tick,
         metascape.time_manager.buffer_time_remaining(),
         metascape.time_manager.min_over_period,
-        metascape.time_manager.configs.period,
-        metascape.time_manager.time_change_period,
-        (metascape.time_manager.time_change_period + metascape.time_manager.configs.period)
-            / metascape.time_manager.configs.period,
+        metascape.time_manager.time_dilation,
         metascape.time_manager.orbit_time(),
     )
 }

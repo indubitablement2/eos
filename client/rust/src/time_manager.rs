@@ -21,7 +21,7 @@ impl Default for TimeManagerConfigs {
     fn default() -> Self {
         Self {
             period: 10.0,
-            max_time_change: 0.01,
+            max_time_change: 0.05,
             max_buffer_size: 10,
             wish_min_buffer: 0.01,
             add_time_change_strenght: 0.1,
@@ -30,17 +30,13 @@ impl Default for TimeManagerConfigs {
     }
 }
 
-/// - `tick`: The last consumed tick.
-/// - `tick_frac`: Fraction of a tick. Counted from tick - 1.
-///
-/// ## Example:
-/// `total_time = (tick - 1) * tick_duration + tick_frac`
 pub struct TimeManager {
     pub max_tick: u32,
     /// The current tick for the simulation state.
     ///
     /// The tick we are interpolating toward (see `tick_frac`) for rendering.
     pub tick: u32,
+    /// Fraction of a tick in seconds. 
     /// Used for rendering interpolation.
     /// Counted from tick - 1.
     /// This could be more than a tick if we are tick starved.
@@ -48,8 +44,7 @@ pub struct TimeManager {
 
     pub current_period: f32,
     pub min_over_period: f32,
-    /// Amount of time change spread over this period.
-    pub time_change_period: f32,
+    pub time_dilation: f32,
 
     pub configs: TimeManagerConfigs,
 }
@@ -62,7 +57,7 @@ impl TimeManager {
             current_period: 0.0,
             configs,
             min_over_period: f32::MAX,
-            time_change_period: 0.0,
+            time_dilation: 1.0,
         }
     }
 
@@ -73,9 +68,7 @@ impl TimeManager {
     pub fn update(&mut self, real_delta: f32) {
         self.current_period += real_delta;
 
-        self.tick_frac += self
-            .time_change_period
-            .mul_add(real_delta / self.configs.period, real_delta);
+        self.tick_frac += real_delta * self.time_dilation;
 
         let wish_advance = (self.tick_frac / TICK_DURATION.as_secs_f32()) as u32;
         let max_advance = self.max_tick - self.tick;
@@ -103,21 +96,23 @@ impl TimeManager {
         self.min_over_period = self.min_over_period.min(remaining);
 
         // Stop accelerating time if we have no buffer remaining.
-        if self.time_change_period > 0.0 && remaining < self.configs.wish_min_buffer {
-            self.time_change_period = 0.0;
+        if self.time_dilation > 1.0 && remaining < self.configs.wish_min_buffer {
+            self.time_dilation = 1.0;
         }
 
+        // Compute new time dilation.
         if self.current_period >= self.configs.period {
-            self.time_change_period = (self.min_over_period - self.configs.wish_min_buffer)
+            let mut time_change = (self.min_over_period - self.configs.wish_min_buffer)
                 .clamp(-self.configs.max_time_change, self.configs.max_time_change);
 
-            if self.time_change_period > 0.0 {
-                self.time_change_period *= self.configs.add_time_change_strenght;
+            if time_change > 0.0 {
+                time_change *= self.configs.add_time_change_strenght;
             } else {
-                self.time_change_period *= self.configs.sub_time_change_strenght;
+                time_change *= self.configs.sub_time_change_strenght;
             }
-            // } else if self.max_over_period
-            // self.time_change_period = self.max_over_period.clamp(-self.configs.max_time_change, self.configs.max_time_change);
+
+            self.time_dilation = (time_change + self.configs.period) / self.configs.period;
+
             self.new_period();
         }
     }

@@ -5,7 +5,7 @@ use crate::TICK_DURATION;
 pub struct TimeF {
     /// Number of whole tick.
     pub tick: u32,
-    /// Fraction of a tick.
+    /// Fraction of a tick in seconds.
     ///
     /// Range from 0 to `TICK_DURATION` as seconds exclusive.
     pub tick_frac: f32,
