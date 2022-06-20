@@ -1,7 +1,6 @@
 use crate::client_metascape::Metascape;
 use crate::configs::Configs;
 use crate::connection_manager::ConnectionAttempt;
-use crate::debug_infos::DebugInfos;
 use crate::input_handler::PlayerInputs;
 use common::idx::*;
 use gdnative::api::*;
@@ -15,7 +14,6 @@ pub struct Client {
     configs: Configs,
     metascape: Option<Metascape>,
     connection_attempt: Option<ConnectionAttempt>,
-    debug_infos: DebugInfos,
 }
 
 #[methods]
@@ -38,14 +36,11 @@ impl Client {
 
     /// The "constructor" of the class.
     fn new(_owner: &Node2D) -> Self {
-        let debug_infos = DebugInfos::new();
-
         Client {
             player_inputs: PlayerInputs::default(),
             configs: Configs::default(),
             metascape: None,
             connection_attempt: None,
-            debug_infos,
         }
     }
 
@@ -105,8 +100,6 @@ impl Client {
         self.player_inputs.update(owner);
 
         if let Some(metascape) = &mut self.metascape {
-            self.debug_infos.update(metascape);
-
             for metascape_signal in metascape.update(delta, &self.player_inputs) {
                 match metascape_signal {
                     crate::client_metascape::MetascapeSignal::Disconnected { reason } => {
@@ -181,12 +174,31 @@ impl Client {
     }
 
     #[godot]
-    unsafe fn _on_draw_time_dilation(&mut self, control: Ref<Control>) {
-        self.debug_infos.draw_time_dilation(control);
+    unsafe fn get_debug_infos_string(&mut self) -> String {
+        if let Some(metascape) = &self.metascape {
+            debug_infos(metascape)
+        } else {
+            "No metascape".to_string()
+        }
     }
+}
 
-    #[godot]
-    unsafe fn _on_draw_tick_buffer(&mut self, control: Ref<Control>) {
-        self.debug_infos.draw_tick_buffer(control);
-    }
+pub fn debug_infos(metascape: &Metascape) -> String {
+    format!(
+        "TIME:
+        Tick: {}
+        Buffer time remaining: {}
+        Min buffer time remaining recently: {}
+        Time change over next {} seconds: {}
+        Time dilation: {}
+        Orbit time: {}",
+        metascape.time_manager.tick,
+        metascape.time_manager.buffer_time_remaining(),
+        metascape.time_manager.min_over_period,
+        metascape.time_manager.configs.period,
+        metascape.time_manager.time_change_period,
+        (metascape.time_manager.time_change_period + metascape.time_manager.configs.period)
+            / metascape.time_manager.configs.period,
+        metascape.time_manager.orbit_time(),
+    )
 }

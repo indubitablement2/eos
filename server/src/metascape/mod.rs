@@ -42,7 +42,7 @@ static AI_FLEET_ID_DISPENSER: AiFleetIdDispenser = AiFleetIdDispenser::new();
 static FLEET_QUEUE: SegQueue<(FleetId, Fleet)> = SegQueue::new();
 
 static mut _TICK: u32 = 0;
-static  mut _TOTAL_TICK: u64 = 0;
+static mut _TOTAL_TICK: u64 = 0;
 pub fn tick() -> u32 {
     unsafe { _TICK }
 }

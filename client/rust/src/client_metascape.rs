@@ -52,13 +52,11 @@ impl FleetState {
         }
     }
 
-    pub fn get_interpolated_pos(&self, tick: u32, tick_frac: f32, orbit_time: f32) -> Vec2 {
+    pub fn get_interpolated_pos(&self, time_manager: &TimeManager, orbit_time: f32) -> Vec2 {
         if let Some(orbit) = self.fleet_infos.orbit {
             orbit.to_position(orbit_time)
         } else {
-            let elapsed = (tick - self.previous_tick) as f32 + tick_frac;
-            let range = (self.current_tick - self.previous_tick) as f32;
-            let interpolation = elapsed / range;
+            let interpolation = time_manager.compute_interpolation(self.previous_tick, self.current_tick);
             self.previous_position.lerp(self.current_position, interpolation)
         }
     }
@@ -263,8 +261,8 @@ impl Metascape {
 
     pub fn render(&mut self, owner: &Node2D) {
         let orbit_time = self.time_manager.orbit_time();
+        let time_manager = &self.time_manager;
         let tick = self.time_manager.tick;
-        let tick_frac = self.time_manager.tick_frac;
 
         // Get the position of our fleet.
         let pos = self
@@ -275,10 +273,12 @@ impl Metascape {
 
         // Debug draw fleets.
         for (small_id, fleet_state) in self.fleets_state.iter_mut() {
-            let fade = ((tick - fleet_state.discovered_tick)  as f32 * 0.1).min(1.0);
+            let fade = time_manager
+                .compute_interpolation(fleet_state.discovered_tick, fleet_state.discovered_tick + 20)
+                .min(1.0);
 
             // Interpolate position.
-            let pos = fleet_state.get_interpolated_pos(tick, tick_frac, orbit_time);
+            let pos = fleet_state.get_interpolated_pos(time_manager, orbit_time);
 
             let r = (*small_id % 7) as f32 / 7.0;
             let g = (*small_id % 11) as f32 / 11.0;

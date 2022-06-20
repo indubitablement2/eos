@@ -67,7 +67,9 @@ pub fn handle_clients_inputs(s: &mut Metascape) {
                         };
 
                         // We will spawn the fleet near the requested planet.
-                        let position = planet.relative_orbit.to_position(orbit_time, system.position)
+                        let position = planet
+                            .relative_orbit
+                            .to_position(orbit_time, system.position)
                             + rng.gen::<Vec2>() * 6.0
                             - 3.0;
 

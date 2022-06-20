@@ -10,11 +10,10 @@ mod client_metascape;
 pub mod configs;
 mod connection_manager;
 mod constants;
-mod debug_infos;
 mod godot_logger;
 mod input_handler;
-mod util;
 mod time_manager;
+mod util;
 
 static LOGGER: godot_logger::GodotLogger = godot_logger::GodotLogger;
 

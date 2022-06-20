@@ -22,7 +22,7 @@ pub struct RingBufferFold<T> {
 #[derive(Debug)]
 pub struct RingBufferF<const N: usize> {
     pub buffer: [f32; N],
-    cursor: usize,
+    pub cursor: usize,
 }
 impl<const N: usize> RingBufferTrait for RingBufferF<N> {
     type Item = f32;

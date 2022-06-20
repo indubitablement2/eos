@@ -176,9 +176,8 @@ pub fn send_detected_entities(s: &mut Metascape) {
                 infos: changed
                     .into_iter()
                     .chain(
-                        once((client_fleet_id, 0)).filter(|_| {
-                            tick() == client_last_change || force_update_client_fleet
-                        }),
+                        once((client_fleet_id, 0))
+                            .filter(|_| tick() == client_last_change || force_update_client_fleet),
                     )
                     .filter_map(|(fleet_id, small_id)| {
                         if let Some(&fleet_index) = fleets_index_map.get(&fleet_id) {
