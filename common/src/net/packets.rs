@@ -18,10 +18,8 @@ pub struct FleetsPosition {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FleetInfos {
     pub fleet_id: FleetId,
-    /// Client's fleet is always 0.
     pub small_id: u16,
     pub name: String,
-    /// If this entity follow an orbit, its state will not be sent.
     pub orbit: Option<Orbit>,
     pub fleet_composition: FleetComposition,
 }
@@ -32,8 +30,14 @@ pub struct FleetsInfos {
     /// Any state before this tick can be discarded and apply the orbit instead.
     /// Any state after this tick will remove the orbit.
     pub tick: u32,
-    /// May include the client's fleet.
-    pub infos: Vec<FleetInfos>,
+    /// New fleets along with its full infos.
+    pub new_fleets: Vec<FleetInfos>,
+    /// `FleetComposition`s that changed.
+    pub compositions_changed: Vec<(u16, FleetComposition)>,
+    /// `Orbit`s that changed. 
+    /// When receiving a fleet position with higher tick than this, 
+    /// the orbit should be removed. No "remove orbit" message will be sent.
+    pub orbits_changed: Vec<(u16, Orbit)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

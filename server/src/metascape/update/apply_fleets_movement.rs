@@ -103,22 +103,25 @@ pub fn apply_fleets_movement(s: &mut Metascape) {
                         }
                     });
 
-                    *orbit = Some(Orbit::from_relative_position(
-                        relative_position,
-                        orbit_time,
-                        system.position,
-                        distance,
-                        orbit_speed,
+                    *orbit = Some((
+                        Orbit::from_relative_position(
+                            relative_position,
+                            orbit_time,
+                            system.position,
+                            distance,
+                            orbit_speed,
+                        ),
+                        tick(),
                     ));
                 } else {
                     // Take a stationary orbit.
-                    *orbit = Some(Orbit::stationary(*position));
+                    *orbit = Some((Orbit::stationary(*position), tick()));
                 }
             }
         }
 
         // Update position.
-        if let Some(orbit) = orbit {
+        if let Some((orbit, _)) = orbit {
             // Apply orbit.
             *position = orbit.to_position(orbit_time);
         } else {

@@ -37,7 +37,6 @@ impl Client {
             .signal("ControlChanged")
             .with_param("index", VariantType::I64)
             .done();
-
     }
 
     /// The "constructor" of the class.
@@ -170,12 +169,10 @@ impl Client {
                 planets_offset,
             };
 
-            metascape
-                .connection_manager
-                .send(&ClientPacket::CreateStartingFleet {
-                    starting_fleet_id,
-                    location,
-                });
+            metascape.connection_manager.send(&ClientPacket::CreateStartingFleet {
+                starting_fleet_id,
+                location,
+            });
 
             log::debug!("Sent spawn request for {:?}.", starting_fleet_id);
         } else {
@@ -192,7 +189,9 @@ impl Client {
                 None
             };
 
-            metascape.connection_manager.send(&ClientPacket::ControlOwnedFleet { fleet_id });
+            metascape
+                .connection_manager
+                .send(&ClientPacket::ControlOwnedFleet { fleet_id });
 
             log::debug!("Sent control request for {:?}.", fleet_id);
         } else {

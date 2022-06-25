@@ -38,8 +38,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
     {
         let client_id = connection.client_id();
 
-        let client_fleet_id = if let Some(client_fleet_id) = control 
-        {
+        let client_fleet_id = if let Some(client_fleet_id) = control {
             *client_fleet_id
         } else {
             // Client has no fleet thus can not detect nearby entities.
@@ -66,22 +65,29 @@ pub fn send_detected_entities(s: &mut Metascape) {
             continue;
         };
 
-        let client_fleet_index = if let Some(client_fleet_index) = fleets_index_map.get(&client_fleet_id) {
-            *client_fleet_index
-        } else {
-            log::error!("{:?} is controlling {:?}, but it can not be found.", client_id, client_fleet_id);
-            continue;
-        };
+        let client_fleet_index =
+            if let Some(client_fleet_index) = fleets_index_map.get(&client_fleet_id) {
+                *client_fleet_index
+            } else {
+                log::error!(
+                    "{:?} is controlling {:?}, but it can not be found.",
+                    client_id,
+                    client_fleet_id
+                );
+                continue;
+            };
         let client_fleet_position = &fleets_position[client_fleet_index];
         let client_fleet_inner = &fleets_inner[client_fleet_index];
 
-        // Get the fleets that changed.
-        let changed = if client_id.0 % interval == step {
+        let mut to_forget = Vec::new();
+        let mut new_fleets = Vec::new();
+
+        // Detect things around the client controlled fleet.
+        if client_id.0 % interval == step {
             // Update what this client has detected.
 
             let mut rest = AHashMap::new();
             rest.extend(know_fleets.fleets.drain(..));
-            let mut no_know = Vec::new();
 
             // Detect nearby fleets.
             let acc = if let Some(system_id) = fleets_in_system[client_fleet_index] {
@@ -101,7 +107,17 @@ pub fn send_detected_entities(s: &mut Metascape) {
                         know_fleets.fleets.push((*other, small_id));
                     } else {
                         // We detected a new fleet.
-                        no_know.push(*other);
+                        if let Some(&fleet_index) = fleets_index_map.get(other) {
+                            new_fleets.push(FleetInfos {
+                                fleet_id: *other,
+                                small_id: know_fleets.get_new_small_id(),
+                                name: fleets_name[fleet_index].to_owned(),
+                                orbit: fleets_orbit[fleet_index].map(|(orbit, _)| orbit).to_owned(),
+                                fleet_composition: fleets_inner[fleet_index]
+                                    .fleet_composition()
+                                    .to_owned(),
+                            });
+                        }
                     }
 
                     false
@@ -109,98 +125,72 @@ pub fn send_detected_entities(s: &mut Metascape) {
             };
 
             // rest = fleets we previously had detected and do not anymore.
-            // no_know = fleets we just gained detection and 100% do not know.
-            // know_fleets.fleets = fleets we already knew and are still detected.
+            // new_fleets = fleets we just gained detection and 100% do not know.
 
-            let mut to_forget = Vec::from_iter(rest.values().copied());
+            to_forget.extend(rest.values().copied());
+        }
 
-            let mut changed = Vec::with_capacity(no_know.len() + know_fleets.fleets.len());
+        let mut compositions_changed = Vec::new();
+        let mut orbits_changed = Vec::new();
 
-            // Check if already known fleets have changed.
-            know_fleets.fleets.drain_filter(|(fleet_id, small_id)| {
-                if let Some(fleet_index) = fleets_index_map.get(fleet_id) {
-                    // TODO: make sure this does not send duplicates.
-                    if fleets_inner[*fleet_index].last_change() + interval > tick() {
-                        changed.push((*fleet_id, *small_id));
-                    }
-                    false
-                } else {
-                    // Fleet does not exist anymore.
-                    to_forget.push(*small_id);
-                    true
+        // Check if already known fleets have changed.
+        know_fleets.fleets.drain_filter(|(fleet_id, small_id)| {
+            if let Some(&fleet_index) = fleets_index_map.get(fleet_id) {
+                // Check for fleet composition change.
+                let fleet_inner = &fleets_inner[fleet_index];
+                if fleet_inner.last_change() == tick() {
+                    compositions_changed
+                        .push((*small_id, fleet_inner.fleet_composition().to_owned()));
                 }
-            });
 
-            // Recycle small_id.
-            know_fleets.reuse_small_id();
-            to_forget
-                .iter()
-                .for_each(|&small_id| know_fleets.recycle_small_id(small_id));
-
-            // Send fleets to forget to client.
-            if !to_forget.is_empty() {
-                connection.send_packet_reliable(
-                    ServerPacket::FleetsForget(FleetsForget {
-                        tick: tick(),
-                        to_forget,
-                    })
-                    .serialize(),
-                );
-            }
-
-            // Assign a small_id to newly detected fleets.
-            for fleet_id in no_know {
-                let small_id = know_fleets.get_new_small_id();
-                know_fleets.fleets.push((fleet_id, small_id));
-                changed.push((fleet_id, small_id));
-            }
-
-            changed
-        } else {
-            // Check if known fleets have changed.
-            know_fleets
-                .fleets
-                .iter()
-                .filter_map(|(fleet_id, small_id)| {
-                    if let Some(fleet_index) = fleets_index_map.get(fleet_id) {
-                        if fleets_inner[*fleet_index].last_change() == tick() {
-                            Some((*fleet_id, *small_id))
-                        } else {
-                            None
-                        }
-                    } else {
-                        // Fleet does not exist anymore.
-                        // It will be handled on the next full update (see above).
-                        None
+                // Check for orbit change.
+                if let Some((orbit, changed_tick)) = fleets_orbit[fleet_index] {
+                    if changed_tick == tick() {
+                        orbits_changed.push((*small_id, orbit));
                     }
-                })
-                .collect()
-        };
-
-        let infos: Vec<FleetInfos> = changed
-            .into_iter()
-            .filter_map(|(fleet_id, small_id)| {
-                if let Some(&fleet_index) = fleets_index_map.get(&fleet_id) {
-                    Some(FleetInfos {
-                        fleet_id,
-                        name: fleets_name[fleet_index].clone(),
-                        orbit: fleets_orbit[fleet_index].clone(),
-                        fleet_composition: fleets_inner[fleet_index].fleet_composition().clone(),
-                        small_id,
-                    })
-                } else {
-                    // Fleet does not exist anymore.
-                    None
                 }
-            })
-            .collect();
+
+                false
+            } else {
+                // Fleet does not exist anymore.
+                to_forget.push(*small_id);
+                true
+            }
+        });
+
+        // Add new fleets to known fleets.
+        know_fleets.fleets.extend(
+            new_fleets
+                .iter()
+                .map(|fleet_info| (fleet_info.fleet_id, fleet_info.small_id)),
+        );
 
         // Send detected fleets infos the client does not know.
-        if !infos.is_empty() {
+        if !new_fleets.is_empty() || !compositions_changed.is_empty() || !orbits_changed.is_empty()
+        {
             connection.send_packet_reliable(
                 ServerPacket::FleetsInfos(FleetsInfos {
                     tick: tick(),
-                    infos,
+                    new_fleets,
+                    compositions_changed,
+                    orbits_changed,
+                })
+                .serialize(),
+            );
+        }
+
+        // Recycle small_id.
+        know_fleets.reuse_small_id();
+        to_forget
+            .iter()
+            .for_each(|&small_id| know_fleets.recycle_small_id(small_id));
+
+        // Send fleets to forget to client.
+        if !to_forget.is_empty() {
+            connection.send_packet_reliable(
+                ServerPacket::FleetsForget(FleetsForget {
+                    tick: tick(),
+                    to_forget,
                 })
                 .serialize(),
             );
@@ -218,7 +208,10 @@ pub fn send_detected_entities(s: &mut Metascape) {
                     .filter_map(|(fleet_id, small_id)| {
                         if let Some(&fleet_index) = fleets_index_map.get(fleet_id) {
                             if fleets_orbit[fleet_index].is_none() {
-                                Some((*small_id, CVec2::from_vec2(fleets_position[fleet_index] - origin)))
+                                Some((
+                                    *small_id,
+                                    CVec2::from_vec2(fleets_position[fleet_index] - origin),
+                                ))
                             } else {
                                 // No need to send orbiting fleet position.
                                 None

@@ -39,7 +39,7 @@ pub struct TimeManager {
     ///
     /// The tick we are interpolating toward (see `tick_frac`) for rendering.
     pub tick: u32,
-    /// Fraction of a tick in seconds. 
+    /// Fraction of a tick in seconds.
     /// Used for rendering interpolation.
     /// Counted from tick - 1.
     /// This could be more than a tick if we are tick starved.

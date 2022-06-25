@@ -9,6 +9,7 @@ use ahash::AHashMap;
 use common::fleet::*;
 use common::idx::*;
 use common::net::packets::*;
+use common::orbit::Orbit;
 use common::system::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
@@ -24,7 +25,7 @@ pub enum MetascapeSignal {
     },
     ControlChanged {
         index: i32,
-    }
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -35,7 +36,7 @@ struct FleetState {
     current_tick: u32,
     previous_position: Vec2,
     current_position: Vec2,
-    fleet_infos_update_tick: u32,
+    orbit_update_tick: u32,
     fleet_infos: FleetInfos,
 }
 impl FleetState {
@@ -46,7 +47,7 @@ impl FleetState {
             current_tick: 0,
             previous_position: Vec2::ZERO,
             current_position: Vec2::ZERO,
-            fleet_infos_update_tick: discovered_tick,
+            orbit_update_tick: discovered_tick,
             fleet_infos: FleetInfos {
                 fleet_id: FleetId(0),
                 small_id: 0,
@@ -89,14 +90,27 @@ impl FleetState {
         }
 
         // Remove orbit.
-        if new_tick >= self.fleet_infos_update_tick {
+        if new_tick >= self.orbit_update_tick {
             self.fleet_infos.orbit = None;
         }
     }
 
     fn update_fleet_infos(&mut self, fleet_infos_update_tick: u32, fleet_infos: FleetInfos) {
         self.fleet_infos = fleet_infos;
-        self.fleet_infos_update_tick = fleet_infos_update_tick;
+        self.orbit_update_tick = fleet_infos_update_tick;
+    }
+
+    fn update_fleet_composition(&mut self, fleet_composition: FleetComposition) {
+        self.fleet_infos.fleet_composition = fleet_composition;
+    }
+
+    fn update_orbit(&mut self, update_tick: u32, orbit: Orbit) {
+        if self.current_tick > update_tick {
+            // Old/useless update.
+            return;
+        }
+        self.fleet_infos.orbit = Some(orbit);
+        self.orbit_update_tick = update_tick;
     }
 }
 
@@ -115,7 +129,7 @@ pub struct Metascape {
     fleets_infos_buffer: Vec<FleetsInfos>,
     fleets_forget_buffer: Vec<FleetsForget>,
 
-    /// The fleets we own, if any. 
+    /// The fleets we own, if any.
     pub owned_fleets: Vec<FleetId>,
     pub control: Option<FleetId>,
 
@@ -167,7 +181,7 @@ impl Metascape {
                     }
                     ServerPacket::ConnectionQueueLen(_) => todo!(),
                     ServerPacket::FleetsInfos(fleets_infos) => {
-                        log::debug!("Got info for {} fleets.", &fleets_infos.infos.len());
+                        log::debug!("{:#?}", &fleets_infos);
                         self.fleets_infos_buffer.push(fleets_infos);
                     }
                     ServerPacket::FleetsPosition(fleet_position) => {
@@ -214,7 +228,7 @@ impl Metascape {
             .drain_filter(|fleets_forget| fleets_forget.tick <= current_tick)
         {
             for small_id in fleets_forget.to_forget.into_iter() {
-                if self.fleets_state.remove(&small_id).is_none() || self.fleets_state.remove(&small_id).is_none() {
+                if self.fleets_state.remove(&small_id).is_none() {
                     warn!("Got order to remove {}, but it is not added. Ignoring...", small_id);
                 }
             }
@@ -225,17 +239,32 @@ impl Metascape {
             .fleets_infos_buffer
             .drain_filter(|fleets_infos| fleets_infos.tick <= current_tick)
         {
-            for fleet_infos in fleets_infos.infos {
+            // Add new fleets.
+            for fleet_infos in fleets_infos.new_fleets {
                 let small_id = fleet_infos.small_id;
-
-                if self.fleets_state.contains_key(&small_id) {
-                    log::error!("Overwirtten small id {}", small_id);
-                }
 
                 self.fleets_state
                     .entry(small_id)
                     .or_insert(FleetState::new(current_tick))
                     .update_fleet_infos(fleets_infos.tick, fleet_infos);
+            }
+
+            // Update changed composition.
+            for (small_id, fleet_composition) in fleets_infos.compositions_changed {
+                if let Some(fleets_state) = self.fleets_state.get_mut(&small_id) {
+                    fleets_state.update_fleet_composition(fleet_composition);
+                } else {
+                    log::error!("Received composition change for {}, but it is not found.", small_id);
+                }
+            }
+
+            // Update changed orbit.
+            for (small_id, orbit) in fleets_infos.orbits_changed {
+                if let Some(fleets_state) = self.fleets_state.get_mut(&small_id) {
+                    fleets_state.update_orbit(fleets_infos.tick, orbit);
+                } else {
+                    log::error!("Received orbit change for {}, but it is not found.", small_id);
+                }
             }
         }
 
@@ -296,12 +325,12 @@ impl Metascape {
 
             // Interpolate position.
             let pos = fleet_state.get_interpolated_pos(time_manager, orbit_time);
-            
+
             let r = (*small_id % 7) as f32 / 7.0;
             let g = (*small_id % 11) as f32 / 11.0;
             let b = fleet_state.fleet_infos.orbit.is_some() as i32 as f32;
             let a = fade * 0.75;
-            
+
             // Draw fleet radius.
             owner.draw_arc(
                 pos.to_godot_scaled(),

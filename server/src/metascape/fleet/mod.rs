@@ -28,7 +28,8 @@ pub struct Fleet {
     pub velocity: Vec2,
     /// Where the fleet wish to move.
     pub wish_position: WishPosition,
-    pub orbit: Option<common::orbit::Orbit>,
+    /// Orbit and the tick this was added.
+    pub orbit: Option<(common::orbit::Orbit, u32)>,
 
     /// How long this entity has been without velocity.
     pub idle_counter: idle_counter::IdleCounter,
