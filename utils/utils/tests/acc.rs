@@ -27,7 +27,7 @@ fn test_random_colliders_acc() {
         let mut expected_result = Vec::new();
 
         // Add colliders.
-        for i in 0..rng.gen_range(0..4) {
+        for i in 0..rng.gen_range(0..32) {
             let new_collider = Circle {
                 center: rng.gen::<Vec2>() * 96.0 - 48.0,
                 radius: rng.gen_range(0.0f32..16.0),
@@ -42,6 +42,7 @@ fn test_random_colliders_acc() {
         expected_result.sort();
 
         acc.update();
+        acc.clear();
 
         let mut result = Vec::new();
         acc.intersect(&og_collider, |_, i| {
@@ -50,9 +51,6 @@ fn test_random_colliders_acc() {
         });
         result.sort();
 
-        // if result != expected_result {
-        //     panic!("Hello :)")
-        // }
         assert_eq!(result, expected_result, "{:#?}\n{:#?}", og_collider, &acc);
     }
 }

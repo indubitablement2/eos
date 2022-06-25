@@ -1,6 +1,5 @@
 mod apply_fleets_movement;
 mod connect_clients;
-mod handle_changed_fleet;
 mod handle_clients_inputs;
 mod handle_faction_queue;
 mod handle_fleet_queue;
@@ -10,7 +9,6 @@ mod update_fleets_in_system;
 
 use self::apply_fleets_movement::*;
 use self::connect_clients::*;
-use self::handle_changed_fleet::*;
 use self::handle_clients_inputs::*;
 use self::handle_faction_queue::*;
 use self::handle_fleet_queue::*;
@@ -28,18 +26,24 @@ impl Metascape {
 
         connect_clients(self);
 
-        handle_clients_inputs(self);
+        let disconnected = handle_clients_inputs(self);
+        // Remove disconnected clients.
+        for client_id in disconnected.into_iter() {
+            self.clients
+                .swap_remove_by_id(client_id)
+                .expect("There should be a client");
+            log::debug!("Removed {:?} from metascape.", client_id)
+        }
 
         handle_faction_queue(self);
+
         handle_fleet_queue(self);
 
         // No more add/remove fleet from this point.
 
-        // TODO: AI
-
         // No more change to fleet's composition from this point.
 
-        handle_changed_fleet(self);
+        // TODO: AI
 
         apply_fleets_movement(self);
 

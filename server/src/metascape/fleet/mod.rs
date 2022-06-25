@@ -14,6 +14,8 @@ pub use wish_position::*;
 #[derive(Soa)]
 pub struct Fleet {
     pub faction_id: FactionId,
+    /// If a client own this fleet.
+    pub owner: Option<ClientId>,
 
     pub name: String,
 
@@ -35,9 +37,10 @@ pub struct Fleet {
 }
 
 /// ## Defaults:
-/// - faction_id: A new faction will be created.
-/// - name: A random name will be generated.
-/// - fleet_ai: Idle for npc, but always set to ClientControlled for client.
+/// - `faction_id`: A new faction will be created.
+/// - `name`: A random name will be generated.
+/// - `fleet_ai`: Idle for npc, but always set to ClientControlled for client.
+/// - `owner`: None, this is an npc fleet.
 pub struct FleetBuilder {
     /// Default to creating a new faction.
     pub faction_id: Option<FactionId>,
@@ -49,6 +52,7 @@ pub struct FleetBuilder {
     /// Default to idle. Always set to ClientControlled for client.
     pub fleet_ai: Option<FleetAi>,
     pub fleet_composition: FleetComposition,
+    pub owner: Option<ClientId>,
 }
 impl FleetBuilder {
     pub fn new(position: Vec2, fleet_composition: FleetComposition) -> Self {
@@ -60,48 +64,43 @@ impl FleetBuilder {
             wish_position: Default::default(),
             fleet_ai: None,
             fleet_composition,
+            owner: None,
         }
     }
 
-    pub fn with_name(&mut self, name: String) -> &mut Self {
+    pub fn with_name(mut self, name: String) -> Self {
         self.name = Some(name);
         self
     }
 
-    pub fn with_faction(&mut self, faction_id: FactionId) -> &mut Self {
+    pub fn with_faction(mut self, faction_id: FactionId) -> Self {
         self.faction_id = Some(faction_id);
         self
     }
 
-    pub fn with_velocity(&mut self, velocity: Vec2) -> &mut Self {
+    pub fn with_velocity(mut self, velocity: Vec2) -> Self {
         self.velocity = velocity;
         self
     }
 
-    pub fn with_wish_position(&mut self, wish_position: WishPosition) -> &mut Self {
+    pub fn with_wish_position(mut self, wish_position: WishPosition) -> Self {
         self.wish_position = wish_position;
         self
     }
 
-    pub fn with_fleet_ai(&mut self, fleet_ai: FleetAi) -> &mut Self {
+    pub fn with_fleet_ai(mut self, fleet_ai: FleetAi) -> Self {
         self.fleet_ai = Some(fleet_ai);
         self
     }
 
-    /// Create a fleet meant for a npc.
-    pub fn build_npc(self) -> FleetId {
-        let fleet_id = AI_FLEET_ID_DISPENSER.next();
-
-        FLEET_QUEUE.push((fleet_id, self.to_fleet()));
-        fleet_id
+    pub fn with_owner(mut self, owner: ClientId) -> Self {
+        self.owner = Some(owner);
+        self
     }
 
-    /// Create a fleet meant for a client.
-    pub fn build_client(mut self, client_id: ClientId) -> FleetId {
-        let fleet_id = client_id.to_fleet_id();
-
-        self.fleet_ai = Some(FleetAi::ClientControl);
-
+    /// Fleet will be created next update.
+    pub fn build(self) -> FleetId {
+        let fleet_id = FLEET_ID_DISPENSER.next();
         FLEET_QUEUE.push((fleet_id, self.to_fleet()));
         fleet_id
     }
@@ -120,6 +119,7 @@ impl FleetBuilder {
             orbit: None,
             idle_counter: Default::default(),
             fleet_ai: self.fleet_ai.unwrap_or_default(),
+            owner: self.owner,
         }
     }
 }
@@ -132,6 +132,7 @@ pub struct FleetSave {
     pub position: Vec2,
     pub fleet_composition: FleetComposition,
     pub fleet_ai: FleetAi,
+    pub owner: Option<ClientId>,
 }
 impl FleetSave {
     pub fn to_fleet(self) -> Fleet {
@@ -146,6 +147,7 @@ impl FleetSave {
             idle_counter: Default::default(),
             fleet_ai: self.fleet_ai,
             fleet_inner: FleetInner::new(self.fleet_composition),
+            owner: self.owner,
         }
     }
 }

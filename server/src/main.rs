@@ -33,7 +33,7 @@ fn main() {
         let delta = loop_start.elapsed();
         // Time alocated for this update.
         let update_duration =
-            common::UPDATE_INTERVAL.saturating_sub(delta.saturating_sub(common::UPDATE_INTERVAL));
+            common::TICK_DURATION.saturating_sub(delta.saturating_sub(common::TICK_DURATION));
         // Update start instant.
         loop_start = Instant::now();
 

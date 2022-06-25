@@ -6,6 +6,7 @@ use crate::metascape::*;
 /// Otherwise client simply retake control of his fleet.
 pub fn connect_clients(s: &mut Metascape) {
     let fleets_index_map = &s.fleets.index_map;
+    let owned_fleets = &s.owned_fleets;
 
     // Fetch new connection from the `ConnectionsManager`
     // and append them at the end of the pendings queue.
@@ -58,11 +59,10 @@ pub fn connect_clients(s: &mut Metascape) {
 
         let client_id = connection.client_id();
 
-        // Notice the client if he does not have a fleet.
-        if !fleets_index_map.contains_key(&client_id.to_fleet_id()) {
-            connection.send_packet_reliable(ServerPacket::NoFleet.serialize());
-            log::debug!("{:?} has no fleet. Sending notification...", client_id);
-        }
+        // Notice the client of his fleets.
+        let fleets = owned_fleets.get(&client_id).cloned().unwrap_or_default();
+        connection.send_packet_reliable(ServerPacket::OwnedFleets(fleets).serialize());
+        log::debug!("Notified {:?} of his fleets.", client_id);
 
         // Insert client.
         let client = ClientBuilder::new(connection).build();

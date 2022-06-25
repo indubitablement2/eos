@@ -37,8 +37,8 @@ pub use utils::{acc::*, *};
 static FACTION_ID_DISPENSER: FactionIdDispenser = FactionIdDispenser::new();
 static FACTION_QUEUE: SegQueue<(FactionId, FactionBuilder)> = SegQueue::new();
 
-/// Dispense unique and never recycled `FleetId` for ai fleet.
-static AI_FLEET_ID_DISPENSER: AiFleetIdDispenser = AiFleetIdDispenser::new();
+/// Dispense unique and never recycled `FleetId`.
+static FLEET_ID_DISPENSER: FleetIdDispenser = FleetIdDispenser::new();
 static FLEET_QUEUE: SegQueue<(FleetId, Fleet)> = SegQueue::new();
 
 static mut _TICK: u32 = 0;
@@ -63,6 +63,9 @@ pub struct Metascape {
     pub systems: Systems,
     /// System don't change. Never updated at runtime.
     pub systems_acceleration_structure: AccelerationStructure<Circle, SystemId>,
+
+    /// Client's owned fleet.
+    pub owned_fleets: AHashMap<ClientId, Vec<FleetId>>,
 
     pub clients: PackedMap<ClientSoa, ClientId>,
     pub fleets: PackedMap<FleetSoa, FleetId>,
@@ -109,7 +112,7 @@ impl Metascape {
 
         // Store statics variables.
         unsafe {
-            AI_FLEET_ID_DISPENSER.set(save.next_ai_fleet_id);
+            FLEET_ID_DISPENSER.set(save.next_fleet_id);
             FACTION_ID_DISPENSER.set(save.next_faction_id);
             _TOTAL_TICK = save.total_tick;
         }
@@ -127,6 +130,7 @@ impl Metascape {
             fleets_out_detection_acc: Default::default(),
             fleets_in_detection_acc: Default::default(),
             rng: rand_xoshiro::Xoshiro256StarStar::from_entropy(),
+            owned_fleets: save.owned_fleets,
         }
     }
 
@@ -143,19 +147,21 @@ impl Metascape {
 #[derive(Serialize, Deserialize)]
 pub struct MetascapeSave {
     pub total_tick: u64,
-    pub next_ai_fleet_id: FleetId,
+    pub next_fleet_id: FleetId,
     pub next_faction_id: FactionId,
     pub fleetsaves: Vec<FleetSave>,
     pub factions: Vec<(FactionId, Faction)>,
+    pub owned_fleets: AHashMap<ClientId, Vec<FleetId>>,
 }
 impl Default for MetascapeSave {
     fn default() -> Self {
         Self {
             total_tick: Default::default(),
-            next_ai_fleet_id: FleetId(u32::MAX as u64 + 1),
+            next_fleet_id: FleetId(1),
             next_faction_id: FactionId(0),
             fleetsaves: Default::default(),
             factions: Default::default(),
+            owned_fleets: Default::default(),
         }
     }
 }

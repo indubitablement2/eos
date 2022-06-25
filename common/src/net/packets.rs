@@ -8,8 +8,8 @@ use utils::compressed_vec2::*;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FleetsPosition {
     pub tick: u32,
-    /// Position in world space.
-    pub client_position: Vec2,
+    /// Position in world space fleets position are relative to.
+    pub origin: Vec2,
     /// Detected fleets `small_id` and position compressed and relative to client's position.
     /// See: `DetectedFleetsInfos`.
     pub relative_fleets_position: Vec<(u16, CVec2<512>)>,
@@ -95,9 +95,10 @@ pub enum ServerPacket {
     /// Position of the client's fleet and detected fleets.
     FleetsPosition(FleetsPosition),
     FleetsForget(FleetsForget),
-    /// If the client does not have a fleet.
-    /// If the client receive `FleetsInfos`, it has a fleet.
-    NoFleet,
+    /// Fleets owned by the client.
+    OwnedFleets(Vec<FleetId>),
+    /// Currently controlled fleet.
+    FleetControl(Option<FleetId>),
 }
 impl ServerPacket {
     pub fn serialize(&self) -> Vec<u8> {
@@ -123,7 +124,10 @@ pub enum ClientPacket {
         /// Where the fleet should spawn.
         location: PlanetId,
     },
-    // TODO: Take control of fleet request.
+    /// Client request to take control of one of his fleet.
+    ControlOwnedFleet {
+        fleet_id: Option<FleetId>,
+    },
     // BattlescapeInput {
     //     wish_input: PlayerInput,
     //     /// The last Battlescape commands the client acknowledge to have received.

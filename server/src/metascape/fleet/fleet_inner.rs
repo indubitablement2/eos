@@ -50,7 +50,7 @@ impl FleetInner {
         &self.fleet_composition
     }
 
-    /// Will trigger re-computing the fleet's stats if accessed mutably when dropped.
+    /// Will automatically re-compute the fleet's stats, if accessed mutably, when dropped.
     pub fn fleet_composition_mut(&mut self) -> FleetCompositionMut {
         FleetCompositionMut {
             inner: self,

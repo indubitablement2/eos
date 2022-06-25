@@ -45,13 +45,13 @@ impl FactionBuilder {
         self
     }
 
-    /// Also insert the equivalent FleetIdx.
-    pub fn with_clients(mut self, clients: &[ClientId]) -> Self {
-        self.clients.extend(clients.iter());
-        self.fleets
-            .extend(clients.iter().map(|client_id| client_id.to_fleet_id()));
-        self
-    }
+    // /// Also insert the equivalent FleetIdx.
+    // pub fn with_clients(mut self, clients: &[ClientId]) -> Self {
+    //     self.clients.extend(clients.iter());
+    //     self.fleets
+    //         .extend(clients.iter().map(|client_id| client_id.to_fleet_id()));
+    //     self
+    // }
 
     pub fn build(self) -> FactionId {
         let faction_id = FACTION_ID_DISPENSER.next();

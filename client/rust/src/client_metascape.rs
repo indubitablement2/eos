@@ -19,9 +19,12 @@ pub enum MetascapeSignal {
     Disconnected {
         reason: DisconnectedReasonEnum,
     },
-    HasFleetChanged {
-        has_fleet: bool,
+    OwnedFleetsChanged {
+        num: i32,
     },
+    ControlChanged {
+        index: i32,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -32,6 +35,7 @@ struct FleetState {
     current_tick: u32,
     previous_position: Vec2,
     current_position: Vec2,
+    fleet_infos_update_tick: u32,
     fleet_infos: FleetInfos,
 }
 impl FleetState {
@@ -42,6 +46,7 @@ impl FleetState {
             current_tick: 0,
             previous_position: Vec2::ZERO,
             current_position: Vec2::ZERO,
+            fleet_infos_update_tick: discovered_tick,
             fleet_infos: FleetInfos {
                 fleet_id: FleetId(0),
                 small_id: 0,
@@ -61,7 +66,7 @@ impl FleetState {
         }
     }
 
-    fn update(&mut self, new_tick: u32, new_position: Vec2) {
+    fn update_position(&mut self, new_tick: u32, new_position: Vec2) {
         if self.current_tick == 0 {
             // Fresh fleet.
             self.current_tick = new_tick;
@@ -82,6 +87,16 @@ impl FleetState {
                 new_tick, self.current_tick
             );
         }
+
+        // Remove orbit.
+        if new_tick >= self.fleet_infos_update_tick {
+            self.fleet_infos.orbit = None;
+        }
+    }
+
+    fn update_fleet_infos(&mut self, fleet_infos_update_tick: u32, fleet_infos: FleetInfos) {
+        self.fleet_infos = fleet_infos;
+        self.fleet_infos_update_tick = fleet_infos_update_tick;
     }
 }
 
@@ -95,14 +110,14 @@ pub struct Metascape {
 
     pub time_manager: TimeManager,
 
-    /// Client has `small_id` 0.
     fleets_state: AHashMap<u16, FleetState>,
     fleets_position_buffer: Vec<FleetsPosition>,
     fleets_infos_buffer: Vec<FleetsInfos>,
     fleets_forget_buffer: Vec<FleetsForget>,
 
-    /// If we have a fleet.
-    pub has_fleet: bool,
+    /// The fleets we own, if any. 
+    pub owned_fleets: Vec<FleetId>,
+    pub control: Option<FleetId>,
 
     configs: Configs,
 }
@@ -126,8 +141,9 @@ impl Metascape {
             fleets_position_buffer: Default::default(),
             fleets_infos_buffer: Default::default(),
             fleets_forget_buffer: Default::default(),
-            has_fleet: false,
+            owned_fleets: Default::default(),
             configs,
+            control: None,
         })
     }
 
@@ -151,24 +167,31 @@ impl Metascape {
                     }
                     ServerPacket::ConnectionQueueLen(_) => todo!(),
                     ServerPacket::FleetsInfos(fleets_infos) => {
+                        log::debug!("Got info for {} fleets.", &fleets_infos.infos.len());
                         self.fleets_infos_buffer.push(fleets_infos);
-
-                        // Maybe switch has_fleet.
-                        if !self.has_fleet {
-                            self.has_fleet = true;
-                            signals.push(MetascapeSignal::HasFleetChanged { has_fleet: true });
-                        }
                     }
                     ServerPacket::FleetsPosition(fleet_position) => {
                         self.time_manager.maybe_max_tick(fleet_position.tick);
                         self.fleets_position_buffer.push(fleet_position);
                     }
                     ServerPacket::FleetsForget(fleets_forget) => {
+                        log::debug!("Asked to forget {:?}", &fleets_forget);
                         self.fleets_forget_buffer.push(fleets_forget);
                     }
-                    ServerPacket::NoFleet => {
-                        self.has_fleet = false;
-                        signals.push(MetascapeSignal::HasFleetChanged { has_fleet: false });
+                    ServerPacket::OwnedFleets(owned_fleets) => {
+                        self.owned_fleets = owned_fleets;
+                        signals.push(MetascapeSignal::OwnedFleetsChanged {
+                            num: self.owned_fleets.len() as i32,
+                        });
+                    }
+                    ServerPacket::FleetControl(control) => {
+                        self.control = control;
+                        let index = if let Some(fleet_id) = self.control {
+                            self.owned_fleet_index(fleet_id).map(|i| i as i32).unwrap_or(-1)
+                        } else {
+                            -1
+                        };
+                        signals.push(MetascapeSignal::ControlChanged { index })
                     }
                 },
                 Err(err) => {
@@ -205,15 +228,14 @@ impl Metascape {
             for fleet_infos in fleets_infos.infos {
                 let small_id = fleet_infos.small_id;
 
-                // TODO: Remove this. Just for testing.
                 if self.fleets_state.contains_key(&small_id) {
-                    log::error!("Already have {}", small_id);
+                    log::error!("Overwirtten small id {}", small_id);
                 }
 
                 self.fleets_state
                     .entry(small_id)
                     .or_insert(FleetState::new(current_tick))
-                    .fleet_infos = fleet_infos;
+                    .update_fleet_infos(fleets_infos.tick, fleet_infos);
             }
         }
 
@@ -222,17 +244,12 @@ impl Metascape {
             .fleets_position_buffer
             .drain_filter(|fleets_position| fleets_position.tick <= current_tick)
         {
-            // Update the client state.
-            if let Some(fleet_state) = self.fleets_state.get_mut(&0) {
-                fleet_state.update(fleets_position.tick, fleets_position.client_position);
-            }
-
             // Update each entities position.
             for (small_id, position) in fleets_position.relative_fleets_position {
                 if let Some(fleet_state) = self.fleets_state.get_mut(&small_id) {
                     // Convert from compressed relative position to world position.
-                    let position = position.to_vec2() + fleets_position.client_position;
-                    fleet_state.update(fleets_position.tick, position);
+                    let position = position.to_vec2() + fleets_position.origin;
+                    fleet_state.update_position(fleets_position.tick, position);
                 } else {
                     debug!("missing fleet state.");
                 }
@@ -279,12 +296,12 @@ impl Metascape {
 
             // Interpolate position.
             let pos = fleet_state.get_interpolated_pos(time_manager, orbit_time);
-
+            
             let r = (*small_id % 7) as f32 / 7.0;
             let g = (*small_id % 11) as f32 / 11.0;
-            let b = (*small_id % 13) as f32 / 13.0;
-            let a = fade * 0.5;
-
+            let b = fleet_state.fleet_infos.orbit.is_some() as i32 as f32;
+            let a = fade * 0.75;
+            
             // Draw fleet radius.
             owner.draw_arc(
                 pos.to_godot_scaled(),
@@ -293,7 +310,7 @@ impl Metascape {
                 std::f64::consts::TAU,
                 16,
                 Color { r, g, b, a },
-                1.0,
+                4.0,
                 false,
             );
 
@@ -365,5 +382,15 @@ impl Metascape {
 
             false
         });
+    }
+
+    /// Return the index of a owned fleet.
+    pub fn owned_fleet_index(&self, fleet_id: FleetId) -> Option<usize> {
+        for (i, owned_fleet_id) in self.owned_fleets.iter().enumerate() {
+            if owned_fleet_id.0 == fleet_id.0 {
+                return Some(i);
+            }
+        }
+        None
     }
 }

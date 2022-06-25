@@ -32,13 +32,13 @@ impl IdDispenser<FactionId> for FactionIdDispenser {
 }
 
 #[derive(Debug)]
-pub struct AiFleetIdDispenser(AtomicU64);
-impl AiFleetIdDispenser {
+pub struct FleetIdDispenser(AtomicU64);
+impl FleetIdDispenser {
     pub const fn new() -> Self {
         Self(AtomicU64::new(0))
     }
 }
-impl IdDispenser<FleetId> for AiFleetIdDispenser {
+impl IdDispenser<FleetId> for FleetIdDispenser {
     fn next(&self) -> FleetId {
         FleetId(self.0.fetch_add(1, Ordering::Relaxed))
     }

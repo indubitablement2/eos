@@ -4,20 +4,25 @@ use crate::metascape::*;
 
 /// Handle the clients inbound packets.
 ///
-/// Remove disconnected clients.
-pub fn handle_clients_inputs(s: &mut Metascape) {
-    let clients = &mut s.clients;
+/// Return disconnected clients.
+pub fn handle_clients_inputs(s: &mut Metascape) -> Vec<ClientId> {
     let rng = &mut s.rng;
     let systems = &s.systems;
     let data = data();
     let orbit_time = TimeF::tick_to_orbit_time(tick());
 
+    let clients_connection = s.clients.container.connection.as_slice();
+    let clients_control = s.clients.container.control.as_mut_slice();
+
+    let fleets_owner = s.fleets.container.owner.as_slice();
     let fleets_wish_position = s.fleets.container.wish_position.as_mut_slice();
     let fleets_index_map = &s.fleets.index_map;
 
+    let owned_fleets = &s.owned_fleets;
+
     let mut disconnected = Vec::new();
 
-    for connection in clients.container.connection.iter() {
+    for (connection, control) in clients_connection.iter().zip(clients_control) {
         let client_id = connection.client_id();
 
         // Handle the client's packets.
@@ -33,20 +38,17 @@ pub fn handle_clients_inputs(s: &mut Metascape) {
                         wish_pos,
                         movement_multiplier,
                     } => {
-                        if let Some(&fleet_index) = fleets_index_map.get(&client_id.to_fleet_id()) {
-                            fleets_wish_position[fleet_index]
-                                .set_wish_position(wish_pos, movement_multiplier);
+                        for fleet_id in control.iter() {
+                            if let Some(&fleet_index) = fleets_index_map.get(fleet_id) {
+                                fleets_wish_position[fleet_index]
+                                    .set_wish_position(wish_pos, movement_multiplier);
+                            }
                         }
                     }
                     ClientPacket::CreateStartingFleet {
                         starting_fleet_id,
                         location,
                     } => {
-                        if fleets_index_map.get(&client_id.to_fleet_id()).is_some() {
-                            // Already have a fleet.
-                            continue;
-                        }
-
                         // Get the requested data.
                         let (fleet_composition, (system, planet)) = if let Some(result) = data
                             .starting_fleets
@@ -75,7 +77,32 @@ pub fn handle_clients_inputs(s: &mut Metascape) {
 
                         // Create fleet.
                         FleetBuilder::new(position, fleet_composition.to_owned())
-                            .build_client(client_id);
+                            .with_owner(client_id)
+                            .build();
+                    }
+                    ClientPacket::ControlOwnedFleet { fleet_id } => {
+                        if let Some(fleet_id) = fleet_id {
+                            // Check that the client owns the fleet.
+                            if owned_fleets
+                                .get(&client_id)
+                                .is_some_and(|owned_fleets| owned_fleets.contains(&fleet_id))
+                            {
+                                *control = Some(fleet_id);
+                            } else {
+                                *control = None;
+                            }
+                        } else {
+                            *control = None;
+                        }
+
+                        // Notify the client of the change.
+                        connection
+                            .send_packet_reliable(ServerPacket::FleetControl(*control).serialize());
+                        log::debug!(
+                            "{:?} control changed to {:?}. Notified client.",
+                            client_id,
+                            control
+                        );
                     }
                 },
                 Err(err) => match err {
@@ -91,11 +118,5 @@ pub fn handle_clients_inputs(s: &mut Metascape) {
         }
     }
 
-    // Remove disconnected clients.
-    for client_id in disconnected.into_iter() {
-        clients
-            .swap_remove_by_id(client_id)
-            .expect("There should be a client");
-        log::debug!("Removed {:?} from metascape.", client_id)
-    }
+    disconnected
 }
