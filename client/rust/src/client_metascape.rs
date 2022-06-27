@@ -218,8 +218,6 @@ impl Metascape {
                 }
             }
         }
-
-        self.time_manager.update(delta);
         let current_tick = self.time_manager.tick;
 
         // Remove obselete fleet states.
@@ -302,10 +300,19 @@ impl Metascape {
             self.connection_manager.flush();
         }
 
+        // Advance time.
+        if self.control.is_some() {
+            self.time_manager.update(delta);
+        }
+
         signals
     }
 
     pub fn render(&mut self, owner: &Node2D) {
+        if self.control.is_none() {
+            return;
+        }
+
         let orbit_time = self.time_manager.orbit_time();
         let time_manager = &self.time_manager;
         let tick = self.time_manager.tick;
@@ -422,4 +429,6 @@ impl Metascape {
         }
         None
     }
+
+
 }

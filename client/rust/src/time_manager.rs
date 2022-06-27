@@ -27,7 +27,7 @@ impl Default for TimeManagerConfigs {
             max_buffer: 1.0,
             min_buffer: -0.1,
             wish_buffer: 0.05,
-            increase_change_strenght: 0.1,
+            increase_change_strenght: 0.2,
             decrease_change_strenght: 1.0,
         }
     }
@@ -88,6 +88,7 @@ impl TimeManager {
             let buffer_size = self.max_tick - self.tick;
             self.tick += buffer_size - 1;
             self.tick_frac = 0.0;
+            self.time_dilation = 1.0;
             self.new_period();
             log::info!(
                 "Buffer time ({:.2}) over limit of {}. Catching up...",
