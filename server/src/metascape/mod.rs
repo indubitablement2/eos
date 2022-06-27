@@ -5,6 +5,7 @@ pub mod fleet;
 pub mod id_dispenser;
 pub mod server_configs;
 mod update;
+mod connection;
 
 use crate::connection_manager::ConnectionsManager;
 use common::net::connection::Connection;
@@ -15,16 +16,17 @@ use std::io::Read;
 use std::sync::Arc;
 
 // TODO: Separate into a prelude file.
-pub use ahash::{AHashMap, AHashSet};
 pub use client::*;
+pub use connection::*;
+pub use faction::*;
+pub use fleet::*;
+pub use ahash::{AHashMap, AHashSet};
 pub use common::idx::*;
 pub use common::net::packets::*;
 pub use common::orbit::*;
 pub use common::reputation::*;
 pub use common::system::*;
 pub use common::*;
-pub use faction::*;
-pub use fleet::*;
 pub use glam::Vec2;
 pub use id_dispenser::*;
 pub use rand::prelude::*;
@@ -68,6 +70,7 @@ pub struct Metascape {
     pub owned_fleets: AHashMap<ClientId, Vec<FleetId>>,
 
     pub clients: PackedMap<ClientSoa, ClientId>,
+    pub connections: PackedMap<ConnectionSoa, ClientId>,
     pub fleets: PackedMap<FleetSoa, FleetId>,
     pub factions: PackedMap<FactionSoa, FactionId>,
 }
@@ -100,6 +103,12 @@ impl Metascape {
         // TODO: Load MetascapeSave.
         let save = MetascapeSave::default();
 
+        // Load clients.
+        let clients = PackedMap::from_iter(
+            save.clients
+                .into_iter()
+        );
+
         // Load fleets.
         let fleets = PackedMap::from_iter(
             save.fleetsaves
@@ -123,7 +132,7 @@ impl Metascape {
             connections_manager,
             pendings_connection: Default::default(),
             systems_acceleration_structure: systems.create_acceleration_structure(),
-            clients: PackedMap::with_capacity(256),
+            clients,
             fleets,
             systems,
             factions,
@@ -131,6 +140,7 @@ impl Metascape {
             fleets_in_detection_acc: Default::default(),
             rng: rand_xoshiro::Xoshiro256StarStar::from_entropy(),
             owned_fleets: save.owned_fleets,
+            connections: PackedMap::with_capacity(256),
         }
     }
 
@@ -152,6 +162,7 @@ pub struct MetascapeSave {
     pub fleetsaves: Vec<FleetSave>,
     pub factions: Vec<(FactionId, Faction)>,
     pub owned_fleets: AHashMap<ClientId, Vec<FleetId>>,
+    pub clients: Vec<(ClientId, Client)>,
 }
 impl Default for MetascapeSave {
     fn default() -> Self {
@@ -162,6 +173,7 @@ impl Default for MetascapeSave {
             fleetsaves: Default::default(),
             factions: Default::default(),
             owned_fleets: Default::default(),
+            clients: Default::default(),
         }
     }
 }

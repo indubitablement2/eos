@@ -11,7 +11,7 @@ pub fn handle_clients_inputs(s: &mut Metascape) -> Vec<ClientId> {
     let data = data();
     let orbit_time = TimeF::tick_to_orbit_time(tick());
 
-    let clients_connection = s.clients.container.connection.as_slice();
+    let connections_connection = s.connections.container.connection.as_slice();
     let clients_control = s.clients.container.control.as_mut_slice();
 
     let fleets_owner = s.fleets.container.owner.as_slice();
