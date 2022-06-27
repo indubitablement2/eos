@@ -46,4 +46,6 @@ fn main() {
             sleep(remaining);
         }
     }
+
+    server.clear_terminal();
 }

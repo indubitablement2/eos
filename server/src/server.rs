@@ -29,4 +29,8 @@ impl Server {
 
         self.terminal.update(&self.metascape_performance)
     }
+
+    pub fn clear_terminal(&mut self) {
+        self.terminal.clear();
+    }
 }

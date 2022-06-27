@@ -86,6 +86,10 @@ impl Terminal {
         })
     }
 
+    pub fn clear(&mut self) {
+        self.backend_terminal.clear();
+    }
+
     /// Return if we should quit.
     pub fn update(&mut self, performance: &PerformanceMetrics) -> bool {
         self.last_input += 1;
