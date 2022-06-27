@@ -29,10 +29,10 @@ impl Metascape {
         let disconnected = handle_clients_inputs(self);
         // Remove disconnected clients.
         for client_id in disconnected.into_iter() {
-            self.clients
+            self.connections
                 .swap_remove_by_id(client_id)
                 .expect("There should be a client");
-            log::debug!("Removed {:?} from metascape.", client_id)
+            log::debug!("Removed {:?}'s connection from metascape.", client_id)
         }
 
         handle_faction_queue(self);

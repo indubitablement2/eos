@@ -1,8 +1,11 @@
 #![feature(drain_filter)]
 #![feature(hash_drain_filter)]
 #![feature(map_try_insert)]
+#![feature(is_some_with)]
+
 #[macro_use]
 extern crate log;
+
 extern crate nalgebra as na;
 
 mod client;

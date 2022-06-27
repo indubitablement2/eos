@@ -1,7 +1,6 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://native/Client.gdns" type="Script" id=1]
-[ext_resource path="res://component/FleetsSelect.tscn" type="PackedScene" id=2]
 [ext_resource path="res://component/Camera.tscn" type="PackedScene" id=3]
 [ext_resource path="res://scene/game.gd" type="Script" id=4]
 [ext_resource path="res://assets/bg/starfield.png" type="Texture" id=5]
@@ -43,8 +42,6 @@ anchor_bottom = 0.9
 margin_top = -100.0
 margin_right = 100.0
 text = "try connect"
-
-[node name="FleetsSelect" parent="CanvasLayer" instance=ExtResource( 2 )]
 
 [node name="CreateFleet" type="Button" parent="CanvasLayer"]
 anchor_left = 1.0

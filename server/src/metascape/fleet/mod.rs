@@ -14,8 +14,6 @@ pub use wish_position::*;
 #[derive(Soa)]
 pub struct Fleet {
     pub faction_id: FactionId,
-    /// If a client own this fleet.
-    pub owner: Option<ClientId>,
 
     pub name: String,
 
@@ -49,11 +47,9 @@ pub struct FleetBuilder {
     pub name: Option<String>,
     pub position: Vec2,
     pub velocity: Vec2,
-    pub wish_position: WishPosition,
     /// Default to idle. Always set to ClientControlled for client.
     pub fleet_ai: Option<FleetAi>,
     pub fleet_composition: FleetComposition,
-    pub owner: Option<ClientId>,
 }
 impl FleetBuilder {
     pub fn new(position: Vec2, fleet_composition: FleetComposition) -> Self {
@@ -62,10 +58,8 @@ impl FleetBuilder {
             name: None,
             position,
             velocity: Vec2::ZERO,
-            wish_position: Default::default(),
             fleet_ai: None,
             fleet_composition,
-            owner: None,
         }
     }
 
@@ -84,24 +78,20 @@ impl FleetBuilder {
         self
     }
 
-    pub fn with_wish_position(mut self, wish_position: WishPosition) -> Self {
-        self.wish_position = wish_position;
-        self
-    }
-
     pub fn with_fleet_ai(mut self, fleet_ai: FleetAi) -> Self {
         self.fleet_ai = Some(fleet_ai);
         self
     }
 
-    pub fn with_owner(mut self, owner: ClientId) -> Self {
-        self.owner = Some(owner);
-        self
+    /// Fleet will be created next update.
+    pub fn build_npc(self) -> FleetId {
+        let fleet_id = FLEET_ID_DISPENSER.next();
+        FLEET_QUEUE.push((fleet_id, self.to_fleet()));
+        fleet_id
     }
 
-    /// Fleet will be created next update.
-    pub fn build(self) -> FleetId {
-        let fleet_id = FLEET_ID_DISPENSER.next();
+    pub fn build_client(self, client_id: ClientId) -> FleetId {
+        let fleet_id = client_id.to_fleet_id();
         FLEET_QUEUE.push((fleet_id, self.to_fleet()));
         fleet_id
     }
@@ -116,11 +106,10 @@ impl FleetBuilder {
             in_system: None,
             position: self.position,
             velocity: self.velocity,
-            wish_position: self.wish_position,
+            wish_position: Default::default(),
             orbit: None,
             idle_counter: Default::default(),
             fleet_ai: self.fleet_ai.unwrap_or_default(),
-            owner: self.owner,
         }
     }
 }
@@ -148,7 +137,6 @@ impl FleetSave {
             idle_counter: Default::default(),
             fleet_ai: self.fleet_ai,
             fleet_inner: FleetInner::new(self.fleet_composition),
-            owner: self.owner,
         }
     }
 }

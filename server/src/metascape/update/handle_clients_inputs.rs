@@ -12,17 +12,13 @@ pub fn handle_clients_inputs(s: &mut Metascape) -> Vec<ClientId> {
     let orbit_time = TimeF::tick_to_orbit_time(tick());
 
     let connections_connection = s.connections.container.connection.as_slice();
-    let clients_control = s.clients.container.control.as_mut_slice();
 
-    let fleets_owner = s.fleets.container.owner.as_slice();
     let fleets_wish_position = s.fleets.container.wish_position.as_mut_slice();
     let fleets_index_map = &s.fleets.index_map;
 
-    let owned_fleets = &s.owned_fleets;
-
     let mut disconnected = Vec::new();
 
-    for (connection, control) in clients_connection.iter().zip(clients_control) {
+    for connection in connections_connection.iter() {
         let client_id = connection.client_id();
 
         // Handle the client's packets.
@@ -38,17 +34,22 @@ pub fn handle_clients_inputs(s: &mut Metascape) -> Vec<ClientId> {
                         wish_pos,
                         movement_multiplier,
                     } => {
-                        for fleet_id in control.iter() {
-                            if let Some(&fleet_index) = fleets_index_map.get(fleet_id) {
-                                fleets_wish_position[fleet_index]
-                                    .set_wish_position(wish_pos, movement_multiplier);
-                            }
+                        if let Some(&fleet_index) = fleets_index_map.get(&client_id.to_fleet_id()) {
+                            fleets_wish_position[fleet_index]
+                                .set_wish_position(wish_pos, movement_multiplier);
                         }
                     }
                     ClientPacket::CreateStartingFleet {
                         starting_fleet_id,
                         location,
                     } => {
+                        // Check that the client does not already have a fleet.
+                        if fleets_index_map.get(&client_id.to_fleet_id()).is_some() {
+                            continue;
+                        }
+
+                        // TODO: Spawn fleet near a friendly planet.
+
                         // Get the requested data.
                         let (fleet_composition, (system, planet)) = if let Some(result) = data
                             .starting_fleets
@@ -77,32 +78,7 @@ pub fn handle_clients_inputs(s: &mut Metascape) -> Vec<ClientId> {
 
                         // Create fleet.
                         FleetBuilder::new(position, fleet_composition.to_owned())
-                            .with_owner(client_id)
-                            .build();
-                    }
-                    ClientPacket::ControlOwnedFleet { fleet_id } => {
-                        if let Some(fleet_id) = fleet_id {
-                            // Check that the client owns the fleet.
-                            if owned_fleets
-                                .get(&client_id)
-                                .is_some_and(|owned_fleets| owned_fleets.contains(&fleet_id))
-                            {
-                                *control = Some(fleet_id);
-                            } else {
-                                *control = None;
-                            }
-                        } else {
-                            *control = None;
-                        }
-
-                        // Notify the client of the change.
-                        connection
-                            .send_packet_reliable(ServerPacket::FleetControl(*control).serialize());
-                        log::debug!(
-                            "{:?} control changed to {:?}. Notified client.",
-                            client_id,
-                            control
-                        );
+                            .build_client(client_id);
                     }
                 },
                 Err(err) => match err {

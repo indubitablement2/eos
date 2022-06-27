@@ -40,7 +40,7 @@ pub fn connect_clients(s: &mut Metascape) {
 
         // Remove disconnected connections from the queue.
         for i in disconnected.into_iter().rev() {
-            s.pendings_connection.swap_remove_back(i as usize);
+            pendings_connection.swap_remove_back(i as usize);
         }
     }
 
@@ -57,11 +57,6 @@ pub fn connect_clients(s: &mut Metascape) {
         };
 
         let client_id = connection.client_id();
-
-        // TODO: Notice the client of his fleets.
-        // let fleets = owned_fleets.get(&client_id).cloned().unwrap_or_default();
-        // connection.send_packet_reliable(ServerPacket::OwnedFleets(fleets).serialize());
-        // log::debug!("Notified {:?} of his fleets.", client_id);
 
         // Insert connection.
         let connection = ConnectionBuilder::new(connection).build();

@@ -66,9 +66,6 @@ pub struct Metascape {
     /// System don't change. Never updated at runtime.
     pub systems_acceleration_structure: AccelerationStructure<Circle, SystemId>,
 
-    /// Client's owned fleet.
-    pub owned_fleets: AHashMap<ClientId, Vec<FleetId>>,
-
     pub clients: PackedMap<ClientSoa, ClientId>,
     pub connections: PackedMap<ConnectionSoa, ClientId>,
     pub fleets: PackedMap<FleetSoa, FleetId>,
@@ -139,7 +136,6 @@ impl Metascape {
             fleets_out_detection_acc: Default::default(),
             fleets_in_detection_acc: Default::default(),
             rng: rand_xoshiro::Xoshiro256StarStar::from_entropy(),
-            owned_fleets: save.owned_fleets,
             connections: PackedMap::with_capacity(256),
         }
     }
@@ -161,7 +157,6 @@ pub struct MetascapeSave {
     pub next_faction_id: FactionId,
     pub fleetsaves: Vec<FleetSave>,
     pub factions: Vec<(FactionId, Faction)>,
-    pub owned_fleets: AHashMap<ClientId, Vec<FleetId>>,
     pub clients: Vec<(ClientId, Client)>,
 }
 impl Default for MetascapeSave {
@@ -172,7 +167,6 @@ impl Default for MetascapeSave {
             next_faction_id: FactionId(0),
             fleetsaves: Default::default(),
             factions: Default::default(),
-            owned_fleets: Default::default(),
             clients: Default::default(),
         }
     }

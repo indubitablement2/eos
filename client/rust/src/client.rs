@@ -30,12 +30,8 @@ impl Client {
             .with_param("reason", VariantType::GodotString)
             .done();
         builder
-            .signal("OwnedFleetsChanged")
-            .with_param("num", VariantType::I64)
-            .done();
-        builder
-            .signal("ControlChanged")
-            .with_param("index", VariantType::I64)
+            .signal("HasFleetChanged")
+            .with_param("has_fleet", VariantType::Bool)
             .done();
     }
 
@@ -55,10 +51,9 @@ impl Client {
         self.player_inputs.handle_input(event);
     }
 
-    #[godot]
-    unsafe fn _ready(&mut self, #[base] owner: &Node2D) {
-        // owner.add_user_signal("ConnectionResult", VariantArray::new_shared());
-    }
+    // #[godot]
+    // unsafe fn _ready(&mut self, #[base] owner: &Node2D) {
+    // }
 
     #[godot]
     unsafe fn _exit_tree(&mut self) {}
@@ -112,13 +107,10 @@ impl Client {
                         log::info!("Disconnected: {}", &reason_str);
                         owner.emit_signal("Disconnected", &[reason_str.to_variant()]);
                     }
-                    crate::client_metascape::MetascapeSignal::OwnedFleetsChanged { num } => {
-                        log::info!("Num owned fleets changed: {}", num);
-                        owner.emit_signal("OwnedFleetsChanged", &[num.to_variant()]);
-                    }
-                    crate::client_metascape::MetascapeSignal::ControlChanged { index } => {
-                        log::info!("Control changed to {}", index);
-                        owner.emit_signal("ControlChanged", &[index.to_variant()]);
+                    crate::client_metascape::MetascapeSignal::HasFleetChanged(has_fleet) => {
+                        log::info!("Has fleet changed: {}", has_fleet);
+                        owner.emit_signal("HasFleetChanged", &[has_fleet.to_variant()]);
+
                     }
                 }
             }
@@ -177,25 +169,6 @@ impl Client {
             log::debug!("Sent spawn request for {:?}.", starting_fleet_id);
         } else {
             log::warn!("Can not send starting fleet spawn request without a metascape. Aborting...");
-        }
-    }
-
-    #[godot]
-    unsafe fn control_request(&mut self, index: i32) {
-        if let Some(metascape) = &self.metascape {
-            let fleet_id = if let Ok(index) = usize::try_from(index) {
-                metascape.owned_fleets.get(index).copied()
-            } else {
-                None
-            };
-
-            metascape
-                .connection_manager
-                .send(&ClientPacket::ControlOwnedFleet { fleet_id });
-
-            log::debug!("Sent control request for {:?}.", fleet_id);
-        } else {
-            log::warn!("Can not send control request without a metascape. Aborting...");
         }
     }
 

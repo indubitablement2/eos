@@ -14,9 +14,8 @@ pub fn send_detected_entities(s: &mut Metascape) {
     let fleets_out_detection_acc = &s.fleets_out_detection_acc;
     let fleets_in_detection_acc = &s.fleets_in_detection_acc;
 
-    let clients_connection = s.clients.container.connection.as_slice();
-    let clients_know_fleets = s.clients.container.know_fleets.as_mut_slice();
-    let clients_control = s.clients.container.control.as_slice();
+    let connections_connection = s.connections.container.connection.as_slice();
+    let connections_know_fleets = s.connections.container.know_fleets.as_mut_slice();
 
     let fleets_index_map = &s.fleets.index_map;
     let fleets_position = s.fleets.container.position.as_slice();
@@ -31,15 +30,15 @@ pub fn send_detected_entities(s: &mut Metascape) {
         .client_detected_entity_update_interval;
     let step = tick() % interval;
 
-    for ((connection, know_fleets), control) in clients_connection
+    for (connection, know_fleets) in connections_connection
         .iter()
-        .zip(clients_know_fleets)
-        .zip(clients_control)
+        .zip(connections_know_fleets)
     {
         let client_id = connection.client_id();
-
-        let client_fleet_id = if let Some(client_fleet_id) = control {
-            *client_fleet_id
+        let client_fleet_id = client_id.to_fleet_id();
+        
+        let client_fleet_index = if let Some(client_fleet_index) = fleets_index_map.get(&client_fleet_id) {
+            *client_fleet_index
         } else {
             // Client has no fleet thus can not detect nearby entities.
 
@@ -65,24 +64,13 @@ pub fn send_detected_entities(s: &mut Metascape) {
             continue;
         };
 
-        let client_fleet_index =
-            if let Some(client_fleet_index) = fleets_index_map.get(&client_fleet_id) {
-                *client_fleet_index
-            } else {
-                log::error!(
-                    "{:?} is controlling {:?}, but it can not be found.",
-                    client_id,
-                    client_fleet_id
-                );
-                continue;
-            };
-        let client_fleet_position = &fleets_position[client_fleet_index];
+        let client_fleet_position = fleets_position[client_fleet_index];
         let client_fleet_inner = &fleets_inner[client_fleet_index];
 
         let mut to_forget = Vec::new();
         let mut new_fleets = Vec::new();
 
-        // Detect things around the client controlled fleet.
+        // Detect things around the client's fleet.
         if client_id.0 % interval == step {
             // Update what this client has detected.
 
@@ -97,7 +85,7 @@ pub fn send_detected_entities(s: &mut Metascape) {
             };
             if let Some(acc) = acc {
                 let collider = Circle::new(
-                    *client_fleet_position,
+                    client_fleet_position,
                     client_fleet_inner.fleet_stats().detector_radius,
                 );
 
@@ -197,27 +185,31 @@ pub fn send_detected_entities(s: &mut Metascape) {
         }
 
         // Send needed detected fleets position.
-        let origin = *client_fleet_position;
         connection.send_packet_unreliable(
             ServerPacket::FleetsPosition(FleetsPosition {
                 tick: tick(),
-                origin,
+                client_fleet_position,
                 relative_fleets_position: know_fleets
                     .fleets
                     .iter()
                     .filter_map(|(fleet_id, small_id)| {
-                        if let Some(&fleet_index) = fleets_index_map.get(fleet_id) {
-                            if fleets_orbit[fleet_index].is_none() {
-                                Some((
-                                    *small_id,
-                                    CVec2::from_vec2(fleets_position[fleet_index] - origin),
-                                ))
+                        if *fleet_id != client_fleet_id {
+                            if let Some(&fleet_index) = fleets_index_map.get(fleet_id) {
+                                if fleets_orbit[fleet_index].is_none()  {
+                                    Some((
+                                        *small_id,
+                                        CVec2::from_vec2(fleets_position[fleet_index] - client_fleet_position),
+                                    ))
+                                } else {
+                                    // No need to send orbiting fleet position.
+                                    None
+                                }
                             } else {
-                                // No need to send orbiting fleet position.
+                                // Fleet does not exist anymore.
                                 None
                             }
                         } else {
-                            // Fleet does not exist anymore.
+                            // Client's fleet position is already sent.
                             None
                         }
                     })

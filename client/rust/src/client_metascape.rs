@@ -20,12 +20,7 @@ pub enum MetascapeSignal {
     Disconnected {
         reason: DisconnectedReasonEnum,
     },
-    OwnedFleetsChanged {
-        num: i32,
-    },
-    ControlChanged {
-        index: i32,
-    },
+    HasFleetChanged(bool),
 }
 
 #[derive(Debug, Clone)]
@@ -129,9 +124,8 @@ pub struct Metascape {
     fleets_infos_buffer: Vec<FleetsInfos>,
     fleets_forget_buffer: Vec<FleetsForget>,
 
-    /// The fleets we own, if any.
-    pub owned_fleets: Vec<FleetId>,
-    pub control: Option<FleetId>,
+    /// The small id of our fleet.
+    pub client_fleet: Option<u16>,
 
     configs: Configs,
 }
@@ -155,9 +149,8 @@ impl Metascape {
             fleets_position_buffer: Default::default(),
             fleets_infos_buffer: Default::default(),
             fleets_forget_buffer: Default::default(),
-            owned_fleets: Default::default(),
+            client_fleet: Default::default(),
             configs,
-            control: None,
         })
     }
 
@@ -192,21 +185,6 @@ impl Metascape {
                         log::debug!("Asked to forget {:?}", &fleets_forget);
                         self.fleets_forget_buffer.push(fleets_forget);
                     }
-                    ServerPacket::OwnedFleets(owned_fleets) => {
-                        self.owned_fleets = owned_fleets;
-                        signals.push(MetascapeSignal::OwnedFleetsChanged {
-                            num: self.owned_fleets.len() as i32,
-                        });
-                    }
-                    ServerPacket::FleetControl(control) => {
-                        self.control = control;
-                        let index = if let Some(fleet_id) = self.control {
-                            self.owned_fleet_index(fleet_id).map(|i| i as i32).unwrap_or(-1)
-                        } else {
-                            -1
-                        };
-                        signals.push(MetascapeSignal::ControlChanged { index })
-                    }
                 },
                 Err(err) => {
                     if err.is_disconnected() {
@@ -228,6 +206,12 @@ impl Metascape {
             for small_id in fleets_forget.to_forget.into_iter() {
                 if self.fleets_state.remove(&small_id).is_none() {
                     warn!("Got order to remove {}, but it is not added. Ignoring...", small_id);
+                } else {
+                    // Check if client's fleet is removed. 
+                    if self.client_fleet.is_some_and(|client_small_id| *client_small_id == small_id) {
+                        signals.push(MetascapeSignal::HasFleetChanged(false));
+                        self.client_fleet = None;
+                    }
                 }
             }
         }
@@ -240,6 +224,14 @@ impl Metascape {
             // Add new fleets.
             for fleet_infos in fleets_infos.new_fleets {
                 let small_id = fleet_infos.small_id;
+
+                // Check if we have a fleet.
+                if self.client_fleet.is_none() {
+                    if fleet_infos.fleet_id == self.connection_manager.client_id.to_fleet_id() {
+                        self.client_fleet = Some(small_id);
+                        signals.push(MetascapeSignal::HasFleetChanged(true));
+                    }
+                }
 
                 self.fleets_state
                     .entry(small_id)
@@ -267,18 +259,25 @@ impl Metascape {
         }
 
         // Consume fleets positions.
+        // TODO: if fleet state does not exist, check that fleet is not removed and make one!
         for fleets_position in self
             .fleets_position_buffer
             .drain_filter(|fleets_position| fleets_position.tick <= current_tick)
         {
+            // Update our fleet position.
+            if let Some(small_id) = self.client_fleet {
+                if let Some(fleet_state) = self.fleets_state.get_mut(&small_id) {
+                    fleet_state.update_position(fleets_position.tick, fleets_position.client_fleet_position);
+                }
+            }
+
             // Update each entities position.
             for (small_id, position) in fleets_position.relative_fleets_position {
+
                 if let Some(fleet_state) = self.fleets_state.get_mut(&small_id) {
                     // Convert from compressed relative position to world position.
-                    let position = position.to_vec2() + fleets_position.origin;
+                    let position = position.to_vec2() + fleets_position.client_fleet_position;
                     fleet_state.update_position(fleets_position.tick, position);
-                } else {
-                    debug!("missing fleet state.");
                 }
             }
         }
@@ -300,19 +299,12 @@ impl Metascape {
             self.connection_manager.flush();
         }
 
-        // Advance time.
-        if self.control.is_some() {
-            self.time_manager.update(delta);
-        }
+        self.time_manager.update(delta);
 
         signals
     }
 
     pub fn render(&mut self, owner: &Node2D) {
-        if self.control.is_none() {
-            return;
-        }
-
         let orbit_time = self.time_manager.orbit_time();
         let time_manager = &self.time_manager;
         let tick = self.time_manager.tick;
@@ -419,16 +411,4 @@ impl Metascape {
             false
         });
     }
-
-    /// Return the index of a owned fleet.
-    pub fn owned_fleet_index(&self, fleet_id: FleetId) -> Option<usize> {
-        for (i, owned_fleet_id) in self.owned_fleets.iter().enumerate() {
-            if owned_fleet_id.0 == fleet_id.0 {
-                return Some(i);
-            }
-        }
-        None
-    }
-
-
 }
