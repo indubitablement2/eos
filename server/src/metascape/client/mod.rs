@@ -5,16 +5,13 @@ pub struct Client {
     empty: u8,
 }
 
-pub struct ClientBuilder {
-}
+pub struct ClientBuilder {}
 impl ClientBuilder {
     pub fn new() -> Self {
-        Self { }
+        Self {}
     }
 
     pub fn build(self) -> Client {
-        Client {
-            empty: 0,
-        }
+        Client { empty: 0 }
     }
 }

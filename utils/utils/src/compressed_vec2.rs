@@ -2,7 +2,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 /// Vec2 compressed to 4 bytes.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct CVec2<const R: u16> {
     pub x: u16,
     pub y: u16,

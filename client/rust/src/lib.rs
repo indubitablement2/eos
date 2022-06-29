@@ -9,12 +9,12 @@ extern crate log;
 extern crate nalgebra as na;
 
 mod client;
-mod client_metascape;
-pub mod configs;
+mod configs;
 mod connection_manager;
 mod constants;
 mod godot_logger;
 mod input_handler;
+mod metascape;
 mod time_manager;
 mod util;
 

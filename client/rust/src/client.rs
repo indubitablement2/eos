@@ -1,7 +1,7 @@
-use crate::client_metascape::Metascape;
 use crate::configs::Configs;
 use crate::connection_manager::ConnectionAttempt;
 use crate::input_handler::PlayerInputs;
+use crate::metascape::*;
 use common::idx::*;
 use common::net::packets::*;
 use gdnative::api::*;
@@ -102,15 +102,14 @@ impl Client {
         if let Some(metascape) = &mut self.metascape {
             for metascape_signal in metascape.update(delta, &self.player_inputs) {
                 match metascape_signal {
-                    crate::client_metascape::MetascapeSignal::Disconnected { reason } => {
+                    MetascapeSignal::Disconnected { reason } => {
                         let reason_str = reason.to_string();
                         log::info!("Disconnected: {}", &reason_str);
                         owner.emit_signal("Disconnected", &[reason_str.to_variant()]);
                     }
-                    crate::client_metascape::MetascapeSignal::HasFleetChanged(has_fleet) => {
+                    MetascapeSignal::HasFleetChanged(has_fleet) => {
                         log::info!("Has fleet changed: {}", has_fleet);
                         owner.emit_signal("HasFleetChanged", &[has_fleet.to_variant()]);
-
                     }
                 }
             }

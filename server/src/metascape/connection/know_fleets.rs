@@ -1,35 +1,35 @@
 use super::*;
 
 pub struct KnowFleets {
-    pub fleets: Vec<(FleetId, u16)>,
-    next_small_id: u16,
-    recycled_small_id: (Vec<u16>, Vec<u16>),
+    /// If the full client's fleet infos should be sent as if it was just detected.
+    /// Will be reset to false when sent.
+    pub update_client: bool,
+    pub order: Vec<FleetId>,
+    pub order_checksum: u32,
+    pub period_number: u32,
+    pub recently_removed: Vec<FleetId>,
+    pub recently_added: Vec<FleetId>,
 }
+
+impl KnowFleets {
+    pub fn clear(&mut self) {
+        self.order.clear();
+        self.recently_removed.clear();
+        self.recently_added.clear();
+        self.order_checksum = 0;
+        self.period_number = 0;
+    }
+}
+
 impl Default for KnowFleets {
     fn default() -> Self {
         Self {
-            fleets: Default::default(),
-            next_small_id: 0,
-            recycled_small_id: Default::default(),
+            update_client: true,
+            order: Default::default(),
+            order_checksum: 0,
+            period_number: 0,
+            recently_removed: Default::default(),
+            recently_added: Default::default(),
         }
-    }
-}
-impl KnowFleets {
-    pub fn get_new_small_id(&mut self) -> u16 {
-        self.recycled_small_id.0.pop().unwrap_or_else(|| {
-            let next = self.next_small_id;
-            self.next_small_id += 1;
-            next
-        })
-    }
-
-    pub fn reuse_small_id(&mut self) {
-        self.recycled_small_id
-            .0
-            .append(&mut self.recycled_small_id.1);
-    }
-
-    pub fn recycle_small_id(&mut self, small_id: u16) {
-        self.recycled_small_id.1.push(small_id);
     }
 }

@@ -2,8 +2,7 @@ use crate::data::{ship::*, weapon::*};
 use serde::{Deserialize, Serialize};
 use std::ops::{AddAssign, Index};
 use utils::Incrementable;
-
-// TODO: Id shared trait.
+use bytemuck::{Pod, Zeroable};
 
 /// Never recycled.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -26,7 +25,8 @@ impl Incrementable for ClientId {
 
 /// Never recycled.
 /// First `2^32 - 1` id are reserved for client. 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Pod, Zeroable)]
+#[repr(transparent)]
 pub struct FleetId(pub u64);
 impl FleetId {
     pub fn to_client_id(self) -> Option<ClientId> {

@@ -8,18 +8,26 @@ use utils::compressed_vec2::*;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FleetsPosition {
     pub tick: u32,
+    /// Client has no fleet.
+    pub ghost: bool,
+    pub order_checksum: u32,
+    pub period_number: u32,
+    /// Fleet added this period.
+    pub order_add: Vec<FleetId>,
+    /// Fleet removed this period.
+    pub order_remove: Vec<FleetId>,
     /// Position in world space fleets position are relative to.
-    /// Also the position of the client's fleet.
-    pub client_fleet_position: Vec2,
-    /// Detected fleets `small_id` and position compressed and relative to client's position.
-    /// See: `DetectedFleetsInfos`.
-    pub relative_fleets_position: Vec<(u16, CVec2<512>)>,
+    /// Also the position of the client's fleet if it exist.
+    pub origin: Vec2,
+    /// Detected fleets position compressed and relative to `origin`.
+    pub relative_fleets_position: Vec<CVec2<512>>,
+    /// Fleet that are send `1` or not `0`.
+    pub sent_bitfield: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FleetInfos {
     pub fleet_id: FleetId,
-    pub small_id: u16,
     pub name: String,
     pub orbit: Option<Orbit>,
     pub fleet_composition: FleetComposition,
@@ -34,11 +42,11 @@ pub struct FleetsInfos {
     /// New fleets along with its full infos.
     pub new_fleets: Vec<FleetInfos>,
     /// `FleetComposition`s that changed.
-    pub compositions_changed: Vec<(u16, FleetComposition)>,
+    pub compositions_changed: Vec<(FleetId, FleetComposition)>,
     /// `Orbit`s that changed. 
     /// When receiving a fleet position with higher tick than this, 
     /// the orbit should be removed. No "remove orbit" message will be sent.
-    pub orbits_changed: Vec<(u16, Orbit)>,
+    pub orbits_changed: Vec<(FleetId, Orbit)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,7 +107,6 @@ pub enum ServerPacket {
     FleetsInfos(FleetsInfos),
     /// Position of the client's fleet and detected fleets.
     FleetsPosition(FleetsPosition),
-    FleetsForget(FleetsForget),
 }
 impl ServerPacket {
     pub fn serialize(&self) -> Vec<u8> {

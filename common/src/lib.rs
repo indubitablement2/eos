@@ -31,3 +31,6 @@ pub const UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_milli
 
 /// The real world time duration of a tick.
 pub const TICK_DURATION: std::time::Duration = std::time::Duration::from_millis(100);
+
+/// Minimun number of ticks before reusing small idx.
+pub const SMALL_ID_RECYCLE_DELAY: u32 = 100;

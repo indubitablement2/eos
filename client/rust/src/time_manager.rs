@@ -68,7 +68,10 @@ impl TimeManager {
         self.max_tick = self.max_tick.max(new_tick);
     }
 
-    pub fn update(&mut self, real_delta: f32) {
+    /// Return if the tick was incremented.
+    pub fn update(&mut self, real_delta: f32) -> bool {
+        let previous_tick = self.tick;
+
         self.current_period += real_delta;
 
         self.tick_frac += real_delta * self.time_dilation;
@@ -95,7 +98,7 @@ impl TimeManager {
                 buffer_size as f32 * TICK_DURATION.as_secs_f32(),
                 self.configs.max_buffer
             );
-            return;
+            return true;
         } else if remaining < self.configs.min_buffer {
             self.tick_frac = 0.0;
         }
@@ -120,6 +123,8 @@ impl TimeManager {
 
             self.new_period();
         }
+
+        self.tick != previous_tick
     }
 
     pub fn orbit_time(&self) -> f32 {
