@@ -124,7 +124,7 @@ limits/debugger_stdout/max_messages_per_frame=40
 
 [physics]
 
-common/physics_fps=20
+common/physics_fps=10
 3d/active_soft_world=false
 
 [rendering]

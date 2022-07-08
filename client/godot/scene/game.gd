@@ -12,9 +12,7 @@ func _ready() -> void:
 	print(IP.get_local_addresses())
 
 func _on_Button_pressed() -> void:
-	var result = client.connect_to_server("::1", 2)
-	print("Connection start result: " + str(result))
-	if result:
+	if client.connect_local(42):
 		$CanvasLayer/Button.hide()
 
 func _on_Client_ConnectionResult(result: bool) -> void:

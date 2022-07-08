@@ -1,78 +1,40 @@
-use super::TcpOutboundEvent;
-use crate::idx::*;
+use super::packets::Packet;
 use tokio::{
     io::*,
     net::tcp::{OwnedReadHalf, OwnedWriteHalf},
-    sync::mpsc::Receiver,
+    sync::mpsc::UnboundedReceiver,
 };
 
-pub async fn tcp_out_loop(
-    mut tcp_outbound_event_receiver: Receiver<TcpOutboundEvent>,
-    mut buf_write: BufWriter<OwnedWriteHalf>,
-    client_id: ClientId,
-) {
+pub async fn tcp_out_loop(mut outbound_tcp_buffer_receiver: UnboundedReceiver<Vec<u8>>, mut write: OwnedWriteHalf) {
     loop {
-        if let Some(event) = tcp_outbound_event_receiver.recv().await {
-            match event {
-                TcpOutboundEvent::PacketEvent(packet) => {
-                    // Write header.
-                    match u16::try_from(packet.len()) {
-                        Ok(payload_size) => {
-                            if let Err(err) = buf_write.write_u16(payload_size).await {
-                                debug!(
-                                    "{:?} while writting header to {:?} 's tcp buf stream. Disconnecting...",
-                                    err, client_id
-                                );
-                                break;
-                            }
-                        }
-                        Err(err) => {
-                            debug!(
-                                "{:?} while getting payload size for {:?}. Ignoring packet and disconnecting...",
-                                err, client_id
-                            );
-                            break;
-                        }
-                    }
-
-                    // Write payload.
-                    if let Err(err) = buf_write.write_all(&packet).await {
-                        debug!(
-                            "{:?} while writting to {:?} 's tcp buf stream. Disconnecting...",
-                            err, client_id
-                        );
-                        break;
-                    }
-                }
-                TcpOutboundEvent::FlushEvent => {
-                    if let Err(err) = buf_write.flush().await {
-                        debug!(
-                            "{:?} while flushing {:?}'s tcp buf stream. Disconnecting...",
-                            err, client_id
-                        );
-                        break;
-                    }
-                }
+        if let Some(buf) = outbound_tcp_buffer_receiver.recv().await {
+            // Write buffer.
+            if let Err(err) = write.write_all(&buf).await {
+                log::debug!("{} while writting buffer to tcp stream. Disconnecting...", err);
+                break;
             }
         } else {
-            debug!("Tcp sender channel for {:?} shutdown. Disconnecting...", client_id);
+            log::debug!("Tcp sender channel shutdown. Disconnecting...");
             break;
         }
     }
+
+    log::debug!("Tcp out loop shutdown.");
 }
 
-pub async fn tcp_in_loop(
-    inbound_sender: crossbeam::channel::Sender<Vec<u8>>,
-    mut buf_read: BufReader<OwnedReadHalf>,
-    client_id: ClientId,
-) {
+pub async fn tcp_in_loop<P>(inbound_tcp_sender: crossbeam::channel::Sender<P>, read: OwnedReadHalf)
+where
+    P: Packet,
+{
+    let mut buf_read = BufReader::new(read);
+
     let mut payload_buffer: Vec<u8> = Vec::new();
     loop {
         // Get a header.
         match buf_read.read_u16().await {
             Ok(next_payload_size) => {
                 if next_payload_size == 0 {
-                    debug!("{:?} sent a payload of 0 byte. Ignoring...", client_id);
+                    log::debug!("Received a reliable packet of 0 byte. Ignoring...");
                     continue;
                 }
 
@@ -87,42 +49,30 @@ pub async fn tcp_in_loop(
                 match buf_read.read_exact(&mut payload_buffer[..next_payload_size]).await {
                     Ok(num) => {
                         if num != next_payload_size {
-                            debug!(
-                                "{:?} disconnected while sending a packet. Ignoring packet...",
-                                client_id
-                            );
+                            log::debug!("Peer disconnected while sending a tcp packet. Ignoring packet...");
                             break;
                         }
 
-                        if inbound_sender
-                            .send(payload_buffer[..next_payload_size].to_vec())
+                        if inbound_tcp_sender
+                            .send(P::deserialize(&payload_buffer[..next_payload_size]))
                             .is_err()
                         {
-                            debug!(
-                                "Tcp inbound sender channel for {:?} shutdown. Disconnecting...",
-                                client_id
-                            );
+                            log::debug!("Inbound tcp packet sender channel shutdown. Disconnecting...");
                             break;
                         }
                     }
                     Err(err) => {
-                        debug!(
-                            "{:?} while reading {:?} 's tcp stream for a payload. Disconnecting...",
-                            err, client_id
-                        );
+                        log::debug!("{} while reading tcp stream for a payload. Disconnecting...", err);
                         break;
                     }
                 }
             }
             Err(err) => {
-                debug!(
-                    "{:?} while reading {:?} 's tcp stream for a header. Disconnecting...",
-                    err, client_id
-                );
+                log::debug!("{} while reading tcp stream for a header. Disconnecting...", err);
                 break;
             }
         }
     }
 
-    debug!("Tcp in loop for {:?} shutdown.", client_id,);
+    log::debug!("Tcp in loop shutdown.");
 }

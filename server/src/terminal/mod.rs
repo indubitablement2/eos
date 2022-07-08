@@ -278,7 +278,8 @@ impl Terminal {
                     TerminalTab::Info => {
                         let text = vec![
                             Spans::from(format!("version: {}", common::VERSION)),
-                            Spans::from(format!("port: {}", common::net::SERVER_PORT)),
+                            // TODO: display server addr.
+                            Spans::from(format!("port: ")),
                         ];
                         let paragraph = Paragraph::new(text)
                             .alignment(Alignment::Left)

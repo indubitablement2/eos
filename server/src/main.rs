@@ -16,14 +16,15 @@
 use server::Server;
 use std::{thread::sleep, time::Instant};
 
-mod connection_manager;
-mod metascape;
 mod server;
 mod terminal;
 
 fn main() {
     tui_logger::init_logger(log::LevelFilter::Trace).expect("Could not init logger.");
     tui_logger::set_default_level(log::LevelFilter::Trace);
+
+    // TODO: Load data.
+    common::data::Data::default().init();
 
     let mut server = Server::new();
 

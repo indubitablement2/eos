@@ -27,7 +27,7 @@ pub struct Editor {
     time_multiplier: f32,
     timef: f32,
     data: Systems,
-    systems_acc: AccelerationStructure<SystemId, ()>,
+    systems_acc: AccelerationStructure<Circle, SystemId>,
     selected: Selected,
     mouse_pos: Vec2,
 }
@@ -72,12 +72,12 @@ impl Editor {
                 if *moving {
                     // Check if new position is valid.
                     let system = self.data.systems.get(system_id).unwrap();
-                    let collider = Collider::new(self.mouse_pos, system.radius, ());
+                    let collider = Circle::new(self.mouse_pos, system.radius);
                     *current_pos_valid = true;
 
                     // Check that new system position does not intersect any other system.
-                    self.systems_acc.intersect_collider(collider, |other| {
-                        if other.id != *system_id {
+                    self.systems_acc.intersect(&collider, |_, other_system_id| {
+                        if *other_system_id != *system_id {
                             *current_pos_valid = false;
                             true
                         } else {
@@ -139,7 +139,7 @@ impl Editor {
             Selected::System { system_id, moving: _, current_pos_valid: _ } => {
                 // Try to deselect our current system.
                 let system = self.data.systems.get(system_id).unwrap();
-                let collider = Collider::new(system.position, system.radius, ());
+                let collider = Circle::new(system.position, system.radius);
                 if !collider.intersection_test_point(self.mouse_pos) {
                     self.selected = Selected::Nothing;
                     godot_print!("Deselected system.");
@@ -147,14 +147,14 @@ impl Editor {
             }
             Selected::Nothing => {
                 // Try to select a new system.
-                self.systems_acc.intersect_point(self.mouse_pos, (), |other| {
+                self.systems_acc.intersect_point(self.mouse_pos, |_, other_system_id| {
                     self.selected = Selected::System {
-                        system_id: other.id,
+                        system_id: *other_system_id,
                         moving: false,
                         current_pos_valid: false,
                     };
                     godot_print!("Selected a system.");
-                    false
+                    true
                 });
             }
         }
@@ -226,12 +226,12 @@ impl Editor {
                 continue;
             }
             let new_system = generate_system(position, rng.gen_range(min_size..max_size));
-            let collider = Collider::new(new_system.position, new_system.radius + min_distance, ());
+            let collider = Circle::new(new_system.position, new_system.radius + min_distance);
 
             // Check if we collide we the other systems we have just generated.
             for other in new_systems
                 .iter()
-                .map(|system| Collider::new(system.position, system.radius, ()))
+                .map(|system| Circle::new(system.position, system.radius))
             {
                 if collider.intersection_test(&other) {
                     continue 'outter;
@@ -243,9 +243,9 @@ impl Editor {
 
         // Check if the systems we generated collide with any already placed system.
         for new_system in new_systems.into_iter() {
-            let collider = Collider::new(new_system.position, new_system.radius + min_distance, ());
+            let collider = Circle::new(new_system.position, new_system.radius + min_distance);
             let mut valid = true;
-            self.systems_acc.intersect_collider(collider, |_| {
+            self.systems_acc.intersect(&collider, |_, _| {
                 valid = false;
                 true
             });
@@ -295,7 +295,7 @@ fn update_internals(editor: &mut Editor) {
         .systems_acc
         .extend(editor.data.systems.iter().map(|(system_id, system)| {
             (
-                Collider::new(system.position, system.radius, ()),
+                Circle::new(system.position, system.radius),
                 *system_id,
             )
         }));

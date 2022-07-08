@@ -31,6 +31,11 @@ pub struct FleetStats {
     /// Radius this fleet will detect things.
     pub detector_radius: f32,
 }
+impl Default for FleetStats {
+    fn default() -> Self {
+        Self { max_speed: 1.0, acceleration: 0.02, radius: 0.1, detected_radius: 10.0, detector_radius: 10.0 }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FleetComposition {
@@ -46,13 +51,7 @@ impl FleetComposition {
 
     pub fn compute_stats(&self) -> FleetStats {
         // TODO: Compute fleet's stats
-        FleetStats {
-            max_speed: 1.0,
-            acceleration: 0.02,
-            radius: self.ships.len().max(1) as f32 * 0.1,
-            detected_radius: 10.0,
-            detector_radius: 10.0,
-        }
+        FleetStats::default()
     }
 
     #[deprecated]

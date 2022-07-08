@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 ahash = "0.7.6"
-glam = { version = "0.20.2", features = ["rand"] }
-serde = { version = "1.0.137", features = ["derive"] }
+glam = { version = "0.21.2", features = ["rand"] }
+serde = { version = "1.0.138", features = ["derive"] }
 num-traits = "0.2.15"
 
 soa_derive = { path = "../soa_derive" }

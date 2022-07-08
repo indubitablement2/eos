@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 // 4095, 4368, 4680, 5040, 5460, 6552, 7280, 8190, 9360, 10920, 13104, 16380, 21840, 32760]
 
 /// All the orbit speed that will wrap around when tick is at `ORBIT_TICK_PERIOD`.
+/// In radian per tick.
 pub const ORBIT_SPEEDS: [f32; 120] = [
     10.0,
     5.0,

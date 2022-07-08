@@ -5,7 +5,7 @@ use rand::prelude::*;
 use std::{f32::consts::TAU, ops::Range};
 
 /// 6 sec for a full rotation if 1 time unit == 0.1 sec.
-const DEFAULT_ORBIT_SPEED: f32 = 1.0 / (60.0 * TAU);
+const DEFAULT_ORBIT_SPEED: f32 = 10.0 / (60.0 * TAU);
 /// Maximum number of planet sharing the same orbit.
 const MAX_PLANET_SHARED_ORBIT: i32 = 3;
 /// Extra empty padding added to a system radius.

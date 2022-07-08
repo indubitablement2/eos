@@ -1,78 +1,55 @@
 use super::*;
-use crate::idx::ClientId;
-use std::{
-    net::{SocketAddrV6, UdpSocket},
-    sync::Arc,
-};
 
-pub struct Connection {
-    client_id: ClientId,
-    peer_addr: SocketAddrV6,
-    /// Receive packet from the connected peer.
-    inbound_receiver: crossbeam::channel::Receiver<Vec<u8>>,
-    /// Send udp packet to connected peer.
-    socket: Arc<UdpSocket>,
-    /// Send tcp packet to the connected peer or request a flush.
-    tcp_outbound_event_sender: tokio::sync::mpsc::Sender<TcpOutboundEvent>,
-}
-impl Connection {
-    pub fn new(
-        client_id: ClientId,
-        peer_addr: SocketAddrV6,
-        inbound_receiver: crossbeam::channel::Receiver<Vec<u8>>,
-        socket: Arc<UdpSocket>,
-        tcp_outbound_event_sender: tokio::sync::mpsc::Sender<TcpOutboundEvent>,
-    ) -> Self {
-        Self {
-            client_id,
-            peer_addr,
-            inbound_receiver,
-            socket,
-            tcp_outbound_event_sender,
-        }
-    }
-
-    /// Send a packet to the connected peer with no delivery garanty.
-    /// If the packet is small enough, it is sent over udp otherwise tcp is used.
-    ///
-    /// Return if the packet could be sent.
-    pub fn send_packet_unreliable(&self, packet: Vec<u8>) -> bool {
-        debug_assert!(packet.len() <= MAX_UDP_PACKET_SIZE);
-        if packet.len() > MAX_UDP_PACKET_SIZE {
-            self.send_packet_reliable(packet)
-        } else {
-            self.socket.send_to(&packet, self.peer_addr).is_err()
-        }
-    }
-
-    /// Send a packet to the connected peer over tcp.
-    ///
-    /// Return if there was an error sending the packet (the channel is disconnected).
-    pub fn send_packet_reliable(&self, packet: Vec<u8>) -> bool {
-        debug_assert!(packet.len() < MAX_TCP_PAYLOAD_SIZE);
-
-        self.tcp_outbound_event_sender
-            .blocking_send(TcpOutboundEvent::PacketEvent(packet))
-            .is_err()
-    }
-
+pub trait ConnectionClientSide {
+    fn send_reliable(&mut self, packet: &ClientPacket);
+    fn send_unreliable(&mut self, packet: &ClientPacket);
+    fn recv_packets(&mut self, closure: impl FnMut(ServerPacket));
     /// Send buffered packets.
     ///
-    /// Call this when you don't expect to send new packet for a while.
-    // TODO: This should just be an atomic bool.
-    pub fn flush_tcp_stream(&self) -> bool {
-        self.tcp_outbound_event_sender
-            .blocking_send(TcpOutboundEvent::FlushEvent)
-            .is_err()
-    }
+    /// Return if disconnected.
+    #[must_use = "this is the only place to detect disconnection"]
+    fn flush(&mut self) -> bool;
+}
 
-    /// Try to receive a single packet from this connection.
-    pub fn try_recv(&self) -> Result<Vec<u8>, crossbeam::channel::TryRecvError> {
-        self.inbound_receiver.try_recv()
-    }
+pub trait Connection {
+    fn send_reliable(&mut self, packet: &ServerPacket);
+    fn send_unreliable(&mut self, packet: &ServerPacket);
+    fn recv_packets(&mut self, closure: impl FnMut(ClientPacket));
+    /// Send buffered packets.
+    ///
+    /// Return if disconnected.
+    #[must_use = "this is the only place to detect disconnection"]
+    fn flush(&mut self) -> bool;
+}
 
-    /// Get a reference to the connection's client id.
-    pub fn client_id(&self) -> ClientId {
-        self.client_id
+pub trait ConnectionsManager {
+    type ConnectionType: Connection;
+    /// Get a new login attempt.
+    fn get_new_login(&mut self, closure: impl FnMut(&Auth) -> LoginResponse) -> Option<Self::ConnectionType>;
+    fn disconnect(&mut self, connection: Self::ConnectionType);
+    fn new(configs: &ConnectionConfigs, rt: &tokio::runtime::Runtime) -> Self;
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub struct ConnectionConfigs {
+    /// The port number that will be used for udp and tcp.
+    /// 0 to bind to any free port.
+    pub port: u16,
+    /// Maximum number of pending connections handled per tick.
+    pub max_connection_handled_per_update: usize,
+    /// How many pendings connections before a queue update is considered.
+    pub min_pending_queue_size_for_update: usize,
+    /// How many tick does the connection queue  need to be above `min_pending_queue_size_for_update`
+    /// before an update is done (sending queue size, checking disconnect).
+    pub connection_queue_update_interval: u32,
+}
+impl Default for ConnectionConfigs {
+    fn default() -> Self {
+        Self {
+            port: 0,
+            max_connection_handled_per_update: 32,
+            min_pending_queue_size_for_update: 20,
+            connection_queue_update_interval: 50,
+        }
     }
 }

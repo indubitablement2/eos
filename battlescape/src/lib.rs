@@ -11,7 +11,6 @@ extern crate nalgebra as na;
 
 use bincode::Options;
 use commands::BattlescapeCommand;
-use indexmap::IndexMap;
 use na::UnitComplex;
 use player_inputs::PlayerInput;
 use rand::SeedableRng;
@@ -104,7 +103,7 @@ pub struct Battlescape {
     players: Vec<Player>,
 
     next_ship_id: u32,
-    ships: IndexMap<u32, BattlescapeShip>,
+    // ships: IndexMap<u32, BattlescapeShip>,
 
     rng: Xoshiro128StarStar,
 
@@ -117,7 +116,7 @@ pub struct Battlescape {
     narrow_phase: NarrowPhase,
     bodies: RigidBodySet,
     colliders: ColliderSet,
-    joints: JointSet,
+    // joints: JointSet,
     ccd_solver: CCDSolver,
 }
 impl Battlescape {
@@ -139,19 +138,20 @@ impl Battlescape {
         self.apply_commands();
         self.ship_movement();
 
-        self.physics_pipeline.step(
-            &vector![0.0, 0.0],
-            &self.integration_parameters,
-            &mut self.islands,
-            &mut self.broad_phase,
-            &mut self.narrow_phase,
-            &mut self.bodies,
-            &mut self.colliders,
-            &mut self.joints,
-            &mut self.ccd_solver,
-            &(),
-            &(),
-        );
+        // self.physics_pipeline.step(
+        //     &vector![0.0, 0.0],
+        //     &self.integration_parameters,
+        //     &mut self.islands,
+        //     &mut self.broad_phase,
+        //     &mut self.narrow_phase,
+        //     &mut self.bodies,
+        //     &mut self.colliders,
+        //     &mut self.joints,
+        //     &mut self.ccd_solver,
+        //     &(),
+        //     &(),
+
+        // );
 
         self.tick += 1;
     }
@@ -175,10 +175,10 @@ impl Battlescape {
         bincode::DefaultOptions::new().deserialize(bytes)
     }
 
-    /// Get a reference to the battlescape's ships.
-    pub fn ships(&self) -> &IndexMap<u32, BattlescapeShip> {
-        &self.ships
-    }
+    // /// Get a reference to the battlescape's ships.
+    // pub fn ships(&self) -> &IndexMap<u32, BattlescapeShip> {
+    //     &self.ships
+    // }
 
     /// Apply commands for the current tick if any.
     fn apply_commands(&mut self) {
@@ -193,24 +193,24 @@ impl Battlescape {
                 BattlescapeCommand::SpawnShip(cmd) => {
                     debug_assert!(self.players.len() > cmd.player_id as usize);
 
-                    let body_handle = self.bodies.insert(RigidBodyBuilder::new_dynamic().build());
-                    self.colliders.insert_with_parent(
-                        ColliderBuilder::cuboid(0.5, 1.0).build(),
-                        body_handle,
-                        &mut self.bodies,
-                    );
+                    // let body_handle = self.bodies.insert(RigidBodyBuilder::new_dynamic().build());
+                    // self.colliders.insert_with_parent(
+                    //     ColliderBuilder::cuboid(0.5, 1.0).build(),
+                    //     body_handle,
+                    //     &mut self.bodies,
+                    // );
 
-                    let ship_id = self.next_ship_id;
-                    self.next_ship_id += 1;
+                    // let ship_id = self.next_ship_id;
+                    // self.next_ship_id += 1;
 
-                    self.ships.insert(
-                        ship_id,
-                        BattlescapeShip {
-                            player_id: cmd.player_id,
-                            controlled: false,
-                            body_handle,
-                        },
-                    );
+                    // self.ships.insert(
+                    //     ship_id,
+                    //     BattlescapeShip {
+                    //         player_id: cmd.player_id,
+                    //         controlled: false,
+                    //         body_handle,
+                    //     },
+                    // );
                 }
                 BattlescapeCommand::AddPlayer(cmd) => {
                     let player_id = self.players.len() as u16;
@@ -255,72 +255,72 @@ impl Battlescape {
                     // Set the previously controlled ships back to false.
                     if let Some(ship_idx) = &human_player.ship_control {
                         for ship_id in ship_idx.iter() {
-                            self.ships[*ship_id as usize].controlled = false;
+                            // self.ships[*ship_id as usize].controlled = false;
                         }
                     }
 
-                    // Filter out ships that are not owned by the player.
-                    let ship_idx = cmd.ship_idx.as_ref().map(|ship_idx| {
-                        ship_idx
-                            .iter()
-                            .filter(|&&ship_id| {
-                                if let Some(ship) = self.ships.get_mut(&ship_id) {
-                                    if ship.player_id == cmd.player_id {
-                                        ship.controlled = true;
-                                        true
-                                    } else {
-                                        false
-                                    }
-                                } else {
-                                    false
-                                }
-                            })
-                            .copied()
-                            .collect()
-                    });
+                    // // Filter out ships that are not owned by the player.
+                    // let ship_idx = cmd.ship_idx.as_ref().map(|ship_idx| {
+                    //     ship_idx
+                    //         .iter()
+                    //         .filter(|&&ship_id| {
+                    //             if let Some(ship) = self.ships.get_mut(&ship_id) {
+                    //                 if ship.player_id == cmd.player_id {
+                    //                     ship.controlled = true;
+                    //                     true
+                    //                 } else {
+                    //                     false
+                    //                 }
+                    //             } else {
+                    //                 false
+                    //             }
+                    //         })
+                    //         .copied()
+                    //         .collect()
+                    // });
 
-                    human_player.ship_control = ship_idx;
+                    // human_player.ship_control = ship_idx;
                 }
             }
         }
     }
 
     fn ship_movement(&mut self) {
-        for ship in self.ships.values_mut() {
-            if ship.controlled {
-                let human_player = if let PlayerType::HumanPlayer(human_player) =
-                    &self.players[ship.player_id as usize].player_type
-                {
-                    human_player
-                } else {
-                    continue;
-                };
+        // for ship in self.ships.values_mut() {
+        //     if ship.controlled {
+        //         let human_player = if let PlayerType::HumanPlayer(human_player) =
+        //             &self.players[ship.player_id as usize].player_type
+        //         {
+        //             human_player
+        //         } else {
+        //             continue;
+        //         };
 
-                if let Some(body) = self.bodies.get_mut(ship.body_handle) {
-                    // Apply wish dir.
-                    let wish_dir = human_player.player_input.get_wish_dir();
-                    let force = UnitComplex::new(wish_dir.0) * vector![wish_dir.1, 0.0];
-                    body.apply_force(force, true);
+        //         if let Some(body) = self.bodies.get_mut(ship.body_handle) {
+        //             // Apply wish dir.
+        //             let wish_dir = human_player.player_input.get_wish_dir();
+        //             let force = UnitComplex::new(wish_dir.0) * vector![wish_dir.1, 0.0];
+        //             // body.apply_force(force, true);
 
-                    // Apply wish rot.
-                    match human_player.player_input.get_wish_rot() {
-                        player_inputs::WishRot::Relative(f) => {
-                            body.apply_torque(f, true);
-                        }
-                        player_inputs::WishRot::FaceWorldPositon(x, y) => {
-                            let wish_angle_cart = (vector![x, y] - *body.translation()).normalize();
-                            let wish_angle = UnitComplex::from_cos_sin_unchecked(
-                                wish_angle_cart.x,
-                                wish_angle_cart.y,
-                            );
-                            let current_angle = body.rotation().angle_to(&wish_angle);
-                            body.apply_torque(current_angle.signum(), true);
-                        }
-                    }
-                }
-            } else {
-            }
-        }
+        //             // Apply wish rot.
+        //             match human_player.player_input.get_wish_rot() {
+        //                 player_inputs::WishRot::Relative(f) => {
+        //                     // body.apply_torque(f, true);
+        //                 }
+        //                 player_inputs::WishRot::FaceWorldPositon(x, y) => {
+        //                     let wish_angle_cart = (vector![x, y] - *body.translation()).normalize();
+        //                     let wish_angle = UnitComplex::from_cos_sin_unchecked(
+        //                         wish_angle_cart.x,
+        //                         wish_angle_cart.y,
+        //                     );
+        //                     let current_angle = body.rotation().angle_to(&wish_angle);
+        //                     // body.apply_torque(current_angle.signum(), true);
+        //                 }
+        //             }
+        //         }
+        //     } else {
+        //     }
+        // }
     }
 }
 impl Default for Battlescape {
@@ -336,11 +336,11 @@ impl Default for Battlescape {
             narrow_phase: NarrowPhase::new(),
             bodies: RigidBodySet::new(),
             colliders: ColliderSet::new(),
-            joints: JointSet::new(),
+            // joints: JointSet::new(),
             ccd_solver: CCDSolver::new(),
             battlescape_commands_queue: Default::default(),
             players: Default::default(),
-            ships: Default::default(),
+            // ships: Default::default(),
             rng: Xoshiro128StarStar::seed_from_u64(1377),
             next_ship_id: Default::default(),
         }

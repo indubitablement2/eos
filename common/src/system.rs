@@ -73,12 +73,9 @@ impl Systems {
     }
 
     pub fn get_system_and_planet(&self, planet_id: PlanetId) -> Option<(&System, &Planet)> {
-        if let Some(system) = self.systems.get(&planet_id.system_id) {
-            let planet = &system.planets[planet_id.planets_offset as usize];
-            Some((system, planet))
-        } else {
-            None
-        }
+        self.systems.get(&planet_id.system_id).and_then(|system| {
+            system.planets.get(planet_id.planets_offset as usize).map(|planet| (system, planet))
+        })
     }
 
     pub fn create_acceleration_structure(&self) -> AccelerationStructure<Circle, SystemId> {

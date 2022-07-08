@@ -5,9 +5,7 @@
 #![feature(hash_drain_filter)]
 #![feature(split_array)]
 #![feature(array_chunks)]
-
-#[macro_use]
-extern crate log;
+#![feature(io_error_other)]
 
 pub mod data;
 pub mod factions;
