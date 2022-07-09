@@ -70,66 +70,42 @@ impl Client {
     #[godot]
     unsafe fn _exit_tree(&mut self) {}
 
-    #[godot]
-    unsafe fn _process(&mut self, #[base] owner: &Node2D, mut delta: f32) {
-        // // Connection attempt.
-        // if let Some(attempt) = self.connection_attempt.take() {
-        //     match attempt.try_receive_result() {
-        //         Ok(connection) => {
-        //             info!("Connection to server successful. Starting metascape...");
-        //             match Metascape::new(connection, self.configs) {
-        //                 Ok(new_metascape) => {
-        //                     info!("Successfully created metascape.");
+    // #[godot]
+    // unsafe fn _process(&mut self, #[base] owner: &Node2D, delta: f32) {
+    //     // // Connection attempt.
+    //     // if let Some(attempt) = self.connection_attempt.take() {
+    //     //     match attempt.try_receive_result() {
+    //     //         Ok(connection) => {
+    //     //             info!("Connection to server successful. Starting metascape...");
+    //     //             match Metascape::new(connection, self.configs) {
+    //     //                 Ok(new_metascape) => {
+    //     //                     info!("Successfully created metascape.");
 
-        //                     self.metascape = Some(new_metascape);
+    //     //                     self.metascape = Some(new_metascape);
 
-        //                     owner.emit_signal("ConnectionResult", &[true.to_variant()]);
-        //                 }
-        //                 Err(err) => {
-        //                     error!("{:?} while creating metascape. Aborting...", err);
+    //     //                     owner.emit_signal("ConnectionResult", &[true.to_variant()]);
+    //     //                 }
+    //     //                 Err(err) => {
+    //     //                     error!("{:?} while creating metascape. Aborting...", err);
 
-        //                     owner.emit_signal("ConnectionResult", &[false.to_variant()]);
-        //                 }
-        //             }
-        //         }
-        //         Err(err) => match err {
-        //             Ok(attempt) => {
-        //                 self.connection_attempt = Some(attempt);
-        //             }
-        //             Err(err) => {
-        //                 warn!("Connection attempt failed with ({:?}).", err);
+    //     //                     owner.emit_signal("ConnectionResult", &[false.to_variant()]);
+    //     //                 }
+    //     //             }
+    //     //         }
+    //     //         Err(err) => match err {
+    //     //             Ok(attempt) => {
+    //     //                 self.connection_attempt = Some(attempt);
+    //     //             }
+    //     //             Err(err) => {
+    //     //                 warn!("Connection attempt failed with ({:?}).", err);
 
-        //                 owner.emit_signal("ConnectionResult", &[false.to_variant()]);
-        //             }
-        //         },
-        //     }
-        //     return;
-        // }
-
-        // Somehow delta can be negative...
-        delta = delta.clamp(0.0, 1.0);
-
-        self.player_inputs.update(owner);
-
-        if let Some(client_metascape) = &mut self.client_metascape {
-            for metascape_signal in client_metascape.update(delta, &self.player_inputs) {
-                match metascape_signal {
-                    MetascapeSignal::Disconnected { reason } => {
-                        let reason_str = reason.to_string();
-                        log::info!("Disconnected: {}", &reason_str);
-                        owner.emit_signal("Disconnected", &[reason_str.to_variant()]);
-                    }
-                    MetascapeSignal::HasFleetChanged(has_fleet) => {
-                        log::info!("Has fleet changed: {}", has_fleet);
-                        owner.emit_signal("HasFleetChanged", &[has_fleet.to_variant()]);
-                    }
-                }
-            }
-        }
-
-        // TODO: Remove rendering from draw,
-        owner.update();
-    }
+    //     //                 owner.emit_signal("ConnectionResult", &[false.to_variant()]);
+    //     //             }
+    //     //         },
+    //     //     }
+    //     //     return;
+    //     // }
+    // }
 
     #[godot]
     unsafe fn _physics_process(&mut self, _delta: f32) {
@@ -143,6 +119,11 @@ impl Client {
         if let Some(client_metascape) = &mut self.client_metascape {
             client_metascape.render(owner);
         }
+    }
+
+    #[godot]
+    unsafe fn update(&mut self, #[base] owner: &Node2D, delta: f32) {
+        _update(self, owner, delta);
     }
 
     /// Try to connect to the server.
@@ -258,6 +239,31 @@ TIME:
     }
 
     debug_info
+}
+
+unsafe fn _update(client: &mut Client, owner: &Node2D, mut delta: f32) {
+        // Somehow delta can be negative...
+        delta = delta.clamp(0.0, 1.0);
+
+        client.player_inputs.update(owner);
+
+        if let Some(client_metascape) = &mut client.client_metascape {
+            for metascape_signal in client_metascape.update(delta, &client.player_inputs) {
+                match metascape_signal {
+                    MetascapeSignal::Disconnected { reason } => {
+                        let reason_str = reason.to_string();
+                        log::info!("Disconnected: {}", &reason_str);
+                        owner.emit_signal("Disconnected", &[reason_str.to_variant()]);
+                    }
+                    MetascapeSignal::HasFleetChanged(has_fleet) => {
+                        log::info!("Has fleet changed: {}", has_fleet);
+                        owner.emit_signal("HasFleetChanged", &[has_fleet.to_variant()]);
+                    }
+                }
+            }
+        }
+
+        owner.update();
 }
 
 unsafe fn _connect_local(client: &mut Client, client_id: u32) -> bool {
