@@ -2,6 +2,7 @@ extends Camera2D
 
 var origin := Vector2.ZERO
 var wish_origin := Vector2.ZERO
+var look_dir := Vector2.ZERO
 
 var wish_zoom := 1.0
 onready var tween := Tween.new()
@@ -18,13 +19,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		zoom = Vector2.ONE
 
 func _process(_delta: float) -> void:
-	var mouse_pos = get_local_mouse_position()
+	var vp := get_tree().get_root()
+	var uv = (vp.get_mouse_position() / vp.size - Vector2(0.5, 0.5)) * Vector2(2.0, 2.0)
+	look_dir = look_dir * 0.98 + uv * 0.02
+	var look_dif = look_dir * Vector2(4096.0, 4096.0)
 	
-	origin = origin * 0.96 + wish_origin * 0.04
+	origin = origin * 0.9 + wish_origin * 0.1
 	
-	var look_dif = (mouse_pos - origin).clamped(4096.0)
-	
-	position = wish_origin
+	position = origin + look_dif
 
 func zoom_tween(zoom_change: float) -> void:
 	wish_zoom *= zoom_change
