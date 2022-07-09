@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "metascape"
+		},
+		{
+			"path": "client/rust"
+		}
+	],
+	"settings": {}
+}

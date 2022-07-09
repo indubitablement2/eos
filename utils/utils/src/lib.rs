@@ -7,6 +7,7 @@ pub mod container;
 pub mod incrementable;
 pub mod packed_map;
 pub mod ring_buffer;
+pub mod interval;
 
 pub use container::*;
 pub use incrementable::*;
