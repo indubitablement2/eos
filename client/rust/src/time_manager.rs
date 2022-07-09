@@ -147,7 +147,11 @@ impl TimeManager {
     pub fn compute_interpolation(&self, tick_start: u32, tick_end: u32) -> f32 {
         let range = (tick_end - tick_start) as f32;
         let elapsed = (self.tick - tick_start) as f32 - 1.0 + self.tick_frac / TICK_DURATION.as_secs_f32();
-        elapsed / range
+        if range > 0.0001 {
+            elapsed / range
+        } else {
+            0.0
+        }
     }
 
     fn new_period(&mut self) {

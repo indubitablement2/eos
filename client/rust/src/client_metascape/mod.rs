@@ -150,7 +150,7 @@ impl ClientMetascape {
                 .min(1.0);
 
             // Interpolate position.
-            let pos = fleet_state.get_interpolated_pos(time_manager, orbit_time);
+            let pos = fleet_state.get_interpolated_pos(time_manager);
 
             let r = ((fleet_id.0 + 5) % 7) as f32 / 7.0;
             let g = ((fleet_id.0 + 4) % 11) as f32 / 11.0;

@@ -4,12 +4,17 @@ onready var viewport_size := get_tree().get_root().get_size()
 
 onready var debug_info_label := $CanvasLayer/DebugInfosLabel
 onready var client := $Client
+onready var camera := $FollowCamera
 
 func _ready() -> void:
 	client.connect("ConnectionResult", self, "_on_Client_ConnectionResult")
 #	client.connect("Disconnected", self, "_on_Client_Disconnected")
 	
 	print(IP.get_local_addresses())
+
+func _process(_delta: float) -> void:
+	var client_pos = client.get_client_position()
+	camera.wish_origin = client_pos
 
 func _on_Button_pressed() -> void:
 	if client.connect_local(42):

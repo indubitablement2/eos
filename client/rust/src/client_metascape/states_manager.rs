@@ -30,7 +30,7 @@ impl FleetState {
         }
     }
 
-    pub fn get_interpolated_pos(&self, time_manager: &TimeManager, orbit_time: f32) -> Vec2 {
+    pub fn get_interpolated_pos(&self, time_manager: &TimeManager) -> Vec2 {
         let interpolation = time_manager.compute_interpolation(self.previous_tick, self.current_tick);
         self.previous_position.lerp(self.current_position, interpolation)
     }
@@ -59,7 +59,7 @@ impl FleetState {
         }
     }
 
-    fn update_fleet_infos(&mut self, fleet_infos_update_tick: u32, fleet_infos: FleetInfos) {
+    fn update_fleet_infos(&mut self, fleet_infos: FleetInfos) {
         self.fleet_stats = fleet_infos.fleet_composition.compute_stats();
         self.fleet_infos = Some(fleet_infos);
     }
@@ -176,7 +176,7 @@ impl StatesManager {
                 for fleet_infos in fleets_infos.new_fleets {
                     let fleet_id = fleet_infos.fleet_id;
                     if let Some(fleet_state) = self.fleets_state.get_mut(&fleet_id) {
-                        fleet_state.update_fleet_infos(fleets_infos.tick, fleet_infos);
+                        fleet_state.update_fleet_infos(fleet_infos);
                     } else {
                         // We received this way too late. Fleet was removed.
                         log::debug!("Received out of date new fleet infos. Ignoring...");

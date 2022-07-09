@@ -208,7 +208,11 @@ impl Client {
     #[godot]
     unsafe fn get_client_position(&mut self) -> Vector2 {
         if let Some(client_metascape) = &self.client_metascape {
-            client_metascape.states_manager.client_position.to_godot_scaled()
+            if let Some(fleet_state) = client_metascape.states_manager.get_client_fleet() {
+                fleet_state.get_interpolated_pos(&client_metascape.time_manager).to_godot_scaled()
+            } else {
+                client_metascape.states_manager.client_position.to_godot_scaled()
+            }
         } else {
             Vector2::ZERO
         }
