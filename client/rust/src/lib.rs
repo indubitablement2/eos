@@ -10,12 +10,13 @@ extern crate nalgebra as na;
 
 mod client;
 mod client_metascape;
-mod configs;
+mod client_configs;
 mod constants;
 mod godot_logger;
 mod input_handler;
 mod time_manager;
 mod util;
+mod metasacpe_manager;
 
 static LOGGER: godot_logger::GodotLogger = godot_logger::GodotLogger;
 

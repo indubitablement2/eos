@@ -1,11 +1,11 @@
 use crate::client_metascape::*;
-use crate::configs::Configs;
+use crate::client_configs::ClientConfigs;
 use crate::input_handler::PlayerInputs;
+use crate::metasacpe_manager::*;
 use crate::util::ToGodot;
 use common::idx::*;
 use common::net::offline_client::*;
 use common::net::*;
-// use metas
 use gdnative::api::*;
 use gdnative::prelude::*;
 use metascape::offline::OfflineConnectionsManager;
@@ -16,11 +16,11 @@ use metascape::Metascape;
 #[register_with(Self::register_builder)]
 pub struct Client {
     player_inputs: PlayerInputs,
-    configs: Configs,
+    client_configs: ClientConfigs,
     rt: tokio::runtime::Runtime,
     client_metascape: Option<ClientMetascape>,
     /// Used when we are also the server.
-    metascape: Option<Metascape<OfflineConnectionsManager>>,
+    metascape_manager: Option<MetascapeManager>,
     // connection_attempt: Option<ConnectionAttempt>,
 }
 
@@ -46,9 +46,9 @@ impl Client {
     fn new(_owner: &Node2D) -> Self {
         Client {
             player_inputs: PlayerInputs::default(),
-            configs: Configs::default(),
+            client_configs: ClientConfigs::default(),
             client_metascape: None,
-            metascape: None,
+            metascape_manager: None,
             rt: tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
@@ -106,13 +106,6 @@ impl Client {
     //     //     return;
     //     // }
     // }
-
-    #[godot]
-    unsafe fn _physics_process(&mut self, _delta: f32) {
-        if let Some(metascape) = &mut self.metascape {
-            metascape.update();
-        }
-    }
 
     #[godot]
     unsafe fn _draw(&mut self, #[base] owner: &Node2D) {
@@ -203,7 +196,7 @@ impl Client {
 pub fn _get_debug_infos_string(client: &mut Client) -> String {
     let mut debug_info = if let Some(client_metascape) = &client.client_metascape {
         format!(
-            "Client:
+            "CLIENT:
             Position: {}
             Fleet: {}
 TIME:
@@ -211,7 +204,8 @@ TIME:
             Buffer remaining: {:.5}
             Min buffer remaining recently: {:.5}
             Time dilation: {:.4}
-            Orbit time: {:.1}",
+            Orbit time: {:.1}
+            ",
             client_metascape.states_manager.client_position,
             client_metascape.states_manager.get_client_fleet().is_some(),
             client_metascape.time_manager.tick,
@@ -224,18 +218,8 @@ TIME:
         "".to_string()
     };
 
-    if let Some(metascape) = &client.metascape {
-        let server_debug_info = format!(
-            "\nSERVER:
-            Num clients: {},
-            Num fleets: {},
-            Num connections: {}",
-            metascape.clients.len(),
-            metascape.fleets.len(),
-            metascape.connections.len()
-        );
-
-        debug_info.push_str(&server_debug_info);
+    if let Some(metascape_manager) = &client.metascape_manager {
+        debug_info.push_str(&metascape_manager.last_metascape_debug_info_str);
     }
 
     debug_info
@@ -284,21 +268,21 @@ unsafe fn _connect_local(client: &mut Client, client_id: u32) -> bool {
         file.close();
         let systems = bincode::deserialize::<metascape::Systems>(&buffer.read()).unwrap();
 
-        let metascape = Metascape::load(
+        let metascape_manager = MetascapeManager::new(Metascape::load(
             offline_connections_manager,
             systems.clone(),
             metascape::configs::Configs::default(),
             metascape::MetascapeSave::default(),
-        );
+        ));
 
         let client_metascape = ClientMetascape::new(
             ConnectionClientSideWrapper::Offline(c),
             client_id,
-            Configs::default(),
+            ClientConfigs::default(),
             systems,
         );
 
-        client.metascape = Some(metascape);
+        client.metascape_manager = Some(metascape_manager);
         client.client_metascape = Some(client_metascape);
     }
 

@@ -4,7 +4,7 @@ pub mod states_manager;
 pub use connection_wrapper::*;
 
 use self::states_manager::StatesManager;
-use crate::configs::Configs;
+use crate::client_configs::ClientConfigs;
 use crate::constants::*;
 use crate::input_handler::PlayerInputs;
 use crate::time_manager::*;
@@ -37,13 +37,13 @@ pub struct ClientMetascape {
     pub time_manager: TimeManager,
     pub states_manager: StatesManager,
 
-    configs: Configs,
+    client_configs: ClientConfigs,
 }
 impl ClientMetascape {
     pub fn new(
         connection: ConnectionClientSideWrapper,
         client_id: ClientId,
-        configs: Configs,
+        client_configs: ClientConfigs,
         systems: Systems,
     ) -> Self {
         Self {
@@ -53,9 +53,9 @@ impl ClientMetascape {
             send_timer: 0.0,
             last_metascape_state_ack: 0,
             last_inputs: ClientInputsType::default(),
-            time_manager: TimeManager::new(configs.time_manager_configs.to_owned()),
+            time_manager: TimeManager::new(client_configs.time_manager_configs.to_owned()),
             states_manager: StatesManager::new(client_id.to_fleet_id()),
-            configs,
+            client_configs,
         }
     }
 
@@ -189,7 +189,7 @@ impl ClientMetascape {
         }
 
         // Debug draw systems.
-        let screen_collider = Circle::new(pos, self.configs.system_draw_distance);
+        let screen_collider = Circle::new(pos, self.client_configs.system_draw_distance);
         self.systems_acceleration.intersect(&screen_collider, |_, system_id| {
             let system = self.systems.systems.get(system_id).unwrap();
 
