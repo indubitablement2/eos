@@ -1,11 +1,11 @@
 [gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://native/Client.gdns" type="Script" id=1]
-[ext_resource path="res://component/FollowCamera.tscn" type="PackedScene" id=2]
 [ext_resource path="res://scene/Button.gd" type="Script" id=3]
 [ext_resource path="res://scene/game.gd" type="Script" id=4]
 [ext_resource path="res://assets/bg/starfield.png" type="Texture" id=5]
 [ext_resource path="res://shaders/sprite_display.material" type="Material" id=6]
+[ext_resource path="res://component/camera/FollowCamera.tscn" type="PackedScene" id=7]
 
 [node name="Game" type="Node2D"]
 material = ExtResource( 6 )
@@ -14,7 +14,7 @@ script = ExtResource( 4 )
 [node name="Client" type="Node2D" parent="."]
 script = ExtResource( 1 )
 
-[node name="FollowCamera" parent="." instance=ExtResource( 2 )]
+[node name="FollowCamera" parent="." instance=ExtResource( 7 )]
 current = true
 
 [node name="BackGroundLayer" type="CanvasLayer" parent="."]

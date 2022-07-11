@@ -13,7 +13,7 @@ func _process(delta: float) -> void:
 	client.update(delta)
 	
 	var client_pos = client.get_client_position()
-	camera.wish_origin = client_pos
+	camera.wish_anchor = client_pos
 
 func _on_UpdateDebugInfosTimer_timeout() -> void:
 	debug_info_label.set_text(client.get_debug_infos_string())
