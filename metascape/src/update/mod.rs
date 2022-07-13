@@ -30,10 +30,8 @@ where
             Default::default();
         let mut new_fleet_queue: NewFleetQueue = Default::default();
 
-        unsafe {
-            _TICK += 1;
-            _TOTAL_TICK += 1;
-        }
+        self.tick += 1;
+        self.total_tick += 1;
 
         connect_clients(self, connections_manager, &mut disconnect);
         handle_disconnect(connections_manager, &mut disconnect);

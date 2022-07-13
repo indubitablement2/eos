@@ -2,9 +2,9 @@ use super::*;
 use common::fleet::*;
 use std::ops::{Deref, DerefMut};
 
+/// Will automatically update the fleet stats when dropped.
 pub struct FleetCompositionMut<'a> {
     inner: &'a mut FleetInner,
-    changed: bool,
 }
 impl Deref for FleetCompositionMut<'_> {
     type Target = FleetComposition;
@@ -15,16 +15,12 @@ impl Deref for FleetCompositionMut<'_> {
 }
 impl DerefMut for FleetCompositionMut<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.changed = true;
         &mut self.inner.fleet_composition
     }
 }
 impl Drop for FleetCompositionMut<'_> {
     fn drop(&mut self) {
-        if self.changed {
-            self.inner.last_change = tick();
-            self.inner.fleet_stats = self.inner.fleet_composition.compute_stats();
-        }
+        self.inner.fleet_stats = self.inner.fleet_composition.compute_stats();
     }
 }
 
@@ -34,16 +30,17 @@ impl Drop for FleetCompositionMut<'_> {
 pub struct FleetInner {
     fleet_stats: FleetStats,
     fleet_composition: FleetComposition,
-    /// The tick this fleet last changed (name, faction_id, composition).
+    /// The tick this was last changed.
     /// Used for networking & recomputing fleet stats.
-    last_change: u32,
+    #[serde(skip)]
+    change_tick: u32,
 }
 impl FleetInner {
     pub fn new(fleet_composition: FleetComposition) -> Self {
         Self {
             fleet_stats: fleet_composition.compute_stats(),
             fleet_composition,
-            last_change: tick(),
+            change_tick: Default::default(),
         }
     }
 
@@ -52,19 +49,18 @@ impl FleetInner {
     }
 
     /// Will automatically re-compute the fleet's stats, if accessed mutably, when dropped.
-    pub fn fleet_composition_mut(&mut self) -> FleetCompositionMut {
-        FleetCompositionMut {
-            inner: self,
-            changed: false,
-        }
+    pub fn fleet_composition_mut(&mut self, tick: u32) -> FleetCompositionMut {
+        self.change_tick = tick;
+        FleetCompositionMut { inner: self }
     }
 
     pub fn fleet_stats(&self) -> &FleetStats {
         &self.fleet_stats
     }
 
+    /// The tick this was last changed.
     pub fn last_change(&self) -> u32 {
-        self.last_change
+        self.change_tick
     }
 
     pub fn update_stats(&mut self) {

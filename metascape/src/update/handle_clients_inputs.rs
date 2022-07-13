@@ -14,7 +14,8 @@ pub fn handle_clients_inputs<C>(
     let mut rng = &mut s.rng;
     let systems = &s.systems;
     let data = data();
-    let orbit_time = TimeF::tick_to_orbit_time(tick());
+    let total_tick = s.total_tick;
+    let orbit_time = TimeF::tick_to_orbit_time(total_tick);
 
     let connections = &mut s.connections;
 

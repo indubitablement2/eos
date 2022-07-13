@@ -38,13 +38,6 @@ pub use utils::{acc::*, *};
 static FLEET_ID_DISPENSER: NPCFleetIdDispenser = NPCFleetIdDispenser::new();
 static FLEET_QUEUE: SegQueue<(FleetId, Fleet)> = SegQueue::new();
 
-pub type Tick = u32;
-static mut _TICK: Tick = 0;
-static mut _TOTAL_TICK: u64 = 0;
-pub fn tick() -> u32 {
-    unsafe { _TICK }
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct Metascape<C>
 where
@@ -52,6 +45,12 @@ where
 {
     pub configs: Configs,
     pub rng: rand_xoshiro::Xoshiro256StarStar,
+
+    /// Number of tick since the metascape was started.
+    #[serde(skip)]
+    pub tick: u32,
+    /// Number of tick since the metascape was first created.
+    pub total_tick: u64,
 
     #[serde(skip)]
     pub connections: AHashMap<ClientId, ClientConnection<C::ConnectionType>>,
@@ -125,6 +124,8 @@ where
             factions: Default::default(),
             clients: Default::default(),
             fleets: Default::default(),
+            tick: Default::default(),
+            total_tick: Default::default(),
         }
     }
 }

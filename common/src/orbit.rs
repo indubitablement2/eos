@@ -150,7 +150,7 @@ pub fn nearest_valid_orbit_speed(orbit_speed: f32) -> f32 {
 }
 
 /// Number of ticks before time wrap around.
-pub const ORBIT_TICK_PERIOD: u32 = 65520;
+pub const ORBIT_TICK_PERIOD: u64 = 65520;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct RelativeOrbit {

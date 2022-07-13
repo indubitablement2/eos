@@ -10,6 +10,7 @@ where
 {
     let metascape_configs = &s.configs.metascape_configs;
     let systems = &s.systems;
+    let total_tick = s.total_tick;
 
     let fleets_position = s.fleets.container.position.as_mut_slice();
     let fleets_wish_position = s.fleets.container.wish_position.as_mut_slice();
@@ -20,7 +21,7 @@ where
     let fleets_orbit = s.fleets.container.orbit.as_mut_slice();
 
     let bound_squared = (systems.bound + metascape_configs.systems_bound_padding).powi(2);
-    let orbit_time = TimeF::tick_to_orbit_time(tick());
+    let orbit_time = TimeF::tick_to_orbit_time(total_tick);
     let break_acceleration_multiplier = metascape_configs.break_acceleration_multiplier;
     let absolute_max_speed = metascape_configs.absolute_max_speed;
 
@@ -105,25 +106,22 @@ where
                         }
                     });
 
-                    *orbit = Some((
-                        Orbit::from_relative_position(
-                            relative_position,
-                            orbit_time,
-                            system.position,
-                            distance,
-                            orbit_speed,
-                        ),
-                        tick(),
+                    *orbit = Some(Orbit::from_relative_position(
+                        relative_position,
+                        orbit_time,
+                        system.position,
+                        distance,
+                        orbit_speed,
                     ));
                 } else {
                     // Take a stationary orbit.
-                    *orbit = Some((Orbit::stationary(*position), tick()));
+                    *orbit = Some(Orbit::stationary(*position));
                 }
             }
         }
 
         // Update position.
-        if let Some((orbit, _)) = orbit {
+        if let Some(orbit) = orbit {
             // Apply orbit.
             *position = orbit.to_position(orbit_time);
         } else {

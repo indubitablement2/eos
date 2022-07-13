@@ -19,6 +19,8 @@ pub fn send_detected_entities<C>(
 {
     let client_configs = &s.configs.client_configs;
 
+    let tick = s.tick;
+
     let fleets_out_detection_acc = &s.fleets_out_detection_acc;
     let fleets_in_detection_acc = &s.fleets_in_detection_acc;
 
@@ -31,7 +33,7 @@ pub fn send_detected_entities<C>(
     let fleets_name = s.fleets.container.name.as_slice();
 
     let interval = client_configs.client_detected_entity_update_interval;
-    let step = tick() % interval;
+    let step = tick % interval;
 
     let to_disconnect = connections
         .drain_filter(|client_id, connection| {
@@ -55,7 +57,7 @@ pub fn send_detected_entities<C>(
             // Detect things around the client's fleet.
             let check_change_range = if full_update {
                 let mut metascape_state_order_change = MetascapeStateOrderChange {
-                    change_tick: tick(),
+                    change_tick: tick,
                     order_add: Vec::new(),
                     order_remove: Vec::new(),
                 };
@@ -143,7 +145,7 @@ pub fn send_detected_entities<C>(
                     if let Some(&fleet_index) = fleets_index_map.get(fleet_id) {
                         // Check for fleet composition change.
                         let fleet_inner = &fleets_inner[fleet_index];
-                        if fleet_inner.last_change() == tick() {
+                        if fleet_inner.last_change() == tick {
                             compositions_changed
                                 .push((*fleet_id, fleet_inner.fleet_composition().to_owned()));
                         }
@@ -177,7 +179,7 @@ pub fn send_detected_entities<C>(
                 connection
                     .connection
                     .send_reliable(&ServerPacket::FleetsInfos(FleetsInfos {
-                        tick: tick(),
+                        tick,
                         new_fleets,
                         compositions_changed,
                     }));
@@ -219,7 +221,7 @@ pub fn send_detected_entities<C>(
                 connection
                     .connection
                     .send_reliable(&ServerPacket::MetascapeState(MetascapeState {
-                        tick: tick(),
+                        tick,
                         ghost: connection.ghost,
                         order_checksum: connection.know_fleets.order_checksum,
                         non_ack_change: connection.know_fleets.non_ack_change.to_owned(),
@@ -230,7 +232,7 @@ pub fn send_detected_entities<C>(
             } else {
                 let num_part = connection.know_fleets.order.len() / max_send + 1;
                 let part_size = max_send.min(connection.know_fleets.order.len());
-                let part_number = tick() as usize % num_part;
+                let part_number = tick as usize % num_part;
                 let order_start = part_size * part_number;
                 let order_end = order_start + part_size;
 
@@ -255,7 +257,7 @@ pub fn send_detected_entities<C>(
                 connection
                     .connection
                     .send_unreliable(&ServerPacket::MetascapeState(MetascapeState {
-                        tick: tick(),
+                        tick,
                         ghost: connection.ghost,
                         order_checksum: connection.know_fleets.order_checksum,
                         non_ack_change: connection.know_fleets.non_ack_change.to_owned(),
