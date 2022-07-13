@@ -43,7 +43,6 @@ pub struct Fleet {
 /// - `faction`: FactionId::default().
 /// - `name`: A random name will be generated.
 /// - `fleet_ai`: Idle for npc, but always set to ClientControlled for client.
-/// - `owner`: None, this is an npc fleet.
 pub struct FleetBuilder {
     pub fleet_id: FleetId,
     pub faction: FactionId,
@@ -56,25 +55,14 @@ pub struct FleetBuilder {
     pub fleet_composition: FleetComposition,
 }
 impl FleetBuilder {
-    pub fn new_npc(position: Vec2, fleet_composition: FleetComposition) -> Self {
-        Self {
-            fleet_id: FLEET_ID_DISPENSER.next(),
-            faction: Default::default(),
-            name: None,
-            position,
-            velocity: Vec2::ZERO,
-            fleet_ai: None,
-            fleet_composition,
-        }
-    }
-
-    pub fn new_client(
-        client_id: ClientId,
+    /// If this is for a client: fleet id should be from client id.
+    pub fn new(
+        fleet_id: FleetId,
         position: Vec2,
-        fleet_composition: FleetComposition,
+        fleet_composition: FleetComposition
     ) -> Self {
         Self {
-            fleet_id: client_id.to_fleet_id(),
+            fleet_id,
             faction: Default::default(),
             name: None,
             position,

@@ -12,7 +12,6 @@ pub mod id_dispenser;
 mod update;
 
 use bincode::Options;
-use crossbeam::queue::SegQueue;
 
 pub use ahash::{AHashMap, AHashSet};
 pub use bit_vec::BitVec;
@@ -33,10 +32,6 @@ pub use rand::prelude::*;
 pub use serde::{Deserialize, Serialize};
 pub use soa_derive::*;
 pub use utils::{acc::*, *};
-
-/// Dispense unique and never recycled `FleetId`.
-static FLEET_ID_DISPENSER: NPCFleetIdDispenser = NPCFleetIdDispenser::new();
-static FLEET_QUEUE: SegQueue<(FleetId, Fleet)> = SegQueue::new();
 
 #[derive(Serialize, Deserialize)]
 pub struct Metascape<C>
@@ -71,6 +66,8 @@ where
     pub factions: Factions,
 
     pub clients: PackedMap<ClientSoa, ClientId>,
+
+    pub fleet_id_dispenser: FleetIdDispenser,
     pub fleets: PackedMap<FleetSoa, FleetId>,
 }
 impl<C> Metascape<C>
@@ -126,6 +123,7 @@ where
             fleets: Default::default(),
             tick: Default::default(),
             total_tick: Default::default(),
+            fleet_id_dispenser: Default::default(),
         }
     }
 }

@@ -80,7 +80,7 @@ pub fn handle_clients_inputs<C>(
 
                             // Create fleet.
                             new_fleet_queue.push(
-                                FleetBuilder::new_client(*client_id, position, fleet_composition.to_owned())
+                                FleetBuilder::new(client_id.to_fleet_id(), position, fleet_composition.to_owned())
                             );
                             false
                         } else {
