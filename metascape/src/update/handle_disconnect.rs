@@ -1,18 +1,16 @@
-use crate::*;
+use super::*;
 
 pub fn handle_disconnect<C>(
-    s: &mut Metascape<C>,
-    mut connection: C::ConnectionType,
-    reason: Option<DisconnectedReason>,
+    connections_manager: &mut C,
+    disconnect: &mut Vec<(C::ConnectionType, Option<DisconnectedReason>)>,
 ) where
     C: ConnectionsManager,
 {
-    let connections_manager = &mut s.connections_manager;
-
-    if let Some(reason) = reason {
-        connection.send_reliable(&ServerPacket::DisconnectedReason(reason));
-        let _ = connection.flush();
+    for (mut connection, reason) in disconnect.drain(..) {
+        if let Some(reason) = reason {
+            connection.send_reliable(&ServerPacket::DisconnectedReason(reason));
+            let _ = connection.flush();
+        }
+        connections_manager.disconnect(connection)
     }
-
-    connections_manager.disconnect(connection);
 }

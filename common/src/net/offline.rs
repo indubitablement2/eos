@@ -16,11 +16,13 @@ impl Connection for OfflineConnection {
         self.send_reliable(packet);
     }
 
-    fn recv_packets(&mut self, mut closure: impl FnMut(ClientPacket)) {
+    fn recv_packets(&mut self, mut closure: impl FnMut(ClientPacket) -> bool) {
         loop {
             match self.inbound.try_recv() {
                 Ok(packet) => {
-                    closure(packet);
+                    if closure(packet) {
+                        return;
+                    }
                 }
                 Err(err) => {
                     if err.is_disconnected() {

@@ -11,9 +11,11 @@ pub mod fleet;
 pub mod id_dispenser;
 mod update;
 
+use bincode::Options;
 use crossbeam::queue::SegQueue;
 
 pub use ahash::{AHashMap, AHashSet};
+pub use bit_vec::BitVec;
 pub use client::*;
 pub use client_connection::*;
 pub use common::idx::*;
@@ -32,20 +34,18 @@ pub use serde::{Deserialize, Serialize};
 pub use soa_derive::*;
 pub use utils::{acc::*, *};
 
-/// Dispense unique and never recycled `FactionId`.
-static FACTION_ID_DISPENSER: FactionIdDispenser = FactionIdDispenser::new();
-static FACTION_QUEUE: SegQueue<(FactionId, FactionBuilder)> = SegQueue::new();
-
 /// Dispense unique and never recycled `FleetId`.
 static FLEET_ID_DISPENSER: NPCFleetIdDispenser = NPCFleetIdDispenser::new();
 static FLEET_QUEUE: SegQueue<(FleetId, Fleet)> = SegQueue::new();
 
-static mut _TICK: u32 = 0;
+pub type Tick = u32;
+static mut _TICK: Tick = 0;
 static mut _TOTAL_TICK: u64 = 0;
 pub fn tick() -> u32 {
     unsafe { _TICK }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Metascape<C>
 where
     C: ConnectionsManager,
@@ -53,97 +53,78 @@ where
     pub configs: Configs,
     pub rng: rand_xoshiro::Xoshiro256StarStar,
 
-    pub connections_manager: C,
+    #[serde(skip)]
     pub connections: AHashMap<ClientId, ClientConnection<C::ConnectionType>>,
     pub authenticated: AHashMap<Auth, ClientId>,
 
     /// For fleets **outside** a system.
+    #[serde(skip)] // Will be created as needed.
     pub fleets_out_detection_acc: AccelerationStructure<Circle, FleetId>,
     /// For fleets **inside** a system.
+    #[serde(skip)] // Will be created as needed.
     pub fleets_in_detection_acc: AHashMap<SystemId, AccelerationStructure<Circle, FleetId>>,
 
     pub systems: Systems,
     /// System don't change. Never updated at runtime.
+    #[serde(skip)] // Computed from `systems`.
     pub systems_acceleration_structure: AccelerationStructure<Circle, SystemId>,
+
+    pub factions: Factions,
 
     pub clients: PackedMap<ClientSoa, ClientId>,
     pub fleets: PackedMap<FleetSoa, FleetId>,
-    pub factions: PackedMap<FactionSoa, FactionId>,
 }
 impl<C> Metascape<C>
 where
     C: ConnectionsManager,
 {
-    pub fn load(connections_manager: C, systems: Systems, configs: Configs, save: MetascapeSave) -> Self {
-        // Load authenticated.
-        let authenticated = AHashMap::from_iter(save.authenticated.into_iter());
-
-        // Load clients.
-        let clients = PackedMap::from_iter(save.clients.into_iter());
-
-        // Load fleets.
-        let fleets = PackedMap::from_iter(
-            save.fleetsaves
-                .into_iter()
-                .map(|fleet_save| (fleet_save.fleet_id, fleet_save.to_fleet())),
-        );
-
-        // Load factions.
-        let factions = PackedMap::from_iter(save.factions.into_iter());
-
-        // Store statics variables.
-        unsafe {
-            FLEET_ID_DISPENSER.set(save.next_fleet_id);
-            FACTION_ID_DISPENSER.set(save.next_faction_id);
-            _TOTAL_TICK = save.total_tick;
-        }
+    pub fn new(configs: Configs, systems: Systems, factions: Factions) -> Self {
+        // TODO: Random generation.
 
         Self {
             configs,
-            connections_manager,
-            systems_acceleration_structure: systems.create_acceleration_structure(),
-            clients,
-            authenticated,
-            fleets,
             systems,
             factions,
-            fleets_out_detection_acc: Default::default(),
-            fleets_in_detection_acc: Default::default(),
-            rng: rand_xoshiro::Xoshiro256StarStar::from_entropy(),
-            connections: Default::default(),
+            ..Default::default()
         }
     }
 
-    pub fn save(&mut self) -> MetascapeSave {
-        log::error!("Save is not implemented yet. Returning default...");
-        MetascapeSave::default()
+    pub fn load(buffer: &[u8]) -> Option<Self> {
+        let mut s = bincode::options().deserialize::<Self>(buffer).ok()?;
+        s.init();
+        Some(s)
     }
 
-    pub fn update(&mut self) {
-        self.update_internal();
+    pub fn save(&self) -> Option<Vec<u8>> {
+        bincode::options().serialize(&self).ok()
+    }
+
+    fn init(&mut self) {
+        self.systems_acceleration_structure = self.systems.create_acceleration_structure();
+    }
+
+    pub fn update(&mut self, connections_manager: &mut C) {
+        self.update_internal(connections_manager);
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct MetascapeSave {
-    pub total_tick: u64,
-    pub next_fleet_id: FleetId,
-    pub next_faction_id: FactionId,
-    pub fleetsaves: Vec<FleetSave>,
-    pub factions: Vec<(FactionId, Faction)>,
-    pub clients: Vec<(ClientId, Client)>,
-    pub authenticated: Vec<(Auth, ClientId)>,
-}
-impl Default for MetascapeSave {
+impl<C> Default for Metascape<C>
+where
+    C: ConnectionsManager,
+{
     fn default() -> Self {
         Self {
-            total_tick: Default::default(),
-            next_fleet_id: FleetId(1),
-            next_faction_id: FactionId(0),
-            fleetsaves: Default::default(),
+            configs: Default::default(),
+            rng: rand_xoshiro::Xoshiro256StarStar::from_entropy(),
+            connections: Default::default(),
+            authenticated: Default::default(),
+            fleets_out_detection_acc: Default::default(),
+            fleets_in_detection_acc: Default::default(),
+            systems: Default::default(),
+            systems_acceleration_structure: Default::default(),
             factions: Default::default(),
             clients: Default::default(),
-            authenticated: Default::default(),
+            fleets: Default::default(),
         }
     }
 }

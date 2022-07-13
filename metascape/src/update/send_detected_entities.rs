@@ -1,5 +1,5 @@
-use std::iter::once;
 use crate::*;
+use std::iter::once;
 use utils::compressed_vec2::CVec2;
 
 /// ### This should be called after entities are done changing.
@@ -11,8 +11,10 @@ use utils::compressed_vec2::CVec2;
 /// Send detected fleets position.
 ///
 /// Flush tcp buffer and return disconnected connection.
-pub fn send_detected_entities<C>(s: &mut Metascape<C>) -> Vec<C::ConnectionType>
-where
+pub fn send_detected_entities<C>(
+    s: &mut Metascape<C>,
+    disconnect: &mut Vec<(C::ConnectionType, Option<DisconnectedReason>)>,
+) where
     C: ConnectionsManager,
 {
     let client_configs = &s.configs.client_configs;
@@ -31,7 +33,7 @@ where
     let interval = client_configs.client_detected_entity_update_interval;
     let step = tick() % interval;
 
-    connections
+    let to_disconnect = connections
         .drain_filter(|client_id, connection| {
             let client_fleet_id = client_id.to_fleet_id();
 
@@ -267,5 +269,11 @@ where
             connection.connection.flush()
         })
         .map(|(_, connection)| connection.connection)
-        .collect()
+        .collect::<Vec<_>>();
+
+    disconnect.extend(
+        to_disconnect
+            .into_iter()
+            .map(|connection| (connection, None)),
+    );
 }

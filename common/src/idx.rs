@@ -5,7 +5,7 @@ use std::ops::{AddAssign, Index};
 use utils::Incrementable;
 
 /// Never recycled.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub struct ClientId(pub u32);
 impl ClientId {
     pub fn to_fleet_id(self) -> FleetId {
@@ -25,7 +25,7 @@ impl Incrementable for ClientId {
 
 /// Never recycled.
 /// First `2^32 - 1` id are reserved for client.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Pod, Zeroable)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Pod, Zeroable, Default)]
 #[repr(transparent)]
 pub struct FleetId(pub u64);
 impl FleetId {
@@ -49,17 +49,27 @@ impl Incrementable for FleetId {
     }
 }
 
-/// Never recycled.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct FactionId(pub u64);
-impl AddAssign for FactionId {
-    fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0;
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
+pub struct FactionId(u8);
+impl FactionId {
+    pub fn new(mut id: u8) -> Self {
+        if id >= 64 {
+            log::warn!("Tried to create a faction id with id {}. Setting id to 63...", id);
+            id = 63
+        }
+        Self(id)
     }
-}
-impl Incrementable for FactionId {
-    fn one() -> Self {
-        Self(1)
+    
+    pub fn id(&self) -> u8 {
+        self.0
+    }
+
+    pub fn neutral(&self) -> bool {
+        self.0 == 0
+    }
+
+    pub fn mask(&self) -> u64 {
+        1 << self.0
     }
 }
 

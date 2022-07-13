@@ -1,5 +1,5 @@
-use common::timef::TimeF;
 use crate::*;
+use common::timef::TimeF;
 
 /// Update velocity based on wish position and acceleration.
 ///

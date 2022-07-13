@@ -100,6 +100,7 @@ fn main() {
 
     // Put it all together.
     let result = quote!(
+        #[derive(Debug, Clone, Serialize, Deserialize, Default)]
         pub struct #soa_ident {
             #(#soa_fields_def)*
         }

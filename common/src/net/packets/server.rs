@@ -14,6 +14,7 @@ pub enum ServerPacket {
 
     MetascapeState(MetascapeState),
     FleetsInfos(FleetsInfos),
+    FactionsInfo(FactionsInfo),
 
     DisconnectedReason(DisconnectedReason),
     ConnectionQueueLen(ConnectionQueueLen),
@@ -79,6 +80,16 @@ pub struct FleetsInfos {
     pub new_fleets: Vec<FleetInfos>,
     /// `FleetComposition`s that changed.
     pub compositions_changed: Vec<(FleetId, FleetComposition)>,
+}
+
+/// TODO
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct FactionsInfo {
+    // pub tick: u32,
+    // /// New fleets along with its full infos.
+    // pub new_fleets: Vec<FleetInfos>,
+    // /// `FleetComposition`s that changed.
+    // pub compositions_changed: Vec<(FleetId, FleetComposition)>,
 }
 
 /// Server sent the reason why it disconnected the client.

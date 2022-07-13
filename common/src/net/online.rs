@@ -40,15 +40,19 @@ impl Connection for OnlineConnection {
             .send((self.udp_addr, packets::Packet::serialize(packet)));
     }
 
-    fn recv_packets(&mut self, mut closure: impl FnMut(ClientPacket)) {
+    fn recv_packets(&mut self, mut closure: impl FnMut(ClientPacket) -> bool) {
         // Recv the udp packets.
         while let Ok(packet) = self.udp_inbound_receiver.try_recv() {
-            closure(packet);
+            if closure(packet) {
+                return;
+            }
         }
 
         // Recv the tcp packets.
         while let Ok(packet) = self.tcp_connection.inbound_tcp_receiver.try_recv() {
-            closure(packet);
+            if closure(packet) {
+                return;
+            }
         }
     }
 

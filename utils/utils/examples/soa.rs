@@ -1,5 +1,6 @@
 use soa_derive::Soa;
 use utils::*;
+use serde::{Serialize, Deserialize};
 
 #[derive(Soa)]
 pub struct Test {

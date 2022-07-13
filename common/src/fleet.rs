@@ -15,7 +15,7 @@ pub struct ShipInfos {
 }
 
 /// The stats derived from the fleet's ships.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct FleetStats {
     /// Fleet will not accelerate above this speed.
     /// Is never `<= 0`.

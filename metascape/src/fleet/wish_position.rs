@@ -1,7 +1,7 @@
-use glam::Vec2;
+use super::*;
 
 /// Where the fleet wish to move.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WishPosition {
     /// Where the fleet will try to move to.
     target: Option<Vec2>,

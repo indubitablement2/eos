@@ -14,7 +14,8 @@ pub trait ConnectionClientSide {
 pub trait Connection {
     fn send_reliable(&mut self, packet: &ServerPacket);
     fn send_unreliable(&mut self, packet: &ServerPacket);
-    fn recv_packets(&mut self, closure: impl FnMut(ClientPacket));
+    /// Return true to exit early.
+    fn recv_packets(&mut self, closure: impl FnMut(ClientPacket) -> bool);
     /// Send buffered packets.
     ///
     /// Return if disconnected.

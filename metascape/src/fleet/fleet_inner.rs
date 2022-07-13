@@ -30,6 +30,7 @@ impl Drop for FleetCompositionMut<'_> {
 
 /// Has `FleetComposition` and `FleetStats`.
 /// Needs to be its own struct to keep track of changes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FleetInner {
     fleet_stats: FleetStats,
     fleet_composition: FleetComposition,

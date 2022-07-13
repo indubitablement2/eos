@@ -1,10 +1,12 @@
 use crate::*;
 use ahash::AHashMap;
 use std::hash::Hash;
+use serde::{Serialize, Deserialize};
 
 /// A map where element are contiguous in memory.
 ///
 /// Similar to IndexMap, but generic over the underlying container.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PackedMap<C, I>
 where
     C: Container,

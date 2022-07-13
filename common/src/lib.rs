@@ -8,7 +8,6 @@
 #![feature(io_error_other)]
 
 pub mod data;
-pub mod factions;
 pub mod fleet;
 pub mod idx;
 pub mod net;

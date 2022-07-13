@@ -32,7 +32,8 @@ impl Reputation {
         self <= Self::ENEMY_THRESHOLD
     }
 
-    pub fn get_reputation_state(self) -> ReputationState {
+    /// Return the state of a reputation.
+    pub fn state(self) -> ReputationState {
         if self.is_allied() {
             ReputationState::Allied
         } else if self.is_enemy() {

@@ -1,5 +1,7 @@
+use super::*;
+
 /// How long this entity has been without velocity.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct IdleCounter {
     counter: u32,
 }

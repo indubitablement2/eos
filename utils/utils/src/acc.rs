@@ -157,7 +157,7 @@ impl<C: Copy + Collider, I: Copy> Default for SAPRow<C, I> {
 /// - Use this.extend(iter<(collider, id)>) to insert many colliders
 /// - `intersection_test()` only takes references thus can be used in
 /// multithreaded code if you have many (10k+) colliders to test
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AccelerationStructure<C: Collider + Copy, I: Copy + Hash + Eq> {
     /// The collider/idx pairs to use for the next call to `update()`.
     data: Vec<(AABB<C>, I)>,

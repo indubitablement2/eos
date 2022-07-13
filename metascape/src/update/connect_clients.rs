@@ -1,17 +1,17 @@
 use crate::*;
 
 /// Handle new connections and clients.
-pub fn connect_clients<C>(s: &mut Metascape<C>) -> Vec<(C::ConnectionType, DisconnectedReason)>
-where
+pub fn connect_clients<C>(
+    s: &mut Metascape<C>,
+    connections_manager: &mut C,
+    disconnect: &mut Vec<(C::ConnectionType, Option<DisconnectedReason>)>,
+) where
     C: ConnectionsManager,
 {
-    let connections_manager = &mut s.connections_manager;
     let connections = &mut s.connections;
     let clients = &mut s.clients;
     let connection_configs = &s.configs.connection_configs;
     let authenticated = &mut s.authenticated;
-
-    let mut disconnect = Vec::new();
 
     // Handle a few connection from the pending queue.
     for _ in 0..connection_configs.max_connection_handled_per_update {
@@ -71,10 +71,8 @@ where
 
             disconnect.push((
                 old_connection.connection,
-                DisconnectedReason::ConnectionFromOther,
+                Some(DisconnectedReason::ConnectionFromOther),
             ));
         };
     }
-
-    disconnect
 }
