@@ -56,11 +56,7 @@ pub struct FleetBuilder {
 }
 impl FleetBuilder {
     /// If this is for a client: fleet id should be from client id.
-    pub fn new(
-        fleet_id: FleetId,
-        position: Vec2,
-        fleet_composition: FleetComposition
-    ) -> Self {
+    pub fn new(fleet_id: FleetId, position: Vec2, fleet_composition: FleetComposition) -> Self {
         Self {
             fleet_id,
             faction: Default::default(),
