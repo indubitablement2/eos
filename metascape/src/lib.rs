@@ -91,8 +91,9 @@ where
         Some(s)
     }
 
-    pub fn save(&self) -> Option<Vec<u8>> {
-        bincode::options().serialize(&self).ok()
+    pub fn save(&self) -> Vec<u8> {
+        // Afaik this can not fail.
+        bincode::options().serialize(&self).unwrap()
     }
 
     fn init(&mut self) {
