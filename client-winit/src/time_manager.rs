@@ -1,22 +1,23 @@
 use common::timef::TimeF;
 use common::TICK_DURATION;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct TimeManagerConfigs {
     /// Amount of real time in each period.
     /// Time dilation is updated by using the performance from the previous period.
     pub period: f32,
     /// Time dilation will never stray away from 1 more than this.
     pub max_time_change: f32,
-    /// We will hard catch up if the buffered time is above this.
+    /// We will hard catch up if buffered time is above this.
     pub max_buffer: f32,
-    /// We will hard catch up if the buffered time is under this.
+    /// We will discard tick fraction if buffered time is under this.
     pub min_buffer: f32,
     /// Amount of buffer we try reach by changing time dilation.
     pub wish_buffer: f32,
-    /// Multiply time dilation when speeding up time.
+    /// Multiply time dilation change when speeding up time.
     pub increase_change_strenght: f32,
-    /// Multiply time dilation when slowing down time.
+    /// Multiply time dilation change when slowing down time.
     pub decrease_change_strenght: f32,
 }
 impl Default for TimeManagerConfigs {
@@ -25,7 +26,7 @@ impl Default for TimeManagerConfigs {
             period: 4.0,
             max_time_change: 0.08,
             max_buffer: 1.0,
-            min_buffer: -0.1,
+            min_buffer: -0.15,
             wish_buffer: 0.05,
             increase_change_strenght: 0.2,
             decrease_change_strenght: 1.0,
@@ -39,10 +40,11 @@ pub struct TimeManager {
     ///
     /// The tick we are interpolating toward (see `tick_frac`) for rendering.
     pub tick: u32,
-    /// Fraction of a tick in seconds.
+    pub total_tick: u64,
+    /// Fraction of a tick in **seconds**.
     /// Used for rendering interpolation.
     /// Counted from tick - 1.
-    /// This could be more than a tick if we are tick starved.
+    /// This could be more than a tick if we are buffer starved.
     pub tick_frac: f32,
 
     pub current_period: f32,
@@ -52,10 +54,11 @@ pub struct TimeManager {
     pub configs: TimeManagerConfigs,
 }
 impl TimeManager {
-    pub fn new(configs: TimeManagerConfigs) -> Self {
+    pub fn new(configs: TimeManagerConfigs, total_tick: u64) -> Self {
         Self {
             max_tick: 0,
             tick: 0,
+            total_tick,
             tick_frac: 0.0,
             current_period: 0.0,
             configs,
@@ -68,7 +71,7 @@ impl TimeManager {
         self.max_tick = self.max_tick.max(new_tick);
     }
 
-    /// Return if the tick was incremented.
+    /// Return if tick was incremented.
     pub fn update(&mut self, real_delta: f32) -> bool {
         let previous_tick = self.tick;
 
@@ -81,6 +84,7 @@ impl TimeManager {
         let advance = wish_advance.min(max_advance);
 
         self.tick += advance;
+        self.total_tick += advance as u64;
         self.tick_frac -= advance as f32 * TICK_DURATION.as_secs_f32();
 
         let remaining = self.buffer_time_remaining();
@@ -90,6 +94,7 @@ impl TimeManager {
         if remaining > self.configs.max_buffer {
             let buffer_size = self.max_tick - self.tick;
             self.tick += buffer_size - 1;
+            self.total_tick += buffer_size as u64 - 1;
             self.tick_frac = 0.0;
             self.time_dilation = 1.0;
             self.new_period();
@@ -129,7 +134,7 @@ impl TimeManager {
 
     pub fn orbit_time(&self) -> f32 {
         TimeF {
-            tick: self.tick,
+            total_tick: self.total_tick,
             tick_frac: self.tick_frac,
         }
         .to_orbit_time()
@@ -146,7 +151,8 @@ impl TimeManager {
     /// - `range_tick_start` > `tick`
     pub fn compute_interpolation(&self, tick_start: u32, tick_end: u32) -> f32 {
         let range = (tick_end - tick_start) as f32;
-        let elapsed = (self.tick - tick_start) as f32 - 1.0 + self.tick_frac / TICK_DURATION.as_secs_f32();
+        let elapsed =
+            (self.tick - tick_start) as f32 - 1.0 + self.tick_frac / TICK_DURATION.as_secs_f32();
         if range > 0.0001 {
             elapsed / range
         } else {
