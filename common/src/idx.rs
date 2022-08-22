@@ -54,8 +54,8 @@ pub struct FactionId(u8);
 impl FactionId {
     pub fn new(mut id: u8) -> Self {
         if id >= 64 {
-            log::warn!("Tried to create a faction id with id {}. Setting id to 63...", id);
-            id = 63
+            log::warn!("Tried to create a faction id with id {}. Setting id to 0...", id);
+            id = 0
         }
         Self(id)
     }

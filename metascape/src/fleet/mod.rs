@@ -30,11 +30,11 @@ pub struct Fleet {
     pub wish_position: WishPosition,
     /// If this fleet has an orbit.
     #[serde(skip)]
-    pub orbit: Option<common::orbit::Orbit>,
+    pub orbit: Option<Orbit>,
 
     /// How long this entity has been without velocity.
     #[serde(skip)]
-    pub idle_counter: idle_counter::IdleCounter,
+    pub idle_counter: IdleCounter,
 
     pub fleet_ai: FleetAi,
 }

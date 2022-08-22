@@ -15,7 +15,9 @@ where
         let mut masks = factions.get_faction(fleet_builder.faction).masks.clone();
         // TODO: Apply client masks modifier (only for client in neutral faction).
         if fleet_builder.faction.neutral() {
-            if let Some(client_id) = fleet_id.to_client_id() {}
+            if let Some(client_id) = fleet_id.to_client_id() {
+                
+            }
         }
 
         let name = if let Some(name) = fleet_builder.name {
