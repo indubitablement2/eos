@@ -3,6 +3,7 @@ use metascape::offline_client::*;
 use metascape::online_client::*;
 use metascape::ConnectionClientSide;
 
+/// Enum that can handle both type of connection.
 pub enum ConnectionClientSideWrapper {
     Online(OnlineConnectionClientSide),
     Offline(OfflineConnectionClientSide),

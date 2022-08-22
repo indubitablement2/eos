@@ -13,6 +13,9 @@ pub fn connect_clients<C>(
     let connection_configs = &s.configs.connection_configs;
     let authenticated = &mut s.authenticated;
 
+    let tick = s.tick;
+    let total_tick = s.total_tick;
+
     // Handle a few connection from the pending queue.
     for _ in 0..connection_configs.max_connection_handled_per_update {
         let mut early_exit = true;
@@ -47,7 +50,14 @@ pub fn connect_clients<C>(
             new_client_id = Some(client_id);
             new_auth = Some(auth);
             early_exit = false;
-            LoginResponse::Accepted { client_id }
+
+            let login_accepted = LoginAccepted {
+                client_id,
+                tick,
+                total_tick,
+            };
+
+            LoginResponse::Accepted(login_accepted)
         }) {
             connection
         } else if early_exit {

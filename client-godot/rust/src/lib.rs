@@ -9,14 +9,15 @@ extern crate log;
 extern crate nalgebra as na;
 
 mod client;
-mod client_metascape;
 mod client_configs;
+mod client_metascape;
+mod connection_wrapper;
 mod constants;
 mod godot_logger;
 mod input_handler;
+mod metasacpe_manager;
 mod time_manager;
 mod util;
-mod metasacpe_manager;
 
 static LOGGER: godot_logger::GodotLogger = godot_logger::GodotLogger;
 

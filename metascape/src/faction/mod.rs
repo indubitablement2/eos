@@ -1,7 +1,5 @@
 pub mod faction_reputations;
-
 pub use self::faction_reputations::*;
-
 use super::*;
 use serde_big_array::BigArray;
 

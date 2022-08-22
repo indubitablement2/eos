@@ -1,6 +1,6 @@
+use crossbeam::channel::{unbounded, Receiver, Sender};
+use metascape::{offline::OfflineConnectionsManager, Metascape};
 use std::thread::spawn;
-use crossbeam::channel::{Sender, Receiver, unbounded};
-use metascape::{Metascape, offline::OfflineConnectionsManager, MetascapeSave};
 use utils::interval::*;
 
 pub enum MetascapeCmd {
@@ -13,7 +13,7 @@ pub enum MetascapeCmd {
 }
 
 enum MetascapeSignal {
-    Save(MetascapeSave),
+    Save(Vec<u8>),
     DebugInfo(String),
 }
 
@@ -22,14 +22,17 @@ pub struct MetascapeManager {
     cmd_sender: Sender<MetascapeCmd>,
     signal_receiver: Receiver<MetascapeSignal>,
     pub last_metascape_debug_info_str: String,
-    pub last_save: Option<MetascapeSave>,
+    pub last_save: Option<Vec<u8>>,
 }
 impl MetascapeManager {
-    pub fn new(metascape: Metascape<OfflineConnectionsManager>) -> Self {
+    pub fn new(
+        metascape: Metascape<OfflineConnectionsManager>,
+        offline_connections_manager: OfflineConnectionsManager,
+    ) -> Self {
         let (cmd_sender, cmd_receiver) = unbounded();
         let (signal_sender, signal_receiver) = unbounded();
 
-        spawn(move || runner(metascape, signal_sender, cmd_receiver));
+        spawn(move || runner(metascape, offline_connections_manager, signal_sender, cmd_receiver));
 
         Self {
             cmd_sender,
@@ -45,7 +48,7 @@ impl MetascapeManager {
     }
 
     /// Handle communication with the runner thread.
-    /// 
+    ///
     /// Return `true` if the metascape is disconnected.
     pub fn update(&mut self) -> bool {
         loop {
@@ -57,8 +60,8 @@ impl MetascapeManager {
                     MetascapeSignal::DebugInfo(info) => {
                         self.last_metascape_debug_info_str = info;
                     }
-                }
-                Err(err) =>  {
+                },
+                Err(err) => {
                     return err.is_disconnected();
                 }
             }
@@ -68,8 +71,9 @@ impl MetascapeManager {
 
 fn runner(
     mut metascape: Metascape<OfflineConnectionsManager>,
+    mut offline_connections_manager: OfflineConnectionsManager,
     signal_sender: Sender<MetascapeSignal>,
-    cmd_receiver: Receiver<MetascapeCmd>
+    cmd_receiver: Receiver<MetascapeCmd>,
 ) {
     let mut interval = Interval::new(common::TICK_DURATION);
     let mut send_debug_info = false;
@@ -77,25 +81,23 @@ fn runner(
 
     loop {
         if metascape_update {
-            metascape.update();
+            metascape.update(&mut offline_connections_manager);
         }
 
         // Handle inbound commands.
         loop {
             match cmd_receiver.try_recv() {
-                Ok(cmd) => {
-                    match cmd {
-                        MetascapeCmd::Save => {
-                            let _ = signal_sender.try_send(MetascapeSignal::Save(metascape.save()));
-                        }
-                        MetascapeCmd::ToggleDebugInfoUpdate(toggle) => {
-                            send_debug_info = toggle;
-                        }
-                        MetascapeCmd::ToggleMetascapeUpdate(toggle) => {
-                            metascape_update = toggle;
-                        }
+                Ok(cmd) => match cmd {
+                    MetascapeCmd::Save => {
+                        let _ = signal_sender.try_send(MetascapeSignal::Save(metascape.save()));
                     }
-                }
+                    MetascapeCmd::ToggleDebugInfoUpdate(toggle) => {
+                        send_debug_info = toggle;
+                    }
+                    MetascapeCmd::ToggleMetascapeUpdate(toggle) => {
+                        metascape_update = toggle;
+                    }
+                },
                 Err(err) => {
                     if err.is_disconnected() {
                         return;

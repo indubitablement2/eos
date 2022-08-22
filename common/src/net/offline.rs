@@ -48,7 +48,7 @@ impl ConnectionsManager for OfflineConnectionsManager {
     fn get_new_login(&mut self, mut closure: impl FnMut(&Auth) -> LoginResponse) -> Option<Self::ConnectionType> {
         if let Some((auth, mut connection)) = self.pending_connection.take() {
             let response = closure(&auth);
-            if let LoginResponse::Accepted { client_id: _ } = &response {
+            if let LoginResponse::Accepted(_) = &response {
                 connection.send_reliable(&ServerPacket::LoginResponse(response));
                 Some(connection)
             } else {

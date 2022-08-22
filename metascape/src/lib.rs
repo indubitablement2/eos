@@ -112,7 +112,7 @@ where
     fn default() -> Self {
         Self {
             configs: Default::default(),
-            rng: rand_xoshiro::Xoshiro256StarStar::from_entropy(),
+            rng: rand_xoshiro::Xoshiro256StarStar::seed_from_u64(1337),
             connections: Default::default(),
             authenticated: Default::default(),
             fleets_out_detection_acc: Default::default(),

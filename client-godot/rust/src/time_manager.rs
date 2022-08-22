@@ -39,6 +39,7 @@ pub struct TimeManager {
     ///
     /// The tick we are interpolating toward (see `tick_frac`) for rendering.
     pub tick: u32,
+    pub total_tick: u64,
     /// Fraction of a tick in seconds.
     /// Used for rendering interpolation.
     /// Counted from tick - 1.
@@ -52,10 +53,11 @@ pub struct TimeManager {
     pub configs: TimeManagerConfigs,
 }
 impl TimeManager {
-    pub fn new(configs: TimeManagerConfigs) -> Self {
+    pub fn new(configs: TimeManagerConfigs, total_tick: u64) -> Self {
         Self {
             max_tick: 0,
             tick: 0,
+            total_tick,
             tick_frac: 0.0,
             current_period: 0.0,
             configs,
@@ -129,7 +131,7 @@ impl TimeManager {
 
     pub fn orbit_time(&self) -> f32 {
         TimeF {
-            tick: self.tick,
+            total_tick: self.total_tick,
             tick_frac: self.tick_frac,
         }
         .to_orbit_time()

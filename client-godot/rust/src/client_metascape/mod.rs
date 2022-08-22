@@ -1,10 +1,7 @@
-pub mod connection_wrapper;
 pub mod states_manager;
-
-pub use connection_wrapper::*;
-
 use self::states_manager::StatesManager;
 use crate::client_configs::ClientConfigs;
+use crate::connection_wrapper::ConnectionClientSideWrapper;
 use crate::constants::*;
 use crate::input_handler::PlayerInputs;
 use crate::time_manager::*;
@@ -42,7 +39,7 @@ pub struct ClientMetascape {
 impl ClientMetascape {
     pub fn new(
         connection: ConnectionClientSideWrapper,
-        client_id: ClientId,
+        login_accepted: LoginAccepted,
         client_configs: ClientConfigs,
         systems: Systems,
     ) -> Self {
@@ -53,8 +50,11 @@ impl ClientMetascape {
             send_timer: 0.0,
             last_metascape_state_ack: 0,
             last_inputs: ClientInputsType::default(),
-            time_manager: TimeManager::new(client_configs.time_manager_configs.to_owned()),
-            states_manager: StatesManager::new(client_id.to_fleet_id()),
+            time_manager: TimeManager::new(
+                client_configs.time_manager_configs.to_owned(),
+                login_accepted.total_tick,
+            ),
+            states_manager: StatesManager::new(login_accepted.client_id.to_fleet_id()),
             client_configs,
         }
     }
@@ -92,6 +92,10 @@ impl ClientMetascape {
             }
             ServerPacket::ConnectionQueueLen(_) => {}
             ServerPacket::LoginResponse(_) => {}
+            ServerPacket::FactionsInfo(_) => {
+                // TODO: handle faction info
+                todo!()
+            }
         });
 
         self.states_manager.update(self.time_manager.tick);
@@ -123,7 +127,6 @@ impl ClientMetascape {
                 signals.push(MetascapeSignal::Disconnected {
                     reason: DisconnectedReason::LostConnection,
                 });
-                disconnect = true;
             }
         }
 

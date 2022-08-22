@@ -148,7 +148,7 @@ impl ConnectionsManager for OnlineConnectionsManager {
             // The closure handle converting authenticated connection to client id.
             let mut response = closure(&login_success.auth);
 
-            if let LoginResponse::Accepted { client_id: _ } = &response {
+            if let LoginResponse::Accepted(_) = &response {
                 // Get the matching udp outbound sender.
                 let udp_outbound_sender = if login_success.udp_addr.is_ipv4() {
                     self.outbound_udp_v4_sender.as_ref().cloned()

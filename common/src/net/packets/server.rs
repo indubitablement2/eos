@@ -136,12 +136,17 @@ pub struct ConnectionQueueLen {
     pub len: u32,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LoginAccepted {
+    pub client_id: ClientId,
+    pub tick: u32,
+    pub total_tick: u64,
+}
+
 /// Sent once after a client try to login.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum LoginResponse {
-    Accepted {
-        client_id: ClientId,
-    },
+    Accepted(LoginAccepted),
     /// Failed to authenticate.
     BadCredential,
     /// First received packet should be a `LoginPacket`.

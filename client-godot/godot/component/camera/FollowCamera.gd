@@ -3,7 +3,7 @@ extends Camera2D
 var _anchor := Vector2.ZERO
 var wish_anchor := Vector2.ZERO
 
-var enable_look := true
+var enable_look := false
 var _look_dir := Vector2.ZERO
 
 var wish_zoom := 1.0
