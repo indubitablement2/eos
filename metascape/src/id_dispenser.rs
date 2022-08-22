@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 pub struct FleetIdDispenser(AtomicU64);
 impl FleetIdDispenser {
     /// Get the next npc fleet id and increment the inner counter.
-    fn next(&self) -> FleetId {
+    pub fn next(&self) -> FleetId {
         FleetId(self.0.fetch_add(1, Ordering::Relaxed))
     }
 }

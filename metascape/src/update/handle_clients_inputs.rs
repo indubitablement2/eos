@@ -36,7 +36,7 @@ pub fn handle_clients_inputs<C>(
                         ClientInputsType::None => false,
                         ClientInputsType::Metascape { wish_pos, movement_multiplier } => {
                             // Make sure there is no NaN/infinity.
-                            if !wish_pos.is_finite() {
+                            if wish_pos.is_finite() {
                                 if let Some(&fleet_index) = fleets_index_map.get(&client_id.to_fleet_id()) {
                                     fleets_wish_position[fleet_index]
                                         .set_wish_position(wish_pos, movement_multiplier);
