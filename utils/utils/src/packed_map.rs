@@ -240,3 +240,35 @@ where
         s
     }
 }
+
+#[inline]
+pub fn get_from_id<'a, I, T>(
+    id: &I,
+    index_map: &AHashMap<I, usize>,
+    container: &'a [T],
+) -> Option<&'a T>
+where
+    I: Hash + Eq,
+{
+    if let Some(index) = index_map.get(id) {
+        container.get(*index)
+    } else {
+        None
+    }
+}
+
+#[inline]
+pub fn get_from_id_mut<'a, I, T>(
+    id: &I,
+    index_map: &AHashMap<I, usize>,
+    container: &'a mut [T],
+) -> Option<&'a mut T>
+where
+    I: Hash + Eq,
+{
+    if let Some(index) = index_map.get(id) {
+        container.get_mut(*index)
+    } else {
+        None
+    }
+}

@@ -5,7 +5,7 @@ pub fn handle_fleet_queue(
     new_fleet_queue: NewFleetQueue,
     fleets: &mut Fleets,
     clients: &mut Clients,
-    factions: &Factions,
+    factions: &mut Factions,
 ) {
     for mut fleet_builder in new_fleet_queue {
         let fleet_id = fleet_builder.fleet_id;
@@ -21,9 +21,10 @@ pub fn handle_fleet_queue(
             }
         }
 
-        let mut masks = factions.get_faction(fleet_builder.faction).masks.clone();
+        // Add fleet to faction.
+        factions.entry(fleet_builder.faction).or_default().fleets.insert(fleet_id);
         // TODO: Apply client masks modifier (only for client in neutral faction).
-        if fleet_builder.faction.neutral() {
+        if fleet_builder.faction.is_neutral() {
         }
 
         let name = if let Some(name) = fleet_builder.name {
@@ -44,7 +45,6 @@ pub fn handle_fleet_queue(
             idle_counter: Default::default(),
             fleet_ai: fleet_builder.fleet_ai.unwrap_or_default(),
             faction: fleet_builder.faction,
-            masks,
             client_owner: fleet_builder.client_owner,
         };
 

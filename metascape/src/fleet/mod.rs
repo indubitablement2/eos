@@ -15,7 +15,6 @@ pub use wish_position::*;
 pub struct Fleet {
     /// The faction this fleet is part of.
     pub faction: FactionId,
-    pub masks: EnemyAlliedMasks,
     /// If a client own this fleet.
     pub client_owner: Option<ClientId>,
 

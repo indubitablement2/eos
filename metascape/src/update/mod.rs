@@ -2,13 +2,11 @@ mod apply_fleets_movement;
 mod handle_fleet_queue;
 mod update_fleets_detected_acc;
 mod update_fleets_in_system;
-mod update_masks;
 
 use self::apply_fleets_movement::*;
 use self::handle_fleet_queue::*;
 use self::update_fleets_detected_acc::*;
 use self::update_fleets_in_system::*;
-use self::update_masks::*;
 use super::*;
 
 pub type NewFleetQueue = Vec<FleetBuilder>;
@@ -44,14 +42,13 @@ impl Metascape {
 
         // TODO: Faction ai.
 
-        handle_fleet_queue(new_fleet_queue, &mut self.fleets, &mut self.clients, &self.factions);
+        handle_fleet_queue(new_fleet_queue, &mut self.fleets, &mut self.clients, &mut self.factions);
 
         // TODO: AutoCombat
         // TODO: Collision
 
         // TODO: Fleet ai.
 
-        update_masks(self);
         apply_fleets_movement(self);
 
         update_fleets_in_system(self);

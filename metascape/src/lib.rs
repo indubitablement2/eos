@@ -34,6 +34,7 @@ pub use soa_derive::Soa;
 pub use utils::packed_map::*;
 
 pub type Fleets = PackedMap<FleetSoa, FleetId>;
+pub type Factions = AHashMap<FactionId, Faction>;
 pub type Clients = AHashMap<ClientId, Client>;
 
 #[derive(Serialize, Deserialize)]
@@ -57,6 +58,7 @@ pub struct Metascape {
     pub systems_acceleration_structure: Sap<SystemId, CircleBoundingShape>,
 
     pub factions: Factions,
+    pub factions_reputation: FactionReputations,
 
     pub clients: Clients,
 
@@ -105,6 +107,7 @@ impl Default for Metascape {
             systems: Default::default(),
             systems_acceleration_structure: Default::default(),
             factions: Default::default(),
+            factions_reputation: Default::default(),
             clients: Default::default(),
             fleets: Default::default(),
             tick: Default::default(),

@@ -12,27 +12,14 @@ pub struct ClientId(pub u32);
 #[repr(transparent)]
 pub struct FleetId(pub u64);
 
+/// 0 is reserved for the neutral faction.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
-pub struct FactionId(u8);
+pub struct FactionId(pub u32);
 impl FactionId {
-    pub fn new(mut id: u8) -> Self {
-        if id >= 64 {
-            log::warn!("Tried to create a faction id with id {}. Setting id to 0...", id);
-            id = 0
-        }
-        Self(id)
-    }
+    pub const NEUTRAL: Self = Self(0);
 
-    pub fn id(&self) -> u8 {
-        self.0
-    }
-
-    pub fn neutral(&self) -> bool {
-        self.0 == 0
-    }
-
-    pub fn mask(&self) -> u64 {
-        1 << self.0
+    pub fn is_neutral(self) -> bool {
+        self == Self::NEUTRAL
     }
 }
 
