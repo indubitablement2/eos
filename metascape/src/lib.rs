@@ -3,7 +3,6 @@
 #![feature(is_some_with)]
 
 pub mod client;
-mod client_connection;
 pub mod colony;
 pub mod configs;
 pub mod faction;
@@ -11,69 +10,59 @@ pub mod fleet;
 pub mod id_dispenser;
 mod update;
 
-use bincode::Options;
+extern crate nalgebra as na;
 
+pub use acc::*;
 pub use ahash::{AHashMap, AHashSet};
+use bincode::Options;
 pub use bit_vec::BitVec;
 pub use client::*;
-pub use client_connection::*;
 pub use common::idx::*;
-pub use common::net::*;
+pub use common::net::*; // TODO: remove
 pub use common::orbit::*;
+pub use common::rand_vector::*;
 pub use common::reputation::*;
 pub use common::system::*;
 pub use common::*;
 pub use configs::*;
 pub use faction::*;
 pub use fleet::*;
-pub use glam::Vec2;
 pub use id_dispenser::*;
 pub use rand::prelude::*;
 pub use serde::{Deserialize, Serialize};
-pub use soa_derive::*;
-pub use utils::{acc::*, *};
+pub use soa_derive::Soa;
+pub use utils::packed_map::*;
+
+pub type Fleets = PackedMap<FleetSoa, FleetId>;
 
 #[derive(Serialize, Deserialize)]
-pub struct Metascape<C>
-where
-    C: ConnectionsManager,
-{
+pub struct Metascape {
     pub configs: Configs,
     pub rng: rand_xoshiro::Xoshiro256StarStar,
 
-    /// Number of tick since the metascape was started.
-    #[serde(skip)]
-    pub tick: u32,
     /// Number of tick since the metascape was first created.
-    pub total_tick: u64,
-
-    #[serde(skip)]
-    pub connections: AHashMap<ClientId, ClientConnection<C::ConnectionType>>,
-    pub authenticated: AHashMap<Auth, ClientId>,
+    pub tick: u64,
 
     /// For fleets **outside** a system.
     #[serde(skip)] // Will be created as needed.
-    pub fleets_out_detection_acc: AccelerationStructure<Circle, FleetId>,
+    pub fleets_out_detection_acc: Sap<FleetId, CircleBoundingShape>,
     /// For fleets **inside** a system.
     #[serde(skip)] // Will be created as needed.
-    pub fleets_in_detection_acc: AHashMap<SystemId, AccelerationStructure<Circle, FleetId>>,
+    pub fleets_in_detection_acc: AHashMap<SystemId, Sap<FleetId, CircleBoundingShape>>,
 
     pub systems: Systems,
     /// System don't change. Never updated at runtime.
     #[serde(skip)] // Computed from `systems`.
-    pub systems_acceleration_structure: AccelerationStructure<Circle, SystemId>,
+    pub systems_acceleration_structure: Sap<SystemId, CircleBoundingShape>,
 
     pub factions: Factions,
 
     pub clients: PackedMap<ClientSoa, ClientId>,
 
     pub fleet_id_dispenser: FleetIdDispenser,
-    pub fleets: PackedMap<FleetSoa, FleetId>,
+    pub fleets: Fleets,
 }
-impl<C> Metascape<C>
-where
-    C: ConnectionsManager,
-{
+impl Metascape {
     pub fn new(configs: Configs, systems: Systems, factions: Factions) -> Self {
         // TODO: Random generation.
 
@@ -100,21 +89,16 @@ where
         self.systems_acceleration_structure = self.systems.create_acceleration_structure();
     }
 
-    pub fn update(&mut self, connections_manager: &mut C) {
-        self.update_internal(connections_manager);
+    pub fn step(&mut self) {
+        self.update_internal();
     }
 }
 
-impl<C> Default for Metascape<C>
-where
-    C: ConnectionsManager,
-{
+impl Default for Metascape {
     fn default() -> Self {
         Self {
             configs: Default::default(),
             rng: rand_xoshiro::Xoshiro256StarStar::seed_from_u64(1337),
-            connections: Default::default(),
-            authenticated: Default::default(),
             fleets_out_detection_acc: Default::default(),
             fleets_in_detection_acc: Default::default(),
             systems: Default::default(),
@@ -123,7 +107,6 @@ where
             clients: Default::default(),
             fleets: Default::default(),
             tick: Default::default(),
-            total_tick: Default::default(),
             fleet_id_dispenser: Default::default(),
         }
     }

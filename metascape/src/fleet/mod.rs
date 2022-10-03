@@ -24,8 +24,8 @@ pub struct Fleet {
     /// If this fleet is within a system.
     pub in_system: Option<SystemId>,
 
-    pub position: Vec2,
-    pub velocity: Vec2,
+    pub position: na::Vector2<f32>,
+    pub velocity: na::Vector2<f32>,
     /// Where the fleet wish to move.
     pub wish_position: WishPosition,
     /// If this fleet has an orbit.
@@ -48,21 +48,25 @@ pub struct FleetBuilder {
     pub faction: FactionId,
     /// Default to a generated name.
     pub name: Option<String>,
-    pub position: Vec2,
-    pub velocity: Vec2,
+    pub position: na::Vector2<f32>,
+    pub velocity: na::Vector2<f32>,
     /// Default to idle. Always set to ClientControlled for client.
     pub fleet_ai: Option<FleetAi>,
     pub fleet_composition: FleetComposition,
 }
 impl FleetBuilder {
     /// If this is for a client: fleet id should be from client id.
-    pub fn new(fleet_id: FleetId, position: Vec2, fleet_composition: FleetComposition) -> Self {
+    pub fn new(
+        fleet_id: FleetId,
+        position: na::Vector2<f32>,
+        fleet_composition: FleetComposition,
+    ) -> Self {
         Self {
             fleet_id,
             faction: Default::default(),
             name: None,
             position,
-            velocity: Vec2::ZERO,
+            velocity: na::zero(),
             fleet_ai: None,
             fleet_composition,
         }
@@ -73,7 +77,7 @@ impl FleetBuilder {
         self
     }
 
-    pub fn with_velocity(mut self, velocity: Vec2) -> Self {
+    pub fn with_velocity(mut self, velocity: na::Vector2<f32>) -> Self {
         self.velocity = velocity;
         self
     }

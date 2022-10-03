@@ -1,4 +1,4 @@
-use utils::*;
+use utils::packed_map::*;
 
 #[test]
 fn test_packet_map() {
@@ -25,11 +25,6 @@ fn test_packet_map() {
     // Swap remove index
     assert_eq!(v.swap_remove(1), p.swap_remove_by_index(1).0);
     assert_eq!(v.len(), p.len());
-
-    // Sort
-    v.sort_unstable();
-    p.sort_unstable_by(|s, a, b| s.container[*a].cmp(&s.container[*b]));
-    assert_eq!(&v, &p.container);
 
     // Swap remove id
     let removed = p.swap_remove_by_id(0).unwrap();

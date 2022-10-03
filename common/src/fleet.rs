@@ -33,7 +33,13 @@ pub struct FleetStats {
 }
 impl Default for FleetStats {
     fn default() -> Self {
-        Self { max_speed: 1.0, acceleration: 0.02, radius: 0.1, detected_radius: 10.0, detector_radius: 10.0 }
+        Self {
+            max_speed: 1.0,
+            acceleration: 0.02,
+            radius: 0.1,
+            detected_radius: 10.0,
+            detector_radius: 10.0,
+        }
     }
 }
 

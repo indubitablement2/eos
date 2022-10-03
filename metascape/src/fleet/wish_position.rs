@@ -4,7 +4,7 @@ use super::*;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WishPosition {
     /// Where the fleet will try to move to.
-    target: Option<Vec2>,
+    target: Option<na::Vector2<f32>>,
     /// Fleet want to reduce its movement speed.
     /// This is always in the range `0.0..=1.0`.
     movement_multiplier: f32,
@@ -17,7 +17,7 @@ impl WishPosition {
     }
 
     /// Set the target and movement multiplier.
-    pub fn set_wish_position(&mut self, target: Vec2, movement_multiplier: f32) {
+    pub fn set_wish_position(&mut self, target: na::Vector2<f32>, movement_multiplier: f32) {
         self.target = Some(target);
         self.movement_multiplier = movement_multiplier.clamp(0.0, 1.0);
     }
@@ -28,7 +28,7 @@ impl WishPosition {
     }
 
     /// Get a reference to the target.
-    pub fn target(&self) -> Option<Vec2> {
+    pub fn target(&self) -> Option<na::Vector2<f32>> {
         self.target
     }
 }

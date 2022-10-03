@@ -1,10 +1,7 @@
 use super::*;
 
 /// Update factions & fleets allied/enemy masks.
-pub fn update_masks<C>(s: &mut Metascape<C>)
-where
-    C: ConnectionsManager,
-{
+pub fn update_masks(s: &mut Metascape) {
     let factions = &mut s.factions;
     let fleets_index_map = &s.fleets.index_map;
     let fleets_masks = &mut s.fleets.container.masks;

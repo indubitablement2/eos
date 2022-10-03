@@ -1,8 +1,7 @@
 use crate::{idx::*, orbit::RelativeOrbit};
+use acc::*;
 use ahash::AHashMap;
-use glam::Vec2;
 use serde::{Deserialize, Serialize};
-use utils::acc::*;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum StarType {
@@ -39,7 +38,7 @@ pub struct System {
     /// Edge of the outtermost `CelestialBody` + (normaly) some padding.
     pub radius: f32,
     /// The center of this `System` in world space.
-    pub position: Vec2,
+    pub position: na::Vector2<f32>,
     pub star: Star,
     /// Bodies are ordered by inner -> outter.
     pub planets: Vec<Planet>,
@@ -61,10 +60,9 @@ impl Systems {
 
     /// Result is saved in `bound`.
     pub fn update_bound(&mut self) {
-        self.bound = self
-            .systems
-            .values()
-            .fold(0.0f32, |acc, system| acc.max(system.position.length() + system.radius));
+        self.bound = self.systems.values().fold(0.0f32, |acc, system| {
+            acc.max(system.position.magnitude() + system.radius)
+        });
     }
 
     /// Result is saved in `total_num_planet`.
@@ -74,17 +72,25 @@ impl Systems {
 
     pub fn get_system_and_planet(&self, planet_id: PlanetId) -> Option<(&System, &Planet)> {
         self.systems.get(&planet_id.system_id).and_then(|system| {
-            system.planets.get(planet_id.planets_offset as usize).map(|planet| (system, planet))
+            system
+                .planets
+                .get(planet_id.planets_offset as usize)
+                .map(|planet| (system, planet))
         })
     }
 
-    pub fn create_acceleration_structure(&self) -> AccelerationStructure<Circle, SystemId> {
-        let mut acc = AccelerationStructure::new();
-        acc.extend(
-            self.systems
-                .iter()
-                .map(|(system_id, system)| (Circle::new(system.position, system.radius), *system_id)),
-        );
+    pub fn create_acceleration_structure(&self) -> Sap<SystemId, CircleBoundingShape> {
+        let mut acc = Sap::new();
+        acc.extend(self.systems.iter().map(|(system_id, system)| {
+            (
+                *system_id,
+                CircleBoundingShape {
+                    x: system.position.x,
+                    y: system.position.y,
+                    r: system.radius,
+                },
+            )
+        }));
         acc.update();
         acc
     }

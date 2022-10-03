@@ -1,14 +1,11 @@
 use super::*;
 
 /// Insert fleets that were queued.
-pub fn handle_fleet_queue<C>(s: &mut Metascape<C>, new_fleet_queue: NewFleetQueue)
-where
-    C: ConnectionsManager,
-{
-    let fleets = &mut s.fleets;
-    let connections = &mut s.connections;
-    let factions = &s.factions;
-
+pub fn handle_fleet_queue(
+    new_fleet_queue: NewFleetQueue,
+    fleets: &mut Fleets,
+    factions: &Factions,
+) {
     for fleet_builder in new_fleet_queue {
         let fleet_id = fleet_builder.fleet_id;
 
@@ -38,13 +35,6 @@ where
             faction: fleet_builder.faction,
             masks,
         };
-
-        // If this is for a client, also make sure the fleet info is sent to him.
-        if let Some(client_id) = fleet_id.to_client_id() {
-            if let Some(connection) = connections.get_mut(&client_id) {
-                connection.know_fleets.update_client = true;
-            }
-        }
 
         if fleets.insert(fleet_id, fleet).1.is_some() {
             log::warn!("{:?} overwritten.", fleet_id);

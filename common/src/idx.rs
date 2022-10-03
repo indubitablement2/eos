@@ -1,8 +1,7 @@
 use crate::data::{ship::*, weapon::*};
 use bytemuck::{Pod, Zeroable};
 use serde::{Deserialize, Serialize};
-use std::ops::{AddAssign, Index};
-use utils::Incrementable;
+use std::ops::Index;
 
 /// Never recycled.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
@@ -10,16 +9,6 @@ pub struct ClientId(pub u32);
 impl ClientId {
     pub fn to_fleet_id(self) -> FleetId {
         FleetId(self.0.into())
-    }
-}
-impl AddAssign for ClientId {
-    fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0;
-    }
-}
-impl Incrementable for ClientId {
-    fn one() -> Self {
-        ClientId(1)
     }
 }
 
@@ -38,16 +27,6 @@ impl From<ClientId> for FleetId {
         Self(client_id.0 as u64)
     }
 }
-impl AddAssign for FleetId {
-    fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0;
-    }
-}
-impl Incrementable for FleetId {
-    fn one() -> Self {
-        Self(1)
-    }
-}
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub struct FactionId(u8);
@@ -59,7 +38,7 @@ impl FactionId {
         }
         Self(id)
     }
-    
+
     pub fn id(&self) -> u8 {
         self.0
     }
@@ -75,16 +54,6 @@ impl FactionId {
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub struct SystemId(pub u32);
-impl AddAssign for SystemId {
-    fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0;
-    }
-}
-impl Incrementable for SystemId {
-    fn one() -> Self {
-        Self(1)
-    }
-}
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PlanetId {

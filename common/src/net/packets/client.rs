@@ -1,7 +1,6 @@
 use super::Packet;
 use crate::{idx::*, net::auth::CredentialChecker};
 use bincode::Options;
-use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
@@ -12,17 +11,10 @@ pub enum ClientPacket {
     Invalid,
 
     LoginPacket(LoginPacket),
-
-    ClientInputs {
-        last_metascape_state_ack: u32,
-        inputs: ClientInputsType,
-    },
-    /// Client ask to create a starting fleet to take control of it.
-    CreateStartingFleet {
-        starting_fleet_id: StartingFleetId,
-        /// Where the fleet should spawn.
-        location: PlanetId,
-    },
+    // ClientInputs {
+    //     last_metascape_state_ack: u32,
+    //     inputs: ClientInputsType,
+    // },
 }
 impl Packet for ClientPacket {
     fn serialize(&self) -> Vec<u8> {
@@ -32,16 +24,6 @@ impl Packet for ClientPacket {
     fn deserialize(buffer: &[u8]) -> Self {
         bincode::DefaultOptions::new().deserialize(buffer).unwrap_or_default()
     }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-pub enum ClientInputsType {
-    #[default]
-    None,
-    Metascape {
-        wish_pos: Vec2,
-        movement_multiplier: f32,
-    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

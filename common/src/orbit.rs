@@ -1,4 +1,3 @@
-use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 // 65520, (119): [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 18, 20, 21, 24, 26,
@@ -137,12 +136,14 @@ pub const ORBIT_SPEEDS: [f32; 120] = [
 pub fn nearest_valid_orbit_speed(orbit_speed: f32) -> f32 {
     let index = ORBIT_SPEEDS.partition_point(|other| *other < orbit_speed);
 
+    // Get the nearest speeds.
     let small = *ORBIT_SPEEDS
         .get(index.saturating_sub(1))
         .unwrap_or(ORBIT_SPEEDS.last().unwrap());
     let big = *ORBIT_SPEEDS.get(index).unwrap_or(ORBIT_SPEEDS.last().unwrap());
 
-    if (orbit_speed - small).abs() < (orbit_speed - big).abs() {
+    // Return which ever is closer.
+    if na::ComplexField::abs(orbit_speed - small) < na::ComplexField::abs(orbit_speed - big) {
         small
     } else {
         big
@@ -166,23 +167,28 @@ pub struct RelativeOrbit {
 }
 impl RelativeOrbit {
     pub fn rotation(self, orbit_time: f32) -> f32 {
-        orbit_time.mul_add(self.orbit_speed, self.start_angle)
+        orbit_time * self.orbit_speed + self.start_angle
     }
 
     /// Return the relative position of this orbit.
-    pub fn to_relative_position(self, orbit_time: f32) -> Vec2 {
+    pub fn to_relative_position(self, orbit_time: f32) -> na::Vector2<f32> {
         let rot = self.rotation(orbit_time);
-        Vec2::new(rot.cos(), rot.sin()) * self.distance
+        na::vector![na::ComplexField::cos(rot), na::ComplexField::sin(rot)] * self.distance
     }
 
-    pub fn to_position(self, orbit_time: f32, origin: Vec2) -> Vec2 {
+    pub fn to_position(self, orbit_time: f32, origin: na::Vector2<f32>) -> na::Vector2<f32> {
         self.to_relative_position(orbit_time) + origin
     }
 
-    pub fn from_relative_position(relative_position: Vec2, orbit_time: f32, distance: f32, orbit_speed: f32) -> Self {
+    pub fn from_relative_position(
+        relative_position: na::Vector2<f32>,
+        orbit_time: f32,
+        distance: f32,
+        orbit_speed: f32,
+    ) -> Self {
         Self {
             distance,
-            start_angle: orbit_time.mul_add(-orbit_speed, relative_position.y.atan2(relative_position.x)),
+            start_angle: orbit_time * -orbit_speed + na::RealField::atan2(relative_position.y, relative_position.x),
             orbit_speed,
         }
     }
@@ -191,12 +197,12 @@ impl RelativeOrbit {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct Orbit {
     /// Origin in world space this orbit is orbiting aound.
-    pub origin: Vec2,
+    pub origin: na::Vector2<f32>,
     pub relative_orbit: RelativeOrbit,
 }
 impl Orbit {
     /// Return a stationary orbit at position.
-    pub fn stationary(position: Vec2) -> Self {
+    pub fn stationary(position: na::Vector2<f32>) -> Self {
         Self {
             origin: position,
             relative_orbit: RelativeOrbit::default(),
@@ -204,9 +210,9 @@ impl Orbit {
     }
 
     pub fn from_relative_position(
-        relative_position: Vec2,
+        relative_position: na::Vector2<f32>,
         orbit_time: f32,
-        origin: Vec2,
+        origin: na::Vector2<f32>,
         distance: f32,
         orbit_speed: f32,
     ) -> Self {
@@ -217,29 +223,32 @@ impl Orbit {
     }
 
     /// Return the world position of this orbit.
-    pub fn to_position(self, orbit_time: f32) -> Vec2 {
+    pub fn to_position(self, orbit_time: f32) -> na::Vector2<f32> {
         self.relative_orbit.to_position(orbit_time, self.origin)
     }
 }
 
 #[test]
 fn test_orbit() {
-    use rand::random;
-    for _ in 0..10 {
-        let relative_position = random::<Vec2>() * 200.0 - 100.0;
+    use crate::rand_vector::rand_vec2;
+    use rand::prelude::*;
+
+    let mut rng = rand::thread_rng();
+    for _ in 0..1000 {
+        let relative_position = rand_vec2(&mut rng, -100.0..100.0);
         let timef = random::<f32>() * 1000000.0;
         let o = Orbit::from_relative_position(
             relative_position,
             timef,
-            Vec2::ZERO,
-            relative_position.length(),
-            random::<f32>() * 0.01,
+            na::Vector2::zeros(),
+            relative_position.magnitude(),
+            rng.gen::<f32>() * 0.01,
         );
-        println!(
-            "relative pos: {:.1?}, orbit pos: {:.1?}",
-            relative_position,
-            o.to_position(timef)
-        );
-        assert!(relative_position.abs_diff_eq(o.to_position(timef), 0.2));
+        // println!(
+        //     "relative pos: {:.1?}, orbit pos: {:.1?}",
+        //     relative_position,
+        //     o.to_position(timef)
+        // );
+        assert!((relative_position.abs() - o.to_position(timef).abs()).max() < 0.2);
     }
 }

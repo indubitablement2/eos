@@ -4,13 +4,10 @@ use common::timef::TimeF;
 /// Update velocity based on wish position and acceleration.
 ///
 /// Apply velocity and orbit.
-pub fn apply_fleets_movement<C>(s: &mut Metascape<C>)
-where
-    C: ConnectionsManager,
-{
+pub fn apply_fleets_movement(s: &mut Metascape) {
     let metascape_configs = &s.configs.metascape_configs;
     let systems = &s.systems;
-    let total_tick = s.total_tick;
+    let tick = s.tick;
 
     let fleets_position = s.fleets.container.position.as_mut_slice();
     let fleets_wish_position = s.fleets.container.wish_position.as_mut_slice();
@@ -21,7 +18,7 @@ where
     let fleets_orbit = s.fleets.container.orbit.as_mut_slice();
 
     let bound_squared = (systems.bound + metascape_configs.systems_bound_padding).powi(2);
-    let orbit_time = TimeF::tick_to_orbit_time(total_tick);
+    let orbit_time = TimeF::tick_to_orbit_time(tick);
     let break_acceleration_multiplier = metascape_configs.break_acceleration_multiplier;
     let absolute_max_speed = metascape_configs.absolute_max_speed;
 
@@ -44,7 +41,7 @@ where
         if let Some(relative_target) = wish_position.target().and_then(|target| {
             let relative_target = target - *position;
 
-            if relative_target.length_squared() <= radius.powi(2) {
+            if relative_target.magnitude_squared() <= radius * radius {
                 wish_position.stop();
                 None
             } else {
@@ -53,28 +50,26 @@ where
         }) {
             // Go toward our target.
 
-            let velocity_len = velocity.length();
+            let velocity_len = velocity.magnitude();
             let time_to_break = velocity_len / (acceleration * break_acceleration_multiplier * 1.1);
 
             let wish_vel = relative_target - *velocity * time_to_break;
-            *velocity +=
-                wish_vel.clamp_length_max(acceleration * wish_position.movement_multiplier());
+            *velocity += wish_vel.cap_magnitude(acceleration * wish_position.movement_multiplier());
 
-            *velocity =
-                velocity.clamp_length_max(velocity_len.max(max_speed).min(absolute_max_speed));
+            *velocity = velocity.cap_magnitude(velocity_len.max(max_speed).min(absolute_max_speed));
 
             idle_counter.reset();
             *orbit = None;
         } else if velocity.x != 0.0 || velocity.y != 0.0 {
             // Go against our current velocity.
 
-            *velocity -= velocity.clamp_length_max(acceleration * break_acceleration_multiplier);
+            *velocity -= velocity.cap_magnitude(acceleration * break_acceleration_multiplier);
 
             // Set velocity to zero if we have nearly no velocity.
-            if velocity.x.abs() < 0.001 {
+            if na::ComplexField::abs(velocity.x) < 0.001 {
                 velocity.x = 0.0;
             }
-            if velocity.y.abs() < 0.001 {
+            if na::ComplexField::abs(velocity.y) < 0.001 {
                 velocity.y = 0.0;
             }
 
@@ -91,13 +86,13 @@ where
                     let system = systems.systems.get(system_id).unwrap();
 
                     let relative_position = *position - system.position;
-                    let distance = relative_position.length();
+                    let distance = relative_position.magnitude();
 
                     // Check if there is a planet nearby we should copy its orbit speed.
                     // Otherwise we will take a stationary orbit (0 speed).
                     let mut orbit_speed = 0.0;
                     system.planets.iter().fold(999.0f32, |closest, planet| {
-                        let dif = (planet.relative_orbit.distance - distance).abs();
+                        let dif = na::ComplexField::abs(planet.relative_orbit.distance - distance);
                         if dif < closest {
                             orbit_speed = planet.relative_orbit.orbit_speed;
                             dif
@@ -113,9 +108,6 @@ where
                         distance,
                         orbit_speed,
                     ));
-                } else {
-                    // Take a stationary orbit.
-                    *orbit = Some(Orbit::stationary(*position));
                 }
             }
         }
@@ -126,7 +118,7 @@ where
             *position = orbit.to_position(orbit_time);
         } else {
             // Fleets are pushed away from the world's bound.
-            if position.length_squared() > bound_squared {
+            if position.magnitude_squared() > bound_squared {
                 *velocity -= position.normalize() * 8.0;
             }
 

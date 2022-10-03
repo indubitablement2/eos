@@ -95,7 +95,7 @@ pub fn soa_derive(tokens: TokenStream) -> TokenStream {
             #(#soa_fields_def)*
         }
 
-        impl #impl_generics ::utils::Container for #soa_ident #ty_generics #where_clause {
+        impl #impl_generics ::utils::packed_map::Container for #soa_ident #ty_generics #where_clause {
             type Item = #ident;
 
             fn with_capacity(capacity: usize) -> Self {

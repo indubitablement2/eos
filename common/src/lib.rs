@@ -12,9 +12,12 @@ pub mod fleet;
 pub mod idx;
 pub mod net;
 pub mod orbit;
+pub mod rand_vector;
 pub mod reputation;
 pub mod system;
 pub mod timef;
+
+extern crate nalgebra as na;
 
 pub use data::*;
 

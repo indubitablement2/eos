@@ -28,7 +28,10 @@ impl<const N: usize> RingBufferTrait for RingBufferF<N> {
     type Item = f32;
 
     fn new(init: Self::Item) -> Self {
-        Self { buffer: [init; N], cursor: 0 }
+        Self {
+            buffer: [init; N],
+            cursor: 0,
+        }
     }
 
     fn set_next(&mut self, value: Self::Item) -> bool {
@@ -79,7 +82,10 @@ where
     type Item = T;
 
     fn new(init: Self::Item) -> Self {
-        Self { buffer: [init; N], cursor: 0 }
+        Self {
+            buffer: [init; N],
+            cursor: 0,
+        }
     }
 
     fn set_next(&mut self, value: Self::Item) -> bool {
