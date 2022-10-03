@@ -12,7 +12,6 @@ pub struct Faction {
     pub colonies: AHashSet<PlanetId>, // TODO: Use packed map
 }
 
-
 /// Reputation between factions.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FactionReputations {

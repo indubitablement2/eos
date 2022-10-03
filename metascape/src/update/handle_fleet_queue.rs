@@ -10,7 +10,7 @@ pub fn handle_fleet_queue(
     for mut fleet_builder in new_fleet_queue {
         let fleet_id = fleet_builder.fleet_id;
 
-        // Add fleet to client's owned fleets. 
+        // Add fleet to client's owned fleets.
         if let Some(client_owner) = fleet_builder.client_owner {
             if let Some(client) = clients.get_mut(&client_owner) {
                 client.owned_fleet.push(fleet_id);
@@ -22,10 +22,13 @@ pub fn handle_fleet_queue(
         }
 
         // Add fleet to faction.
-        factions.entry(fleet_builder.faction).or_default().fleets.insert(fleet_id);
+        factions
+            .entry(fleet_builder.faction)
+            .or_default()
+            .fleets
+            .insert(fleet_id);
         // TODO: Apply client masks modifier (only for client in neutral faction).
-        if fleet_builder.faction.is_neutral() {
-        }
+        if fleet_builder.faction.is_neutral() {}
 
         let name = if let Some(name) = fleet_builder.name {
             name
