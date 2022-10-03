@@ -4,8 +4,6 @@ mod update_fleets_detected_acc;
 mod update_fleets_in_system;
 mod update_masks;
 
-use common::timef::TimeF;
-
 use self::apply_fleets_movement::*;
 use self::handle_fleet_queue::*;
 use self::update_fleets_detected_acc::*;
@@ -22,11 +20,13 @@ impl Metascape {
         // TODO: Remove this.
         // Populate with a bunch of random fleet.
         if self.tick == 5 {
+            let orbit_time = orbit_time(self.tick);
+
             for system in self.systems.systems.values() {
                 for planet in system.planets.iter() {
                     let position = planet
                         .relative_orbit
-                        .to_position(TimeF::tick_to_orbit_time(self.tick), system.position)
+                        .to_position(orbit_time, system.position)
                         + rand_vec2(&mut self.rng, -10.0..10.0);
 
                     new_fleet_queue.push(FleetBuilder::new(

@@ -1,5 +1,4 @@
 use crate::*;
-use common::timef::TimeF;
 
 /// Update velocity based on wish position and acceleration.
 ///
@@ -17,8 +16,9 @@ pub fn apply_fleets_movement(s: &mut Metascape) {
     let fleets_fleet_inner = s.fleets.container.fleet_inner.as_slice();
     let fleets_orbit = s.fleets.container.orbit.as_mut_slice();
 
-    let bound_squared = (systems.bound + metascape_configs.systems_bound_padding).powi(2);
-    let orbit_time = TimeF::tick_to_orbit_time(tick);
+    let bound = systems.bound + metascape_configs.systems_bound_padding;
+    let bound_squared = bound * bound;
+    let orbit_time = orbit_time(tick);
     let break_acceleration_multiplier = metascape_configs.break_acceleration_multiplier;
     let absolute_max_speed = metascape_configs.absolute_max_speed;
 

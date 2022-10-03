@@ -153,6 +153,10 @@ pub fn nearest_valid_orbit_speed(orbit_speed: f32) -> f32 {
 /// Number of ticks before time wrap around.
 pub const ORBIT_TICK_PERIOD: u64 = 65520;
 
+pub fn orbit_time(tick: u64) -> f32 {
+    (tick % ORBIT_TICK_PERIOD) as f32 * super::METASCAPE_TICK_DURATION.as_secs_f32()
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct RelativeOrbit {
     /// The distance it is orbiting from the origin.
