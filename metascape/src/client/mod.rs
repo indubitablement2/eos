@@ -14,7 +14,7 @@ impl ClientBuilder {
         Self { auth }
     }
 
-    pub fn build(self, auth: Auth) -> Client {
+    pub fn build(self) -> Client {
         Client {
             empty: 0,
             auth: self.auth,
