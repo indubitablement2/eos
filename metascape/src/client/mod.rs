@@ -1,9 +1,12 @@
 use super::*;
 
-#[derive(Soa, Serialize, Deserialize)]
+pub type ClientOwnedFleet = Vec<FleetId>;
+
+#[derive(Serialize, Deserialize)]
 pub struct Client {
     empty: u8,
     pub auth: Auth,
+    pub owned_fleet: ClientOwnedFleet,
 }
 
 pub struct ClientBuilder {
@@ -18,6 +21,7 @@ impl ClientBuilder {
         Client {
             empty: 0,
             auth: self.auth,
+            owned_fleet: Default::default(),
         }
     }
 }

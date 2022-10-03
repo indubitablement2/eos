@@ -4,15 +4,26 @@ use super::*;
 pub fn handle_fleet_queue(
     new_fleet_queue: NewFleetQueue,
     fleets: &mut Fleets,
+    clients: &mut Clients,
     factions: &Factions,
 ) {
-    for fleet_builder in new_fleet_queue {
+    for mut fleet_builder in new_fleet_queue {
         let fleet_id = fleet_builder.fleet_id;
+
+        // Add fleet to client's owned fleets. 
+        if let Some(client_owner) = fleet_builder.client_owner {
+            if let Some(client) = clients.get_mut(&client_owner) {
+                client.owned_fleet.push(fleet_id);
+            } else {
+                // Client does not exist.
+                fleet_builder.client_owner = None;
+                log::warn!("Tried to spawn a fleet owned by a client that does not exist. Removing owner...");
+            }
+        }
 
         let mut masks = factions.get_faction(fleet_builder.faction).masks.clone();
         // TODO: Apply client masks modifier (only for client in neutral faction).
         if fleet_builder.faction.neutral() {
-            if let Some(client_id) = fleet_id.to_client_id() {}
         }
 
         let name = if let Some(name) = fleet_builder.name {
@@ -34,6 +45,7 @@ pub fn handle_fleet_queue(
             fleet_ai: fleet_builder.fleet_ai.unwrap_or_default(),
             faction: fleet_builder.faction,
             masks,
+            client_owner: fleet_builder.client_owner,
         };
 
         if fleets.insert(fleet_id, fleet).1.is_some() {

@@ -34,13 +34,14 @@ pub use soa_derive::Soa;
 pub use utils::packed_map::*;
 
 pub type Fleets = PackedMap<FleetSoa, FleetId>;
+pub type Clients = AHashMap<ClientId, Client>;
 
 #[derive(Serialize, Deserialize)]
 pub struct Metascape {
     pub configs: Configs,
     pub rng: rand_xoshiro::Xoshiro256StarStar,
 
-    /// Number of tick since the metascape was first created.
+    /// Number of step since the metascape was first created.
     pub tick: u64,
 
     /// For fleets **outside** a system.
@@ -57,7 +58,7 @@ pub struct Metascape {
 
     pub factions: Factions,
 
-    pub clients: PackedMap<ClientSoa, ClientId>,
+    pub clients: Clients,
 
     pub fleet_id_dispenser: FleetIdDispenser,
     pub fleets: Fleets,

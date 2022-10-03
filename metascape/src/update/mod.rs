@@ -44,7 +44,7 @@ impl Metascape {
 
         // TODO: Faction ai.
 
-        handle_fleet_queue(new_fleet_queue, &mut self.fleets, &self.factions);
+        handle_fleet_queue(new_fleet_queue, &mut self.fleets, &mut self.clients, &self.factions);
 
         // TODO: AutoCombat
         // TODO: Collision

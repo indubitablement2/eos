@@ -16,6 +16,8 @@ pub struct Fleet {
     /// The faction this fleet is part of.
     pub faction: FactionId,
     pub masks: EnemyAlliedMasks,
+    /// If a client own this fleet.
+    pub client_owner: Option<ClientId>,
 
     pub name: String,
 
@@ -46,6 +48,7 @@ pub struct Fleet {
 pub struct FleetBuilder {
     pub fleet_id: FleetId,
     pub faction: FactionId,
+    pub client_owner: Option<ClientId>,
     /// Default to a generated name.
     pub name: Option<String>,
     pub position: na::Vector2<f32>,
@@ -69,6 +72,7 @@ impl FleetBuilder {
             velocity: na::zero(),
             fleet_ai: None,
             fleet_composition,
+            client_owner: None,
         }
     }
 
@@ -84,6 +88,11 @@ impl FleetBuilder {
 
     pub fn with_fleet_ai(mut self, fleet_ai: FleetAi) -> Self {
         self.fleet_ai = Some(fleet_ai);
+        self
+    }
+
+    pub fn with_client_owner(mut self, client_owner: ClientId) -> Self {
+        self.client_owner = Some(client_owner);
         self
     }
 }

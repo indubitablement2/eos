@@ -6,27 +6,11 @@ use std::ops::Index;
 /// Never recycled.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub struct ClientId(pub u32);
-impl ClientId {
-    pub fn to_fleet_id(self) -> FleetId {
-        FleetId(self.0.into())
-    }
-}
 
 /// Never recycled.
-/// First `2^32 - 1` id are reserved for client.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Pod, Zeroable, Default)]
 #[repr(transparent)]
 pub struct FleetId(pub u64);
-impl FleetId {
-    pub fn to_client_id(self) -> Option<ClientId> {
-        u32::try_from(self.0).ok().map(|id| ClientId(id))
-    }
-}
-impl From<ClientId> for FleetId {
-    fn from(client_id: ClientId) -> Self {
-        Self(client_id.0 as u64)
-    }
-}
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub struct FactionId(u8);
