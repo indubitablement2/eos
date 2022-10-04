@@ -15,6 +15,7 @@ pub mod orbit;
 pub mod rand_vector;
 pub mod reputation;
 pub mod system;
+pub mod command;
 
 extern crate nalgebra as na;
 

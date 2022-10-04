@@ -8,7 +8,8 @@ pub fn apply_commands(s: &mut Metascape, cmds: &[TickCmd]) {
         match cmd {
             MetascapeCommand::FleetWishPosition {
                 fleet_id,
-                new_wish_position,
+                target,
+                movement_multiplier,
             } => {
                 if let Some(client) = s.clients.get(caller) {
                     if client.owned_fleet.contains(fleet_id) {
@@ -17,7 +18,7 @@ pub fn apply_commands(s: &mut Metascape, cmds: &[TickCmd]) {
                             &s.fleets.index_map,
                             &mut s.fleets.container.wish_position,
                         ) {
-                            *fleet_wish_position = *new_wish_position;
+                            fleet_wish_position.set_wish_position(*target, *movement_multiplier);
                         } else {
                             log::warn!(
                                 "{:?} not found while attemping to change its wish position. Ignoring...",

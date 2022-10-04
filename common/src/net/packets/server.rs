@@ -3,6 +3,7 @@ use crate::idx::*;
 use bincode::Options;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
+use crate::command::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum ServerPacket {
@@ -10,7 +11,8 @@ pub enum ServerPacket {
     #[default]
     Invalid,
 
-    // MetascapeState(MetascapeState),
+    MetascapeTickCommands(MetascapeTickCommands),
+
     DisconnectedReason(DisconnectedReason),
     ConnectionQueueLen(ConnectionQueueLen),
     LoginResponse(LoginResponse),
@@ -25,26 +27,14 @@ impl Packet for ServerPacket {
     }
 }
 
-// /// Position of the client's fleet and detected fleets.
-// #[derive(Debug, Clone, Serialize, Deserialize)]
-// pub struct MetascapeState {
-//     pub tick: u32,
-//     /// Client has no fleet.
-//     pub ghost: bool,
-//     pub order_checksum: u32,
-//     /// Order changes that were not acknowleged.
-//     pub non_ack_change: Vec<MetascapeStateOrderChange>,
-//     /// Position in world space that fleets position are relative to.
-//     /// Also the position of the client's fleet if it exist.
-//     pub origin: Vec2,
-//     /// Detected fleets position compressed and relative to `origin`.
-//     pub relative_fleets_position: Vec<CVec2<512>>,
-//     /// Fleet that are sent in the current order.
-//     pub sent_order_start: u16,
-// }
-// impl MetascapeState {
-//     pub const BASE_SIZE: usize = 4 + 1 + 4 + 8 + 8 + 8 + 2;
-// }
+/// Server send the commands for a tick.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetascapeTickCommands {
+    /// The tick these commands apply to.
+    pub tick: u64,
+    /// The commands along with who sent them.
+    pub cmds: Vec<TickCmd>,
+}
 
 /// Server sent the reason why it disconnected the client.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]

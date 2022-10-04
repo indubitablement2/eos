@@ -18,6 +18,10 @@ impl WishPosition {
 
     /// Set the target and movement multiplier.
     pub fn set_wish_position(&mut self, target: na::Vector2<f32>, movement_multiplier: f32) {
+        if !target.x.is_finite() || !target.y.is_finite() {
+            log::warn!("Requested to set target to {:?} which is not a number. Ignoring...", target);
+            return;
+        }
         self.target = Some(target);
         self.movement_multiplier = movement_multiplier.clamp(0.0, 1.0);
     }

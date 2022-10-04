@@ -3,12 +3,16 @@ use crate::{idx::*, net::auth::CredentialChecker};
 use bincode::Options;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
+use crate::command::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum ClientPacket {
     /// Could not deserialize/serialize packet.
     #[default]
     Invalid,
+
+    /// Client request a single command.
+    MetascapeCommand(MetascapeCommand),
 
     LoginPacket(LoginPacket),
     // ClientInputs {

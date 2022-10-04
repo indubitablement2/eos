@@ -4,7 +4,6 @@
 
 pub mod client;
 pub mod colony;
-pub mod command;
 pub mod configs;
 pub mod faction;
 pub mod fleet;
@@ -24,6 +23,7 @@ pub use common::rand_vector::*;
 pub use common::reputation::*;
 pub use common::system::*;
 pub use common::*;
+pub use common::command::metascape::*;
 pub use configs::*;
 pub use faction::*;
 pub use fleet::*;

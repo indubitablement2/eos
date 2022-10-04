@@ -1,11 +1,13 @@
-use super::*;
+use serde::{Serialize, Deserialize};
+use crate::idx::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MetascapeCommand {
     /// Set a fleet's wish position.
     FleetWishPosition {
         fleet_id: FleetId,
-        new_wish_position: WishPosition,
+        target: na::Vector2<f32>,
+        movement_multiplier: f32,
     },
     // TODO: Remove this
     ChatMessage {
