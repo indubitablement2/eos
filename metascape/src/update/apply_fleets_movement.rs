@@ -40,7 +40,6 @@ pub fn apply_fleets_movement(s: &mut Metascape) {
 
         if let Some(relative_target) = wish_position.target().and_then(|target| {
             let relative_target = target - *position;
-
             if relative_target.magnitude_squared() <= radius * radius {
                 wish_position.stop();
                 None

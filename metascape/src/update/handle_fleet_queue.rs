@@ -14,6 +14,9 @@ pub fn handle_fleet_queue(
         if let Some(client_owner) = fleet_builder.client_owner {
             if let Some(client) = clients.get_mut(&client_owner) {
                 client.owned_fleet.push(fleet_id);
+
+                // Also make sure fleet has same faction as the client.
+                fleet_builder.faction = client.faction;
             } else {
                 // Client does not exist.
                 fleet_builder.client_owner = None;
