@@ -4,10 +4,10 @@ use super::*;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WishPosition {
     /// Where the fleet will try to move to.
-    target: Option<na::Vector2<f32>>,
+    pub target: Option<na::Vector2<f32>>,
     /// Fleet want to reduce its movement speed.
     /// This is always in the range `0.0..=1.0`.
-    movement_multiplier: f32,
+    pub movement_multiplier: f32,
 }
 impl WishPosition {
     /// Reset the wish position's target to none.

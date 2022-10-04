@@ -1,8 +1,10 @@
+mod apply_commands;
 mod apply_fleets_movement;
 mod handle_fleet_queue;
 mod update_fleets_detected_acc;
 mod update_fleets_in_system;
 
+use self::apply_commands::*;
 use self::apply_fleets_movement::*;
 use self::handle_fleet_queue::*;
 use self::update_fleets_detected_acc::*;
@@ -12,7 +14,7 @@ use super::*;
 pub type NewFleetQueue = Vec<FleetBuilder>;
 
 impl Metascape {
-    pub fn update_internal(&mut self) {
+    pub fn update_internal(&mut self, cmds: &[TickCmd]) {
         let mut new_fleet_queue: NewFleetQueue = Default::default();
 
         // TODO: Remove this.
@@ -39,6 +41,8 @@ impl Metascape {
                 }
             }
         }
+
+        apply_commands(self, cmds);
 
         // TODO: Faction ai.
 

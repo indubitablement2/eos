@@ -13,7 +13,7 @@ pub fn handle_fleet_queue(
         // Add fleet to client's owned fleets.
         if let Some(client_owner) = fleet_builder.client_owner {
             if let Some(client) = clients.get_mut(&client_owner) {
-                client.owned_fleet.push(fleet_id);
+                client.owned_fleet.insert(fleet_id);
 
                 // Also make sure fleet has same faction as the client.
                 fleet_builder.faction = client.faction;

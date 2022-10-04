@@ -1,6 +1,6 @@
 use super::*;
 
-pub type ClientOwnedFleet = Vec<FleetId>;
+pub type ClientOwnedFleet = AHashSet<FleetId>;
 
 #[derive(Serialize, Deserialize)]
 pub struct Client {
@@ -12,11 +12,14 @@ pub struct Client {
 
 pub struct ClientBuilder {
     pub auth: Auth,
-    pub faction: FactionId
+    pub faction: FactionId,
 }
 impl ClientBuilder {
     pub fn new(auth: Auth) -> Self {
-        Self { auth, faction: Default::default() }
+        Self {
+            auth,
+            faction: Default::default(),
+        }
     }
 
     pub fn with_faction(mut self, faction: FactionId) -> Self {

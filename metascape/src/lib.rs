@@ -4,6 +4,7 @@
 
 pub mod client;
 pub mod colony;
+pub mod command;
 pub mod configs;
 pub mod faction;
 pub mod fleet;
@@ -14,9 +15,8 @@ extern crate nalgebra as na;
 
 pub use acc::*;
 pub use ahash::{AHashMap, AHashSet};
-use bincode::Options;
-pub use bit_vec::BitVec;
 pub use client::*;
+pub use command::*;
 pub use common::idx::*;
 pub use common::net::*; // TODO: remove
 pub use common::orbit::*;
@@ -78,12 +78,14 @@ impl Metascape {
     }
 
     pub fn load(buffer: &[u8]) -> Option<Self> {
+        use bincode::Options;
         let mut s = bincode::options().deserialize::<Self>(buffer).ok()?;
         s.init();
         Some(s)
     }
 
     pub fn save(&self) -> Vec<u8> {
+        use bincode::Options;
         // Afaik this can not fail.
         bincode::options().serialize(&self).unwrap()
     }
@@ -92,8 +94,8 @@ impl Metascape {
         self.systems_acceleration_structure = self.systems.create_acceleration_structure();
     }
 
-    pub fn step(&mut self) {
-        self.update_internal();
+    pub fn step(&mut self, cmds: &[TickCmd]) {
+        self.update_internal(cmds);
     }
 }
 
