@@ -1,21 +1,18 @@
 #![feature(drain_filter)]
 #![feature(hash_drain_filter)]
 #![feature(map_try_insert)]
-#![feature(is_some_with)]
-
-#[macro_use]
-extern crate log;
+#![feature(is_some_and)]
+#![feature(variant_count)]
 
 extern crate nalgebra as na;
 
 mod client;
-mod client_configs;
-mod client_metascape;
-mod connection_wrapper;
 mod constants;
+mod godot_client_config;
 mod godot_logger;
 mod input_handler;
 mod metasacpe_manager;
+pub mod metascape_runner;
 mod time_manager;
 mod util;
 

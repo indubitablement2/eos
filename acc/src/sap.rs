@@ -433,7 +433,7 @@ where
 
                 num_pair += 1;
 
-                if max_pair.is_some_and(|max_pair| num_pair >= *max_pair) {
+                if max_pair.is_some_and(|max_pair| num_pair >= max_pair) {
                     true
                 } else {
                     false

@@ -1,128 +1,111 @@
-use crossbeam::channel::{unbounded, Receiver, Sender};
-use metascape::{offline::OfflineConnectionsManager, Metascape};
-use std::thread::spawn;
-use utils::interval::*;
+use crate::input_handler::PlayerInputs;
+use crate::time_manager::*;
+use crate::{godot_client_config::GodotClientConfig, metascape_runner::MetascapeRunnerHandle};
+use common::*;
+use gdnative::prelude::*;
+use metascape::{Metascape, MetascapeCommandList};
 
-pub enum MetascapeCmd {
-    /// Save will be stored in `last_save`.
-    Save,
-    /// Toggle updating `last_metascape_debug_info_str`.
-    ToggleDebugInfoUpdate(bool),
-    /// Toggle updating the metascape.
-    ToggleMetascapeUpdate(bool),
+#[derive(Default, Clone, Copy, Debug)]
+enum ClientState {
+    #[default]
+    Server,
+    Client,
 }
 
-enum MetascapeSignal {
-    Save(Vec<u8>),
-    DebugInfo(String),
-}
-
-/// Run the metascape on a separate thread and communicate with it through channels.
 pub struct MetascapeManager {
-    cmd_sender: Sender<MetascapeCmd>,
-    signal_receiver: Receiver<MetascapeSignal>,
-    pub last_metascape_debug_info_str: String,
-    pub last_save: Option<Vec<u8>>,
+    pub take_save: bool,
+
+    pub update_debug_info: bool,
+    pub last_debug_info: String,
+
+    player_inputs: PlayerInputs,
+
+    client_state: ClientState,
+    metascape_time_manager: TimeManager<METASCAPE_TICK_DURATION_MIL>,
+    metascape_runner_handle: MetascapeRunnerHandle,
+    metascape_command_list: MetascapeCommandList,
+
+    godot_client_config: GodotClientConfig,
 }
 impl MetascapeManager {
-    pub fn new(
-        metascape: Metascape<OfflineConnectionsManager>,
-        offline_connections_manager: OfflineConnectionsManager,
-    ) -> Self {
-        let (cmd_sender, cmd_receiver) = unbounded();
-        let (signal_sender, signal_receiver) = unbounded();
-
-        spawn(move || runner(metascape, offline_connections_manager, signal_sender, cmd_receiver));
+    pub fn new(metascape: Metascape) -> Self {
+        // TODO: Try to load from disk.
+        let godot_client_config = GodotClientConfig::default();
 
         Self {
-            cmd_sender,
-            signal_receiver,
-            last_metascape_debug_info_str: String::new(),
-            last_save: None,
+            last_debug_info: Default::default(),
+            client_state: Default::default(),
+            metascape_command_list: Default::default(),
+            metascape_runner_handle: MetascapeRunnerHandle::new(metascape),
+            take_save: false,
+            update_debug_info: false,
+            metascape_time_manager: TimeManager::new(
+                godot_client_config
+                    .server_metascape_time_manager_configs
+                    .to_owned(),
+            ),
+            godot_client_config,
+            player_inputs: Default::default(),
         }
     }
 
-    /// Send a command that will be handled on the runner thread the next time it update.
-    pub fn send_cmd(&self, cmd: MetascapeCmd) {
-        let _ = self.cmd_sender.try_send(cmd);
+    pub fn unhandled_input(&mut self, event: TRef<InputEvent>) {
+        self.player_inputs.handle_input(event);
     }
 
-    /// Handle communication with the runner thread.
-    ///
-    /// Return `true` if the metascape is disconnected.
-    pub fn update(&mut self) -> bool {
-        loop {
-            match self.signal_receiver.try_recv() {
-                Ok(signal) => match signal {
-                    MetascapeSignal::Save(save) => {
-                        self.last_save = Some(save);
-                    }
-                    MetascapeSignal::DebugInfo(info) => {
-                        self.last_metascape_debug_info_str = info;
-                    }
-                },
-                Err(err) => {
-                    return err.is_disconnected();
-                }
+    pub fn process(&mut self, owner: &Node2D, delta: f32) {
+        self.metascape_time_manager.update(delta);
+
+        if let Some(metascape) = self.metascape_runner_handle.update() {
+            // Take debug info.
+            if self.update_debug_info {
+                self.last_debug_info = take_debug_info(&metascape, self.client_state);
+                self.update_debug_info = false;
+            }
+
+            // Take save.
+            if self.take_save {
+                let save = metascape.save();
+                // TODO: Save to disk.
+                self.take_save = false;
             }
         }
     }
+
+    pub fn draw(&mut self, owner: &Node2D) {
+        // if let ClientState::Connected(client_metascape) = &mut self.client_state {
+        //     client_metascape.render(owner);
+        // }
+    }
 }
-
-fn runner(
-    mut metascape: Metascape<OfflineConnectionsManager>,
-    mut offline_connections_manager: OfflineConnectionsManager,
-    signal_sender: Sender<MetascapeSignal>,
-    cmd_receiver: Receiver<MetascapeCmd>,
-) {
-    let mut interval = Interval::new(common::TICK_DURATION);
-    let mut send_debug_info = false;
-    let mut metascape_update = true;
-
-    loop {
-        if metascape_update {
-            metascape.update(&mut offline_connections_manager);
-        }
-
-        // Handle inbound commands.
-        loop {
-            match cmd_receiver.try_recv() {
-                Ok(cmd) => match cmd {
-                    MetascapeCmd::Save => {
-                        let _ = signal_sender.try_send(MetascapeSignal::Save(metascape.save()));
-                    }
-                    MetascapeCmd::ToggleDebugInfoUpdate(toggle) => {
-                        send_debug_info = toggle;
-                    }
-                    MetascapeCmd::ToggleMetascapeUpdate(toggle) => {
-                        metascape_update = toggle;
-                    }
-                },
-                Err(err) => {
-                    if err.is_disconnected() {
-                        return;
-                    }
-                    break;
-                }
-            }
-        }
-
-        if send_debug_info {
-            let _ = signal_sender.try_send(MetascapeSignal::DebugInfo(metascape_debug_info_str(&metascape)));
-        }
-
-        interval.tick();
+impl Default for MetascapeManager {
+    fn default() -> Self {
+        Self::new(Default::default())
     }
 }
 
-fn metascape_debug_info_str(metascape: &Metascape<OfflineConnectionsManager>) -> String {
+fn take_debug_info(metascape: &Metascape, client_state: ClientState) -> String {
     format!(
-        "METASCAPE:
-        Num clients: {},
-        Num fleets: {},
-        Num connections: {}",
+        "TIME:
+    Tick: {}
+NET:
+    {:?}
+    Num clients: {}
+SYSTEM:
+    Bound: {:.2}
+    Num systems: {}
+    Num planet: {}
+METASCAPE:
+    Num fleet: {}
+    Num faction: {}
+        ",
+        metascape.tick,
+        client_state,
         metascape.clients.len(),
+        metascape.systems.bound,
+        metascape.systems.systems.len(),
+        metascape.systems.total_num_planet,
         metascape.fleets.len(),
-        metascape.connections.len()
+        metascape.factions.len(),
     )
 }

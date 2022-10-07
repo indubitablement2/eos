@@ -1,6 +1,6 @@
 #![feature(hash_drain_filter)]
 #![feature(drain_filter)]
-#![feature(is_some_with)]
+#![feature(is_some_and)]
 
 pub mod client;
 pub mod colony;
@@ -17,7 +17,7 @@ pub use ahash::{AHashMap, AHashSet};
 pub use client::*;
 pub use command::*;
 pub use common::idx::*;
-pub use common::net::*; // TODO: remove
+pub use common::net::*;
 pub use common::orbit::*;
 pub use common::rand_vector::*;
 pub use common::reputation::*;

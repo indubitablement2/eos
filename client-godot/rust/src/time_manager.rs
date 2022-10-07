@@ -1,6 +1,3 @@
-use common::timef::TimeF;
-use common::TICK_DURATION;
-
 #[derive(Debug, Clone, Copy)]
 pub struct TimeManagerConfigs {
     /// Amount of real time in each period.
@@ -33,13 +30,13 @@ impl Default for TimeManagerConfigs {
     }
 }
 
-pub struct TimeManager {
-    pub max_tick: u32,
+/// F: tick duration in milliseconds.
+pub struct TimeManager<const F: u32> {
+    pub max_tick: u64,
     /// The current tick for the simulation state.
     ///
     /// The tick we are interpolating toward (see `tick_frac`) for rendering.
-    pub tick: u32,
-    pub total_tick: u64,
+    pub tick: u64,
     /// Fraction of a tick in seconds.
     /// Used for rendering interpolation.
     /// Counted from tick - 1.
@@ -52,12 +49,13 @@ pub struct TimeManager {
 
     pub configs: TimeManagerConfigs,
 }
-impl TimeManager {
-    pub fn new(configs: TimeManagerConfigs, total_tick: u64) -> Self {
+impl<const F: u32> TimeManager<F> {
+    const TICK_DURATION: f32 = F as f32 / 1000.0;
+
+    pub fn new(configs: TimeManagerConfigs) -> Self {
         Self {
             max_tick: 0,
             tick: 0,
-            total_tick,
             tick_frac: 0.0,
             current_period: 0.0,
             configs,
@@ -66,7 +64,10 @@ impl TimeManager {
         }
     }
 
-    pub fn maybe_max_tick(&mut self, new_tick: u32) {
+    /// We need to know the last available tick.
+    ///
+    /// Call this every time you get a new tick ready.
+    pub fn maybe_max_tick(&mut self, new_tick: u64) {
         self.max_tick = self.max_tick.max(new_tick);
     }
 
@@ -78,12 +79,12 @@ impl TimeManager {
 
         self.tick_frac += real_delta * self.time_dilation;
 
-        let wish_advance = (self.tick_frac / TICK_DURATION.as_secs_f32()) as u32;
+        let wish_advance = (self.tick_frac / Self::TICK_DURATION) as u64;
         let max_advance = self.max_tick - self.tick;
         let advance = wish_advance.min(max_advance);
 
         self.tick += advance;
-        self.tick_frac -= advance as f32 * TICK_DURATION.as_secs_f32();
+        self.tick_frac -= advance as f32 * Self::TICK_DURATION;
 
         let remaining = self.buffer_time_remaining();
         self.min_over_period = self.min_over_period.min(remaining);
@@ -97,7 +98,7 @@ impl TimeManager {
             self.new_period();
             log::info!(
                 "Buffer time ({:.2}) over limit of {}. Catching up...",
-                buffer_size as f32 * TICK_DURATION.as_secs_f32(),
+                buffer_size as f32 * Self::TICK_DURATION,
                 self.configs.max_buffer
             );
             return true;
@@ -130,30 +131,33 @@ impl TimeManager {
     }
 
     pub fn orbit_time(&self) -> f32 {
-        TimeF {
-            total_tick: self.total_tick,
-            tick_frac: self.tick_frac,
-        }
-        .to_orbit_time()
+        common::orbit::orbit_time(self.tick)
     }
 
     /// How many seconds of tick buffer remaining.
     pub fn buffer_time_remaining(&self) -> f32 {
-        (self.max_tick - self.tick + 1) as f32 * TICK_DURATION.as_secs_f32() - self.tick_frac
+        (self.max_tick - self.tick + 1) as f32 * Self::TICK_DURATION - self.tick_frac
     }
 
+    // /// Used for rendering.
+    // /// ## Panic:
+    // /// - `tick_start` > `tick_end`
+    // /// - `tick_start` > `tick`
+    // pub fn compute_interpolation(&self, tick_start: u64, tick_end: u64) -> f32 {
+    //     let range = (tick_end - tick_start) as f32;
+    //     let elapsed = (self.tick - tick_start) as f32 - 1.0 + self.tick_frac / Self::TICK_DURATION;
+    //     if range > 0.0001 {
+    //         elapsed / range
+    //     } else {
+    //         0.0
+    //     }
+    // }
+
     /// Used for rendering.
-    /// ## Panic:
-    /// - `range_tick_start` > `range_tick_end`
-    /// - `range_tick_start` > `tick`
-    pub fn compute_interpolation(&self, tick_start: u32, tick_end: u32) -> f32 {
-        let range = (tick_end - tick_start) as f32;
-        let elapsed = (self.tick - tick_start) as f32 - 1.0 + self.tick_frac / TICK_DURATION.as_secs_f32();
-        if range > 0.0001 {
-            elapsed / range
-        } else {
-            0.0
-        }
+    ///
+    /// Return the how far we are from last tick (0.0) to current tick (1.0).
+    pub fn interpolation_weight(&self) -> f32 {
+        self.tick_frac / Self::TICK_DURATION
     }
 
     fn new_period(&mut self) {

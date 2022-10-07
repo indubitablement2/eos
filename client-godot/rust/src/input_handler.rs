@@ -35,10 +35,10 @@ impl PlayerInputs {
         self.global_mouse_position = owner.get_global_mouse_position().to_glam_descaled();
 
         // Direction
-        self.wish_dir_x =
-            input.get_action_strength("right", false) as f32 - input.get_action_strength("left", false) as f32;
-        self.wish_dir_y =
-            input.get_action_strength("backward", false) as f32 - input.get_action_strength("forward", false) as f32;
+        self.wish_dir_x = input.get_action_strength("right", false) as f32
+            - input.get_action_strength("left", false) as f32;
+        self.wish_dir_y = input.get_action_strength("backward", false) as f32
+            - input.get_action_strength("forward", false) as f32;
     }
 
     pub fn handle_input(&mut self, event: TRef<InputEvent>) {

@@ -17,6 +17,7 @@ pub enum MetascapeCommand {
 
 pub type TickCmd = (ClientId, MetascapeCommand);
 
+#[derive(Debug, Default)]
 pub struct MetascapeCommandList {
     command_list: Vec<Option<Vec<TickCmd>>>,
     pub last_tick: u64,

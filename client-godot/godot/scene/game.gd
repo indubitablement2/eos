@@ -9,17 +9,16 @@ onready var camera := $FollowCamera
 func _ready() -> void:
 	print(IP.get_local_addresses())
 
-func _process(delta: float) -> void:
-	client.update(delta)
+func _process(_delta: float) -> void:
+#	client.update(delta)
 	
-	var client_pos = client.get_client_position()
+	var client_pos = Vector2.ZERO
 	camera.wish_anchor = client_pos
 
 func _on_UpdateDebugInfosTimer_timeout() -> void:
-	debug_info_label.set_text(client.get_debug_infos_string())
-
-func _on_Client_Disconnected(reason: String) -> void:
-	pass # Replace with function body.
+	var debug_info :String= client.get_debug_info()
+	if !debug_info.empty():
+		debug_info_label.set_text(debug_info)
 
 func _on_CreateFleet_pressed() -> void:
 	# Ask to create a fleet.

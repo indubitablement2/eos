@@ -1,6 +1,6 @@
 pub mod states_manager;
 use self::states_manager::StatesManager;
-use crate::client_configs::ClientConfigs;
+use crate::godot_client_config::ClientConfigs;
 use crate::connection_wrapper::ConnectionClientSideWrapper;
 use crate::constants::*;
 use crate::input_handler::PlayerInputs;
