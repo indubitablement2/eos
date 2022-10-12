@@ -4,7 +4,7 @@ mod user_data;
 use self::user_data::UserData;
 
 use super::*;
-use group::*;
+pub use group::*;
 use std::sync::{Arc, Mutex};
 
 const DEFAULT_BODY_FRICTION: f32 = 0.3;

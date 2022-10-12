@@ -13,7 +13,7 @@ extern crate nalgebra as na;
 
 pub use ahash::AHashMap;
 pub use hull::*;
-pub use physics::Physics;
+pub use physics::*;
 pub use rand::prelude::*;
 pub use rapier2d::prelude::*;
 pub use serde::{Deserialize, Serialize};
@@ -23,9 +23,9 @@ pub use smallvec::SmallVec;
 use commands::BattlescapeCommand;
 use player_inputs::PlayerInput;
 use rand_xoshiro::Xoshiro256StarStar;
+use rapier2d::data::{Arena, Index};
 use schedule::*;
 use state_init::BattlescapeInitialState;
-use rapier2d::data::Arena;
 
 #[derive(Serialize, Deserialize)]
 pub struct BattlescapeShip {
@@ -82,17 +82,16 @@ impl Player {
 
 #[derive(Serialize, Deserialize)]
 pub struct Battlescape {
-    bound: f32,
-    tick: u64,
+    pub bound: f32,
+    pub tick: u64,
     rng: rand_xoshiro::Xoshiro256StarStar,
-    physics: Physics,
+    pub physics: Physics,
 
-    hulls: Arena<Hull>,
-    ships: Arena<Ship>,
+    pub hulls: Arena<Hull>,
+    pub ships: Arena<Ship>,
 }
 impl Battlescape {
     pub fn new(battlescape_initial_state: BattlescapeInitialState) -> Self {
-        
         Self {
             bound: battlescape_initial_state.bound,
             rng: Xoshiro256StarStar::seed_from_u64(battlescape_initial_state.seed),
@@ -105,6 +104,7 @@ impl Battlescape {
 
     pub fn step(&mut self, cmds: &[BattlescapeCommand]) {
         apply_commands::apply_commands(self, cmds);
+        debug_spawn_ships(self);
         self.physics.step();
         // TODO: Handle events.
         self.tick += 1;
@@ -126,4 +126,39 @@ impl Default for Battlescape {
     fn default() -> Self {
         Self::new(Default::default())
     }
+}
+
+#[deprecated]
+fn debug_spawn_ships(bc: &mut Battlescape) {
+    if bc.tick != 0 {
+        return;
+    }
+
+    let rb = bc.physics.add_body(
+        na::Isometry2::new(na::vector![0.0, 10.0], 0.0),
+        na::Vector2::zeros(),
+        0.0,
+        SharedShape::ball(1.0),
+        1.0,
+        None,
+        Some(0),
+        Some(0),
+        PhysicsGroup::SHIP,
+        PhysicsGroup::all(),
+    );
+
+    let hull_index = bc.hulls.insert(Hull {
+        rb,
+        defence: Default::default(),
+    });
+
+    bc.ships.insert(Ship {
+        mobility: Mobility {
+            linear_acceleration: 1.0,
+            angular_acceleration: 1.0,
+            max_linear_velocity: 1.0,
+            max_angular_velocity: 1.0,
+        },
+        hull_index,
+    });
 }
