@@ -1,3 +1,6 @@
+use super::*;
+
+#[derive(Serialize, Deserialize)]
 pub struct Mobility {
     pub linear_acceleration: f32,
     pub angular_acceleration: f32,

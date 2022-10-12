@@ -18,7 +18,7 @@ pub struct Physics {
     physics_pipeline: PhysicsPipeline,
     integration_parameters: IntegrationParameters,
     islands: IslandManager,
-    broad_phase: BroadPhase,
+    pub broad_phase: BroadPhase,
     pub narrow_phase: NarrowPhase,
     pub bodies: RigidBodySet,
     pub colliders: ColliderSet,

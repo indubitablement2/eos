@@ -12,10 +12,12 @@ pub mod state_init;
 extern crate nalgebra as na;
 
 pub use ahash::AHashMap;
+pub use hull::*;
 pub use physics::Physics;
 pub use rand::prelude::*;
 pub use rapier2d::prelude::*;
 pub use serde::{Deserialize, Serialize};
+pub use ship::*;
 pub use smallvec::SmallVec;
 
 use commands::BattlescapeCommand;
@@ -23,6 +25,7 @@ use player_inputs::PlayerInput;
 use rand_xoshiro::Xoshiro256StarStar;
 use schedule::*;
 use state_init::BattlescapeInitialState;
+use rapier2d::data::Arena;
 
 #[derive(Serialize, Deserialize)]
 pub struct BattlescapeShip {
@@ -83,14 +86,20 @@ pub struct Battlescape {
     tick: u64,
     rng: rand_xoshiro::Xoshiro256StarStar,
     physics: Physics,
+
+    hulls: Arena<Hull>,
+    ships: Arena<Ship>,
 }
 impl Battlescape {
     pub fn new(battlescape_initial_state: BattlescapeInitialState) -> Self {
+        
         Self {
             bound: battlescape_initial_state.bound,
             rng: Xoshiro256StarStar::seed_from_u64(battlescape_initial_state.seed),
             tick: 0,
             physics: Default::default(),
+            hulls: Default::default(),
+            ships: Default::default(),
         }
     }
 
