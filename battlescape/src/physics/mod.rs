@@ -71,7 +71,24 @@ impl Physics {
             .build();
         let rb_handle = self.bodies.insert(rb);
 
-        let user_data = UserData::build(Some(ignore_rb.unwrap_or(rb_handle)), team_ignore, team);
+        let ignore_rb = if let Some(ignore_rb) = ignore_rb {
+            // Copy the rb handle from another rb.
+            if let Some(coll) = self
+                .bodies
+                .get(ignore_rb)
+                .and_then(|body| body.colliders().first())
+                .and_then(|c_handle| self.colliders.get(*c_handle))
+            {
+                UserData::get_rb_ignore(coll.user_data)
+            } else {
+                // Something failed. Use our rb handle instead.
+                rb_handle
+            }
+        } else {
+            // Use our rb handle so that other can ignore us.
+            rb_handle
+        };
+        let user_data = UserData::build(Some(ignore_rb), team_ignore, team);
 
         let coll = ColliderBuilder::new(shape)
             .density(density)
