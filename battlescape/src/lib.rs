@@ -6,6 +6,7 @@ pub mod physics;
 pub mod player_inputs;
 pub mod replay;
 mod schedule;
+pub mod ship;
 pub mod state_init;
 
 extern crate nalgebra as na;
@@ -95,9 +96,8 @@ impl Battlescape {
 
     pub fn step(&mut self, cmds: &[BattlescapeCommand]) {
         apply_commands::apply_commands(self, cmds);
-        self.ship_movement();
         self.physics.step();
-        // TODO: Events.
+        // TODO: Handle events.
         self.tick += 1;
     }
 
@@ -111,44 +111,6 @@ impl Battlescape {
 
     pub fn checksum(&self) -> u32 {
         crc32fast::hash(&self.serialize())
-    }
-
-    fn ship_movement(&mut self) {
-        // for ship in self.ships.values_mut() {
-        //     if ship.controlled {
-        //         let human_player = if let PlayerType::HumanPlayer(human_player) =
-        //             &self.players[ship.player_id as usize].player_type
-        //         {
-        //             human_player
-        //         } else {
-        //             continue;
-        //         };
-
-        //         if let Some(body) = self.bodies.get_mut(ship.body_handle) {
-        //             // Apply wish dir.
-        //             let wish_dir = human_player.player_input.get_wish_dir();
-        //             let force = UnitComplex::new(wish_dir.0) * vector![wish_dir.1, 0.0];
-        //             // body.apply_force(force, true);
-
-        //             // Apply wish rot.
-        //             match human_player.player_input.get_wish_rot() {
-        //                 player_inputs::WishRot::Relative(f) => {
-        //                     // body.apply_torque(f, true);
-        //                 }
-        //                 player_inputs::WishRot::FaceWorldPositon(x, y) => {
-        //                     let wish_angle_cart = (vector![x, y] - *body.translation()).normalize();
-        //                     let wish_angle = UnitComplex::from_cos_sin_unchecked(
-        //                         wish_angle_cart.x,
-        //                         wish_angle_cart.y,
-        //                     );
-        //                     let current_angle = body.rotation().angle_to(&wish_angle);
-        //                     // body.apply_torque(current_angle.signum(), true);
-        //                 }
-        //             }
-        //         }
-        //     } else {
-        //     }
-        // }
     }
 }
 impl Default for Battlescape {

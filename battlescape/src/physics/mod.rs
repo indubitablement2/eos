@@ -1,6 +1,8 @@
 pub mod group;
 mod user_data;
 
+use self::user_data::UserData;
+
 use super::*;
 use group::*;
 use std::sync::{Arc, Mutex};
@@ -57,6 +59,8 @@ impl Physics {
         shape: SharedShape,
         density: f32,
         ignore_rb: Option<RigidBodyHandle>,
+        team: Option<u32>,
+        team_ignore: Option<u32>,
         memberships: PhysicsGroup,
         filter: PhysicsGroup,
     ) -> RigidBodyHandle {
@@ -67,29 +71,16 @@ impl Physics {
             .build();
         let rb_handle = self.bodies.insert(rb);
 
-        // If we need collision events.
-        let (user_data, active_events, active_hooks) = if let Some(ignore_rb) = ignore_rb {
-            (
-                user_data::set_user_data_ignore(ignore_rb),
-                ActiveEvents::all(),
-                ActiveHooks::FILTER_CONTACT_PAIRS | ActiveHooks::FILTER_INTERSECTION_PAIR,
-            )
-        } else {
-            (
-                user_data::set_user_data_ignore(rb_handle),
-                ActiveEvents::CONTACT_FORCE_EVENTS,
-                ActiveHooks::empty(),
-            )
-        };
+        let user_data = UserData::build(Some(ignore_rb.unwrap_or(rb_handle)), team_ignore, team);
 
         let coll = ColliderBuilder::new(shape)
             .density(density)
             .friction(DEFAULT_BODY_FRICTION)
             .restitution(DEFAULT_BODY_RESTITUTION)
             .collision_groups(InteractionGroups::new(memberships.into(), filter.into()))
-            .active_events(active_events)
+            .active_events(ActiveEvents::all())
             .contact_force_event_threshold(DEFAULT_FORCE_EVENT_THRESHOLD)
-            .active_hooks(active_hooks)
+            .active_hooks(ActiveHooks::FILTER_CONTACT_PAIRS | ActiveHooks::FILTER_INTERSECTION_PAIR)
             .user_data(user_data)
             .build();
         self.colliders
