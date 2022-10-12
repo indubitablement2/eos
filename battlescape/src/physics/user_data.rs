@@ -100,8 +100,6 @@ impl UserData {
 
         (a_rb != b_rb || a_rb == u64::MAX || b_rb == u64::MAX)
             && ((a_team_ignore != b_team && b_team_ignore != a_team)
-                || a_team_ignore == u32::MAX
-                || b_team_ignore == u32::MAX
                 || a_team == u32::MAX
                 || b_team == u32::MAX)
     }

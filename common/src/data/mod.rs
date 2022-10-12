@@ -26,7 +26,7 @@ impl Data {
         unsafe {
             // Drop the previous data.
             if !DATA.is_null() {
-                Box::from_raw(DATA);
+                drop(Box::from_raw(DATA));
             }
             DATA = Box::into_raw(Box::new(self));
         }
