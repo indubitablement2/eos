@@ -10,10 +10,12 @@ pub mod state_init;
 
 extern crate nalgebra as na;
 
+pub use ahash::AHashMap;
 pub use physics::Physics;
 pub use rand::prelude::*;
 pub use rapier2d::prelude::*;
 pub use serde::{Deserialize, Serialize};
+pub use smallvec::SmallVec;
 
 use commands::BattlescapeCommand;
 use player_inputs::PlayerInput;

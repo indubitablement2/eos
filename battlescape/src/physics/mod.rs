@@ -1,4 +1,8 @@
+pub mod group;
+mod user_data;
+
 use super::*;
+use group::*;
 use std::sync::{Arc, Mutex};
 
 const DEFAULT_BODY_FRICTION: f32 = 0.3;
@@ -37,7 +41,7 @@ impl Physics {
             &mut self.impulse_joints,
             &mut self.multibody_joints,
             &mut self.ccd_solver,
-            &(),
+            &user_data::Hooks,
             &self.events,
         );
 
@@ -52,28 +56,42 @@ impl Physics {
         angvel: f32,
         shape: SharedShape,
         density: f32,
-        memberships: Group,
-        filter: Group,
-        active_events: ActiveEvents,
-        active_hooks: ActiveHooks,
+        ignore_rb: Option<RigidBodyHandle>,
+        memberships: PhysicsGroup,
+        filter: PhysicsGroup,
     ) -> RigidBodyHandle {
         let rb = RigidBodyBuilder::dynamic()
             .position(pos)
             .linvel(linvel)
             .angvel(angvel)
             .build();
+        let rb_handle = self.bodies.insert(rb);
+
+        // If we need collision events.
+        let (user_data, active_events, active_hooks) = if let Some(ignore_rb) = ignore_rb {
+            (
+                user_data::set_user_data_ignore(ignore_rb),
+                ActiveEvents::all(),
+                ActiveHooks::FILTER_CONTACT_PAIRS | ActiveHooks::FILTER_INTERSECTION_PAIR,
+            )
+        } else {
+            (
+                user_data::set_user_data_ignore(rb_handle),
+                ActiveEvents::CONTACT_FORCE_EVENTS,
+                ActiveHooks::empty(),
+            )
+        };
+
         let coll = ColliderBuilder::new(shape)
             .density(density)
             .friction(DEFAULT_BODY_FRICTION)
             .restitution(DEFAULT_BODY_RESTITUTION)
-            .collision_groups(InteractionGroups::new(memberships, filter))
+            .collision_groups(InteractionGroups::new(memberships.into(), filter.into()))
             .active_events(active_events)
             .contact_force_event_threshold(DEFAULT_FORCE_EVENT_THRESHOLD)
             .active_hooks(active_hooks)
+            .user_data(user_data)
             .build();
-        // body/proj/missile/fighter?/shield
-
-        let rb_handle = self.bodies.insert(rb);
         self.colliders
             .insert_with_parent(coll, rb_handle, &mut self.bodies);
 
@@ -83,8 +101,8 @@ impl Physics {
 impl Default for Physics {
     fn default() -> Self {
         let integration_parameters = IntegrationParameters {
-            dt: common::METASCAPE_TICK_DURATION_SEC,
-            min_ccd_dt: common::METASCAPE_TICK_DURATION_SEC / 100.0,
+            dt: common::BATTLESCAPE_TICK_DURATION_SEC,
+            min_ccd_dt: common::BATTLESCAPE_TICK_DURATION_SEC / 100.0,
             ..Default::default()
         };
         Self {
