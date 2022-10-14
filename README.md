@@ -3,8 +3,6 @@
 
 ###### Table of contents
 
-[Finance](https://github.com/indubitablement2/eos#Finance)
-
 [User Experience](https://github.com/indubitablement2/eos#user-experience)
 
 [Fleet](https://github.com/indubitablement2/eos#Fleet)
@@ -15,19 +13,6 @@
 
 [Inspiration](https://github.com/indubitablement2/eos#Inspiration)
 
-## Finance 
-### Server cost
-Estimate US$360/months, US$4320/years.
-
-* (US$170/months, US$2040/years) c6g.4xlarge, 16 arm cpus, 32gb ram, up to 10gbs network.
-* (US$50/months, US$600/years) 300gb ssd with backup.
-* (US$140/months, US$1680/years) 1.5tb internet per months.
-
-### Income
-* Base cost $20
-* Ship/weapon skin and character portrait trade cut 10%
-  * Ship skin are gained by playing.
-  * Community can create their skin.
 ## User Experience
 
 ### Core loop
