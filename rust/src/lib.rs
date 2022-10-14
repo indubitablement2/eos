@@ -6,21 +6,20 @@
 
 extern crate nalgebra as na;
 
-// mod client;
 mod constants;
-// mod godot_client_config;
 mod godot_logger;
-// mod input_handler;
-// mod metasacpe_manager;
-// pub mod metascape_runner;
-// mod time_manager;
-// mod util;
+mod time_manager;
 mod battlescape;
+mod config;
+mod runner;
 
 static LOGGER: godot_logger::GodotLogger = godot_logger::GodotLogger;
 
 // Function that registers all exposed classes to Godot
 fn init(handle: gdnative::prelude::InitHandle) {
+    // 
+    config::Config::load();
+
     // Init GodotLogger.
     log::set_logger(&LOGGER)
         .map(|()| log::set_max_level(log::LevelFilter::Trace))

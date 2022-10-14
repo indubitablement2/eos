@@ -1,5 +1,5 @@
 #[derive(Debug, Clone, Copy)]
-pub struct TimeManagerConfigs {
+pub struct TimeManagerConfig {
     /// Amount of real time in each period.
     /// Time dilation is updated by using the performance from the previous period.
     pub period: f32,
@@ -9,14 +9,14 @@ pub struct TimeManagerConfigs {
     pub max_buffer: f32,
     /// We will hard catch up if the buffered time is under this.
     pub min_buffer: f32,
-    /// Amount of buffer we try reach by changing time dilation.
+    /// Amount of buffer we try to reach by changing time dilation.
     pub wish_buffer: f32,
     /// Multiply time dilation when speeding up time.
     pub increase_change_strenght: f32,
     /// Multiply time dilation when slowing down time.
     pub decrease_change_strenght: f32,
 }
-impl Default for TimeManagerConfigs {
+impl Default for TimeManagerConfig {
     fn default() -> Self {
         Self {
             period: 4.0,
@@ -47,13 +47,13 @@ pub struct TimeManager<const F: u32> {
     pub min_over_period: f32,
     pub time_dilation: f32,
 
-    pub configs: TimeManagerConfigs,
+    pub configs: TimeManagerConfig,
 }
 impl<const F: u32> TimeManager<F> {
     /// Tick duration in seconds.
     const TICK_DURATION: f32 = F as f32 / 1000.0;
 
-    pub fn new(configs: TimeManagerConfigs) -> Self {
+    pub fn new(configs: TimeManagerConfig) -> Self {
         Self {
             max_tick: 0,
             tick: 0,

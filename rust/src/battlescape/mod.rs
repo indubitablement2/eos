@@ -1,17 +1,13 @@
-pub mod battlescape_config;
 pub mod battlescape_inner;
-mod runner;
 mod signal;
-mod time_manager;
 
 use gdnative::api::*;
 use gdnative::prelude::*;
-
-use self::battlescape_config::BattlescapeConfig;
+use crate::config::Config;
+use crate::runner::RunnerHandle;
+use crate::time_manager::TimeManager;
 use self::battlescape_inner::*;
-use self::runner::RunnerHandle;
 use self::signal::BattlescapeSignal;
-use self::time_manager::*;
 
 /// The expected real world time duration of a `Battlescape` tick. 20 ups
 pub const BATTLESCAPE_TICK_DURATION: std::time::Duration = std::time::Duration::from_millis(50);
@@ -32,8 +28,7 @@ pub struct Battlescape {
 
     client_state: ClientState,
     time_manager: TimeManager<BATTLESCAPE_TICK_DURATION_MIL>,
-    runner_handle: RunnerHandle,
-    battlescape_config: BattlescapeConfig,
+    runner_handle: RunnerHandle<BattlescapeInner>,
 }
 #[methods]
 impl Battlescape {
@@ -44,17 +39,13 @@ impl Battlescape {
 
     /// The "constructor" of the class.
     fn new(_owner: &Node2D) -> Self {
-        // TODO: Try to load from disk.
-        let battlescape_config = BattlescapeConfig::default();
-
         Self {
             take_save: false,
             client_state: Default::default(),
             time_manager: TimeManager::new(
-                battlescape_config.server_time_manager_configs.to_owned(),
+                Config::get().battlescape_client_time_manager_config.to_owned(),
             ),
-            runner_handle: Default::default(),
-            battlescape_config,
+            runner_handle: RunnerHandle::new(Default::default()),
         }
     }
 
