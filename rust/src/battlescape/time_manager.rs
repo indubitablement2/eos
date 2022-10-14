@@ -136,20 +136,6 @@ impl<const F: u32> TimeManager<F> {
         (self.max_tick - self.tick + 1) as f32 * Self::TICK_DURATION - self.tick_frac
     }
 
-    // /// Used for rendering.
-    // /// ## Panic:
-    // /// - `tick_start` > `tick_end`
-    // /// - `tick_start` > `tick`
-    // pub fn compute_interpolation(&self, tick_start: u64, tick_end: u64) -> f32 {
-    //     let range = (tick_end - tick_start) as f32;
-    //     let elapsed = (self.tick - tick_start) as f32 - 1.0 + self.tick_frac / Self::TICK_DURATION;
-    //     if range > 0.0001 {
-    //         elapsed / range
-    //     } else {
-    //         0.0
-    //     }
-    // }
-
     /// Used for rendering.
     ///
     /// Return the how far we are from last tick (0.0) to current tick (1.0).
