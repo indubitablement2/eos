@@ -1,0 +1,15 @@
+[package]
+name = "utils"
+version = "0.5.0"
+edition = "2021"
+
+[dependencies]
+ahash = { version = "0.8.0", features = ["serde"] }
+glam = { version = "0.21.3", features = ["rand"] }
+serde = { version = "1.0.145", features = ["derive"] }
+num-traits = "0.2.15"
+
+soa_derive = { path = "../soa_derive" }
+
+[dev-dependencies]
+rand = "0.8.5"
