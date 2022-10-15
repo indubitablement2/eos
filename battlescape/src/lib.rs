@@ -22,10 +22,10 @@ pub use smallvec::SmallVec;
 
 use commands::BattlescapeCommand;
 use player_inputs::PlayerInput;
-use rand_xoshiro::Xoshiro256StarStar;
 use rapier2d::data::{Arena, Index};
 use schedule::*;
 use state_init::BattlescapeInitialState;
+use utils::rand::RNG;
 
 #[derive(Serialize, Deserialize)]
 pub struct BattlescapeShip {
@@ -84,7 +84,7 @@ impl Player {
 pub struct Battlescape {
     pub bound: f32,
     pub tick: u64,
-    rng: rand_xoshiro::Xoshiro256StarStar,
+    rng: RNG,
     pub physics: Physics,
 
     pub hulls: Arena<Hull>,
@@ -94,7 +94,7 @@ impl Battlescape {
     pub fn new(battlescape_initial_state: BattlescapeInitialState) -> Self {
         Self {
             bound: battlescape_initial_state.bound,
-            rng: Xoshiro256StarStar::seed_from_u64(battlescape_initial_state.seed),
+            rng: RNG::seed_from_u64(battlescape_initial_state.seed),
             tick: 0,
             physics: Default::default(),
             hulls: Default::default(),
@@ -116,10 +116,6 @@ impl Battlescape {
 
     pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
         bincode::Options::deserialize(bincode::DefaultOptions::new(), bytes)
-    }
-
-    pub fn checksum(&self) -> u32 {
-        crc32fast::hash(&self.serialize())
     }
 }
 impl Default for Battlescape {
