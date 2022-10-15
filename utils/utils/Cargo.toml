@@ -9,7 +9,7 @@ glam = { version = "0.21.3", features = ["rand"] }
 serde = { version = "1.0.145", features = ["derive"] }
 num-traits = "0.2.15"
 
-soa_derive = { path = "../soa_derive" }
+rand = { version = "0.8.5", features = ["nightly", "serde"] } #, "simd_support"
+rand_xoshiro = { version = "0.6.0", features = ["serde1"] }
 
-[dev-dependencies]
-rand = "0.8.5"
+soa_derive = { path = "../soa_derive" }

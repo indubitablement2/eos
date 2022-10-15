@@ -6,3 +6,4 @@ pub mod incrementable;
 pub mod interval;
 pub mod packed_map;
 pub mod ring_buffer;
+pub mod rand;
