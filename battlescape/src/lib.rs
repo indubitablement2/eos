@@ -1,6 +1,8 @@
 #![feature(slice_as_chunks)]
+#![feature(duration_consts_float)]
 
 pub mod commands;
+pub mod data;
 pub mod hull;
 pub mod physics;
 pub mod player_inputs;
@@ -11,14 +13,17 @@ pub mod state_init;
 
 extern crate nalgebra as na;
 
+use std::time::Duration;
+
 pub use ahash::AHashMap;
+pub use data::*;
 pub use hull::*;
 pub use physics::*;
 pub use rand::prelude::*;
 pub use rapier2d::prelude::*;
 pub use serde::{Deserialize, Serialize};
 pub use ship::*;
-pub use smallvec::SmallVec;
+pub use smallvec::{smallvec, SmallVec};
 
 use commands::BattlescapeCommand;
 use player_inputs::PlayerInput;
@@ -27,58 +32,9 @@ use schedule::*;
 use state_init::BattlescapeInitialState;
 use utils::rand::RNG;
 
-#[derive(Serialize, Deserialize)]
-pub struct BattlescapeShip {
-    player_id: u16,
-    controlled: bool,
-    body_handle: RigidBodyHandle,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct HumanPlayer {
-    ship_control: Option<Vec<u32>>,
-    player_input: PlayerInput,
-}
-impl HumanPlayer {
-    fn new() -> Self {
-        Self {
-            ship_control: None,
-            player_input: Default::default(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct AiPlayer {
-    beep_boop: bool,
-}
-impl AiPlayer {
-    fn new() -> Self {
-        Self { beep_boop: true }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub enum PlayerType {
-    HumanPlayer(HumanPlayer),
-    AiPlayer(AiPlayer),
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Player {
-    player_type: PlayerType,
-    team_id: u16,
-    ship_idx: Vec<u32>,
-}
-impl Player {
-    fn new(player_type: PlayerType, team_id: u16) -> Self {
-        Self {
-            player_type,
-            team_id,
-            ship_idx: Vec::new(),
-        }
-    }
-}
+pub const TICK_DURATION: Duration = Duration::from_millis(50);
+pub const TICK_DURATION_SEC: f32 = TICK_DURATION.as_secs_f32();
+pub const TICK_DURATION_MS: u32 = TICK_DURATION.as_millis() as u32;
 
 #[derive(Serialize, Deserialize)]
 pub struct Battlescape {
@@ -117,6 +73,51 @@ impl Battlescape {
     pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
         bincode::Options::deserialize(bincode::DefaultOptions::new(), bytes)
     }
+
+    pub fn spanw_ship(&mut self, ship_builder: ShipBuilder) -> Index {
+        let ship_data = &BATTLESCAPE_DATA.ships[ship_builder.ship_data_index];
+
+        let mut ignore_rb = None;
+        let mut membership = PhysicsGroup::SHIP;
+        let mut hulls_index = SmallVec::with_capacity(ship_data.hulls_data_index.len());
+        // Create each hull.
+        for &hull_data_index in ship_data.hulls_data_index.iter() {
+            let hull_data = &BATTLESCAPE_DATA.hulls[hull_data_index];
+
+            let rb_handle = self.physics.add_body(
+                ship_builder.pos,
+                ship_builder.linvel,
+                ship_builder.angvel,
+                hull_data.shape.to_shared_shape(),
+                hull_data.density,
+                ignore_rb,
+                Some(ship_builder.team),
+                None,
+                membership,
+                PhysicsGroup::DEFAULT_SHIP_FILTER,
+            );
+
+            let hull_index = self.hulls.insert(Hull {
+                hull_data_index,
+                rb: rb_handle,
+                defence: hull_data.defence,
+            });
+
+            hulls_index.push(hull_index);
+
+            if ignore_rb.is_none() {
+                ignore_rb = Some(rb_handle);
+            }
+            membership = PhysicsGroup::SHIP_AUXILIARY;
+        }
+
+        // Insert the ship.
+        self.ships.insert(Ship {
+            ship_data_index: ship_builder.ship_data_index,
+            mobility: ship_data.mobility,
+            hulls_index,
+        })
+    }
 }
 impl Default for Battlescape {
     fn default() -> Self {
@@ -130,31 +131,17 @@ fn debug_spawn_ships(bc: &mut Battlescape) {
         return;
     }
 
-    let rb = bc.physics.add_body(
-        na::Isometry2::new(na::vector![0.0, 10.0], 0.0),
-        na::Vector2::zeros(),
-        0.0,
-        SharedShape::ball(1.0),
-        1.0,
-        None,
-        Some(0),
-        Some(0),
-        PhysicsGroup::SHIP,
-        PhysicsGroup::all(),
-    );
+    let num = 8;
+    for i in 0..num {
+        let angle = i as f32 * std::f32::consts::TAU / num as f32;
+        let translation = na::UnitComplex::from_angle(angle) * na::vector![0.0, 10.0];
 
-    let hull_index = bc.hulls.insert(Hull {
-        rb,
-        defence: Default::default(),
-    });
-
-    bc.ships.insert(Ship {
-        mobility: Mobility {
-            linear_acceleration: 1.0,
-            angular_acceleration: 1.0,
-            max_linear_velocity: 1.0,
-            max_angular_velocity: 1.0,
-        },
-        hull_index,
-    });
+        bc.spanw_ship(ShipBuilder {
+            ship_data_index: 0,
+            pos: na::Isometry2::new(translation, angle),
+            linvel: na::Vector2::zeros(),
+            angvel: 0.0,
+            team: i as u32,
+        });
+    }
 }

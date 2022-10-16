@@ -1,11 +1,13 @@
 pub mod group;
+pub mod shape;
 mod user_data;
 
 use self::user_data::UserData;
-
 use super::*;
-pub use group::*;
 use std::sync::{Arc, Mutex};
+
+pub use self::shape::*;
+pub use group::*;
 
 const DEFAULT_BODY_FRICTION: f32 = 0.3;
 const DEFAULT_BODY_RESTITUTION: f32 = 0.2;
@@ -109,8 +111,8 @@ impl Physics {
 impl Default for Physics {
     fn default() -> Self {
         let integration_parameters = IntegrationParameters {
-            dt: common::BATTLESCAPE_TICK_DURATION_SEC,
-            min_ccd_dt: common::BATTLESCAPE_TICK_DURATION_SEC / 100.0,
+            dt: TICK_DURATION_SEC,
+            min_ccd_dt: TICK_DURATION_SEC / 100.0,
             ..Default::default()
         };
         Self {

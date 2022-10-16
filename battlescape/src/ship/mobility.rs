@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Clone, Copy, Debug)]
 pub struct Mobility {
     pub linear_acceleration: f32,
     pub angular_acceleration: f32,

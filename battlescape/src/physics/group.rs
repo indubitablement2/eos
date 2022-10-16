@@ -5,12 +5,17 @@ bitflags! {
     #[derive(Serialize, Deserialize)]
     pub struct PhysicsGroup: u32 {
         const SHIP = 1 << 0;
-        const SHIELD = 1 << 1;
-        const DEBRIS = 1 << 2;
-        const MISSILE = 1 << 3;
-        const FIGHTER = 1 << 4;
-        const PROJECTILE = 1 << 5;
+        /// Body attached to a ship.
+        const SHIP_AUXILIARY = 1 << 1;
+        const SHIELD = 1 << 2;
+        const DEBRIS = 1 << 3;
+        const MISSILE = 1 << 4;
+        const FIGHTER = 1 << 5;
+        const PROJECTILE = 1 << 6;
     }
+}
+impl PhysicsGroup {
+    pub const DEFAULT_SHIP_FILTER: Self = Self::all();
 }
 
 impl Default for PhysicsGroup {

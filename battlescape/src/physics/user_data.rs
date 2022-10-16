@@ -68,7 +68,7 @@ impl UserData {
         }
     }
 
-    /// Set to your team to that other collider can ignore you.
+    /// Set to your team so that other collider can ignore you.
     pub fn set_team(user_data: u128, team: Option<u32>) -> u128 {
         if let Some(team) = team {
             let user_data = user_data & !Self::TEAM_MASK;
