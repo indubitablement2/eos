@@ -111,8 +111,8 @@ impl Physics {
 impl Default for Physics {
     fn default() -> Self {
         let integration_parameters = IntegrationParameters {
-            dt: TICK_DURATION_SEC,
-            min_ccd_dt: TICK_DURATION_SEC / 100.0,
+            dt: Battlescape::TICK_DURATION_SEC,
+            min_ccd_dt: Battlescape::TICK_DURATION_SEC / 100.0,
             ..Default::default()
         };
         Self {

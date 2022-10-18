@@ -32,10 +32,6 @@ use schedule::*;
 use state_init::BattlescapeInitialState;
 use utils::rand::RNG;
 
-pub const TICK_DURATION: Duration = Duration::from_millis(50);
-pub const TICK_DURATION_SEC: f32 = TICK_DURATION.as_secs_f32();
-pub const TICK_DURATION_MS: u32 = TICK_DURATION.as_millis() as u32;
-
 #[derive(Serialize, Deserialize)]
 pub struct Battlescape {
     pub bound: f32,
@@ -47,6 +43,10 @@ pub struct Battlescape {
     pub ships: Arena<Ship>,
 }
 impl Battlescape {
+    pub const TICK_DURATION: Duration = Duration::from_millis(50);
+    pub const TICK_DURATION_SEC: f32 = Self::TICK_DURATION.as_secs_f32();
+    pub const TICK_DURATION_MS: u32 = Self::TICK_DURATION.as_millis() as u32;
+
     pub fn new(battlescape_initial_state: BattlescapeInitialState) -> Self {
         Self {
             bound: battlescape_initial_state.bound,

@@ -1,18 +1,18 @@
-use crate::time_manager::TimeManagerConfigs;
+use crate::time_manager::TimeManagerConfig;
 
 #[derive(Debug, Clone, Copy)]
 pub struct GodotClientConfig {
     pub system_draw_distance: f32,
 
-    pub server_metascape_time_manager_configs: TimeManagerConfigs,
-    pub client_metascape_time_manager_configs: TimeManagerConfigs,
+    pub metascape_time_manager_config: TimeManagerConfig,
+    pub battlescape_time_manager_config: TimeManagerConfig,
 }
 impl Default for GodotClientConfig {
     fn default() -> Self {
         Self {
             system_draw_distance: 256.0,
-            server_metascape_time_manager_configs: Default::default(),
-            client_metascape_time_manager_configs: Default::default(),
+            metascape_time_manager_config: Default::default(),
+            battlescape_time_manager_config: Default::default(),
         }
     }
 }

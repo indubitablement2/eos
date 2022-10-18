@@ -6,16 +6,19 @@
 
 extern crate nalgebra as na;
 
-// mod client;
 mod constants;
-// mod godot_client_config;
+mod util;
 mod godot_logger;
+mod time_manager;
+mod godot_client_config;
+mod client;
+mod client_battlescape;
+
 // mod input_handler;
+
 // mod metasacpe_manager;
 // pub mod metascape_runner;
-// mod time_manager;
-mod util;
-mod battlescape;
+// mod battlescape;
 
 static LOGGER: godot_logger::GodotLogger = godot_logger::GodotLogger;
 
@@ -26,7 +29,7 @@ fn init(handle: gdnative::prelude::InitHandle) {
         .map(|()| log::set_max_level(log::LevelFilter::Trace))
         .expect("can not start logger");
 
-    handle.add_class::<battlescape::Battlescape>();
+    // handle.add_class::<battlescape::Battlescape>();
 }
 
 // Macros that create the entry-points of the dynamic library.
