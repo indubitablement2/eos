@@ -1,4 +1,4 @@
-use crate::player_inputs::PlayerInput;
+use crate::{player_inputs::PlayerInput, state_init::BattlescapeInitialState};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,35 +14,39 @@ pub struct AddPlayer {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SetPlayerInput {
-    pub player_id: u16,
-    pub player_input: PlayerInput,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerControlShip {
     pub player_id: u16,
     pub ship_idx: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetPlayerInput {
+    pub player_id: u16,
+    pub player_input: PlayerInput,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BattlescapeCommand {
     // SpawnShip(SpawnShip),
     // AddPlayer(AddPlayer),
-    SetPlayerInput(SetPlayerInput),
     // PlayerControlShip(PlayerControlShip),
+    SetPlayerInput(SetPlayerInput),
 }
+
+/// When Some(Vec<u8>), force load a jump point before applying the cmds to stay deteministic.
+pub type Cmds = (Vec<BattlescapeCommand>, Option<Vec<u8>>);
 
 #[derive(Clone, Serialize, Deserialize, Default)]
 pub struct Replay {
     #[serde(skip)]
-    remaining: Vec<(u64, Vec<BattlescapeCommand>)>,
-    pub cmds: Vec<Vec<BattlescapeCommand>>,
+    remaining: Vec<(u64, Cmds)>,
+    pub initial_state: BattlescapeInitialState,
+    /// The cmds where the index is the tick.
+    pub cmds: Vec<Cmds>,
 }
 impl Replay {
-    pub fn push_cmds(&mut self, tick: u64, cmds: Vec<BattlescapeCommand>) {
+    pub fn push_cmds(&mut self, tick: u64, cmds: Cmds) {
         let mut next_tick = self.cmds.len() as u64;
-
         if tick == next_tick {
             self.cmds.push(cmds);
 
