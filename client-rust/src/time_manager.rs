@@ -36,6 +36,8 @@ pub struct TimeManager<const F: u32> {
     /// The current tick for the simulation state.
     ///
     /// The tick we are interpolating toward (see `tick_frac`) for rendering.
+    /// 
+    /// Will never be more than `max_tick`.
     pub tick: u64,
     /// Fraction of a tick in seconds.
     /// Used for rendering interpolation.

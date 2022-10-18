@@ -29,7 +29,11 @@ impl RunnerHandle {
         // Try to fetch the battlescape.
         match self.runner_receiver.try_recv() {
             Ok(bc) => {
-                self.bc = Some(bc);
+                if self.bc.is_none() {
+                    self.bc = Some(bc);
+                } else {
+                    log::error!("Battlescape runner returned a battlescape, but we already had one.");
+                }
                 self.bc.as_deref_mut()
             }
             Err(crossbeam::channel::TryRecvError::Empty) => {

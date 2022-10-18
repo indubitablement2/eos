@@ -66,11 +66,12 @@ impl Battlescape {
         self.tick += 1;
     }
 
-    pub fn serialize(&self) -> Vec<u8> {
-        bincode::Options::serialize(bincode::DefaultOptions::new(), self).unwrap_or_default()
+    pub fn save(&self) -> Vec<u8> {
+        // Afaik this can not fail.
+        bincode::Options::serialize(bincode::DefaultOptions::new(), self).unwrap()
     }
 
-    pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
+    pub fn load(bytes: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
         bincode::Options::deserialize(bincode::DefaultOptions::new(), bytes)
     }
 

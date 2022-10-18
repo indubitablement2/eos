@@ -38,7 +38,7 @@ pub struct FullCmds {
     /// When `Some(data)`, force load a jump point before applying the cmds to stay deteministic.
     /// 
     /// There is also a checksum of the data. 
-    /// Should be the same as applying each tick before the jump point.
+    /// Should be the same as applying each cmds before the jump point.
     pub jump_point: Option<(Vec<u8>, u32)>,
     /// The cmds to apply this tick after applying the jump point (if any).
     pub cmds: Vec<BattlescapeCommand>,
