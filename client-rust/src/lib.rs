@@ -6,13 +6,13 @@
 
 extern crate nalgebra as na;
 
-mod constants;
-mod util;
-mod godot_logger;
-mod time_manager;
-mod godot_client_config;
 mod client;
 mod client_battlescape;
+mod constants;
+mod godot_client_config;
+mod godot_logger;
+mod time_manager;
+mod util;
 
 // mod input_handler;
 

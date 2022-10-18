@@ -1,6 +1,6 @@
+use battlescape::{commands::BattlescapeCommand, Battlescape};
 use crossbeam::channel::{bounded, Receiver, Sender};
 use std::thread::spawn;
-use battlescape::{Battlescape, commands::BattlescapeCommand};
 
 /// Run the battlescape on a separate thread and communicate with it through channels.
 pub struct RunnerHandle {
@@ -32,7 +32,9 @@ impl RunnerHandle {
                 if self.bc.is_none() {
                     self.bc = Some(bc);
                 } else {
-                    log::error!("Battlescape runner returned a battlescape, but we already had one.");
+                    log::error!(
+                        "Battlescape runner returned a battlescape, but we already had one."
+                    );
                 }
                 self.bc.as_deref_mut()
             }

@@ -36,7 +36,7 @@ pub struct TimeManager<const F: u32> {
     /// The current tick for the simulation state.
     ///
     /// The tick we are interpolating toward (see `tick_frac`) for rendering.
-    /// 
+    ///
     /// Will never be more than `max_tick`.
     pub tick: u64,
     /// Fraction of a tick in seconds.
@@ -143,7 +143,8 @@ impl<const F: u32> TimeManager<F> {
     /// - `tick_start` > `tick`
     pub fn compute_interpolation(&self, tick_start: u64, tick_end: u64) -> f32 {
         if let Some(range) = tick_end.checked_sub(tick_start) {
-            let elapsed = (self.tick - tick_start) as f32 - 1.0 + self.tick_frac / Self::TICK_DURATION;
+            let elapsed =
+                (self.tick - tick_start) as f32 - 1.0 + self.tick_frac / Self::TICK_DURATION;
             elapsed / range as f32
         } else {
             0.0

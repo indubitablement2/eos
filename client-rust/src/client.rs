@@ -1,6 +1,9 @@
 use gdnative::api::*;
 use gdnative::prelude::*;
 
+use crate::client_battlescape::ClientBattlescape;
+use crate::godot_client_config::GodotClientConfig;
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum Signal {
     Poopi,
@@ -51,6 +54,8 @@ impl Signal {
 #[register_with(Self::register_builder)]
 pub struct Client {
     metascape: (),
+    bcs: Vec<ClientBattlescape>,
+    config: GodotClientConfig,
 }
 #[methods]
 impl Client {
@@ -61,9 +66,12 @@ impl Client {
 
     /// The "constructor" of the class.
     fn new(_owner: &Node2D) -> Self {
-        Client {
-            metascape: (),
-        }
+        // TODO: Load config from file.
+        let config = GodotClientConfig::default();
+
+        let bc = ClientBattlescape::new(config.battlescape_time_manager_config.clone(), Default::default());
+
+        Client { metascape: (), bcs: vec![bc], config }
     }
 
     // #[method]
@@ -71,16 +79,23 @@ impl Client {
     //     self.metascape_manager.unhandled_input(event.assume_safe());
     // }
 
-    // #[method]
-    // unsafe fn _draw(&mut self, #[base] owner: &Node2D) {
-        // self.metascape_manager.draw(owner);
-    // }
+    #[method]
+    unsafe fn _draw(&mut self, #[base] owner: &Node2D) {
+        // TODO: only draw the active bc.
+        for bc in self.bcs.iter_mut() {
+            bc.draw(owner);
+        }
+    }
 
-    // #[method]
-    // unsafe fn _process(&mut self, #[base] owner: &Node2D, delta: f32) {
-        // // Somehow delta can be negative...
-        // self.metascape_manager.process(owner, delta.clamp(0.0, 1.0));
-    // }
+    #[method]
+    unsafe fn _process(&mut self, #[base] _owner: &Node2D, delta: f32) {
+        // Somehow delta can be negative...
+        let delta = delta.clamp(0.0, 1.0);
+        
+        for bc in self.bcs.iter_mut() {
+            bc.process(delta);
+        }
+    }
 
     // #[method]
     // unsafe fn get_debug_info(&mut self) -> String {

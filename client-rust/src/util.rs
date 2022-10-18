@@ -8,7 +8,10 @@ pub trait ToNalgebra {
     fn to_na(self) -> na::Vector2<f32>;
 
     /// Convert to a nalgebra vector with `GAME_TO_GODOT_RATIO` scale removed.
-    fn to_na_descaled(self) -> na::Vector2<f32> where Self: Sized {
+    fn to_na_descaled(self) -> na::Vector2<f32>
+    where
+        Self: Sized,
+    {
         self.to_na() / GAME_TO_GODOT_RATIO
     }
 }
@@ -22,7 +25,10 @@ pub trait ToGodot {
     fn to_godot(self) -> Vector2;
 
     /// Convert to a godot vector with `GAME_TO_GODOT_RATIO` scale added.
-    fn to_godot_scaled(self) -> Vector2 where Self: Sized {
+    fn to_godot_scaled(self) -> Vector2
+    where
+        Self: Sized,
+    {
         self.to_godot() * GAME_TO_GODOT_RATIO
     }
 }
