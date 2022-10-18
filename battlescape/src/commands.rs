@@ -35,15 +35,13 @@ pub enum BattlescapeCommand {
 
 #[derive(Clone, Serialize, Deserialize, Default, Debug)]
 pub struct FullCmds {
-    pub cmds: Vec<BattlescapeCommand>,
     /// When `Some(data)`, force load a jump point before applying the cmds to stay deteministic.
-    pub jump_point: Option<Vec<u8>>,
-    /// Checksum that were taken this tick, before applying the cmds/jump point.
     /// 
-    /// A checksum should be taken at least:
-    /// - last tick
-    /// - before a jump point
-    pub checksums: Option<u32>,
+    /// There is also a checksum of the data. 
+    /// Should be the same as applying each tick before the jump point.
+    pub jump_point: Option<(Vec<u8>, u32)>,
+    /// The cmds to apply this tick after applying the jump point (if any).
+    pub cmds: Vec<BattlescapeCommand>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Default, Debug)]
@@ -51,12 +49,10 @@ pub struct Replay {
     #[serde(skip)]
     remaining: Vec<(u64, FullCmds)>,
     pub initial_state: BattlescapeInitialState,
-    /// The cmds to apply to a tick.
-    /// 
-    /// index == tick.
-    /// 
-    /// A valid replay has a minimum of 1 cmds.
+    /// The cmds to apply to a tick. index == tick.
     pub cmds: Vec<FullCmds>,
+    /// Checksum taken after applying the final cmds.
+    pub final_checksum: u32,
 }
 impl Replay {
     pub fn push_cmds(&mut self, tick: u64, cmds: FullCmds) {
