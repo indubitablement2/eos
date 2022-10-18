@@ -1,10 +1,12 @@
 mod runner;
+pub mod snapshop;
 
 use battlescape::commands::Replay;
 use gdnative::api::*;
 use gdnative::prelude::*;
 use crate::time_manager::*;
 use self::runner::RunnerHandle;
+use self::snapshop::BattlescapeSnapshot;
 use battlescape::*;
 
 pub struct ClientBattlescape {
@@ -15,6 +17,7 @@ pub struct ClientBattlescape {
     pub replay: Replay,
     pub time_manager: TimeManager<{Battlescape::TICK_DURATION_MS}>,
     pub runner_handle: RunnerHandle,
+    snapshot: (BattlescapeSnapshot, BattlescapeSnapshot),
 }
 impl ClientBattlescape {
     fn new(
@@ -31,6 +34,7 @@ impl ClientBattlescape {
             replay,
             time_manager,
             runner_handle: RunnerHandle::new(bc),
+            snapshot: (Default::default(), Default::default()),
         }
     }
 
@@ -44,14 +48,18 @@ impl ClientBattlescape {
         let mut behind = false;
         if let Some(bc) = self.runner_handle.update() {
             behind = self.time_manager.tick > bc.tick;
-            
+
             self.catching_up = (self.replay.cmds.len() as u64) - bc.tick > 40;
 
             if self.replay.cmds.len() as u64 > bc.tick {
                 self.time_manager.maybe_max_tick(bc.tick + 1);
             }
 
-            // TODO: Take snapshot for rendering.
+            // Take snapshot for rendering.
+            if !self.catching_up {
+                std::mem::swap(&mut self.snapshot.0, &mut self.snapshot.1);
+                self.snapshot.1.take_snapshot(bc);
+            }
         }
 
         if self.time_manager.update(delta) || behind {

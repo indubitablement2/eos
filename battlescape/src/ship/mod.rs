@@ -3,7 +3,7 @@ mod mobility;
 use super::*;
 pub use mobility::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Ship {
     pub ship_data_index: usize,
     pub mobility: Mobility,

@@ -4,7 +4,7 @@ use super::*;
 
 pub use defence::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Hull {
     pub hull_data_index: usize,
     pub rb: RigidBodyHandle,
