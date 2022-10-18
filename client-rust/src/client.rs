@@ -69,9 +69,16 @@ impl Client {
         // TODO: Load config from file.
         let config = GodotClientConfig::default();
 
-        let bc = ClientBattlescape::new(config.battlescape_time_manager_config.clone(), Default::default());
+        let bc = ClientBattlescape::new(
+            config.battlescape_time_manager_config.clone(),
+            Default::default(),
+        );
 
-        Client { metascape: (), bcs: vec![bc], config }
+        Client {
+            metascape: (),
+            bcs: vec![bc],
+            config,
+        }
     }
 
     // #[method]
@@ -91,7 +98,7 @@ impl Client {
     unsafe fn _process(&mut self, #[base] _owner: &Node2D, delta: f32) {
         // Somehow delta can be negative...
         let delta = delta.clamp(0.0, 1.0);
-        
+
         for bc in self.bcs.iter_mut() {
             bc.process(delta);
         }
