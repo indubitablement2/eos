@@ -1,4 +1,5 @@
 use crate::{player_inputs::PlayerInput, state_init::BattlescapeInitialState};
+use ahash::AHashMap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,19 +34,29 @@ pub enum BattlescapeCommand {
     SetPlayerInput(SetPlayerInput),
 }
 
-/// When Some(Vec<u8>), force load a jump point before applying the cmds to stay deteministic.
-pub type Cmds = (Vec<BattlescapeCommand>, Option<Vec<u8>>);
+#[derive(Clone, Serialize, Deserialize, Default, Debug)]
+pub struct FullCmds {
+    pub cmds: Vec<BattlescapeCommand>,
+    /// When `Some(data)`, force load a jump point before applying the cmds to stay deteministic.
+    pub jump_point: Option<Vec<u8>>,
+}
 
-#[derive(Clone, Serialize, Deserialize, Default)]
+#[derive(Clone, Serialize, Deserialize, Default, Debug)]
 pub struct Replay {
     #[serde(skip)]
-    remaining: Vec<(u64, Cmds)>,
+    remaining: Vec<(u64, FullCmds)>,
     pub initial_state: BattlescapeInitialState,
     /// The cmds where the index is the tick.
-    pub cmds: Vec<Cmds>,
+    pub cmds: Vec<FullCmds>,
+    /// If a checksum was taken before applying the cmds. 
+    /// 
+    /// A checksum should be taken at least:
+    /// - last tick
+    /// - before a jump point
+    pub checksums: AHashMap<u64, u32>,
 }
 impl Replay {
-    pub fn push_cmds(&mut self, tick: u64, cmds: Cmds) {
+    pub fn push_cmds(&mut self, tick: u64, cmds: FullCmds) {
         let mut next_tick = self.cmds.len() as u64;
         if tick == next_tick {
             self.cmds.push(cmds);
@@ -81,5 +92,9 @@ impl Replay {
                 }
             }
         }
+    }
+
+    pub fn add_checksum(&mut self, tick: u64, checksum: u32) {
+        self.checksums.insert(tick, checksum);
     }
 }
