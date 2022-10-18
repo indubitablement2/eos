@@ -15,15 +15,15 @@ smallvec = { version = "1.10.0", features = ["union", "serde"] }
 
 # common = { path = "../../common" }
 # utils = { path = "../../utils/utils" }
-# battlescape = { path = "../../battlescape"}
-# metascape = { path = "../../metascape" }
+battlescape = { path = "../battlescape" }
+# metascape = { path = "../metascape" }
 
-gdnative = { git = "https://github.com/godot-rust/godot-rust.git", features = ["serde"] }
+gdnative = { git = "https://github.com/godot-rust/godot-rust.git" }
 
 rand = { version = "0.8.5", features = ["nightly", "serde1"] }
-rand_xoshiro = { version = "0.6.0", features = ["serde1"] }
+# rand_xoshiro = { version = "0.6.0", features = ["serde1"] }
 
-rayon = "1.5.3"
+# rayon = "1.5.3"
 crossbeam = "0.8.2"
 
 ahash = "0.8.0"

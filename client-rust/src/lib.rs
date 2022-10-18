@@ -14,7 +14,7 @@ mod godot_logger;
 // mod metasacpe_manager;
 // pub mod metascape_runner;
 // mod time_manager;
-// mod util;
+mod util;
 mod battlescape;
 
 static LOGGER: godot_logger::GodotLogger = godot_logger::GodotLogger;
