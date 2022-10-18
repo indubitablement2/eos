@@ -6,6 +6,8 @@ use gdnative::prelude::Node2D;
 use gdnative::prelude::*;
 use rapier2d::data::Arena;
 
+
+// TODO: Use glam!
 #[derive(Default)]
 pub struct BattlescapeSnapshot {
     pub tick: u64,
