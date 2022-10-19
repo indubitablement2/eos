@@ -1,83 +1,29 @@
+use crate::client_battlescape::ClientBattlescape;
+use crate::shared::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
-
-use crate::client_battlescape::ClientBattlescape;
-use crate::godot_client_config::GodotClientConfig;
-
-#[derive(Debug, Eq, PartialEq)]
-pub enum Signal {
-    Poopi,
-    Var(String),
-}
-impl Signal {
-    const fn name(&self) -> &'static str {
-        match self {
-            Self::Poopi => "Poopi",
-            Self::Var(_) => "Var",
-        }
-    }
-
-    const fn params(&self) -> &[(&str, VariantType)] {
-        match self {
-            Self::Poopi => &[],
-            Self::Var(_) => &[("param", VariantType::GodotString)],
-        }
-    }
-
-    fn emit_signal(self, owner: &Node2D) {
-        let signal = self.name();
-        match self {
-            Signal::Poopi => owner.emit_signal(signal, &[]),
-            Signal::Var(s) => owner.emit_signal(signal, &[s.owned_to_variant()]),
-        };
-    }
-
-    /// Create dummy signals to call `name()` and `params()` on them.
-    fn _dummy() -> [Self; std::mem::variant_count::<Self>()] {
-        [Self::Poopi, Self::Var(Default::default())]
-    }
-
-    /// Automaticaly register all signals.
-    fn register_signal(builder: &ClassBuilder<Client>) {
-        for s in Signal::_dummy() {
-            let mut b = builder.signal(s.name());
-            for &(parameter_name, parameter_type) in s.params() {
-                b = b.with_param(parameter_name, parameter_type)
-            }
-            b.done();
-        }
-    }
-}
 
 #[derive(NativeClass)]
 #[inherit(Node2D)]
 #[register_with(Self::register_builder)]
 pub struct Client {
     metascape: (),
-    bcs: Vec<ClientBattlescape>,
-    config: GodotClientConfig,
+    t: f32,
+    next_data_id: u32,
 }
 #[methods]
 impl Client {
     // Register the builder for methods, properties and/or signals.
     fn register_builder(builder: &ClassBuilder<Self>) {
-        Signal::register_signal(builder);
+        ClientSignal::register_signal(builder);
     }
 
-    /// The "constructor" of the class.
-    fn new(_owner: &Node2D) -> Self {
-        // TODO: Load config from file.
-        let config = GodotClientConfig::default();
-
-        let bc = ClientBattlescape::new(
-            config.battlescape_time_manager_config.clone(),
-            Default::default(),
-        );
-
+    fn new(_base: &Node2D) -> Self {
         Client {
             metascape: (),
-            bcs: vec![bc],
-            config,
+            // bcs: vec![bc],
+            t: 0.0,
+            next_data_id: 0,
         }
     }
 
@@ -87,20 +33,40 @@ impl Client {
     // }
 
     #[method]
-    unsafe fn _draw(&mut self, #[base] owner: &Node2D) {
-        // TODO: only draw the active bc.
-        for bc in self.bcs.iter_mut() {
-            bc.draw(owner);
-        }
+    unsafe fn _ready(&mut self, #[base] base: &Node2D) {
+        // TODO: Load config from file.
+        SHARED.write().client_config = Default::default();
+
+        // Add the initial data.
+        SHARED.write().client_battlescape_data.insert(
+            self.next_data_id,
+            ClientBattlescapeData {
+                taken: None,
+                replay: Default::default(),
+            },
+        );
+
+        // Create the instance.
+        let b = ClientBattlescape::new_instance();
+        base.add_child(b, false);
     }
+
+    #[method]
+    unsafe fn _draw(&mut self, #[base] _base: &Node2D) {}
 
     #[method]
     unsafe fn _process(&mut self, #[base] _owner: &Node2D, delta: f32) {
         // Somehow delta can be negative...
         let delta = delta.clamp(0.0, 1.0);
 
-        for bc in self.bcs.iter_mut() {
-            bc.process(delta);
+        self.t += delta;
+        if self.t >= 1.0 / 20.0 {
+            self.t -= 1.0 / 20.0;
+
+            for data in SHARED.write().client_battlescape_data.values_mut() {
+                let tick = data.replay.cmds.len() as u64;
+                data.replay.push_cmds(tick, Default::default());
+            }
         }
     }
 
@@ -124,4 +90,49 @@ impl Client {
     //         Vector2::ZERO
     //     }
     // }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum ClientSignal {
+    Poopi,
+    Var(String),
+}
+impl ClientSignal {
+    const fn name(&self) -> &'static str {
+        match self {
+            Self::Poopi => "Poopi",
+            Self::Var(_) => "Var",
+        }
+    }
+
+    const fn params(&self) -> &[(&str, VariantType)] {
+        match self {
+            Self::Poopi => &[],
+            Self::Var(_) => &[("param", VariantType::GodotString)],
+        }
+    }
+
+    fn emit_signal(self, owner: &Node2D) {
+        let signal = self.name();
+        match self {
+            Self::Poopi => owner.emit_signal(signal, &[]),
+            Self::Var(s) => owner.emit_signal(signal, &[s.owned_to_variant()]),
+        };
+    }
+
+    /// Create dummy signals to call `name()` and `params()` on them.
+    fn _dummy() -> [Self; std::mem::variant_count::<Self>()] {
+        [Self::Poopi, Self::Var(Default::default())]
+    }
+
+    /// Automaticaly register all signals.
+    fn register_signal(builder: &ClassBuilder<Client>) {
+        for s in Self::_dummy() {
+            let mut b = builder.signal(s.name());
+            for &(parameter_name, parameter_type) in s.params() {
+                b = b.with_param(parameter_name, parameter_type)
+            }
+            b.done();
+        }
+    }
 }

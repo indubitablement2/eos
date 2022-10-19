@@ -11,11 +11,11 @@ mod client_battlescape;
 mod constants;
 mod godot_client_config;
 mod godot_logger;
+pub mod shared;
 mod time_manager;
 mod util;
 
 // mod input_handler;
-
 // mod metasacpe_manager;
 // pub mod metascape_runner;
 // mod battlescape;
@@ -29,7 +29,8 @@ fn init(handle: gdnative::prelude::InitHandle) {
         .map(|()| log::set_max_level(log::LevelFilter::Trace))
         .expect("can not start logger");
 
-    // handle.add_class::<battlescape::Battlescape>();
+    handle.add_class::<client::Client>();
+    handle.add_class::<client_battlescape::ClientBattlescape>();
 }
 
 // Macros that create the entry-points of the dynamic library.

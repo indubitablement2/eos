@@ -1,11 +1,10 @@
-use crate::constants::COLOR_ALICE_BLUE;
+use crate::constants::{COLOR_ALICE_BLUE, GAME_TO_GODOT_RATIO};
 use crate::util::*;
 use battlescape::*;
 use gdnative::api::*;
 use gdnative::prelude::Node2D;
 use gdnative::prelude::*;
 use rapier2d::data::Arena;
-
 
 // TODO: Use glam!
 #[derive(Default)]
@@ -37,28 +36,47 @@ impl BattlescapeSnapshot {
 
                 for &collider_handle in to_body.colliders().iter() {
                     let collider = to.colliders.get(collider_handle).unwrap();
-                    match collider.shared_shape().shape_type() {
-                        ShapeType::Ball => {
+                    match collider.shared_shape().as_typed_shape() {
+                        TypedShape::Ball(ball) => {
                             owner.draw_circle(
                                 body_pos.translation.to_godot_scaled(),
-                                body_pos.rotation.angle() as f64,
+                                (ball.radius * GAME_TO_GODOT_RATIO) as f64,
                                 COLOR_ALICE_BLUE,
                             );
                         }
-                        ShapeType::Cuboid => todo!(),
-                        // ShapeType::Capsule => todo!(),
-                        // ShapeType::Segment => todo!(),
-                        // ShapeType::Triangle => todo!(),
-                        // ShapeType::TriMesh => todo!(),
-                        // ShapeType::Polyline => todo!(),
-                        // ShapeType::HalfSpace => todo!(),
-                        // ShapeType::HeightField => todo!(),
-                        ShapeType::Compound => todo!(),
-                        ShapeType::ConvexPolygon => todo!(),
-                        // ShapeType::RoundCuboid => todo!(),
-                        // ShapeType::RoundTriangle => todo!(),
-                        // ShapeType::RoundConvexPolygon => todo!(),
-                        ShapeType::Custom => todo!(),
+                        TypedShape::Cuboid(cuboid) => {
+                            owner.draw_set_transform(
+                                Vector2::ZERO,
+                                body_pos.rotation.angle() as f64,
+                                Vector2::ZERO,
+                            );
+                            owner.draw_rect(
+                                Rect2 {
+                                    position: body_pos.translation.to_godot_scaled(),
+                                    size: Vector2 {
+                                        x: cuboid.half_extents.x,
+                                        y: cuboid.half_extents.y,
+                                    },
+                                },
+                                COLOR_ALICE_BLUE,
+                                true,
+                                1.0,
+                                false,
+                            );
+                        }
+                        // TypedShape::Capsule(_) => todo!(),
+                        // TypedShape::Segment(_) => todo!(),
+                        // TypedShape::Triangle(_) => todo!(),
+                        // TypedShape::TriMesh(_) => todo!(),
+                        // TypedShape::Polyline(_) => todo!(),
+                        // TypedShape::HalfSpace(_) => todo!(),
+                        // TypedShape::HeightField(_) => todo!(),
+                        TypedShape::Compound(_) => todo!(),
+                        TypedShape::ConvexPolygon(_) => todo!(),
+                        // TypedShape::RoundCuboid(_) => todo!(),
+                        // TypedShape::RoundTriangle(_) => todo!(),
+                        // TypedShape::RoundConvexPolygon(_) => todo!(),
+                        TypedShape::Custom(_) => todo!(),
                         _ => {}
                     }
                 }

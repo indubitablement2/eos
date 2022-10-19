@@ -7,20 +7,20 @@ reloadable=false
 
 [entry]
 
-Android.arm64-v8a="res://lib/aarch64-linux-android/libclient.so"
-Android.armeabi-v7a="res://lib/armv7-linux-androideabi/libclient.so"
-Android.x86="res://lib/i686-linux-android/libclient.so"
-Android.x86_64="res://lib/x86_64-linux-android/libclient.so"
-iOS.arm64="res://lib/aarch64-apple-ios/libclient.a"
-OSX.64="res://lib/x86_64-apple-darwin/libclient.dylib"
-Server.32="res://lib/i686-unknown-linux-gnu/libclient.so"
-Server.64="res://lib/x86_64-unknown-linux-gnu/libclient.so"
-#Windows.32="res://lib/i686-pc-windows-gnu/client.dll"
-Windows.32="res://lib/i686-pc-windows-msvc/client.dll"
-#Windows.64="res://lib/x86_64-pc-windows-gnu/client.dll"
-Windows.64="res://lib/x86_64-pc-windows-msvc/client.dll"
-X11.32="res://lib/i686-unknown-linux-gnu/libclient.so"
-X11.64="res://lib/x86_64-unknown-linux-gnu/libclient.so"
+Android.arm64-v8a="res://native/lib/aarch64-linux-android/libclient.so"
+Android.armeabi-v7a="res://native/lib/armv7-linux-androideabi/libclient.so"
+Android.x86="res://native/lib/i686-linux-android/libclient.so"
+Android.x86_64="res://native/lib/x86_64-linux-android/libclient.so"
+iOS.arm64="res://native/lib/aarch64-apple-ios/libclient.a"
+OSX.64="res://native/lib/x86_64-apple-darwin/libclient.dylib"
+Server.32="res://native/lib/i686-unknown-linux-gnu/libclient.so"
+Server.64="res://native/lib/x86_64-unknown-linux-gnu/libclient.so"
+#Windows.32="res://native/lib/i686-pc-windows-gnu/client.dll"
+Windows.32="res://native/lib/i686-pc-windows-msvc/client.dll"
+#Windows.64="res://native/lib/x86_64-pc-windows-gnu/client.dll"
+Windows.64="res://native/lib/x86_64-pc-windows-msvc/client.dll"
+X11.32="res://native/lib/i686-unknown-linux-gnu/libclient.so"
+X11.64="res://native/lib/x86_64-unknown-linux-gnu/libclient.so"
 
 [dependencies]
 

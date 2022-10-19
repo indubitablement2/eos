@@ -14,8 +14,10 @@ func _process(_delta: float) -> void:
 	
 	var client_pos = Vector2.ZERO
 	camera.wish_anchor = client_pos
+#	camera.wish_zoom = 32.0
 
 func _on_UpdateDebugInfosTimer_timeout() -> void:
+	return
 	var debug_info :String= client.get_debug_info()
 	if !debug_info.empty():
 		debug_info_label.set_text(debug_info)

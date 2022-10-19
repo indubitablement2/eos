@@ -9,7 +9,7 @@ pub static BATTLESCAPE_DATA: Lazy<BattlescapeData> = Lazy::new(|| BattlescapeDat
                 hull: 100,
                 armor: 100,
             },
-            shape: HullShape::Ball { radius: 4.0 },
+            shape: HullShape::Ball { radius: 1.0 },
             density: 1.0,
         },
         // 1
@@ -18,7 +18,7 @@ pub static BATTLESCAPE_DATA: Lazy<BattlescapeData> = Lazy::new(|| BattlescapeDat
                 hull: 100,
                 armor: 100,
             },
-            shape: HullShape::Ball { radius: 4.0 },
+            shape: HullShape::Ball { radius: 1.0 },
             density: 1.0,
         },
     ],

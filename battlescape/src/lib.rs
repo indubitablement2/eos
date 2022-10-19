@@ -131,16 +131,17 @@ fn debug_spawn_ships(bc: &mut Battlescape) {
     if bc.tick != 0 {
         return;
     }
-
+    log::debug!("spawned ship");
     let num = 8;
     for i in 0..num {
         let angle = i as f32 * std::f32::consts::TAU / num as f32;
         let translation = na::UnitComplex::from_angle(angle) * na::vector![0.0, 10.0];
+        let linvel = translation * -0.1;
 
         bc.spanw_ship(ShipBuilder {
             ship_data_index: 0,
             pos: na::Isometry2::new(translation, angle),
-            linvel: na::Vector2::zeros(),
+            linvel,
             angvel: 0.0,
             team: i as u32,
         });
