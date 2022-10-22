@@ -6,7 +6,6 @@ pub mod data;
 pub mod hull;
 pub mod physics;
 pub mod player_inputs;
-pub mod replay;
 mod schedule;
 pub mod ship;
 pub mod state_init;
