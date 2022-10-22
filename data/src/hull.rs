@@ -1,10 +1,31 @@
-use super::*;
+use rapier2d::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug)]
+pub struct HullData {
+    pub defence: Defence,
+    pub shape: HullShape,
+    pub density: f32,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct Defence {
+    pub hull: i32,
+    pub armor: i32,
+}
+
+#[derive(Debug)]
 pub enum HullShape {
-    Cuboid { hx: f32, hy: f32 },
-    Ball { radius: f32 },
-    Polygon { vertices: Vec<na::Point2<f32>> },
+    Cuboid {
+        hx: f32,
+        hy: f32,
+    },
+    Ball {
+        radius: f32,
+    },
+    Polygon {
+        vertices: &'static [na::Point2<f32>],
+    },
 }
 impl HullShape {
     pub fn to_shared_shape(&self) -> SharedShape {

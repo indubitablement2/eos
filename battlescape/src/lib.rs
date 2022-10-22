@@ -2,7 +2,6 @@
 #![feature(duration_consts_float)]
 
 pub mod commands;
-pub mod data;
 pub mod hull;
 pub mod physics;
 pub mod player_inputs;
@@ -13,9 +12,7 @@ pub mod state_init;
 extern crate nalgebra as na;
 
 use std::time::Duration;
-
 pub use ahash::AHashMap;
-pub use data::*;
 pub use hull::*;
 pub use physics::*;
 pub use rand::prelude::*;

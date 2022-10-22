@@ -1,6 +1,7 @@
 mod mobility;
 
 use super::*;
+
 pub use mobility::*;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -9,14 +10,6 @@ pub struct Ship {
     pub mobility: Mobility,
     /// First is the main hull.
     pub hulls_index: SmallVec<[Index; 4]>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ShipData {
-    pub mobility: Mobility,
-    /// First is the main hull.
-    pub hulls_data_index: SmallVec<[usize; 4]>,
-    // pub hull_joins: (),
 }
 
 pub struct ShipBuilder {

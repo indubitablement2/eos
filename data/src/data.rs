@@ -1,8 +1,9 @@
 use super::*;
-use once_cell::sync::Lazy;
+use crate::hull::*;
+use crate::ship::*;
 
-pub static BATTLESCAPE_DATA: Lazy<BattlescapeData> = Lazy::new(|| BattlescapeData {
-    hulls: vec![
+pub const DATA: Data = Data {
+    hulls: &[
         // 0
         HullData {
             defence: Defence {
@@ -22,7 +23,7 @@ pub static BATTLESCAPE_DATA: Lazy<BattlescapeData> = Lazy::new(|| BattlescapeDat
             density: 1.0,
         },
     ],
-    ships: vec![
+    ships: &[
         // 0
         ShipData {
             mobility: Mobility {
@@ -31,7 +32,7 @@ pub static BATTLESCAPE_DATA: Lazy<BattlescapeData> = Lazy::new(|| BattlescapeDat
                 max_linear_velocity: 1.0,
                 max_angular_velocity: 1.0,
             },
-            hulls_data_index: smallvec![0],
+            hulls: &[BcHullDataId(0)],
         },
         // 1
         ShipData {
@@ -41,12 +42,12 @@ pub static BATTLESCAPE_DATA: Lazy<BattlescapeData> = Lazy::new(|| BattlescapeDat
                 max_linear_velocity: 1.0,
                 max_angular_velocity: 1.0,
             },
-            hulls_data_index: smallvec![0],
+            hulls: &[BcHullDataId(0)],
         },
     ],
-});
+};
 
-pub struct BattlescapeData {
-    pub hulls: Vec<HullData>,
-    pub ships: Vec<ShipData>,
+pub struct Data {
+    pub hulls: &'static [HullData],
+    pub ships: &'static [ShipData],
 }

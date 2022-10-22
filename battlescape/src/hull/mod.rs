@@ -10,10 +10,3 @@ pub struct Hull {
     pub rb: RigidBodyHandle,
     pub defence: Defence,
 }
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct HullData {
-    pub defence: Defence,
-    pub shape: HullShape,
-    pub density: f32,
-}

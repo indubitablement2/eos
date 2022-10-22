@@ -1,5 +1,4 @@
 pub mod group;
-pub mod shape;
 mod user_data;
 
 use self::user_data::UserData;
