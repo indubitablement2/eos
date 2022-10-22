@@ -36,8 +36,8 @@ pub enum BattlescapeCommand {
 #[derive(Clone, Serialize, Deserialize, Default, Debug)]
 pub struct FullCmds {
     /// When `Some(data)`, force load a jump point before applying the cmds to stay deteministic.
-    /// 
-    /// There is also a checksum of the data. 
+    ///
+    /// There is also a checksum of the data.
     /// Should be the same as applying each cmds before the jump point.
     pub jump_point: Option<(Vec<u8>, u32)>,
     /// The cmds to apply this tick after applying the jump point (if any).
@@ -77,16 +77,22 @@ impl Replay {
             }
         } else if tick < next_tick {
             // Already have that tick.
-            log::debug!("Replay received tick {} twice while waiting for tick {}. Ignoring...", tick, next_tick);
+            log::debug!(
+                "Replay received tick {} twice while waiting for tick {}. Ignoring...",
+                tick,
+                next_tick
+            );
         } else {
-            match self.remaining.binary_search_by(|probe| {
-                probe.0.cmp(&tick)
-            }) {
+            match self.remaining.binary_search_by(|probe| probe.0.cmp(&tick)) {
                 Ok(_) => {
                     // Already have that tick.
-                    log::debug!("Replay received tick {} twice while waiting for tick {}. Ignoring...", tick, next_tick);
+                    log::debug!(
+                        "Replay received tick {} twice while waiting for tick {}. Ignoring...",
+                        tick,
+                        next_tick
+                    );
                 }
-                Err(i) =>  {
+                Err(i) => {
                     self.remaining.insert(i, (tick, cmds));
                 }
             }

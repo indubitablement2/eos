@@ -1,4 +1,3 @@
-pub mod group;
 mod user_data;
 
 use self::user_data::UserData;
@@ -6,7 +5,6 @@ use super::*;
 use std::sync::{Arc, Mutex};
 
 pub use self::shape::*;
-pub use group::*;
 
 const DEFAULT_BODY_FRICTION: f32 = 0.3;
 const DEFAULT_BODY_RESTITUTION: f32 = 0.2;
@@ -60,10 +58,9 @@ impl Physics {
         shape: SharedShape,
         density: f32,
         ignore_rb: Option<RigidBodyHandle>,
-        team: Option<u32>,
+        team: u32,
         team_ignore: Option<u32>,
-        memberships: PhysicsGroup,
-        filter: PhysicsGroup,
+        groups: InteractionGroups,
     ) -> RigidBodyHandle {
         let rb = RigidBodyBuilder::dynamic()
             .position(pos)
@@ -95,7 +92,7 @@ impl Physics {
             .density(density)
             .friction(DEFAULT_BODY_FRICTION)
             .restitution(DEFAULT_BODY_RESTITUTION)
-            .collision_groups(InteractionGroups::new(memberships.into(), filter.into()))
+            .collision_groups(groups)
             .active_events(ActiveEvents::all())
             .contact_force_event_threshold(DEFAULT_FORCE_EVENT_THRESHOLD)
             .active_hooks(ActiveHooks::FILTER_CONTACT_PAIRS | ActiveHooks::FILTER_INTERSECTION_PAIR)

@@ -69,20 +69,12 @@ impl UserData {
     }
 
     /// Set to your team so that other collider can ignore you.
-    pub fn set_team(user_data: u128, team: Option<u32>) -> u128 {
-        if let Some(team) = team {
-            let user_data = user_data & !Self::TEAM_MASK;
-            user_data | ((team as u128) << Self::TEAM_OFFSET)
-        } else {
-            user_data | Self::TEAM_MASK
-        }
+    pub fn set_team(user_data: u128, team: u32) -> u128 {
+        let user_data = user_data & !Self::TEAM_MASK;
+        user_data | ((team as u128) << Self::TEAM_OFFSET)
     }
 
-    pub fn build(
-        rb_ignore: Option<RigidBodyHandle>,
-        team_ignore: Option<u32>,
-        team: Option<u32>,
-    ) -> u128 {
+    pub fn build(rb_ignore: Option<RigidBodyHandle>, team_ignore: Option<u32>, team: u32) -> u128 {
         Self::set_team(
             Self::set_team_ignore(Self::set_rb_ignore(0, rb_ignore), team_ignore),
             team,
@@ -99,9 +91,7 @@ impl UserData {
         let b_team_ignore = (b >> Self::IGNORE_TEAM_OFFSET) as u32;
 
         (a_rb != b_rb || a_rb == u64::MAX || b_rb == u64::MAX)
-            && ((a_team_ignore != b_team && b_team_ignore != a_team)
-                || a_team == u32::MAX
-                || b_team == u32::MAX)
+            && (a_team_ignore != b_team && b_team_ignore != a_team)
     }
 }
 
@@ -110,10 +100,10 @@ pub fn test_user_data() {
     let rb_a = RigidBodyHandle::from_raw_parts(0, 0);
     let rb_b = RigidBodyHandle::from_raw_parts(1, 0);
 
-    let a = UserData::build(Some(rb_a), Some(0), Some(0));
-    let b = UserData::build(Some(rb_b), Some(1), Some(1));
+    let a = UserData::build(Some(rb_a), Some(0), 0);
+    let b = UserData::build(Some(rb_b), Some(1), 1);
     assert!(UserData::filter(a, b));
-    let c = UserData::build(None, Some(0), Some(0));
+    let c = UserData::build(None, Some(0), 0);
     assert!(!UserData::filter(a, c));
     assert!(UserData::filter(b, c));
 }
