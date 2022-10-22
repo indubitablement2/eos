@@ -20,6 +20,11 @@ impl ToNalgebra for Vector2 {
         na::vector![self.x, self.y]
     }
 }
+impl ToNalgebra for glam::Vec2 {
+    fn to_na(self) -> na::Vector2<f32> {
+        na::vector![self.x, self.y]
+    }
+}
 
 pub trait ToGodot {
     fn to_godot(self) -> Vector2;
@@ -38,6 +43,11 @@ impl ToGodot for na::Translation2<f32> {
     }
 }
 impl ToGodot for na::Vector2<f32> {
+    fn to_godot(self) -> Vector2 {
+        Vector2::new(self.x, self.y)
+    }
+}
+impl ToGodot for glam::Vec2 {
     fn to_godot(self) -> Vector2 {
         Vector2::new(self.x, self.y)
     }

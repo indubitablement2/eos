@@ -39,4 +39,4 @@ rapier2d = { version = "0.15.0", features = ["enhanced-determinism", "serde-seri
 nalgebra = { version = "0.31.2", features = ["libm-force", "serde-serialize"] }
 
 # Non deterministic math.
-# glam = { version = "0.21.3", features = ["serde", "rand"] }
+glam = { version = "0.21.3", features = ["serde", "rand"] }

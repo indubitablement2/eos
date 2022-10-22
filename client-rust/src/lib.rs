@@ -9,6 +9,7 @@ extern crate nalgebra as na;
 mod client;
 mod client_battlescape;
 mod constants;
+pub mod draw;
 mod godot_client_config;
 mod godot_logger;
 pub mod shared;

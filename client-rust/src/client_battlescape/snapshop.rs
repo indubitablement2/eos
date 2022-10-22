@@ -72,7 +72,9 @@ impl BattlescapeSnapshot {
                         // TypedShape::HalfSpace(_) => todo!(),
                         // TypedShape::HeightField(_) => todo!(),
                         TypedShape::Compound(_) => todo!(),
-                        TypedShape::ConvexPolygon(_) => todo!(),
+                        TypedShape::ConvexPolygon(poly) => {
+                            // poly.points()
+                        }
                         // TypedShape::RoundCuboid(_) => todo!(),
                         // TypedShape::RoundTriangle(_) => todo!(),
                         // TypedShape::RoundConvexPolygon(_) => todo!(),
