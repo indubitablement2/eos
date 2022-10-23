@@ -52,4 +52,14 @@ impl HullBuilder {
             team,
         }
     }
+
+    pub fn with_linvel(mut self, linvel: na::Vector2<f32>) -> Self {
+        self.linvel = linvel;
+        self
+    }
+
+    pub fn with_angvel(mut self, angvel: f32) -> Self {
+        self.angvel = angvel;
+        self
+    }
 }
