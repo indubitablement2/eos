@@ -11,7 +11,6 @@ pub mod state_init;
 extern crate nalgebra as na;
 
 use commands::BattlescapeCommand;
-use rapier2d::data::{Arena, Index};
 use schedule::*;
 use state_init::BattlescapeInitialState;
 use std::time::Duration;
@@ -26,6 +25,7 @@ pub use rand::prelude::*;
 pub use rapier2d::prelude::*;
 pub use serde::{Deserialize, Serialize};
 pub use smallvec::{smallvec, SmallVec};
+pub use utils::packed_map::*;
 
 #[derive(Serialize, Deserialize)]
 pub struct Battlescape {
@@ -34,7 +34,9 @@ pub struct Battlescape {
     rng: RNG,
     pub physics: Physics,
 
-    pub hulls: Arena<Hull>,
+    next_hull_id: u32,
+    // TODO: use index map
+    pub hulls: AHashMap<HullId, Hull>,
 }
 impl Battlescape {
     pub const TICK_DURATION: Duration = Duration::from_millis(50);
@@ -47,6 +49,7 @@ impl Battlescape {
             rng: RNG::seed_from_u64(battlescape_initial_state.seed),
             tick: 0,
             physics: Default::default(),
+            next_hull_id: 0,
             hulls: Default::default(),
         }
     }
@@ -68,8 +71,9 @@ impl Battlescape {
         bincode::Options::deserialize(bincode::DefaultOptions::new(), bytes)
     }
 
-    pub fn spawn_hull(&mut self, hull_builder: HullBuilder) -> Index {
+    pub fn spawn_hull(&mut self, hull_builder: HullBuilder) -> HullId {
         let hull_data = hull_data(hull_builder.hull_data_id);
+        let hull_id = self.new_hull_id();
 
         let rb = self.physics.add_body(
             hull_builder.pos,
@@ -77,16 +81,25 @@ impl Battlescape {
             hull_builder.angvel,
             hull_data.shape.to_shared_shape(),
             hull_data.density,
-            None,
-            hull_builder.team,
-            None,
             hull_data.groups,
+            0,
+            hull_builder.team,
+            false,
+            hull_id.0,
+            hull_id,
         );
 
         // TODO: Add joined childs.
         let childs = Childs::new();
+        self.hulls
+            .insert(hull_id, Hull::new(hull_builder, rb, childs, None));
+        hull_id
+    }
 
-        self.hulls.insert(Hull::new(hull_builder, rb, childs, None))
+    fn new_hull_id(&mut self) -> HullId {
+        let id = HullId(self.next_hull_id);
+        self.next_hull_id += 1;
+        id
     }
 }
 impl Default for Battlescape {

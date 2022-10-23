@@ -21,89 +21,87 @@ impl PhysicsHooks for Hooks {
     fn modify_solver_contacts(&self, _context: &mut ContactModificationContext) {}
 }
 
-// from high to low bits in chunk of 32
-// - team
-// - team ignore
-// - ignore rb generation
-// - ignore rb id
+/// from low to high bits in chunk of 32 bits:
+/// ### team
+/// If `ignore_team` bit is set, ignore all collider with the same team.
+/// Only one collider need to have this to take effect.
+/// ### group ignore
+/// Ignore all collider with the same group.
+/// Default to creating a new group so that other collider can ignore us.
+/// ### hull id
+/// ### bitfield
+/// 0) ignore_team
+/// 1) is_shield
 pub struct UserData;
 impl UserData {
-    const IGNORE_RB_ID_MASK: u128 = u32::MAX as u128;
-    const IGNORE_RB_GEN_OFFSET: u32 = u32::BITS;
-    const IGNORE_RB_GEN_MASK: u128 = (u32::MAX as u128) << Self::IGNORE_RB_GEN_OFFSET;
-    const IGNORE_RB_MASK: u128 = Self::IGNORE_RB_ID_MASK | Self::IGNORE_RB_GEN_MASK;
+    const TEAM_MASK: u128 = u32::MAX as u128;
 
-    const IGNORE_TEAM_OFFSET: u32 = u64::BITS;
-    const IGNORE_TEAM_MASK: u128 = (u32::MAX as u128) << Self::IGNORE_TEAM_OFFSET;
+    const GROUP_IGNORE_OFFSET: u32 = u32::BITS;
+    const GROUP_IGNORE_MASK: u128 = (u32::MAX as u128) << Self::GROUP_IGNORE_OFFSET;
 
-    const TEAM_OFFSET: u32 = (Self::IGNORE_TEAM_OFFSET + u32::BITS);
-    const TEAM_MASK: u128 = (u32::MAX as u128) << Self::TEAM_OFFSET;
+    const ID_OFFSET: u32 = u32::BITS + Self::GROUP_IGNORE_OFFSET;
+    const ID_MASK: u128 = (u32::MAX as u128) << Self::ID_OFFSET;
 
-    /// Will ignore any collider with this rigitd body handle.
-    ///
-    /// If you don't want to ignore any collider, set to your own rb handle so that other can ignore you.
-    /// Or, **for sensor only**, set to None.
-    pub fn set_rb_ignore(user_data: u128, rb_ignore: Option<RigidBodyHandle>) -> u128 {
-        if let Some(rb_ignore) = rb_ignore {
-            let user_data = user_data & !Self::IGNORE_RB_MASK;
-            let (id, generation) = rb_ignore.into_raw_parts();
-            user_data | ((generation as u128) << Self::IGNORE_RB_GEN_OFFSET) | id as u128
-        } else {
-            user_data | Self::IGNORE_RB_MASK
-        }
-    }
+    const BITMASK_OFFSET: u32 = u32::BITS + Self::ID_OFFSET;
+    const BITMASK_IGNORE_TEAM: u32 = 1 << 0;
+    const BITMASK_IS_SHIELD: u32 = 1 << 1;
 
-    pub fn get_rb_ignore(user_data: u128) -> RigidBodyHandle {
-        let data = user_data as u64;
-        RigidBodyHandle::from_raw_parts(data as u32, (data >> Self::IGNORE_RB_GEN_OFFSET) as u32)
-    }
-
-    /// Will ignore any collider with this team.
-    pub fn set_team_ignore(user_data: u128, team_ignore: Option<u32>) -> u128 {
-        if let Some(team_ignore) = team_ignore {
-            let user_data = user_data & !Self::IGNORE_TEAM_MASK;
-            user_data | ((team_ignore as u128) << Self::IGNORE_TEAM_OFFSET)
-        } else {
-            user_data | Self::IGNORE_TEAM_MASK
-        }
-    }
-
-    /// Set to your team so that other collider can ignore you.
+    /// If true, this collider ignore all collider with the same team.
     pub fn set_team(user_data: u128, team: u32) -> u128 {
-        let user_data = user_data & !Self::TEAM_MASK;
-        user_data | ((team as u128) << Self::TEAM_OFFSET)
+        (user_data & !Self::TEAM_MASK) | team as u128
     }
 
-    pub fn build(rb_ignore: Option<RigidBodyHandle>, team_ignore: Option<u32>, team: u32) -> u128 {
-        Self::set_team(
-            Self::set_team_ignore(Self::set_rb_ignore(0, rb_ignore), team_ignore),
-            team,
-        )
+    /// Ignore all collider with the same group.
+    pub fn set_group_ignore(user_data: u128, group_ignore: u32) -> u128 {
+        (user_data & !Self::GROUP_IGNORE_MASK)
+            | ((group_ignore as u128) << Self::GROUP_IGNORE_OFFSET)
+    }
+
+    pub fn build(team: u32, group_ignore: u32, id: u32, ignore_team: bool) -> u128 {
+        let bitmask = ignore_team as u32;
+
+        team as u128
+            | (group_ignore as u128) << Self::GROUP_IGNORE_OFFSET
+            | (id as u128) << Self::ID_OFFSET
+            | (bitmask as u128) << Self::BITMASK_OFFSET
     }
 
     /// Return true if those `user_data` can interact.
     pub fn filter(a: u128, b: u128) -> bool {
-        let a_rb = a as u64;
-        let b_rb = b as u64;
-        let a_team = (a >> Self::TEAM_OFFSET) as u32;
-        let a_team_ignore = (a >> Self::IGNORE_TEAM_OFFSET) as u32;
-        let b_team = (b >> Self::TEAM_OFFSET) as u32;
-        let b_team_ignore = (b >> Self::IGNORE_TEAM_OFFSET) as u32;
+        let a_team = a as u32;
+        let b_team = b as u32;
+        let a_team_ignore = ((a >> Self::BITMASK_OFFSET) as u32) & Self::BITMASK_IGNORE_TEAM != 0;
+        let b_team_ignore = ((b >> Self::BITMASK_OFFSET) as u32) & Self::BITMASK_IGNORE_TEAM != 0;
+        let a_group_ignore = (a >> Self::GROUP_IGNORE_OFFSET) as u32;
+        let b_group_ignore = (b >> Self::GROUP_IGNORE_OFFSET) as u32;
 
-        (a_rb != b_rb || a_rb == u64::MAX || b_rb == u64::MAX)
-            && (a_team_ignore != b_team && b_team_ignore != a_team)
+        !(a_team == b_team && a_team_ignore || b_team_ignore) && a_group_ignore != b_group_ignore
     }
 }
 
 #[test]
 pub fn test_user_data() {
-    let rb_a = RigidBodyHandle::from_raw_parts(0, 0);
-    let rb_b = RigidBodyHandle::from_raw_parts(1, 0);
+    // Same team, but not set to ignore.
+    assert!(UserData::filter(
+        UserData::build(0, 0, 0, false),
+        UserData::build(0, 1, 0, false)
+    ));
 
-    let a = UserData::build(Some(rb_a), Some(0), 0);
-    let b = UserData::build(Some(rb_b), Some(1), 1);
-    assert!(UserData::filter(a, b));
-    let c = UserData::build(None, Some(0), 0);
-    assert!(!UserData::filter(a, c));
-    assert!(UserData::filter(b, c));
+    // Same team, but not all set to ignore.
+    assert!(UserData::filter(
+        UserData::build(0, 0, 0, false),
+        UserData::build(0, 1, 0, true)
+    ));
+
+    // Same team, but set to ignore.
+    assert!(!UserData::filter(
+        UserData::build(0, 0, 0, true),
+        UserData::build(0, 1, 0, true)
+    ));
+
+    // Same group ignore.
+    assert!(!UserData::filter(
+        UserData::build(0, 0, 0, false),
+        UserData::build(1, 0, 0, false)
+    ));
 }

@@ -26,6 +26,7 @@ pub struct Physics {
     ccd_solver: CCDSolver,
     #[serde(skip)]
     pub events: PhysicsEventCollector,
+    next_group_ignore: u32,
 }
 impl Physics {
     pub fn step(&mut self) {
@@ -57,36 +58,22 @@ impl Physics {
         angvel: f32,
         shape: SharedShape,
         density: f32,
-        ignore_rb: Option<RigidBodyHandle>,
-        team: u32,
-        team_ignore: Option<u32>,
         groups: InteractionGroups,
+        dominance_group: i8,
+        team: u32,
+        ignore_team: bool,
+        group_ignore: u32,
+        hull_id: HullId,
     ) -> RigidBodyHandle {
         let rb = RigidBodyBuilder::dynamic()
             .position(pos)
             .linvel(linvel)
             .angvel(angvel)
+            .dominance_group(dominance_group)
             .build();
         let rb_handle = self.bodies.insert(rb);
 
-        let ignore_rb = if let Some(ignore_rb) = ignore_rb {
-            // Copy the rb handle from another rb.
-            if let Some(coll) = self
-                .bodies
-                .get(ignore_rb)
-                .and_then(|body| body.colliders().first())
-                .and_then(|c_handle| self.colliders.get(*c_handle))
-            {
-                UserData::get_rb_ignore(coll.user_data)
-            } else {
-                // Something failed. Use our rb handle instead.
-                rb_handle
-            }
-        } else {
-            // Use our rb handle so that other can ignore us.
-            rb_handle
-        };
-        let user_data = UserData::build(Some(ignore_rb), team_ignore, team);
+        let user_data = UserData::build(team, group_ignore, hull_id.0, ignore_team);
 
         let coll = ColliderBuilder::new(shape)
             .density(density)
@@ -124,6 +111,7 @@ impl Default for Physics {
             multibody_joints: Default::default(),
             ccd_solver: Default::default(),
             events: Default::default(),
+            next_group_ignore: Default::default(),
         }
     }
 }

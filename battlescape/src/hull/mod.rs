@@ -1,6 +1,9 @@
 use super::*;
 
-pub type Childs = SmallVec<[Index; 4]>;
+pub type Childs = SmallVec<[HullId; 4]>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize, PartialOrd, Ord)]
+pub struct HullId(pub u32);
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Hull {
@@ -10,14 +13,14 @@ pub struct Hull {
     pub rb: RigidBodyHandle,
     /// Other hulls that are our child.
     pub childs: Childs,
-    pub parent: Option<Index>,
+    pub parent: Option<HullId>,
 }
 impl Hull {
     pub fn new(
         hull_builder: HullBuilder,
         rb: RigidBodyHandle,
         childs: Childs,
-        parent: Option<Index>,
+        parent: Option<HullId>,
     ) -> Self {
         let hull_data = hull_data(hull_builder.hull_data_id);
 
