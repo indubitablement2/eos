@@ -51,8 +51,26 @@ impl Rendering {
 
     pub fn draw(&mut self, rt: &Runtime) {
         self.check_screen_size_change();
+        self.handle_futures();
+        self.geo_pass(rt);
+        self.final_pass();
+    }
 
-        // Take loaded image and upload them to the gpu.
+    fn check_screen_size_change(&mut self) {
+        let screen_size = uvec2(screen_width() as u32, screen_height() as u32);
+
+        if self.screen_size != screen_size {
+            self.screen_size = screen_size;
+            self.geometry_render_target.delete();
+            self.geometry_render_target = render_target(screen_size.x * 2, screen_size.y * 2);
+
+            log::debug!("Screen resized to {}.", screen_size);
+        }
+    }
+
+    /// Receive newly loaded image and upload them to the gpu.
+    /// Keep the texture in cache.
+    fn handle_futures(&mut self) {
         self.image_load_futures
             .drain_filter(|(path, r)| match r.try_recv() {
                 Ok(image) => {
@@ -72,9 +90,11 @@ impl Rendering {
                 }
                 _ => false,
             });
+    }
 
-        // Geometry render.
-        
+    /// Render albedo, normal, specular and glow on separate corner of a large (screen * 2) texture
+    /// to simulate multiple render target.
+    fn geo_pass(&mut self, rt: &Runtime) {
         // Setup camera.
         let mut camera = Camera2D::from_display_rect(Rect {
             x: self.target.x - screen_width() * 0.5,
@@ -125,11 +145,12 @@ impl Rendering {
                 }
             }
         }
+    }
 
-        // Final render to screen.
-
+    /// Final render to screen.
+    fn final_pass(&mut self) {
         // Make view range from -1..1
-        camera = Camera2D::from_display_rect(Rect {
+        let camera = Camera2D::from_display_rect(Rect {
             x: -1.0,
             y: -1.0,
             w: 2.0,
@@ -150,18 +171,6 @@ impl Rendering {
                 pivot: None,
             },
         );
-    }
-
-    fn check_screen_size_change(&mut self) {
-        let screen_size = uvec2(screen_width() as u32, screen_height() as u32);
-
-        if self.screen_size != screen_size {
-            self.screen_size = screen_size;
-            self.geometry_render_target.delete();
-            self.geometry_render_target = render_target(screen_size.x * 2, screen_size.y * 2);
-
-            log::debug!("Screen resized to {}.", screen_size);
-        }
     }
 }
 impl Default for Rendering {
