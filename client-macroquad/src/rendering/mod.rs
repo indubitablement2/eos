@@ -39,7 +39,11 @@ impl Rendering {
         mut layer: usize,
     ) {
         if layer > Self::LAYER_MAX {
-            log::warn!("Can not draw on layer {}. Max {}. Clamping...", layer, Self::LAYER_MAX);
+            log::warn!(
+                "Can not draw on layer {}. Max {}. Clamping...",
+                layer,
+                Self::LAYER_MAX
+            );
             layer = Self::LAYER_MAX;
         }
 
@@ -105,7 +109,7 @@ impl Rendering {
         camera.render_target = Some(self.geometry_render_target);
         set_camera(&camera);
         clear_background(GRAY);
-        
+
         // Debugs.
         let p = camera.screen_to_world(vec2(mouse_position().0, mouse_position().1));
         self.shaded_draw("ansg.png", p, 0.0, 0);

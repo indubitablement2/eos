@@ -39,7 +39,7 @@ impl State {
 
     pub fn update(&mut self) {
         self.player_inputs.update(&self.config.input_map);
-        
+
         let delta = macroquad::prelude::get_frame_time();
         for bc in self.bcs.values_mut() {
             bc.update(delta);
