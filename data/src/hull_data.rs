@@ -15,6 +15,8 @@ pub struct HullData {
     pub groups: InteractionGroups,
     // TODO: weapon slot
     // TODO: built-in weapon (take a slot #)
+
+    pub texture_paths: HullTexturePaths,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Copy, Debug)]
@@ -74,6 +76,13 @@ pub const GROUP_ALL: Group = GROUP_SHIP
     .union(GROUP_PROJECTILE);
 const PRESET_GROUPS_SHIP: InteractionGroups = InteractionGroups::new(GROUP_SHIP, GROUP_ALL);
 
+#[derive(Debug)]
+pub struct HullTexturePaths {
+    pub albedo: &'static str,
+    // pub normal: (),
+    // pub bloom: (),
+}
+
 pub const HULLS: &[HullData] = &[
     // 0
     HullData {
@@ -91,6 +100,7 @@ pub const HULLS: &[HullData] = &[
         density: 1.0,
         child_hulls: &[],
         groups: PRESET_GROUPS_SHIP,
+        texture_paths: HullTexturePaths { albedo: "circle128.png" },
     },
     // 1
     HullData {
@@ -108,5 +118,6 @@ pub const HULLS: &[HullData] = &[
         density: 1.0,
         child_hulls: &[],
         groups: PRESET_GROUPS_SHIP,
+        texture_paths: HullTexturePaths { albedo: "square128.png" },
     },
 ];

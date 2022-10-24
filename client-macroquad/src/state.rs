@@ -1,11 +1,19 @@
-use crate::{client_battlescape::ClientBattlescape, config::Config, inputs::*, ui::UiState};
+use crate::prelude::*;
+use crate::{
+    client_battlescape::ClientBattlescape, config::Config, inputs::*, rendering::Rendering,
+    ui::UiState,
+};
 use ahash::AHashMap;
 
 pub struct State {
+    rt: Runtime,
+
     config: Config,
 
     player_inputs: PlayerInputs,
     ui_state: UiState,
+
+    rendering: Rendering,
 
     bcs: AHashMap<u32, ClientBattlescape>,
 }
@@ -21,12 +29,17 @@ impl State {
                 [(0, ClientBattlescape::new(Default::default(), &config))].into_iter(),
             ),
             config,
+            rendering: Default::default(),
+            rt: tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap(),
         }
     }
 
     pub fn update(&mut self) {
         self.player_inputs.update(&self.config.input_map);
-
+        
         let delta = macroquad::prelude::get_frame_time();
         for bc in self.bcs.values_mut() {
             bc.update(delta);
@@ -37,6 +50,8 @@ impl State {
         if let Some(bc) = self.bcs.values_mut().next() {
             bc.draw()
         }
+
+        self.rendering.draw(&self.rt);
     }
 
     pub fn draw_ui(&mut self) {
@@ -48,7 +63,8 @@ impl State {
 
             // TODO: Draw global ui.
         });
-        self.ui_state.draw();
+        egui_macroquad::draw();
+        // self.ui_state.draw();
     }
 
     pub fn on_quit(self) {

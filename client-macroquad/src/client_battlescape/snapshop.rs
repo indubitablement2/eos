@@ -1,9 +1,18 @@
+use crate::prelude::*;
 use battlescape::*;
+use macroquad::miniquad::{BlendFactor, BlendState, BlendValue, Equation};
+
+pub struct HullSnapshot {}
 
 #[derive(Default)]
-pub struct BattlescapeSnapshot {}
+pub struct BattlescapeSnapshot {
+    hulls: AHashMap<HullId, HullSnapshot>,
+}
 impl BattlescapeSnapshot {
     pub fn update_snapshot(&mut self, bc: &Battlescape) {
+        for hull in bc.hulls.values() {
+            // hull.
+        }
         // self.tick = bc.tick;
         // self.bound = bc.bound;
         // bc.hulls.clone_into(&mut self.hulls);
@@ -13,6 +22,29 @@ impl BattlescapeSnapshot {
     }
 
     pub fn draw_lerp(&self, weight: f32) {
+        // let mat = load_material(
+        //     "vertex_shader",
+        //     "fragment_shader",
+        //     MaterialParams {
+        //         pipeline_params: PipelineParams {
+        //             color_blend: Some(BlendState::new(
+        //                 Equation::Add,
+        //                 BlendFactor::Value(BlendValue::SourceAlpha),
+        //                 BlendFactor::OneMinusValue(BlendValue::SourceAlpha),
+        //             )),
+        //             alpha_blend: None,
+        //             ..Default::default()
+        //         },
+        //         uniforms: vec![],
+        //         textures: vec![],
+        //     },
+        // )
+        // .unwrap();
+
+        // Camera2D
+        // gl_use_material(material)
+        // draw_texture(texture, x, y, color)
+
         // for (i, to_hull) in to.hulls.iter() {
         //     let to_body = to.bodies.get(to_hull.rb).unwrap();
         //     if let Some(from_hull) = from.hulls.get(i) {

@@ -1,8 +1,11 @@
+#![feature(drain_filter)]
+
 mod client_battlescape;
 mod config;
 mod inputs;
 mod logger;
 mod prelude;
+pub mod rendering;
 mod state;
 mod time_manager;
 mod ui;
@@ -23,9 +26,6 @@ async fn main() {
     let mut state = State::init();
 
     loop {
-        // TODO: No need to clear bg.
-        clear_background(BLACK);
-
         state.update();
         state.draw();
         state.draw_ui();

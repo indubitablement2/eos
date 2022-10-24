@@ -7,6 +7,7 @@ pub struct Logger;
 impl Logger {
     pub fn init() {
         log::set_logger(&LOGGER).expect("can not start logger");
+        log::set_max_level(log::LevelFilter::Debug);
     }
 }
 
