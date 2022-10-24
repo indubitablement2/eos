@@ -31,6 +31,11 @@ impl Rendering {
     /// The highest valid layer.
     pub const LAYER_MAX: usize = 10;
 
+    /// Draw a shaded texture (albedo, normal, specular and glow).
+    ///
+    /// Layer can be 0 to `Self::LAYER_MAX`.
+    /// Layer are draw in order,
+    /// but texure in the same layer are draw in any order to maximize batching opportunity.
     pub fn shaded_draw(
         &mut self,
         path: &'static str,
@@ -53,6 +58,7 @@ impl Rendering {
             .push((position, rotation));
     }
 
+    /// Draw data that was queued previously.
     pub fn draw(&mut self, rt: &Runtime) {
         self.check_screen_size_change();
         self.handle_futures();
@@ -82,8 +88,6 @@ impl Rendering {
                         .cached_textures
                         .get_mut(path)
                         .expect("there should be an empty texture") = Texture2D::from_image(&image);
-
-                    log::debug!("Loaded: '{}'", path);
                     true
                 }
                 Err(crossbeam::channel::TryRecvError::Disconnected) => {
@@ -112,7 +116,8 @@ impl Rendering {
 
         // Debugs.
         let p = camera.screen_to_world(vec2(mouse_position().0, mouse_position().1));
-        self.shaded_draw("ansg.png", p, 0.0, 0);
+        let r = (get_time().rem_euclid(std::f64::consts::TAU) - std::f64::consts::PI) as f32;
+        self.shaded_draw("ansg.png", p, r, 0);
         draw_rectangle_lines(
             -screen_width() * 0.5,
             -screen_height() * 0.5,
@@ -131,21 +136,25 @@ impl Rendering {
                     path,
                     rt,
                 );
-                let offset = vec2(texture.width(), texture.height()) * 0.5;
                 self.geometry_mesh.texture = Some(texture);
-                // Draw batched that same texture.
-                for (pos, rot) in draws {
-                    // Set mesh position.
-                    self.geometry_mesh.vertices[0].position = (pos - offset).extend(0.0);
-                    self.geometry_mesh.vertices[1].position =
-                        (pos + vec2(offset.x, -offset.y)).extend(0.0);
-                    self.geometry_mesh.vertices[2].position = (pos + offset).extend(0.0);
-                    self.geometry_mesh.vertices[3].position =
-                        (pos + vec2(-offset.x, offset.y)).extend(0.0);
 
-                    // log::debug!("{:#?}", &self.geometry_mesh.vertices);
+                // Draw batched.
+                let scale = vec2(texture.width(), texture.height()) * 0.5;
+                for (pos, rot) in draws {
+                    let a = Affine2::from_scale_angle_translation(scale, rot, pos);
+
+                    // Set mesh position.
+                    self.geometry_mesh.vertices[0].position =
+                        a.transform_point2(vec2(-1.0, -1.0)).extend(0.0);
+                    self.geometry_mesh.vertices[1].position =
+                        a.transform_point2(vec2(1.0, -1.0)).extend(0.0);
+                    self.geometry_mesh.vertices[2].position =
+                        a.transform_point2(vec2(1.0, 1.0)).extend(0.0);
+                    self.geometry_mesh.vertices[3].position =
+                        a.transform_point2(vec2(-1.0, 1.0)).extend(0.0);
 
                     draw_mesh(&self.geometry_mesh);
+                    // draw_texture(texture, x, y, color)
                 }
             }
         }
