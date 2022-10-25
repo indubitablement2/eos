@@ -115,8 +115,9 @@ impl Rendering {
 
         // Debugs.
         let p = camera.screen_to_world(vec2(mouse_position().0, mouse_position().1));
+        log::debug!("{}", p.as_ivec2());
         let r = (get_time().rem_euclid(std::f64::consts::TAU) - std::f64::consts::PI) as f32;
-        self.shaded_draw("ansg.png", p, r, 0);
+        self.shaded_draw("circle128ansg.png", p, r, 0);
         draw_rectangle_lines(
             -screen_width() * 0.5,
             -screen_height() * 0.5,
@@ -145,13 +146,12 @@ impl Rendering {
 
                     // Set mesh position.
                     geo_mesh.vertices[0].position =
-                        a.transform_point2(vec2(-1.0, -1.0)).extend(0.0);
-                    geo_mesh.vertices[1].position = a.transform_point2(vec2(1.0, -1.0)).extend(0.0);
-                    geo_mesh.vertices[2].position = a.transform_point2(vec2(1.0, 1.0)).extend(0.0);
-                    geo_mesh.vertices[3].position = a.transform_point2(vec2(-1.0, 1.0)).extend(0.0);
+                        a.transform_point2(vec2(-0.5, -0.5)).extend(0.0);
+                    geo_mesh.vertices[1].position = a.transform_point2(vec2(0.5, -0.5)).extend(0.0);
+                    geo_mesh.vertices[2].position = a.transform_point2(vec2(0.5, 0.5)).extend(0.0);
+                    geo_mesh.vertices[3].position = a.transform_point2(vec2(-0.5, 0.5)).extend(0.0);
 
                     draw_mesh(&geo_mesh);
-                    // draw_texture(texture, x, y, color)
                 }
             }
         }

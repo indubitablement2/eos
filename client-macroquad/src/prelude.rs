@@ -3,9 +3,8 @@ pub use macroquad::file::*;
 pub use macroquad::input::*;
 pub use macroquad::material::*;
 // pub use macroquad::math::*;
-pub use macroquad::prelude::Rect;
-pub use glam::*;
 pub use macroquad::models::*;
+pub use macroquad::prelude::Rect;
 // pub use macroquad::shapes::*;
 pub use macroquad::text::*;
 pub use macroquad::texture::*;
@@ -33,5 +32,9 @@ pub use tokio::runtime::Runtime;
 pub use ahash::{AHashMap, AHashSet};
 
 pub use crate::rendering::*;
+pub use crate::utils::*;
+
+pub use glam::*;
+pub use std::f32::consts::{PI, TAU};
 
 // pub use crate::inputs::

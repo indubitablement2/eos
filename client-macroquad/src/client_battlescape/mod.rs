@@ -50,13 +50,13 @@ impl ClientBattlescape {
             }
 
             // log::debug!(
-            //     "last: {}, bc: {}, target: {}, max: {}, cmds: {}, t: {:.4}",
+            //     "last: {}, bc: {}, target: {}, max: {}, cmds: {}, w: {:.6}",
             //     last_tick,
             //     bc.tick,
             //     self.time_manager.tick,
             //     self.time_manager.max_tick,
-            //     data.replay.cmds.len(),
-            //     self.time_manager.tick as f32 + self.time_manager.tick_frac
+            //     self.replay.cmds.len(),
+            //     self.time_manager.interpolation_weight()
             // );
         }
 

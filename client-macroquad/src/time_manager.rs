@@ -24,7 +24,7 @@ impl Default for TimeManagerConfig {
             period: 4.0,
             max_time_change: 0.08,
             max_buffer: 1.0,
-            min_buffer: -0.1,
+            min_buffer: 0.0,
             wish_buffer: 0.05,
             increase_change_strenght: 0.2,
             decrease_change_strenght: 1.0,
@@ -63,7 +63,7 @@ impl<const F: u32> TimeManager<F> {
             tick_frac: 0.0,
             current_period: 0.0,
             config,
-            min_over_period: f32::MAX,
+            min_over_period: 10.0,
             time_dilation: 1.0,
         }
     }
@@ -100,14 +100,21 @@ impl<const F: u32> TimeManager<F> {
             self.tick_frac = 0.0;
             self.time_dilation = 1.0;
             self.new_period();
-            log::info!(
-                "Buffer time ({:.2}) over limit of {}. Catching up...",
+            log::debug!(
+                "Buffer time ({:.4}) over limit of {}. Catching up...",
                 buffer_size as f32 * Self::TICK_DURATION,
                 self.config.max_buffer
             );
             return true;
         } else if remaining < self.config.min_buffer {
-            self.tick_frac = 0.0;
+            let change = remaining - self.config.min_buffer;
+            log::debug!(
+                "Buffer time ({:.4}) under limit of {}. Modifying time by up to {:.4}...",
+                remaining,
+                self.config.min_buffer,
+                change
+            );
+            self.tick_frac = 0.0f32.max(self.tick_frac + change);
         }
 
         // Stop accelerating time if we have no buffer remaining.

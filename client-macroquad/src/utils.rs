@@ -1,4 +1,20 @@
-use macroquad::math::{vec2, Vec2};
+use glam::{vec2, Vec2};
+use std::f32::consts::{PI, TAU};
+
+pub trait Lerp {
+    fn lerp(self, to: Self, t: f32) -> Self;
+    fn slerp(self, to: Self, t: f32) -> Self;
+}
+impl Lerp for f32 {
+    fn lerp(self, to: Self, t: f32) -> Self {
+        t.mul_add(to - self, self)
+    }
+
+    fn slerp(self, to: Self, t: f32) -> Self {
+        let delta = ((to - self + TAU + PI) % TAU) - PI;
+        (self + delta * t + TAU) % TAU
+    }
+}
 
 pub trait ToNalgebra {
     fn to_na(self) -> na::Vector2<f32>;

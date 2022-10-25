@@ -4,6 +4,7 @@ use crate::{
     ui::UiState,
 };
 use ahash::AHashMap;
+use battlescape::Battlescape;
 
 pub struct State {
     rt: Runtime,
@@ -16,6 +17,10 @@ pub struct State {
     rendering: Rendering,
 
     bcs: AHashMap<u32, ClientBattlescape>,
+
+    // TODO: Remove.
+    t: f32,
+    u: u64,
 }
 impl State {
     pub fn init() -> Self {
@@ -34,6 +39,8 @@ impl State {
                 .enable_all()
                 .build()
                 .unwrap(),
+            t: 0.0,
+            u: 0,
         }
     }
 
@@ -41,7 +48,18 @@ impl State {
         self.player_inputs.update(&self.config.input_map);
 
         let delta = macroquad::prelude::get_frame_time();
+        self.t += delta;
+        let inc = if self.t >= Battlescape::TICK_DURATION_SEC {
+            self.t -= Battlescape::TICK_DURATION_SEC;
+            self.u += 1;
+            true
+        } else {
+            false
+        };
         for bc in self.bcs.values_mut() {
+            if inc {
+                bc.replay.push_cmds(self.u - 1, Default::default());
+            }
             bc.update(delta);
         }
     }

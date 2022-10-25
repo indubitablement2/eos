@@ -114,17 +114,46 @@ fn debug_spawn_ships(bc: &mut Battlescape) {
         return;
     }
 
-    let num = 8;
+    bc.spawn_hull(HullBuilder {
+        hull_data_id: HullDataId(1),
+        pos: na::Isometry2::new(na::vector![0.5, 0.5], 0.0),
+        linvel: na::Vector2::zeros(),
+        angvel: 0.0,
+        team: 0,
+    });
+    bc.spawn_hull(HullBuilder {
+        hull_data_id: HullDataId(1),
+        pos: na::Isometry2::new(na::vector![-0.5, 0.5], 0.0),
+        linvel: na::Vector2::zeros(),
+        angvel: 0.0,
+        team: 0,
+    });
+    bc.spawn_hull(HullBuilder {
+        hull_data_id: HullDataId(1),
+        pos: na::Isometry2::new(na::vector![0.5, -0.5], 0.0),
+        linvel: na::Vector2::zeros(),
+        angvel: 0.0,
+        team: 0,
+    });
+    bc.spawn_hull(HullBuilder {
+        hull_data_id: HullDataId(1),
+        pos: na::Isometry2::new(na::vector![-0.5, -0.5], 0.0),
+        linvel: na::Vector2::zeros(),
+        angvel: 0.0,
+        team: 0,
+    });
+
+    let num = 0;
     for i in 0..num {
         let angle = i as f32 * std::f32::consts::TAU / num as f32;
         let translation = na::UnitComplex::from_angle(angle) * na::vector![0.0, 10.0];
-        let linvel = translation * -0.1;
+        let linvel = translation * -0.2;
 
         bc.spawn_hull(HullBuilder {
-            hull_data_id: HullDataId(i % 2),
+            hull_data_id: HullDataId(1),
             pos: na::Isometry2::new(translation, angle),
             linvel,
-            angvel: 0.0,
+            angvel: i as f32 * 0.5,
             team: i as u32,
         });
     }
