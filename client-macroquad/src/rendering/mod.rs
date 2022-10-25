@@ -11,7 +11,7 @@ pub struct Rendering {
     pub zoom: f32,
 
     /// Each map is a new layer.
-    /// - key: texture/imagr path
+    /// - key: texture/image path
     /// - value: batched draw the same texture with different position and rotation
     shaded_draws: Vec<AHashMap<&'static str, Vec<(Vec2, f32)>>>,
 
@@ -20,6 +20,7 @@ pub struct Rendering {
     /// A mesh that is 4 quads.
     geometry_mesh: Mesh,
 
+    /// Used to detect when the screen size changed.
     screen_size: UVec2,
 
     /// texture path -> texture.
