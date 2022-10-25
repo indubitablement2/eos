@@ -1,27 +1,47 @@
 use crate::prelude::*;
 use battlescape::*;
-use macroquad::miniquad::{BlendFactor, BlendState, BlendValue, Equation};
 
-pub struct HullSnapshot {}
+#[derive(Default)]
+struct HullSnapshot {
+    hull_data_id: HullDataId,
+    from: Affine2,
+    to: Affine2,
+}
+impl HullSnapshot {
+    pub fn new(hull_data_id: HullDataId, current_transform: Affine2) -> Self {
+        Self {
+            hull_data_id,
+            from: current_transform,
+            to: current_transform,
+        }
+    }
+
+    fn update(&mut self, current_transform: Affine2) {
+        self.from = self.to;
+        self.to = current_transform;
+    }
+}
 
 #[derive(Default)]
 pub struct BattlescapeSnapshot {
+    bound: f32,
     hulls: AHashMap<HullId, HullSnapshot>,
 }
 impl BattlescapeSnapshot {
     pub fn update_snapshot(&mut self, bc: &Battlescape) {
-        for hull in bc.hulls.values() {
-            // hull.
+        self.bound = bc.bound;
+
+        for (hull_id, hull) in bc.hulls.iter() {
+            if let Some(rb) = bc.physics.bodies.get(hull.rb) {
+                let current_transform = Affine2::from_mat3(Into::<Mat3>::into(rb.position().to_matrix()));
+
+                self.hulls.entry(*hull_id).or_insert(HullSnapshot::new(hull.hull_data_id, current_transform)).update(current_transform);
+                
+            }
         }
-        // self.tick = bc.tick;
-        // self.bound = bc.bound;
-        // bc.hulls.clone_into(&mut self.hulls);
-        // bc.ships.clone_into(&mut self.ships);
-        // bc.physics.bodies.clone_into(&mut self.bodies);
-        // bc.physics.colliders.clone_into(&mut self.colliders);
     }
 
-    pub fn draw_lerp(&self, weight: f32) {
+    pub fn draw_lerp(&self, weight: f32, rendering: &mut Rendering) {
         // let mat = load_material(
         //     "vertex_shader",
         //     "fragment_shader",

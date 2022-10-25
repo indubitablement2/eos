@@ -23,7 +23,8 @@ bytemuck = { version = "1.12.1", features = [ "derive" ] }
 
 serde = { version = "1.0.145", features = ["derive"] }
 
-nalgebra = { version = "0.31.2", features = ["libm-force", "serde-serialize"] }
+nalgebra = { version = "0.31.2", features = ["libm-force", "serde-serialize", "convert-glam021"] }
+glam = {version = "0.21.0", features = ["serde"] }
 
 [profile.dev.package.'*']
 opt-level = 3

@@ -48,7 +48,7 @@ impl State {
 
     pub fn draw(&mut self) {
         if let Some(bc) = self.bcs.values_mut().next() {
-            bc.draw()
+            bc.draw(&mut self.rendering)
         }
 
         self.rendering.draw(&self.rt);

@@ -2,7 +2,9 @@ pub use macroquad::camera::*;
 pub use macroquad::file::*;
 pub use macroquad::input::*;
 pub use macroquad::material::*;
-pub use macroquad::math::*;
+// pub use macroquad::math::*;
+pub use macroquad::prelude::Rect;
+pub use glam::*;
 pub use macroquad::models::*;
 // pub use macroquad::shapes::*;
 pub use macroquad::text::*;
@@ -27,5 +29,9 @@ pub use macroquad::prelude::ImageFormat;
 pub use serde::{Deserialize, Serialize};
 
 pub use tokio::runtime::Runtime;
+
+pub use ahash::{AHashMap, AHashSet};
+
+pub use crate::rendering::*;
 
 // pub use crate::inputs::

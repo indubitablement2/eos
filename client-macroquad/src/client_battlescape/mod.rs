@@ -4,6 +4,7 @@ pub mod snapshop;
 use self::runner::RunnerHandle;
 use self::snapshop::BattlescapeSnapshot;
 use crate::config::Config;
+use crate::prelude::Rendering;
 use crate::time_manager::*;
 use battlescape::commands::Replay;
 use battlescape::*;
@@ -82,12 +83,12 @@ impl ClientBattlescape {
         }
     }
 
-    pub fn draw(&mut self) {
+    pub fn draw(&mut self, rendering: &mut Rendering) {
         if self.catching_up {
             // TODO: Display catching up message.
         } else {
             self.snapshot
-                .draw_lerp(self.time_manager.interpolation_weight());
+                .draw_lerp(self.time_manager.interpolation_weight(), rendering);
         }
     }
 
