@@ -17,8 +17,6 @@ pub struct Rendering {
 
     /// Holds albedo, normal, specular and glow.
     geometry_render_target: RenderTarget,
-    /// A mesh that is 4 quads.
-    geometry_mesh: Mesh,
 
     /// Used to detect when the screen size changed.
     screen_size: UVec2,
@@ -129,6 +127,7 @@ impl Rendering {
         );
 
         // Draw shaded textures.
+        let mut geo_mesh = multimesh(4);
         for layer in self.shaded_draws.iter_mut() {
             for (path, draws) in layer.drain() {
                 let texture = load_cached_texture(
@@ -137,7 +136,7 @@ impl Rendering {
                     path,
                     rt,
                 );
-                self.geometry_mesh.texture = Some(texture);
+                geo_mesh.texture = Some(texture);
 
                 // Draw batched.
                 let scale = vec2(texture.width(), texture.height()) * 0.5;
@@ -145,16 +144,13 @@ impl Rendering {
                     let a = Affine2::from_scale_angle_translation(scale, rot, pos);
 
                     // Set mesh position.
-                    self.geometry_mesh.vertices[0].position =
+                    geo_mesh.vertices[0].position =
                         a.transform_point2(vec2(-1.0, -1.0)).extend(0.0);
-                    self.geometry_mesh.vertices[1].position =
-                        a.transform_point2(vec2(1.0, -1.0)).extend(0.0);
-                    self.geometry_mesh.vertices[2].position =
-                        a.transform_point2(vec2(1.0, 1.0)).extend(0.0);
-                    self.geometry_mesh.vertices[3].position =
-                        a.transform_point2(vec2(-1.0, 1.0)).extend(0.0);
+                    geo_mesh.vertices[1].position = a.transform_point2(vec2(1.0, -1.0)).extend(0.0);
+                    geo_mesh.vertices[2].position = a.transform_point2(vec2(1.0, 1.0)).extend(0.0);
+                    geo_mesh.vertices[3].position = a.transform_point2(vec2(-1.0, 1.0)).extend(0.0);
 
-                    draw_mesh(&self.geometry_mesh);
+                    draw_mesh(&geo_mesh);
                     // draw_texture(texture, x, y, color)
                 }
             }
@@ -195,14 +191,14 @@ impl Default for Rendering {
             shaded_draws: vec![AHashMap::new(); Self::LAYER_MAX + 1],
             screen_size: UVec2::ZERO,
             geometry_render_target: render_target(0, 0),
-            geometry_mesh: geo_mesh(),
             cached_textures: Default::default(),
             image_load_futures: Default::default(),
         }
     }
 }
 
-fn geo_mesh() -> Mesh {
+/// Return a mesh that has `quad_num` quads.
+fn multimesh(quad_num: usize) -> Mesh {
     Mesh {
         vertices: vec![
             macroquad::models::Vertex {
@@ -227,12 +223,7 @@ fn geo_mesh() -> Mesh {
             },
         ],
         #[rustfmt::skip]
-        indices: vec![
-            0, 1, 2, 0, 2, 3,
-            0, 1, 2, 0, 2, 3,
-            0, 1, 2, 0, 2, 3,
-            0, 1, 2, 0, 2, 3,
-        ],
+        indices: Vec::from_iter((0..quad_num).flat_map(|_| [0, 1, 2, 0, 2, 3].into_iter())),
         texture: None,
     }
 }
