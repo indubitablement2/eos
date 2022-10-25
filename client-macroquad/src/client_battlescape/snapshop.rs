@@ -62,7 +62,7 @@ impl BattlescapeSnapshot {
 
                 rendering.shaded_draw(
                     hull_data(snapshot.hull_data_id).texture_paths.shaded,
-                    pos * 128.0,
+                    pos * 128.0, // TODO: Add bc scale constant.
                     rot,
                     0,
                 );
