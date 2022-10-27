@@ -4,6 +4,13 @@ use crossbeam::channel::{bounded, Receiver, Sender};
 use macroquad::models::{draw_mesh, Mesh};
 use macroquad::shapes::*;
 
+/// 1) Draw ships separately with damage shader
+/// 2) Draw batched trails -> turrets -> missiles -> projectiles -> particles -> fighters 
+/// 3) Draw light using geo textures on glow texture
+/// 4) Draw fx (shield, lightning arc)
+/// 5) Apply bloom to glow texture
+/// 6) Merge textures
+/// 7) Draw post-fx (warp, color separation, glitch)
 pub struct Rendering {
     /// Positin the camera is centered at.
     pub target: Vec2,
