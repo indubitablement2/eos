@@ -115,7 +115,7 @@ impl Rendering {
 
         // Debugs.
         let p = camera.screen_to_world(vec2(mouse_position().0, mouse_position().1));
-        log::debug!("{}", p.as_ivec2());
+        // log::debug!("{}", p.as_ivec2());
         let r = (get_time().rem_euclid(std::f64::consts::TAU) - std::f64::consts::PI) as f32;
         self.shaded_draw("circle128ansg.png", p, r, 0);
         draw_rectangle_lines(

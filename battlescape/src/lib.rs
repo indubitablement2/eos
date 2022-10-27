@@ -110,50 +110,50 @@ impl Default for Battlescape {
 
 #[deprecated]
 fn debug_spawn_ships(bc: &mut Battlescape) {
-    if bc.tick != 0 {
-        return;
-    }
+    // bc.spawn_hull(HullBuilder {
+    //     hull_data_id: HullDataId(1),
+    //     pos: na::Isometry2::new(na::vector![0.5, 0.5], 0.0),
+    //     linvel: na::Vector2::zeros(),
+    //     angvel: 0.0,
+    //     team: 0,
+    // });
+    // bc.spawn_hull(HullBuilder {
+    //     hull_data_id: HullDataId(1),
+    //     pos: na::Isometry2::new(na::vector![-0.5, 0.5], 0.0),
+    //     linvel: na::Vector2::zeros(),
+    //     angvel: 0.0,
+    //     team: 0,
+    // });
+    // bc.spawn_hull(HullBuilder {
+    //     hull_data_id: HullDataId(1),
+    //     pos: na::Isometry2::new(na::vector![0.5, -0.5], 0.0),
+    //     linvel: na::Vector2::zeros(),
+    //     angvel: 0.0,
+    //     team: 0,
+    // });
+    // bc.spawn_hull(HullBuilder {
+    //     hull_data_id: HullDataId(1),
+    //     pos: na::Isometry2::new(na::vector![-0.5, -0.5], 0.0),
+    //     linvel: na::Vector2::zeros(),
+    //     angvel: 0.0,
+    //     team: 0,
+    // });
 
-    bc.spawn_hull(HullBuilder {
-        hull_data_id: HullDataId(1),
-        pos: na::Isometry2::new(na::vector![0.5, 0.5], 0.0),
-        linvel: na::Vector2::zeros(),
-        angvel: 0.0,
-        team: 0,
-    });
-    bc.spawn_hull(HullBuilder {
-        hull_data_id: HullDataId(1),
-        pos: na::Isometry2::new(na::vector![-0.5, 0.5], 0.0),
-        linvel: na::Vector2::zeros(),
-        angvel: 0.0,
-        team: 0,
-    });
-    bc.spawn_hull(HullBuilder {
-        hull_data_id: HullDataId(1),
-        pos: na::Isometry2::new(na::vector![0.5, -0.5], 0.0),
-        linvel: na::Vector2::zeros(),
-        angvel: 0.0,
-        team: 0,
-    });
-    bc.spawn_hull(HullBuilder {
-        hull_data_id: HullDataId(1),
-        pos: na::Isometry2::new(na::vector![-0.5, -0.5], 0.0),
-        linvel: na::Vector2::zeros(),
-        angvel: 0.0,
-        team: 0,
-    });
+    let iter = 1;
+    let num = 2048;
+    let i = bc.tick / iter;
+    if bc.tick % iter == 0 && i < num {
+        log::debug!("{}", i);
 
-    let num = 0;
-    for i in 0..num {
-        let angle = i as f32 * std::f32::consts::TAU / num as f32;
+        let angle = i as f32 * std::f32::consts::TAU / 16 as f32;
         let translation = na::UnitComplex::from_angle(angle) * na::vector![0.0, 10.0];
         let linvel = translation * -0.2;
-
+    
         bc.spawn_hull(HullBuilder {
-            hull_data_id: HullDataId(1),
+            hull_data_id: HullDataId((i % 2) as u32),
             pos: na::Isometry2::new(translation, angle),
             linvel,
-            angvel: i as f32 * 0.5,
+            angvel: (i % 10) as f32 * 0.5,
             team: i as u32,
         });
     }

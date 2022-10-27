@@ -79,10 +79,11 @@ impl State {
                 bc.draw_ui(egui_ctx);
             }
 
-            // TODO: Draw global ui.
+            // Draw global ui.
+            self.ui_state.draw(egui_ctx);
         });
+
         egui_macroquad::draw();
-        // self.ui_state.draw();
     }
 
     pub fn on_quit(self) {

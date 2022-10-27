@@ -24,30 +24,27 @@ impl UiState {
         Self { frame_time: false }
     }
 
-    pub fn draw(&mut self) {
-        egui_macroquad::ui(|egui_ctx| {
-            egui::Window::new("❤")
-                .resizable(false)
-                .title_bar(false)
-                .show(egui_ctx, |ui| {
-                    let (text, tooltip) = if self.frame_time {
-                        (
-                            format!("{:.04}", macroquad::prelude::get_frame_time()),
-                            "Frame time",
-                        )
-                    } else {
-                        (format!("{:.01}", macroquad::prelude::get_fps()), "Fps")
-                    };
-                    let label = egui::Label::new(text)
-                        .sense(egui::Sense::click_and_drag())
-                        .ui(ui)
-                        .on_hover_text(tooltip);
+    pub fn draw(&mut self, egui_ctx: &egui::Context) {
+        egui::Window::new("❤")
+            .resizable(false)
+            .title_bar(false)
+            .show(egui_ctx, |ui| {
+                let (text, tooltip) = if self.frame_time {
+                    (
+                        format!("{:.04}", macroquad::prelude::get_frame_time()),
+                        "Frame time",
+                    )
+                } else {
+                    (format!("{:.01}", macroquad::prelude::get_fps()), "Fps")
+                };
+                let label = egui::Label::new(text)
+                    .sense(egui::Sense::click_and_drag())
+                    .ui(ui)
+                    .on_hover_text(tooltip);
 
-                    if label.clicked() {
-                        self.frame_time = !self.frame_time;
-                    }
-                });
-        });
-        egui_macroquad::draw();
+                if label.clicked() {
+                    self.frame_time = !self.frame_time;
+                }
+            });
     }
 }
