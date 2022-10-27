@@ -12,7 +12,7 @@ impl Lerp for f32 {
 
     fn slerp(self, to: Self, t: f32) -> Self {
         let delta = ((to - self + TAU + PI) % TAU) - PI;
-        (self + delta * t + TAU) % TAU
+        t.mul_add(delta, self + TAU) % TAU
     }
 }
 
