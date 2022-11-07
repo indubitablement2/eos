@@ -1,4 +1,5 @@
-use crate::constants::{COLOR_ALICE_BLUE, GAME_TO_GODOT_RATIO};
+use crate::constants::GAME_TO_GODOT_RATIO;
+use crate::draw::*;
 use crate::util::*;
 use battlescape::*;
 use gdnative::api::*;
@@ -6,8 +7,9 @@ use gdnative::prelude::Node2D;
 use gdnative::prelude::*;
 use glam::Vec2;
 
-#[derive(Default)]
 struct HullSnapshot {
+    item: DrawApi,
+
     /// Used to detect when a hull should be removed.
     tick: u64,
     hull_data_id: HullDataId,
@@ -15,8 +17,18 @@ struct HullSnapshot {
     rot: (f32, f32),
 }
 impl HullSnapshot {
-    pub fn new(hull_data_id: HullDataId, pos: Vec2, rot: f32, tick: u64) -> Self {
+    pub fn new(root: &DrawApi, hull_data_id: HullDataId, pos: Vec2, rot: f32, tick: u64) -> Self {
+        let mut item = root.new_child();
+        let hull_data = hull_data(hull_data_id);
+        item.add_texture(
+            hull_data.texture_paths.albedo,
+            hull_data.texture_paths.normal,
+            Vector2::ZERO,
+            0.0,
+        );
+
         Self {
+            item,
             tick,
             hull_data_id,
             pos: (pos, pos),
@@ -31,15 +43,33 @@ impl HullSnapshot {
         self.rot.0 = self.rot.1;
         self.rot.1 = rot;
     }
+
+    fn draw(&self, weight: f32) {
+        let pos = self.pos.0.lerp(self.pos.1, weight);
+        let rot = self.rot.0.slerp(self.rot.1, weight);
+
+        self.item.set_transform(Transform2D::IDENTITY.translated(pos.to_godot() * 128.0));
+    }
 }
 
-#[derive(Default)]
 pub struct BattlescapeSnapshot {
+    root: DrawApi,
+
     bound: f32,
     tick: u64,
+    // TODO: Draw order
     hulls: AHashMap<HullId, HullSnapshot>,
 }
 impl BattlescapeSnapshot {
+    pub fn new(base: &Node2D) -> Self {
+        Self {
+            root: DrawApi::new_root(base),
+            bound: Default::default(),
+            tick: Default::default(),
+            hulls: Default::default(),
+        }
+    }
+
     pub fn update(&mut self, bc: &Battlescape) {
         self.bound = bc.bound;
         self.tick = bc.tick;
@@ -50,27 +80,25 @@ impl BattlescapeSnapshot {
                 let rot = rb.rotation().angle();
                 self.hulls
                     .entry(*hull_id)
-                    .or_insert(HullSnapshot::new(hull.hull_data_id, pos, rot, bc.tick))
+                    .or_insert(HullSnapshot::new(
+                        &self.root,
+                        hull.hull_data_id,
+                        pos,
+                        rot,
+                        bc.tick,
+                    ))
                     .update(pos, rot, bc.tick);
             }
         }
     }
 
-    pub fn draw_lerp(&mut self, weight: f32, base: &Node2D) {
-        self.hulls.drain_filter(|_, snapshot| {
-            if snapshot.tick != self.tick {
+    pub unsafe fn draw_lerp(&mut self, weight: f32, base: &Node2D) {
+        self.hulls.drain_filter(|_, hull| {
+            if hull.tick != self.tick {
                 // This was not updated last frame. eg. it's removed.
                 true
             } else {
-                let pos = snapshot.pos.0.lerp(snapshot.pos.1, weight);
-                let rot = snapshot.rot.0.slerp(snapshot.rot.1, weight);
-
-                // rendering.shaded_draw(
-                //     hull_data(snapshot.hull_data_id).texture_paths.shaded,
-                //     pos,
-                //     rot,
-                //     0,
-                // );
+                hull.draw(weight);
 
                 false
             }

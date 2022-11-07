@@ -1,3 +1,4 @@
+use crate::hull_queue::HullSpawnQueue;
 use super::*;
 
 pub type Childs = SmallVec<[HullId; 4]>;
@@ -14,25 +15,6 @@ pub struct Hull {
     /// Other hulls that are our child.
     pub childs: Childs,
     pub parent: Option<HullId>,
-}
-impl Hull {
-    pub fn new(
-        hull_builder: HullBuilder,
-        rb: RigidBodyHandle,
-        childs: Childs,
-        parent: Option<HullId>,
-    ) -> Self {
-        let hull_data = hull_data(hull_builder.hull_data_id);
-
-        Self {
-            hull_data_id: hull_builder.hull_data_id,
-            current_mobility: hull_data.mobility,
-            current_defence: hull_data.defence,
-            rb,
-            childs,
-            parent,
-        }
-    }
 }
 
 pub struct HullBuilder {
@@ -61,5 +43,9 @@ impl HullBuilder {
     pub fn with_angvel(mut self, angvel: f32) -> Self {
         self.angvel = angvel;
         self
+    }
+
+    pub fn queue(self, queue: &mut HullSpawnQueue) -> HullId {
+        queue.queue(self)
     }
 }

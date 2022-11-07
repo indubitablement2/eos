@@ -21,15 +21,15 @@ impl Client {
         ClientSignal::register_signal(builder);
     }
 
-    fn new(_base: &Node2D) -> Self {
+    fn new(base: &Node2D) -> Self {
         // TODO: Try to load from file.
         let client_config = ClientConfig::default();
 
-        let bc = ClientBattlescape::new(Default::default(), &client_config);
+        
 
         Client {
             metascape: (),
-            bcs: vec![bc],
+            bcs: Default::default(),
             t: 0.0,
             client_config,
         }
@@ -39,6 +39,12 @@ impl Client {
     // unsafe fn _unhandled_input(&mut self, event: Ref<InputEvent>) {
     //     self.metascape_manager.unhandled_input(event.assume_safe());
     // }
+
+    #[method]
+    unsafe fn _ready(&mut self, #[base] base: &Node2D) {
+        let bc = ClientBattlescape::new(base, Default::default(), &self.client_config);
+        self.bcs.push(bc);
+    }
 
     #[method]
     unsafe fn _draw(&mut self, #[base] base: &Node2D) {
@@ -71,6 +77,8 @@ impl Client {
         for bc in self.bcs.iter_mut() {
             bc.update(delta);
         }
+
+        base.update();
     }
 
     // #[method]
@@ -117,7 +125,6 @@ pub enum ClientSignal {
     FatalError,
     Poopi,
     Var(String),
-
 }
 impl ClientSignal {
     const fn name(&self) -> &'static str {

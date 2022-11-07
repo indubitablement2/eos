@@ -78,7 +78,8 @@ const PRESET_GROUPS_SHIP: InteractionGroups = InteractionGroups::new(GROUP_SHIP,
 
 #[derive(Debug)]
 pub struct HullTexturePaths {
-    pub shaded: &'static str,
+    pub albedo: &'static str,
+    pub normal: Option<&'static str>,
 }
 
 pub const HULLS: &[HullData] = &[
@@ -98,7 +99,10 @@ pub const HULLS: &[HullData] = &[
         density: 1.0,
         child_hulls: &[],
         groups: PRESET_GROUPS_SHIP,
-        texture_paths: HullTexturePaths { shaded: "circle128ansg.png" },
+        texture_paths: HullTexturePaths {
+            albedo: "res://assets/debug/circle128.png",
+            normal: None,
+        },
     },
     // 1
     HullData {
@@ -116,6 +120,9 @@ pub const HULLS: &[HullData] = &[
         density: 1.0,
         child_hulls: &[],
         groups: PRESET_GROUPS_SHIP,
-        texture_paths: HullTexturePaths { shaded: "ansg.png" },
+        texture_paths: HullTexturePaths {
+            albedo: "res://assets/debug/PixelTextureGrid_128.png",
+            normal: None,
+        },
     },
 ];

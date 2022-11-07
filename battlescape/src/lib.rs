@@ -7,14 +7,17 @@ pub mod physics;
 pub mod player_inputs;
 mod schedule;
 pub mod state_init;
+pub mod hull_queue;
 
 extern crate nalgebra as na;
 
 use commands::BattlescapeCommand;
+use hull_queue::HullSpawnQueue;
 use schedule::*;
 use state_init::BattlescapeInitialState;
 use std::time::Duration;
 use utils::rand::RNG;
+use indexmap::IndexMap;
 
 pub use ahash::AHashMap;
 pub use data::hull_data::*;
@@ -36,7 +39,7 @@ pub struct Battlescape {
 
     next_hull_id: u32,
     // TODO: use index map
-    pub hulls: AHashMap<HullId, Hull>,
+    pub hulls: IndexMap<HullId, Hull, ahash::RandomState>,
 }
 impl Battlescape {
     pub const TICK_DURATION: Duration = Duration::from_millis(50);
@@ -55,10 +58,15 @@ impl Battlescape {
     }
 
     pub fn step(&mut self, cmds: &[BattlescapeCommand]) {
+        let mut queue = HullSpawnQueue::new(self);
+
         apply_commands::apply_commands(self, cmds);
-        debug_spawn_ships(self);
+        debug_spawn_ships(self, &mut queue);
         self.physics.step();
         // TODO: Handle events.
+
+        queue.process(self);
+        
         self.tick += 1;
     }
 
@@ -70,37 +78,6 @@ impl Battlescape {
     pub fn load(bytes: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
         bincode::Options::deserialize(bincode::DefaultOptions::new(), bytes)
     }
-
-    pub fn spawn_hull(&mut self, hull_builder: HullBuilder) -> HullId {
-        let hull_data = hull_data(hull_builder.hull_data_id);
-        let hull_id = self.new_hull_id();
-
-        let rb = self.physics.add_body(
-            hull_builder.pos,
-            hull_builder.linvel,
-            hull_builder.angvel,
-            hull_data.shape.to_shared_shape(),
-            hull_data.density,
-            hull_data.groups,
-            0,
-            hull_builder.team,
-            false,
-            hull_id.0,
-            hull_id,
-        );
-
-        // TODO: Add joined childs.
-        let childs = Childs::new();
-        self.hulls
-            .insert(hull_id, Hull::new(hull_builder, rb, childs, None));
-        hull_id
-    }
-
-    fn new_hull_id(&mut self) -> HullId {
-        let id = HullId(self.next_hull_id);
-        self.next_hull_id += 1;
-        id
-    }
 }
 impl Default for Battlescape {
     fn default() -> Self {
@@ -109,7 +86,7 @@ impl Default for Battlescape {
 }
 
 #[deprecated]
-fn debug_spawn_ships(bc: &mut Battlescape) {
+fn debug_spawn_ships(bc: &mut Battlescape, queue: &mut HullSpawnQueue) {
     // bc.spawn_hull(HullBuilder {
     //     hull_data_id: HullDataId(1),
     //     pos: na::Isometry2::new(na::vector![0.5, 0.5], 0.0),
@@ -148,8 +125,8 @@ fn debug_spawn_ships(bc: &mut Battlescape) {
         let angle = i as f32 * std::f32::consts::TAU / 16 as f32;
         let translation = na::UnitComplex::from_angle(angle) * na::vector![0.0, 10.0];
         let linvel = translation * -0.2;
-    
-        bc.spawn_hull(HullBuilder {
+        
+        queue.queue(HullBuilder {
             hull_data_id: HullDataId((i % 2) as u32),
             pos: na::Isometry2::new(translation, angle),
             linvel,

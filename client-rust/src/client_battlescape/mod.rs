@@ -5,8 +5,8 @@ use self::runner::RunnerHandle;
 use self::snapshop::BattlescapeSnapshot;
 use crate::client::ClientConfig;
 use crate::time_manager::*;
-use battlescape::*;
 use battlescape::commands::Replay;
+use battlescape::*;
 use gdnative::prelude::*;
 
 pub struct ClientBattlescape {
@@ -20,7 +20,7 @@ pub struct ClientBattlescape {
     pub replay: Replay,
 }
 impl ClientBattlescape {
-    pub fn new(replay: Replay, client_config: &ClientConfig) -> Self {
+    pub fn new(base: &Node2D, replay: Replay, client_config: &ClientConfig) -> Self {
         // TODO: Take latest jump point.
         let bc = Battlescape::new(replay.initial_state);
 
@@ -28,7 +28,7 @@ impl ClientBattlescape {
             catching_up: true,
             time_manager: TimeManager::new(client_config.battlescape_time_manager_config),
             runner_handle: RunnerHandle::new(bc),
-            snapshot: Default::default(),
+            snapshot: BattlescapeSnapshot::new(base),
             replay,
         }
     }
@@ -83,11 +83,12 @@ impl ClientBattlescape {
         }
     }
 
-    pub fn draw(&mut self, base: &Node2D) {
+    pub unsafe fn draw(&mut self, base: &Node2D) {
         if self.catching_up {
             // TODO: Display catching up message.
         } else {
-            self.snapshot.draw_lerp(self.time_manager.interpolation_weight(), base);
+            self.snapshot
+                .draw_lerp(self.time_manager.interpolation_weight(), base);
         }
     }
 }

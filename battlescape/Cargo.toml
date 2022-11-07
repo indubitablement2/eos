@@ -17,6 +17,7 @@ crossbeam = "0.8.2"
 
 once_cell = "1.15.0"
 ahash = "0.8.0"
+indexmap = "1.9.1"
 smallvec = { version = "1.10.0", features = ["union", "serde"] }
 
 serde = { version = "1.0.145", features = ["derive"] }

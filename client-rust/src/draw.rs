@@ -1,62 +1,103 @@
-use crate::constants::COLOR_ALICE_BLUE;
+use crate::constants::{COLOR_ALICE_BLUE, COLOR_WHITE};
+use ahash::AHashMap;
 use gdnative::{api::VisualServer, prelude::*};
 
-pub struct CanvasItemApi {
-    vs: &'static VisualServer,
-    pub parent: Rid,
-    pub item: Rid,
-    pub has_add_tr: bool,
-    pub free_item_on_drop: bool,
+fn vs() -> &'static VisualServer {
+    unsafe { VisualServer::godot_singleton() }
 }
-impl CanvasItemApi {
-    pub fn new(canvas_item: Rid, parent: Rid, free_item_on_drop: bool) -> Self {
-        unsafe {
-            Self {
-                vs: VisualServer::godot_singleton(),
-                parent,
-                item: canvas_item,
-                has_add_tr: false,
-                free_item_on_drop,
-            }
+
+static mut CACHE: Option<Cache> = None;
+fn cache() -> &'static mut Cache {
+    unsafe {
+        if CACHE.is_none() {
+            CACHE = Some(Default::default());
+        }
+
+        if let Some(cache) = &mut CACHE {
+            cache
+        } else {
+            unreachable!()
         }
     }
+}
+struct Cache {
+    texture: AHashMap<&'static str, Ref<Texture>>,
+}
+impl Default for Cache {
+    fn default() -> Self {
+        Self {
+            texture: Default::default(),
+        }
+    }
+}
 
-    /// Parent can be another item or a canvas.
-    pub fn new_child_of(parent: Rid, free_item_on_drop: bool) -> Self {
+pub fn texture(path: &'static str) -> Ref<Texture> {
+    let cache = cache();
+
+    if let Some(tex) = cache.texture.get(path) {
+        tex.clone()
+    } else {
+        let load = ResourceLoader::godot_singleton();
+        if let Some(tex) = load.load(path, "Texture", false) {
+            let tex = tex.cast::<Texture>().unwrap();
+            cache.texture.insert(path, tex.clone());
+            tex
+        } else {
+            log::error!("texture at {} not found", path);
+            panic!();
+        }
+    }
+}
+
+pub struct DrawApi {
+    pub item: Rid,
+    has_add_tr: bool,
+}
+impl DrawApi {
+    fn new(parent: Rid) -> Self {
+        let vs = vs();
+        let item = vs.canvas_item_create();
         unsafe {
-            let vs = VisualServer::godot_singleton();
-            let item = vs.canvas_item_create();
             vs.canvas_item_set_parent(item, parent);
-            Self {
-                vs,
-                parent,
-                item,
-                has_add_tr: false,
-                free_item_on_drop,
-            }
+        }
+
+        Self {
+            item,
+            has_add_tr: false,
         }
     }
 
-    /// Parent can be another item or a canvas.
-    pub fn set_parent(&mut self, parent: Rid) {
+    pub fn new_root(base: &Node2D) -> Self {
+        Self::new(base.get_canvas())
+    }
+
+    pub fn new_child(&self) -> Self {
+        Self::new(self.item)
+    }
+
+    pub fn visible(&self, visible: bool) {
         unsafe {
-            self.vs.canvas_item_set_parent(self.item, parent);
-            self.parent = parent;
+            vs().canvas_item_set_visible(self.item, visible);
         }
     }
 
     pub fn clear(&mut self) {
         unsafe {
-            self.vs.canvas_item_clear(self.item);
+            vs().canvas_item_clear(self.item);
         }
-        self.has_add_tr = false;
+    }
+
+    pub fn set_transform(&self, transform: Transform2D) {
+        unsafe {
+            vs().canvas_item_set_transform(self.item, transform);
+        }
     }
 
     pub fn add_circle(&mut self, pos: Vector2, radius: f32, color: Option<Color>) {
         unsafe {
             self.clear_add_transform();
 
-            self.vs.canvas_item_add_circle(
+            vs().canvas_item_add_circle(
                 self.item,
                 pos,
                 radius as f64,
@@ -70,9 +111,9 @@ impl CanvasItemApi {
             let mut tr = Transform2D::IDENTITY;
             tr.set_rotation(rot);
             tr.origin = pos;
-            self.add_transform(tr);
+            self.add_set_transform(tr);
 
-            self.vs.canvas_item_add_rect(
+            vs().canvas_item_add_rect(
                 self.item,
                 Rect2 {
                     position: Vector2::ZERO,
@@ -87,7 +128,7 @@ impl CanvasItemApi {
         unsafe {
             self.clear_add_transform();
 
-            self.vs.canvas_item_add_polyline(
+            vs().canvas_item_add_polyline(
                 self.item,
                 points,
                 PoolArray::from_iter(std::iter::once(color.unwrap_or(COLOR_ALICE_BLUE))),
@@ -97,25 +138,58 @@ impl CanvasItemApi {
         }
     }
 
+    pub fn add_texture(
+        &mut self,
+        albedo: &'static str,
+        normal: Option<&'static str>,
+        pos: Vector2,
+        rot: f32,
+    ) {
+        unsafe {
+            let tex = texture(albedo);
+            let tex = tex.assume_safe();
+
+            let size = tex.get_size();
+
+            let normal_map = if let Some(path) = normal {
+                let tex = texture(path);
+                tex.assume_safe().get_rid()
+            } else {
+                Rid::new()
+            };
+
+            vs().canvas_item_add_texture_rect(
+                self.item,
+                Rect2 {
+                    position: Vector2::ZERO,
+                    size,
+                },
+                tex.get_rid(),
+                false,
+                COLOR_WHITE,
+                false,
+                normal_map,
+            )
+        }
+    }
+
+    // pub fn add_tex
+
     pub fn set_visible(&mut self, visible: bool) {
         unsafe {
-            self.vs.canvas_item_set_visible(self.item, visible);
+            vs().canvas_item_set_visible(self.item, visible);
         }
     }
 
-    pub fn set_transform(&self, transform: Transform2D) {
-        unsafe { self.vs.canvas_item_set_transform(self.item, transform) }
-    }
-
-    pub fn free(self) {
+    pub fn free(&self) {
         unsafe {
-            self.vs.free_rid(self.item);
+            vs().free_rid(self.item);
         }
     }
 
-    fn add_transform(&mut self, tr: Transform2D) {
+    fn add_set_transform(&mut self, tr: Transform2D) {
         unsafe {
-            self.vs.canvas_item_add_set_transform(self.item, tr);
+            vs().canvas_item_add_set_transform(self.item, tr);
             self.has_add_tr = true;
         }
     }
@@ -123,19 +197,14 @@ impl CanvasItemApi {
     fn clear_add_transform(&mut self) {
         unsafe {
             if self.has_add_tr {
-                self.vs
-                    .canvas_item_add_set_transform(self.item, Transform2D::IDENTITY);
+                vs().canvas_item_add_set_transform(self.item, Transform2D::IDENTITY);
                 self.has_add_tr = false;
             }
         }
     }
 }
-impl Drop for CanvasItemApi {
+impl Drop for DrawApi {
     fn drop(&mut self) {
-        if self.free_item_on_drop {
-            unsafe {
-                self.vs.free_rid(self.item);
-            }
-        }
+        self.free();
     }
 }
