@@ -1,6 +1,11 @@
 use gdnative::prelude::*;
 use log::{Level, Metadata, Record};
 
+/// 1) **error**: Fatal error that can not be recovered from.
+/// 2) **warn**: Error that can be recovered from, but should not be present in release build.
+/// 3) **info**: Info about the current state of the app.
+/// 4) **debug**: Like info, but only of interest to dev.
+/// 5) **trace**: unused
 static LOGGER: GodotLogger = GodotLogger;
 
 pub struct GodotLogger;
