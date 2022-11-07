@@ -13,6 +13,18 @@
 
 [Inspiration](https://github.com/indubitablement2/eos#Inspiration)
 
+### Dependencies
+
+client-rust -> battlescape, data, net
+server -> metascape, battlescape, data, net
+
+battlescape -> data
+metascape -> data, net, acc
+
+data
+net
+acc
+
 ## User Experience
 
 ### Core loop
