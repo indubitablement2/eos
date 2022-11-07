@@ -1,6 +1,5 @@
 use gdnative::prelude::*;
 use log::{Level, Metadata, Record};
-use crate::client;
 
 static LOGGER: GodotLogger = GodotLogger;
 
@@ -13,7 +12,6 @@ impl GodotLogger {
         std::panic::set_hook(Box::new(|panic_info| {
             log::error!("{}", panic_info);
             log::logger().flush();
-            client::FATAL_ERROR.store(true, std::sync::atomic::Ordering::Relaxed);
         }));
     }
 }
@@ -33,9 +31,11 @@ impl log::Log for GodotLogger {
                 record.line().unwrap_or_default(),
             );
 
-            // TODO: Panic on error?
             match record.level() {
-                Level::Error => godot_error!("{}", message),
+                Level::Error => {
+                    godot_error!("{}", message);
+                    crate::client::FATAL_ERROR.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
                 Level::Warn => godot_warn!("{}", message),
                 _ => godot_print!("{}", message),
             }
