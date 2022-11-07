@@ -1,5 +1,5 @@
 use crate::client_battlescape::ClientBattlescape;
-use crate::shared::*;
+use crate::time_manager::TimeManagerConfig;
 use gdnative::api::*;
 use gdnative::prelude::*;
 
@@ -9,9 +9,10 @@ pub static FATAL_ERROR: std::sync::atomic::AtomicBool = std::sync::atomic::Atomi
 #[inherit(Node2D)]
 #[register_with(Self::register_builder)]
 pub struct Client {
+    client_config: ClientConfig,
     metascape: (),
+    bcs: Vec<ClientBattlescape>,
     t: f32,
-    next_data_id: u32,
 }
 #[methods]
 impl Client {
@@ -21,11 +22,16 @@ impl Client {
     }
 
     fn new(_base: &Node2D) -> Self {
+        // TODO: Try to load from file.
+        let client_config = ClientConfig::default();
+
+        let bc = ClientBattlescape::new(Default::default(), &client_config);
+
         Client {
             metascape: (),
-            // bcs: vec![bc],
+            bcs: vec![bc],
             t: 0.0,
-            next_data_id: 0,
+            client_config,
         }
     }
 
@@ -35,32 +41,16 @@ impl Client {
     // }
 
     #[method]
-    unsafe fn _ready(&mut self, #[base] base: &Node2D) {
-        // TODO: Load config from file.
-        SHARED.write().client_config = Default::default();
-
-        // Add the initial data.
-        SHARED.write().client_battlescape_data.insert(
-            self.next_data_id,
-            ClientBattlescapeData {
-                taken: None,
-                replay: Default::default(),
-            },
-        );
-
-        // Create the instance.
-        let b = ClientBattlescape::new_instance();
-        base.add_child(b, false);
+    unsafe fn _draw(&mut self, #[base] base: &Node2D) {
+        // TODO: Active bc/mc
+        self.bcs[0].draw(base);
     }
 
     #[method]
-    unsafe fn _draw(&mut self, #[base] _base: &Node2D) {}
-
-    #[method]
-    unsafe fn _process(&mut self, #[base] owner: &Node2D, delta: f32) {
+    unsafe fn _process(&mut self, #[base] base: &Node2D, delta: f32) {
         // Handle fatal error.
         if FATAL_ERROR.load(std::sync::atomic::Ordering::Relaxed) {
-            ClientSignal::FatalError.emit_signal(owner);
+            ClientSignal::FatalError.emit_signal(base);
             return;
         }
 
@@ -71,9 +61,9 @@ impl Client {
         if self.t >= 1.0 / 20.0 {
             self.t -= 1.0 / 20.0;
 
-            for data in SHARED.write().client_battlescape_data.values_mut() {
-                let tick = data.replay.cmds.len() as u64;
-                data.replay.push_cmds(tick, Default::default());
+            for bc in self.bcs.iter_mut() {
+                let tick = bc.replay.cmds.len() as u64;
+                bc.replay.push_cmds(tick, Default::default());
             }
         }
     }
@@ -100,6 +90,23 @@ impl Client {
     // }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ClientConfig {
+    pub system_draw_distance: f32,
+
+    pub metascape_time_manager_config: TimeManagerConfig,
+    pub battlescape_time_manager_config: TimeManagerConfig,
+}
+impl Default for ClientConfig {
+    fn default() -> Self {
+        Self {
+            system_draw_distance: 256.0,
+            metascape_time_manager_config: Default::default(),
+            battlescape_time_manager_config: Default::default(),
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum ClientSignal {
     FatalError,
@@ -124,12 +131,12 @@ impl ClientSignal {
         }
     }
 
-    fn emit_signal(self, owner: &Node2D) {
+    fn emit_signal(self, base: &Node2D) {
         let signal = self.name();
         match self {
-            Self::FatalError => owner.emit_signal(signal, &[]),
-            Self::Poopi => owner.emit_signal(signal, &[]),
-            Self::Var(s) => owner.emit_signal(signal, &[s.owned_to_variant()]),
+            Self::FatalError => base.emit_signal(signal, &[]),
+            Self::Poopi => base.emit_signal(signal, &[]),
+            Self::Var(s) => base.emit_signal(signal, &[s.owned_to_variant()]),
         };
     }
 

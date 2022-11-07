@@ -4,87 +4,76 @@ use battlescape::*;
 use gdnative::api::*;
 use gdnative::prelude::Node2D;
 use gdnative::prelude::*;
-use rapier2d::data::Arena;
+use glam::Vec2;
 
-// TODO: Use glam!
 #[derive(Default)]
-pub struct BattlescapeSnapshot {
-    pub tick: u64,
-    pub bound: f32,
-    pub hulls: Arena<Hull>,
-    pub ships: Arena<Ship>,
-    pub bodies: RigidBodySet,
-    pub colliders: ColliderSet,
+struct HullSnapshot {
+    /// Used to detect when a hull should be removed.
+    tick: u64,
+    hull_data_id: HullDataId,
+    pos: (Vec2, Vec2),
+    rot: (f32, f32),
 }
-impl BattlescapeSnapshot {
-    pub fn take_snapshot(&mut self, bc: &Battlescape) {
-        self.tick = bc.tick;
-        self.bound = bc.bound;
-        bc.hulls.clone_into(&mut self.hulls);
-        bc.ships.clone_into(&mut self.ships);
-        bc.physics.bodies.clone_into(&mut self.bodies);
-        bc.physics.colliders.clone_into(&mut self.colliders);
+impl HullSnapshot {
+    pub fn new(hull_data_id: HullDataId, pos: Vec2, rot: f32, tick: u64) -> Self {
+        Self {
+            tick,
+            hull_data_id,
+            pos: (pos, pos),
+            rot: (rot, rot),
+        }
     }
 
-    pub fn draw_lerp(from: &Self, to: &Self, owner: &Node2D, weight: f32) {
-        for (i, to_hull) in to.hulls.iter() {
-            let to_body = to.bodies.get(to_hull.rb).unwrap();
-            if let Some(from_hull) = from.hulls.get(i) {
-                let from_body = from.bodies.get(from_hull.rb).unwrap();
+    fn update(&mut self, pos: Vec2, rot: f32, tick: u64) {
+        self.tick = tick;
+        self.pos.0 = self.pos.1;
+        self.pos.1 = pos;
+        self.rot.0 = self.rot.1;
+        self.rot.1 = rot;
+    }
+}
 
-                let body_pos = from_body.position().lerp_slerp(to_body.position(), weight);
+#[derive(Default)]
+pub struct BattlescapeSnapshot {
+    bound: f32,
+    tick: u64,
+    hulls: AHashMap<HullId, HullSnapshot>,
+}
+impl BattlescapeSnapshot {
+    pub fn update(&mut self, bc: &Battlescape) {
+        self.bound = bc.bound;
+        self.tick = bc.tick;
 
-                for &collider_handle in to_body.colliders().iter() {
-                    let collider = to.colliders.get(collider_handle).unwrap();
-                    match collider.shared_shape().as_typed_shape() {
-                        TypedShape::Ball(ball) => {
-                            owner.draw_circle(
-                                body_pos.translation.to_godot_scaled(),
-                                (ball.radius * GAME_TO_GODOT_RATIO) as f64,
-                                COLOR_ALICE_BLUE,
-                            );
-                        }
-                        TypedShape::Cuboid(cuboid) => {
-                            owner.draw_set_transform(
-                                Vector2::ZERO,
-                                body_pos.rotation.angle() as f64,
-                                Vector2::ZERO,
-                            );
-                            owner.draw_rect(
-                                Rect2 {
-                                    position: body_pos.translation.to_godot_scaled(),
-                                    size: Vector2 {
-                                        x: cuboid.half_extents.x,
-                                        y: cuboid.half_extents.y,
-                                    },
-                                },
-                                COLOR_ALICE_BLUE,
-                                true,
-                                1.0,
-                                false,
-                            );
-                        }
-                        // TypedShape::Capsule(_) => todo!(),
-                        // TypedShape::Segment(_) => todo!(),
-                        // TypedShape::Triangle(_) => todo!(),
-                        // TypedShape::TriMesh(_) => todo!(),
-                        // TypedShape::Polyline(_) => todo!(),
-                        // TypedShape::HalfSpace(_) => todo!(),
-                        // TypedShape::HeightField(_) => todo!(),
-                        TypedShape::Compound(_) => todo!(),
-                        TypedShape::ConvexPolygon(poly) => {
-                            // poly.points()
-                        }
-                        // TypedShape::RoundCuboid(_) => todo!(),
-                        // TypedShape::RoundTriangle(_) => todo!(),
-                        // TypedShape::RoundConvexPolygon(_) => todo!(),
-                        TypedShape::Custom(_) => todo!(),
-                        _ => {}
-                    }
-                }
-            } else {
-                // This is new.
+        for (hull_id, hull) in bc.hulls.iter() {
+            if let Some(rb) = bc.physics.bodies.get(hull.rb) {
+                let pos: Vec2 = rb.translation().to_glam();
+                let rot = rb.rotation().angle();
+                self.hulls
+                    .entry(*hull_id)
+                    .or_insert(HullSnapshot::new(hull.hull_data_id, pos, rot, bc.tick))
+                    .update(pos, rot, bc.tick);
             }
         }
+    }
+
+    pub fn draw_lerp(&mut self, weight: f32, base: &Node2D) {
+        self.hulls.drain_filter(|_, snapshot| {
+            if snapshot.tick != self.tick {
+                // This was not updated last frame. eg. it's removed.
+                true
+            } else {
+                let pos = snapshot.pos.0.lerp(snapshot.pos.1, weight);
+                let rot = snapshot.rot.0.slerp(snapshot.rot.1, weight);
+
+                // rendering.shaded_draw(
+                //     hull_data(snapshot.hull_data_id).texture_paths.shaded,
+                //     pos,
+                //     rot,
+                //     0,
+                // );
+
+                false
+            }
+        });
     }
 }

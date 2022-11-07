@@ -10,9 +10,7 @@ mod client;
 mod client_battlescape;
 mod constants;
 pub mod draw;
-mod godot_client_config;
 mod godot_logger;
-pub mod shared;
 mod time_manager;
 mod util;
 
@@ -22,7 +20,6 @@ fn init(handle: gdnative::prelude::InitHandle) {
     godot_logger::GodotLogger::init();
 
     handle.add_class::<client::Client>();
-    handle.add_class::<client_battlescape::ClientBattlescape>();
 }
 
 // Macros that create the entry-points of the dynamic library.
