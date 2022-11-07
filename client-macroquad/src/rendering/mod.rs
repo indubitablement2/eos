@@ -37,6 +37,17 @@ impl Rendering {
     /// The highest valid layer.
     pub const LAYER_MAX: usize = 10;
 
+    pub fn draw_ship(
+        &mut self,
+        path: &'static str,
+        armor: &Image,
+        position: Vec2,
+        rotation: f32,
+    ) {
+        
+        // self.
+    }
+
     /// Draw a shaded texture (albedo, normal, specular and glow).
     ///
     /// Layer can be 0 to `Self::LAYER_MAX`.
