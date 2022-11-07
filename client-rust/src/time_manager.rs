@@ -105,7 +105,14 @@ impl<const F: u32> TimeManager<F> {
             );
             return true;
         } else if remaining < self.config.min_buffer {
-            self.tick_frac = 0.0;
+            let change = remaining - self.config.min_buffer;
+            log::debug!(
+                "Buffer time ({:.4}) under limit of {}. Modifying time by up to {:.4}...",
+                remaining,
+                self.config.min_buffer,
+                change
+            );
+            self.tick_frac = 0.0f32.max(self.tick_frac + change);
         }
 
         // Stop accelerating time if we have no buffer remaining.
