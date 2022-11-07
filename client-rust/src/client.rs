@@ -3,6 +3,8 @@ use crate::shared::*;
 use gdnative::api::*;
 use gdnative::prelude::*;
 
+pub static FATAL_ERROR: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 #[derive(NativeClass)]
 #[inherit(Node2D)]
 #[register_with(Self::register_builder)]
@@ -55,7 +57,13 @@ impl Client {
     unsafe fn _draw(&mut self, #[base] _base: &Node2D) {}
 
     #[method]
-    unsafe fn _process(&mut self, #[base] _owner: &Node2D, delta: f32) {
+    unsafe fn _process(&mut self, #[base] owner: &Node2D, delta: f32) {
+        // Handle fatal error.
+        if FATAL_ERROR.load(std::sync::atomic::Ordering::Relaxed) {
+            ClientSignal::FatalError.emit_signal(owner);
+            return;
+        }
+
         // Somehow delta can be negative...
         let delta = delta.clamp(0.0, 1.0);
 
@@ -94,12 +102,15 @@ impl Client {
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum ClientSignal {
+    FatalError,
     Poopi,
     Var(String),
+
 }
 impl ClientSignal {
     const fn name(&self) -> &'static str {
         match self {
+            Self::FatalError => "FatalError",
             Self::Poopi => "Poopi",
             Self::Var(_) => "Var",
         }
@@ -107,6 +118,7 @@ impl ClientSignal {
 
     const fn params(&self) -> &[(&str, VariantType)] {
         match self {
+            Self::FatalError => &[("err", VariantType::GodotString)],
             Self::Poopi => &[],
             Self::Var(_) => &[("param", VariantType::GodotString)],
         }
@@ -115,6 +127,7 @@ impl ClientSignal {
     fn emit_signal(self, owner: &Node2D) {
         let signal = self.name();
         match self {
+            Self::FatalError => owner.emit_signal(signal, &[]),
             Self::Poopi => owner.emit_signal(signal, &[]),
             Self::Var(s) => owner.emit_signal(signal, &[s.owned_to_variant()]),
         };
@@ -122,7 +135,7 @@ impl ClientSignal {
 
     /// Create dummy signals to call `name()` and `params()` on them.
     fn _dummy() -> [Self; std::mem::variant_count::<Self>()] {
-        [Self::Poopi, Self::Var(Default::default())]
+        [Self::FatalError, Self::Poopi, Self::Var(Default::default())]
     }
 
     /// Automaticaly register all signals.

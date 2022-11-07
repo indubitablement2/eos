@@ -16,19 +16,10 @@ pub mod shared;
 mod time_manager;
 mod util;
 
-// mod input_handler;
-// mod metasacpe_manager;
-// pub mod metascape_runner;
-// mod battlescape;
-
-static LOGGER: godot_logger::GodotLogger = godot_logger::GodotLogger;
-
 // Function that registers all exposed classes to Godot
 fn init(handle: gdnative::prelude::InitHandle) {
     // Init GodotLogger.
-    log::set_logger(&LOGGER)
-        .map(|()| log::set_max_level(log::LevelFilter::Trace))
-        .expect("can not start logger");
+    godot_logger::GodotLogger::init();
 
     handle.add_class::<client::Client>();
     handle.add_class::<client_battlescape::ClientBattlescape>();
