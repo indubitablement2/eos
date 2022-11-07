@@ -57,6 +57,7 @@ impl Client {
         // Somehow delta can be negative...
         let delta = delta.clamp(0.0, 1.0);
 
+        // TODO: Remove. Manualy ad cmds
         self.t += delta;
         if self.t >= 1.0 / 20.0 {
             self.t -= 1.0 / 20.0;
@@ -65,6 +66,10 @@ impl Client {
                 let tick = bc.replay.cmds.len() as u64;
                 bc.replay.push_cmds(tick, Default::default());
             }
+        }
+
+        for bc in self.bcs.iter_mut() {
+            bc.update(delta);
         }
     }
 

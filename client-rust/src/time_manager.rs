@@ -91,7 +91,7 @@ impl<const F: u32> TimeManager<F> {
         let remaining = self.buffer_time_remaining();
         self.min_over_period = self.min_over_period.min(remaining);
 
-        // Hard catch up if we are too far behind.
+        // Hard catch up if we are too far behind or ahead.
         if remaining > self.config.max_buffer {
             let buffer_size = self.max_tick - self.tick;
             self.tick += buffer_size - 1;
@@ -105,6 +105,7 @@ impl<const F: u32> TimeManager<F> {
             );
             return true;
         } else if remaining < self.config.min_buffer {
+            // The minimum amount of time change to not be ahead.
             let change = remaining - self.config.min_buffer;
             log::debug!(
                 "Buffer time ({:.4}) under limit of {}. Modifying time by up to {:.4}...",

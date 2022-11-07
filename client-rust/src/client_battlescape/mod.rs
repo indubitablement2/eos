@@ -33,7 +33,7 @@ impl ClientBattlescape {
         }
     }
 
-    pub fn update(&mut self, owner: &Node2D, delta: f32) {
+    pub fn update(&mut self, delta: f32) {
         let mut can_advance = None;
         if let Some(bc) = self.runner_handle.update() {
             can_advance = Some(bc.tick);
