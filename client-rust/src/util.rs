@@ -42,6 +42,25 @@ impl ToNalgebra for glam::Vec2 {
     }
 }
 
+pub trait ToGlam {
+    fn to_glam(self) -> glam::Vec2;
+}
+impl ToGlam for na::Translation2<f32> {
+    fn to_glam(self) -> glam::Vec2 {
+        glam::vec2(self.x, self.y)
+    }
+}
+impl ToGlam for na::Vector2<f32> {
+    fn to_glam(self) -> glam::Vec2 {
+        glam::vec2(self.x, self.y)
+    }
+}
+impl ToGlam for Vector2 {
+    fn to_glam(self) -> glam::Vec2 {
+        glam::vec2(self.x, self.y)
+    }
+}
+
 pub trait ToGodot {
     fn to_godot(self) -> Vector2;
 
