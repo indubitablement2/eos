@@ -22,7 +22,7 @@ impl Default for TimeManagerConfig {
             period: 4.0,
             max_time_change: 0.08,
             max_buffer: 1.0,
-            min_buffer: -0.1,
+            min_buffer: 0.0,
             wish_buffer: 0.05,
             increase_change_strenght: 0.2,
             decrease_change_strenght: 1.0,
@@ -61,7 +61,7 @@ impl<const F: u32> TimeManager<F> {
             tick_frac: 0.0,
             current_period: 0.0,
             config,
-            min_over_period: f32::MAX,
+            min_over_period: 10.0,
             time_dilation: 1.0,
         }
     }
