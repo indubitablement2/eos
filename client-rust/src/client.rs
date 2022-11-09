@@ -25,8 +25,6 @@ impl Client {
         // TODO: Try to load from file.
         let client_config = ClientConfig::default();
 
-        
-
         Client {
             metascape: (),
             bcs: Default::default(),

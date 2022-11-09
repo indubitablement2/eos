@@ -7,16 +7,22 @@ onready var client := $Client
 onready var camera := $FollowCamera
 
 func _ready() -> void:
+#	var tex = preload("res://assets/debug/PixelTextureGrid_128.png")
 #	var vs := VisualServer
+	
 #	var item := vs.canvas_item_create()
 #	vs.canvas_item_set_parent(item, get_canvas())
-#	var tex = preload("res://assets/debug/PixelTextureGrid_128.png")
 #	vs.canvas_item_add_texture_rect(item, Rect2(Vector2.ZERO, Vector2(100.0, 100.0)), tex.get_rid())
 #
-#	var item2 = vs.canvas_item_create()
-#	vs.canvas_item_set_parent(item2, item)
-#	vs.canvas_item_add_set_transform(item2, Transform2D.IDENTITY.translated(Vector2(-100.0, -100.0)))
+#	var item2 := vs.canvas_item_create()
+#	vs.canvas_item_set_parent(item2, get_canvas())
 #	vs.canvas_item_add_texture_rect(item2, Rect2(Vector2.ZERO, Vector2(100.0, 100.0)), tex.get_rid())
+#	vs.canvas_item_set_transform(item2, Transform2D(PI / 4.0, Vector2(100.0, 100.0)))
+#
+#	var item3 := vs.canvas_item_create()
+#	vs.canvas_item_set_parent(item3, item2)
+#	vs.canvas_item_add_texture_rect(item3, Rect2(Vector2.ZERO, Vector2(100.0, 100.0)), tex.get_rid())
+#	vs.canvas_item_set_transform(item3, Transform2D(PI / 4.0, Vector2(100.0, 100.0)))
 	
 	print(IP.get_local_addresses())
 
@@ -29,9 +35,9 @@ func _process(_delta: float) -> void:
 
 func _on_UpdateDebugInfosTimer_timeout() -> void:
 	return
-	var debug_info :String= client.get_debug_info()
-	if !debug_info.empty():
-		debug_info_label.set_text(debug_info)
+#	var debug_info :String= client.get_debug_info()
+#	if !debug_info.empty():
+#		debug_info_label.set_text(debug_info)
 
 func _on_CreateFleet_pressed() -> void:
 	# Ask to create a fleet.

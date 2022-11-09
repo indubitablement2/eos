@@ -1,8 +1,8 @@
 use crate::constants::GAME_TO_GODOT_RATIO;
 use crate::draw::*;
 use crate::util::*;
+use ahash::AHashMap;
 use battlescape::*;
-use gdnative::api::*;
 use gdnative::prelude::Node2D;
 use gdnative::prelude::*;
 use glam::Vec2;
@@ -10,32 +10,64 @@ use glam::Vec2;
 struct HullSnapshot {
     item: DrawApi,
 
-    /// Used to detect when a hull should be removed.
-    tick: u64,
     hull_data_id: HullDataId,
+    hull_id: HullId,
     pos: (Vec2, Vec2),
     rot: (f32, f32),
 }
 impl HullSnapshot {
-    pub fn new(root: &DrawApi, hull_data_id: HullDataId, pos: Vec2, rot: f32, tick: u64) -> Self {
+    pub fn new(
+        root: &DrawApi,
+        hull_data_id: HullDataId,
+        hull_id: HullId,
+        pos: Vec2,
+        rot: f32,
+    ) -> Self {
         let mut item = root.new_child();
-        let hull_data = hull_data(hull_data_id);
+        let hull_data = hull_data_id.data();
         item.add_texture(
             hull_data.texture_paths.albedo,
             hull_data.texture_paths.normal,
-            Vector2::ZERO,
-            0.0,
+            true,
         );
 
         Self {
             item,
-            tick,
             hull_data_id,
+            hull_id,
             pos: (pos, pos),
             rot: (rot, rot),
         }
     }
 
+    fn update(&mut self, pos: Vec2, rot: f32) {
+        self.pos.0 = self.pos.1;
+        self.pos.1 = pos;
+        self.rot.0 = self.rot.1;
+        self.rot.1 = rot;
+    }
+
+    fn draw(&self, weight: f32) {
+        let pos = self.pos.0.lerp(self.pos.1, weight);
+        let rot = self.rot.0.slerp(self.rot.1, weight);
+
+        self.item
+            .set_transform(pos.to_godot() * GAME_TO_GODOT_RATIO, rot);
+    }
+}
+
+struct ShipSnapshot {
+    item: DrawApi,
+
+    /// Used to detect when a ship should be removed.
+    tick: u64,
+
+    ship_data_id: ShipDataId,
+    pos: (Vec2, Vec2),
+    rot: (f32, f32),
+    hulls: Vec<HullSnapshot>,
+}
+impl ShipSnapshot {
     fn update(&mut self, pos: Vec2, rot: f32, tick: u64) {
         self.tick = tick;
         self.pos.0 = self.pos.1;
@@ -48,7 +80,11 @@ impl HullSnapshot {
         let pos = self.pos.0.lerp(self.pos.1, weight);
         let rot = self.rot.0.slerp(self.rot.1, weight);
 
-        self.item.set_transform(Transform2D::IDENTITY.translated(pos.to_godot() * 128.0));
+        self.item
+            .set_transform(pos.to_godot() * GAME_TO_GODOT_RATIO, rot);
+        for hull in self.hulls.iter() {
+            hull.draw(weight);
+        }
     }
 }
 
@@ -57,8 +93,8 @@ pub struct BattlescapeSnapshot {
 
     bound: f32,
     tick: u64,
-    // TODO: Draw order
-    hulls: AHashMap<HullId, HullSnapshot>,
+
+    ships: AHashMap<ShipId, ShipSnapshot>,
 }
 impl BattlescapeSnapshot {
     pub fn new(base: &Node2D) -> Self {
@@ -66,7 +102,7 @@ impl BattlescapeSnapshot {
             root: DrawApi::new_root(base),
             bound: Default::default(),
             tick: Default::default(),
-            hulls: Default::default(),
+            ships: Default::default(),
         }
     }
 
@@ -74,31 +110,57 @@ impl BattlescapeSnapshot {
         self.bound = bc.bound;
         self.tick = bc.tick;
 
-        for (hull_id, hull) in bc.hulls.iter() {
-            if let Some(rb) = bc.physics.bodies.get(hull.rb) {
-                let pos: Vec2 = rb.translation().to_glam();
-                let rot = rb.rotation().angle();
-                self.hulls
-                    .entry(*hull_id)
-                    .or_insert(HullSnapshot::new(
-                        &self.root,
-                        hull.hull_data_id,
-                        pos,
-                        rot,
-                        bc.tick,
-                    ))
-                    .update(pos, rot, bc.tick);
-            }
+        for (ship_id, ship) in bc.ships.iter() {
+            let rb = &bc.physics.bodies[ship.rb];
+            let pos = rb.translation().to_glam();
+            let rot = rb.rotation().angle();
+
+            let ship_snapshot = self.ships.entry(*ship_id).or_insert_with(|| {
+                let root = self.root.new_child();
+
+                let hulls = std::iter::once(&ship.main_hull)
+                    .chain(ship.auxiliary_hulls.iter())
+                    .map(|hull_id| {
+                        let hull = bc.hulls.get(hull_id).unwrap();
+                        let coll = &bc.physics.colliders[hull.collider];
+                        let pos = coll.position_wrt_parent().unwrap().translation.to_glam();
+                        let rot = coll.position_wrt_parent().unwrap().rotation.angle();
+                        HullSnapshot::new(&root, hull.hull_data_id, *hull_id, pos, rot)
+                    })
+                    .collect();
+
+                ShipSnapshot {
+                    item: root,
+                    tick: self.tick,
+                    ship_data_id: ship.ship_data_id,
+                    pos: (pos, pos),
+                    rot: (rot, rot),
+                    hulls,
+                }
+            });
+
+            ship_snapshot.update(pos, rot, self.tick);
+            ship_snapshot.hulls.drain_filter(|hull_snapshot| {
+                if let Some(hull) = bc.hulls.get(&hull_snapshot.hull_id) {
+                    let coll = &bc.physics.colliders[hull.collider];
+                    let pos = coll.position_wrt_parent().unwrap().translation.to_glam();
+                    let rot = coll.position_wrt_parent().unwrap().rotation.angle();
+                    hull_snapshot.update(pos, rot);
+                    false
+                } else {
+                    true
+                }
+            });
         }
     }
 
-    pub unsafe fn draw_lerp(&mut self, weight: f32, base: &Node2D) {
-        self.hulls.drain_filter(|_, hull| {
-            if hull.tick != self.tick {
+    pub unsafe fn draw_lerp(&mut self, weight: f32, _base: &Node2D) {
+        self.ships.drain_filter(|_, ship| {
+            if ship.tick != self.tick {
                 // This was not updated last frame. eg. it's removed.
                 true
             } else {
-                hull.draw(weight);
+                ship.draw(weight);
 
                 false
             }

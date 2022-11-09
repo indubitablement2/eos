@@ -87,9 +87,13 @@ impl DrawApi {
         }
     }
 
-    pub fn set_transform(&self, transform: Transform2D) {
+    pub fn set_transform(&self, pos: Vector2, rot: f32) {
+        let mut tr = Transform2D::IDENTITY;
+        tr.origin = pos;
+        tr.set_rotation(rot);
+
         unsafe {
-            vs().canvas_item_set_transform(self.item, transform);
+            vs().canvas_item_set_transform(self.item, tr);
         }
     }
 
@@ -142,8 +146,7 @@ impl DrawApi {
         &mut self,
         albedo: &'static str,
         normal: Option<&'static str>,
-        pos: Vector2,
-        rot: f32,
+        centered: bool,
     ) {
         unsafe {
             let tex = texture(albedo);
@@ -158,10 +161,16 @@ impl DrawApi {
                 Rid::new()
             };
 
+            let position = if centered {
+                size * -0.5
+            } else {
+                Vector2::ZERO
+            };
+
             vs().canvas_item_add_texture_rect(
                 self.item,
                 Rect2 {
-                    position: Vector2::ZERO,
+                    position,
                     size,
                 },
                 tex.get_rid(),

@@ -19,7 +19,7 @@ impl HullDataId {
                 shape: HullShape::Ball { radius: 0.5 },
                 density: 1.0,
                 texture_paths: HullTexturePaths {
-                    albedo: "res://assets/debug/circle128.png",
+                    albedo: "res://assets/debug/colored_circle128.png",
                     normal: None,
                 },
             },

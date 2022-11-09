@@ -12,6 +12,7 @@ pub struct ShipId(pub u32);
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Ship {
+    pub ship_data_id: ShipDataId,
     pub rb: RigidBodyHandle,
     pub mobility: Mobility,
     pub main_hull: HullId,
@@ -135,6 +136,7 @@ impl ShipSpawnQueue {
             bc.ships.insert(
                 ship_id,
                 Ship {
+                    ship_data_id: builder.ship_data_id,
                     rb: parrent_rb,
                     mobility: ship_data.mobility,
                     main_hull,
