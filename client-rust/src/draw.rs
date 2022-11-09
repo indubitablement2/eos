@@ -175,8 +175,6 @@ impl DrawApi {
         }
     }
 
-    // pub fn add_tex
-
     pub fn set_visible(&mut self, visible: bool) {
         unsafe {
             vs().canvas_item_set_visible(self.item, visible);
