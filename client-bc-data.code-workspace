@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "client-rust"
+		},
+		{
+			"path": "battlescape"
+		},
+		{
+			"path": "data"
+		}
+	],
+	"settings": {}
+}
