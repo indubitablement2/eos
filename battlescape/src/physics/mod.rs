@@ -1,14 +1,58 @@
-mod user_data;
+pub mod user_data;
 
-use self::user_data::UserData;
 use super::*;
 use std::sync::{Arc, Mutex};
 
 pub use self::shape::*;
 
-const DEFAULT_BODY_FRICTION: f32 = 0.3;
-const DEFAULT_BODY_RESTITUTION: f32 = 0.2;
-const DEFAULT_FORCE_EVENT_THRESHOLD: f32 = 1.0;
+pub const DEFAULT_BODY_FRICTION: f32 = 0.3;
+pub const DEFAULT_BODY_RESTITUTION: f32 = 0.2;
+pub const DEFAULT_FORCE_EVENT_THRESHOLD: f32 = 1.0;
+
+pub const GROUP_SHIP: Group = Group::GROUP_1;
+pub const GROUP_SHIELD: Group = Group::GROUP_2;
+pub const GROUP_DEBRIS: Group = Group::GROUP_3;
+pub const GROUP_MISSILE: Group = Group::GROUP_4;
+pub const GROUP_FIGHTER: Group = Group::GROUP_5;
+pub const GROUP_PROJECTILE: Group = Group::GROUP_6;
+pub const GROUP_ALL: Group = GROUP_SHIP
+    .union(GROUP_SHIELD)
+    .union(GROUP_DEBRIS)
+    .union(GROUP_MISSILE)
+    .union(GROUP_FIGHTER)
+    .union(GROUP_PROJECTILE);
+pub const GROUPS_SHIP: InteractionGroups = InteractionGroups::new(GROUP_SHIP, GROUP_ALL);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GenericId {
+    ShipId(ShipId),
+    HullId(HullId),
+}
+impl GenericId {
+    pub fn from_ship_id(ship_id: ShipId) -> Self {
+        Self::ShipId(ship_id)
+    }
+
+    pub fn from_hull_id(hull_id: HullId) -> Self {
+        Self::HullId(hull_id)
+    }
+
+    /// Return (id_type, id)
+    pub fn pack(self) -> (u8, u32) {
+        match self {
+            GenericId::ShipId(id) => (0, id.0),
+            GenericId::HullId(id) => (1, id.0),
+        }
+    }
+
+    pub fn unpack(id_type: u8, id: u32) -> Self {
+        match id_type {
+            0 => Self::ShipId(ShipId(id)),
+            1 => Self::HullId(HullId(id)),
+            _ => unreachable!(),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct Physics {
@@ -51,45 +95,60 @@ impl Physics {
             .update(&self.islands, &self.bodies, &self.colliders);
     }
 
-    pub fn add_body(
-        &mut self,
-        pos: na::Isometry2<f32>,
-        linvel: na::Vector2<f32>,
-        angvel: f32,
-        shape: SharedShape,
-        density: f32,
-        groups: InteractionGroups,
-        dominance_group: i8,
-        team: u32,
-        ignore_team: bool,
-        group_ignore: u32,
-        hull_id: HullId,
-    ) -> RigidBodyHandle {
-        let rb = RigidBodyBuilder::dynamic()
-            .position(pos)
-            .linvel(linvel)
-            .angvel(angvel)
-            .dominance_group(dominance_group)
-            .build();
-        let rb_handle = self.bodies.insert(rb);
-
-        let user_data = UserData::build(team, group_ignore, hull_id.0, ignore_team);
-
-        let coll = ColliderBuilder::new(shape)
-            .density(density)
-            .friction(DEFAULT_BODY_FRICTION)
-            .restitution(DEFAULT_BODY_RESTITUTION)
-            .collision_groups(groups)
-            .active_events(ActiveEvents::all())
-            .contact_force_event_threshold(DEFAULT_FORCE_EVENT_THRESHOLD)
-            .active_hooks(ActiveHooks::FILTER_CONTACT_PAIRS | ActiveHooks::FILTER_INTERSECTION_PAIR)
-            .user_data(user_data)
-            .build();
-        self.colliders
-            .insert_with_parent(coll, rb_handle, &mut self.bodies);
-
-        rb_handle
+    pub fn new_group_ignore(&mut self) -> u32 {
+        let group_ignore = self.next_group_ignore;
+        self.next_group_ignore = self.next_group_ignore.wrapping_add(1);
+        group_ignore
     }
+
+    pub fn insert_collider(
+        &mut self,
+        parent_handle: RigidBodyHandle,
+        coll: Collider,
+    ) -> ColliderHandle {
+        self.colliders
+            .insert_with_parent(coll, parent_handle, &mut self.bodies)
+    }
+
+    // pub fn add_body(
+    //     &mut self,
+    //     pos: na::Isometry2<f32>,
+    //     linvel: na::Vector2<f32>,
+    //     angvel: f32,
+    //     shape: SharedShape,
+    //     density: f32,
+    //     groups: InteractionGroups,
+    //     dominance_group: i8,
+    //     team: u32,
+    //     ignore_team: bool,
+    //     group_ignore: u32,
+    //     hull_id: HullId,
+    // ) -> RigidBodyHandle {
+    //     let rb = RigidBodyBuilder::dynamic()
+    //         .position(pos)
+    //         .linvel(linvel)
+    //         .angvel(angvel)
+    //         .dominance_group(dominance_group)
+    //         .build();
+    //     let rb_handle = self.bodies.insert(rb);
+
+    //     let user_data = UserData::build(team, group_ignore, hull_id.0, ignore_team);
+
+    //     let coll = ColliderBuilder::new(shape)
+    //         .density(density)
+    //         .friction(DEFAULT_BODY_FRICTION)
+    //         .restitution(DEFAULT_BODY_RESTITUTION)
+    //         .collision_groups(groups)
+    //         .active_events(ActiveEvents::all())
+    //         .contact_force_event_threshold(DEFAULT_FORCE_EVENT_THRESHOLD)
+    //         .active_hooks(ActiveHooks::FILTER_CONTACT_PAIRS | ActiveHooks::FILTER_INTERSECTION_PAIR)
+    //         .user_data(user_data)
+    //         .build();
+    //     self.colliders
+    //         .insert_with_parent(coll, rb_handle, &mut self.bodies);
+
+    //     rb_handle
+    // }
 }
 impl Default for Physics {
     fn default() -> Self {

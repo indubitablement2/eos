@@ -6,39 +6,40 @@ pub mod hull;
 pub mod physics;
 pub mod player_inputs;
 mod schedule;
+pub mod ship;
 pub mod state_init;
-pub mod hull_queue;
 
 extern crate nalgebra as na;
 
 use commands::BattlescapeCommand;
-use hull_queue::HullSpawnQueue;
+use indexmap::IndexMap;
 use schedule::*;
 use state_init::BattlescapeInitialState;
 use std::time::Duration;
-use utils::rand::RNG;
-use indexmap::IndexMap;
 
-pub use ahash::AHashMap;
-pub use data::hull_data::*;
-pub use data::*;
-pub use hull::*;
-pub use physics::*;
 pub use rand::prelude::*;
 pub use rapier2d::prelude::*;
 pub use serde::{Deserialize, Serialize};
 pub use smallvec::{smallvec, SmallVec};
-pub use utils::packed_map::*;
+
+pub use data::*;
+pub use hull::*;
+pub use physics::*;
+pub use ship::*;
+
+type SimRng = rand_xoshiro::Xoshiro128StarStar;
 
 #[derive(Serialize, Deserialize)]
 pub struct Battlescape {
     pub bound: f32,
     pub tick: u64,
-    rng: RNG,
+    rng: SimRng,
     pub physics: Physics,
 
-    next_hull_id: u32,
-    // TODO: use index map
+    next_ship_id: ShipId,
+    pub ships: IndexMap<ShipId, Ship, ahash::RandomState>,
+
+    next_hull_id: HullId,
     pub hulls: IndexMap<HullId, Hull, ahash::RandomState>,
 }
 impl Battlescape {
@@ -49,24 +50,26 @@ impl Battlescape {
     pub fn new(battlescape_initial_state: BattlescapeInitialState) -> Self {
         Self {
             bound: battlescape_initial_state.bound,
-            rng: RNG::seed_from_u64(battlescape_initial_state.seed),
+            rng: SimRng::seed_from_u64(battlescape_initial_state.seed),
             tick: 0,
             physics: Default::default(),
-            next_hull_id: 0,
+            next_ship_id: Default::default(),
+            ships: Default::default(),
+            next_hull_id: Default::default(),
             hulls: Default::default(),
         }
     }
 
     pub fn step(&mut self, cmds: &[BattlescapeCommand]) {
-        let mut queue = HullSpawnQueue::new(self);
+        let mut ship_queue = ShipSpawnQueue::new(self);
 
         apply_commands::apply_commands(self, cmds);
-        debug_spawn_ships(self, &mut queue);
+        debug_spawn_ships(self, &mut ship_queue);
         self.physics.step();
         // TODO: Handle events.
 
-        queue.process(self);
-        
+        ship_queue.process(self);
+
         self.tick += 1;
     }
 
@@ -78,6 +81,12 @@ impl Battlescape {
     pub fn load(bytes: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
         bincode::Options::deserialize(bincode::DefaultOptions::new(), bytes)
     }
+
+    fn new_hull_id(&mut self) -> HullId {
+        let id = self.next_hull_id;
+        self.next_ship_id.0 += 1;
+        id
+    }
 }
 impl Default for Battlescape {
     fn default() -> Self {
@@ -86,52 +95,19 @@ impl Default for Battlescape {
 }
 
 #[deprecated]
-fn debug_spawn_ships(bc: &mut Battlescape, queue: &mut HullSpawnQueue) {
-    // bc.spawn_hull(HullBuilder {
-    //     hull_data_id: HullDataId(1),
-    //     pos: na::Isometry2::new(na::vector![0.5, 0.5], 0.0),
-    //     linvel: na::Vector2::zeros(),
-    //     angvel: 0.0,
-    //     team: 0,
-    // });
-    // bc.spawn_hull(HullBuilder {
-    //     hull_data_id: HullDataId(1),
-    //     pos: na::Isometry2::new(na::vector![-0.5, 0.5], 0.0),
-    //     linvel: na::Vector2::zeros(),
-    //     angvel: 0.0,
-    //     team: 0,
-    // });
-    // bc.spawn_hull(HullBuilder {
-    //     hull_data_id: HullDataId(1),
-    //     pos: na::Isometry2::new(na::vector![0.5, -0.5], 0.0),
-    //     linvel: na::Vector2::zeros(),
-    //     angvel: 0.0,
-    //     team: 0,
-    // });
-    // bc.spawn_hull(HullBuilder {
-    //     hull_data_id: HullDataId(1),
-    //     pos: na::Isometry2::new(na::vector![-0.5, -0.5], 0.0),
-    //     linvel: na::Vector2::zeros(),
-    //     angvel: 0.0,
-    //     team: 0,
-    // });
-
-    let iter = 1;
-    let num = 2048;
-    let i = bc.tick / iter;
-    if bc.tick % iter == 0 && i < num {
-        log::debug!("{}", i);
-
-        let angle = i as f32 * std::f32::consts::TAU / 16 as f32;
+fn debug_spawn_ships(bc: &mut Battlescape, ship_queue: &mut ShipSpawnQueue) {
+    let num = 1024;
+    if bc.tick < num {
+        let angle = (bc.tick % 16) as f32 * std::f32::consts::TAU / 16 as f32;
         let translation = na::UnitComplex::from_angle(angle) * na::vector![0.0, 10.0];
         let linvel = translation * -0.2;
-        
-        queue.queue(HullBuilder {
-            hull_data_id: HullDataId((i % 2) as u32),
+
+        ship_queue.queue(ShipBuilder {
+            ship_data_id: ShipDataId::BallShip,
             pos: na::Isometry2::new(translation, angle),
             linvel,
-            angvel: (i % 10) as f32 * 0.5,
-            team: i as u32,
+            angvel: (bc.tick % 10) as f32 * 0.5,
+            team: bc.tick as u32,
         });
     }
 }

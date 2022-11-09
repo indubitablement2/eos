@@ -2,29 +2,49 @@ use super::*;
 use rapier2d::prelude::*;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum HullDataId {
+    Ball,
+    Cuboid
+}
+impl HullDataId {
+    pub const fn data(self) -> HullData {
+        match self {
+            Self::Ball => HullData {
+                defence: Defence {
+                    hull: 100,
+                    armor: 100,
+                },
+                shape: HullShape::Ball { radius: 0.5 },
+                density: 1.0,
+                texture_paths: HullTexturePaths {
+                    albedo: "res://assets/debug/circle128.png",
+                    normal: None,
+                },
+            },
+            Self::Cuboid => HullData {
+                defence: Defence {
+                    hull: 100,
+                    armor: 100,
+                },
+                shape: HullShape::Cuboid { hx: 0.5, hy: 0.5 },
+                density: 1.0,
+                texture_paths: HullTexturePaths {
+                    albedo: "res://assets/debug/PixelTextureGrid_128.png",
+                    normal: None,
+                },
+            },
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct HullData {
-    pub mobility: Mobility,
     pub defence: Defence,
     pub shape: HullShape,
     pub density: f32,
-    /// Any hull normally bundled as child of this.
-    /// TODO: Add: join, position offset, init_linvel, init_angvel
-    pub child_hulls: &'static [(HullDataId, ())],
-    /// Its memberships and what memberships can this hull collide with.
-    pub groups: InteractionGroups,
-    // TODO: weapon slot
-    // TODO: built-in weapon (take a slot #)
-
     pub texture_paths: HullTexturePaths,
-}
-
-#[derive(Serialize, Deserialize, Default, Clone, Copy, Debug)]
-pub struct Mobility {
-    pub linear_acceleration: f32,
-    pub angular_acceleration: f32,
-    pub max_linear_velocity: f32,
-    pub max_angular_velocity: f32,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -62,67 +82,8 @@ impl HullShape {
     }
 }
 
-pub const GROUP_SHIP: Group = Group::GROUP_1;
-pub const GROUP_SHIELD: Group = Group::GROUP_2;
-pub const GROUP_DEBRIS: Group = Group::GROUP_3;
-pub const GROUP_MISSILE: Group = Group::GROUP_4;
-pub const GROUP_FIGHTER: Group = Group::GROUP_5;
-pub const GROUP_PROJECTILE: Group = Group::GROUP_6;
-pub const GROUP_ALL: Group = GROUP_SHIP
-    .union(GROUP_SHIELD)
-    .union(GROUP_DEBRIS)
-    .union(GROUP_MISSILE)
-    .union(GROUP_FIGHTER)
-    .union(GROUP_PROJECTILE);
-const PRESET_GROUPS_SHIP: InteractionGroups = InteractionGroups::new(GROUP_SHIP, GROUP_ALL);
-
 #[derive(Debug)]
 pub struct HullTexturePaths {
     pub albedo: &'static str,
     pub normal: Option<&'static str>,
 }
-
-pub const HULLS: &[HullData] = &[
-    // 0
-    HullData {
-        mobility: Mobility {
-            linear_acceleration: 1.0,
-            angular_acceleration: 1.0,
-            max_linear_velocity: 1.0,
-            max_angular_velocity: 1.0,
-        },
-        defence: Defence {
-            hull: 100,
-            armor: 100,
-        },
-        shape: HullShape::Ball { radius: 0.5 },
-        density: 1.0,
-        child_hulls: &[],
-        groups: PRESET_GROUPS_SHIP,
-        texture_paths: HullTexturePaths {
-            albedo: "res://assets/debug/circle128.png",
-            normal: None,
-        },
-    },
-    // 1
-    HullData {
-        mobility: Mobility {
-            linear_acceleration: 1.0,
-            angular_acceleration: 1.0,
-            max_linear_velocity: 1.0,
-            max_angular_velocity: 1.0,
-        },
-        defence: Defence {
-            hull: 100,
-            armor: 100,
-        },
-        shape: HullShape::Cuboid { hx: 0.5, hy: 0.5 },
-        density: 1.0,
-        child_hulls: &[],
-        groups: PRESET_GROUPS_SHIP,
-        texture_paths: HullTexturePaths {
-            albedo: "res://assets/debug/PixelTextureGrid_128.png",
-            normal: None,
-        },
-    },
-];
