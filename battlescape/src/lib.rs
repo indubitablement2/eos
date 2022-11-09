@@ -8,9 +8,11 @@ pub mod player_inputs;
 mod schedule;
 pub mod ship;
 pub mod state_init;
+pub mod fleet;
 
 extern crate nalgebra as na;
 
+use ahash::AHashMap;
 use commands::BattlescapeCommand;
 use indexmap::IndexMap;
 use schedule::*;
@@ -26,6 +28,7 @@ pub use data::*;
 pub use hull::*;
 pub use physics::*;
 pub use ship::*;
+pub use fleet::*;
 
 type SimRng = rand_xoshiro::Xoshiro128StarStar;
 
@@ -35,6 +38,8 @@ pub struct Battlescape {
     pub tick: u64,
     rng: SimRng,
     pub physics: Physics,
+
+    pub fleets: AHashMap<FleetId, BattlescapeFleet>,
 
     next_ship_id: ShipId,
     pub ships: IndexMap<ShipId, Ship, ahash::RandomState>,
@@ -53,6 +58,7 @@ impl Battlescape {
             rng: SimRng::seed_from_u64(battlescape_initial_state.seed),
             tick: 0,
             physics: Default::default(),
+            fleets: Default::default(),
             next_ship_id: Default::default(),
             ships: Default::default(),
             next_hull_id: Default::default(),
