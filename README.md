@@ -21,8 +21,9 @@ server -> metascape, battlescape, data, net
 battlescape -> data
 metascape -> data, net, acc
 
+net -> data
+
 data
-net
 acc
 
 ## User Experience
