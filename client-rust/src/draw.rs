@@ -161,18 +161,11 @@ impl DrawApi {
                 Rid::new()
             };
 
-            let position = if centered {
-                size * -0.5
-            } else {
-                Vector2::ZERO
-            };
+            let position = if centered { size * -0.5 } else { Vector2::ZERO };
 
             vs().canvas_item_add_texture_rect(
                 self.item,
-                Rect2 {
-                    position,
-                    size,
-                },
+                Rect2 { position, size },
                 tex.get_rid(),
                 false,
                 COLOR_WHITE,
