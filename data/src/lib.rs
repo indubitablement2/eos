@@ -1,3 +1,5 @@
+#![feature(variant_count)]
+
 pub mod hull_data;
 pub mod ship_data;
 

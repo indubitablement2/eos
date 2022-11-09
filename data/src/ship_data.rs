@@ -1,8 +1,11 @@
 use super::*;
+use num_enum::{FromPrimitive, IntoPrimitive};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, FromPrimitive, IntoPrimitive, Default)]
+#[repr(u32)]
 #[non_exhaustive]
 pub enum ShipDataId {
+    #[default]
     BallShip,
     CuboidShip,
 }
@@ -30,6 +33,11 @@ impl ShipDataId {
                 auxiliary_hulls: &[],
             },
         }
+    }
+}
+impl rand::distributions::Distribution<ShipDataId> for rand::distributions::Standard {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> ShipDataId {
+        ShipDataId::from(rng.gen_range(0..std::mem::variant_count::<ShipDataId>() as u32))
     }
 }
 

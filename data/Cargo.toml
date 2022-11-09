@@ -8,3 +8,5 @@ nalgebra = { version = "0.31.3" }
 glam = { version = "0.22.0" }
 serde = { version = "1.0.147", features = ["derive"] }
 rapier2d = { version = "0.16.0" }
+num_enum = "0.5.7"
+rand = "0.8.5"

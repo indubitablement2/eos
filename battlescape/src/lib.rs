@@ -103,7 +103,7 @@ fn debug_spawn_ships(bc: &mut Battlescape, ship_queue: &mut ShipSpawnQueue) {
         let linvel = translation * -0.2;
 
         ship_queue.queue(ShipBuilder {
-            ship_data_id: ShipDataId::BallShip,
+            ship_data_id: bc.rng.gen(),
             pos: na::Isometry2::new(translation, angle),
             linvel,
             angvel: (bc.tick % 10) as f32 * 0.5,
