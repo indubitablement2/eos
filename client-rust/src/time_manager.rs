@@ -114,10 +114,6 @@ impl<const F: u32> TimeManager<F> {
                 change
             );
             self.tick_frac = 0.0f32.max(self.tick_frac + change);
-        }
-
-        // Stop accelerating time if we have no buffer remaining.
-        if self.time_dilation > 1.0 && remaining < self.config.wish_buffer {
             self.time_dilation = 1.0;
         }
 
