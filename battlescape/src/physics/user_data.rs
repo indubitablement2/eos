@@ -31,7 +31,7 @@ impl PhysicsHooks for Hooks {
 /// ### id
 /// ### bitfield/id type
 /// - 0..8: id type
-/// - -1: ignore_team
+/// - 32-1: ignore_team
 pub struct UserData;
 impl UserData {
     const TEAM_MASK: u128 = u32::MAX as u128;
