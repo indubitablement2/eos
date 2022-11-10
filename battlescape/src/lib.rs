@@ -2,7 +2,7 @@
 #![feature(duration_consts_float)]
 
 pub mod commands;
-mod fleet;
+pub mod fleet;
 pub mod hull;
 pub mod physics;
 pub mod player_inputs;
@@ -17,19 +17,17 @@ use commands::BattlescapeCommand;
 use indexmap::IndexMap;
 use state_init::BattlescapeInitialState;
 use std::time::Duration;
+use rand::prelude::*;
+use rapier2d::prelude::*;
+use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
+use common::*;
+use user_data::*;
 
-use fleet::*;
-pub use rand::prelude::*;
-pub use rapier2d::prelude::*;
-pub use serde::{Deserialize, Serialize};
-pub use smallvec::{smallvec, SmallVec};
-
-pub use common::*;
+pub use fleet::*;
+pub use ship::*;
 pub use hull::*;
 pub use physics::*;
-pub use ship::*;
-
-use crate::user_data::UserData;
 
 type SimRng = rand_xoshiro::Xoshiro128StarStar;
 type ShipSpawnQueue = AHashSet<(FleetId, usize)>;
@@ -43,7 +41,6 @@ pub struct Battlescape {
     pub physics: Physics,
 
     pub num_team: Team,
-
     pub fleets: IndexMap<FleetId, BattlescapeFleet>,
     pub next_ship_id: ShipId,
 
