@@ -15,7 +15,6 @@ extern crate nalgebra as na;
 use ahash::{AHashMap, AHashSet};
 use commands::BattlescapeCommand;
 use indexmap::IndexMap;
-use schedule::*;
 use state_init::BattlescapeInitialState;
 use std::time::Duration;
 
