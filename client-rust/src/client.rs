@@ -1,5 +1,7 @@
 use crate::client_battlescape::ClientBattlescape;
 use crate::time_manager::TimeManagerConfig;
+use battlescape::commands::*;
+use common::{fleet::Ship, *};
 use gdnative::api::*;
 use gdnative::prelude::*;
 
@@ -40,7 +42,33 @@ impl Client {
 
     #[method]
     unsafe fn _ready(&mut self, #[base] base: &Node2D) {
-        let bc = ClientBattlescape::new(base, Default::default(), &self.client_config);
+        let cmd = AddFleet {
+            fleet_id: FleetId(0),
+            fleet: common::fleet::Fleet {
+                ships: (0..1)
+                    .map(|_| Ship {
+                        ship_data_id: rand::random(),
+                    })
+                    .collect(),
+            },
+            team: None,
+        };
+        let mut cmds = vec![cmd; 4];
+        cmds.iter_mut()
+            .enumerate()
+            .for_each(|(i, cmd)| cmd.fleet_id.0 = i as _);
+        let mut replay = Replay::default();
+        replay.push_cmds(
+            0,
+            FullCmds {
+                jump_point: None,
+                cmds: cmds
+                    .into_iter()
+                    .map(|cmd| BattlescapeCommand::AddFleet(cmd))
+                    .collect(),
+            },
+        );
+        let bc = ClientBattlescape::new(base, replay, &self.client_config);
         self.bcs.push(bc);
     }
 
