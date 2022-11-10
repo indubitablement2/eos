@@ -1,13 +1,10 @@
 {
 	"folders": [
 		{
-			"path": "client-rust"
-		},
-		{
 			"path": "battlescape"
 		},
 		{
-			"path": "data"
+			"path": "common"
 		}
 	],
 	"settings": {}
