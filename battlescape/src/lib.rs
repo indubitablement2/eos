@@ -40,6 +40,8 @@ pub struct Battlescape {
     rng: SimRng,
     pub physics: Physics,
 
+    
+
     pub num_team: Team,
     pub fleets: IndexMap<FleetId, BattlescapeFleet>,
     pub next_ship_id: ShipId,

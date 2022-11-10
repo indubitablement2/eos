@@ -45,10 +45,6 @@ pub enum BattlescapeCommand {
     AddFleet(AddFleet),
 }
 
-/// Subset of `BattlescapeCommand` that can safely be called by clients.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ClientBattlescapeCommand {}
-
 #[derive(Clone, Serialize, Deserialize, Default, Debug)]
 pub struct FullCmds {
     /// When `Some(data)`, force load a jump point before applying the cmds to stay deteministic.
