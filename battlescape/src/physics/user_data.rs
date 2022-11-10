@@ -102,7 +102,7 @@ pub fn test_user_data() {
     ));
 
     // Same team, but not all set to ignore.
-    assert!(UserData::filter(
+    assert!(!UserData::filter(
         UserData::build(0, 0, GenericId::ShipId(Default::default()), false),
         UserData::build(0, 1, GenericId::ShipId(Default::default()), true)
     ));
