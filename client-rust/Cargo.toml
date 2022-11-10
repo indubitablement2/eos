@@ -16,7 +16,7 @@ smallvec = { version = "1.10.0", features = ["union", "serde"] }
 # common = { path = "../../common" }
 # utils = { path = "../../utils/utils" }
 battlescape = { path = "../battlescape" }
-data = { path = "../data" }
+common = { path = "../common" }
 # metascape = { path = "../metascape" }
 
 gdnative = { git = "https://github.com/godot-rust/godot-rust.git" }

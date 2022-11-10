@@ -1,5 +1,5 @@
 use super::*;
-use data::hull_data::*;
+use common::hull_data::*;
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize, PartialOrd, Ord, Default,

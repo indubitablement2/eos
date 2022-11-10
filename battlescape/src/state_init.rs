@@ -8,8 +8,8 @@ pub struct BattlescapeInitialState {
 impl Default for BattlescapeInitialState {
     fn default() -> Self {
         Self {
-            bound: 100.0,
-            seed: 1337,
+            bound: 10.0,
+            seed: 7,
         }
     }
 }

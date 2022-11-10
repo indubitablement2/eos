@@ -1,6 +1,6 @@
 [package]
-name = "data"
-version = "0.2.0"
+name = "common"
+version = "0.3.0"
 edition = "2021"
 
 [dependencies]
@@ -10,3 +10,4 @@ serde = { version = "1.0.147", features = ["derive"] }
 rapier2d = { version = "0.16.0" }
 num_enum = "0.5.7"
 rand = "0.8.5"
+ahash = { version = "0.8.1", features = ["serde"] }

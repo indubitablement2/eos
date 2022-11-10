@@ -15,15 +15,13 @@
 
 ### Dependencies
 
-client-rust -> battlescape, data, net
-server -> metascape, battlescape, data, net
+client-rust -> battlescape, common
+server -> metascape, battlescape, common
 
-battlescape -> data
-metascape -> data, net, acc
+battlescape -> common
+metascape -> common, acc
 
-net -> data
-
-data
+common
 acc
 
 ## User Experience

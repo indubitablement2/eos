@@ -1,5 +1,7 @@
+use common::fleet::Fleet;
+
+use super::*;
 use crate::{player_inputs::PlayerInput, state_init::BattlescapeInitialState};
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpawnShip {
@@ -26,12 +28,23 @@ pub struct SetPlayerInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddFleet {
+    pub fleet_id: FleetId,
+    pub fleet: Fleet,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BattlescapeCommand {
     // SpawnShip(SpawnShip),
     // AddPlayer(AddPlayer),
     // PlayerControlShip(PlayerControlShip),
-    SetPlayerInput(SetPlayerInput),
+    // SetPlayerInput(SetPlayerInput),
+    AddFleet(AddFleet),
 }
+
+/// Subset of `BattlescapeCommand` that can safely be called by clients.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ClientBattlescapeCommand {}
 
 #[derive(Clone, Serialize, Deserialize, Default, Debug)]
 pub struct FullCmds {

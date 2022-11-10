@@ -3,6 +3,7 @@
 pub mod hull_data;
 pub mod ship_data;
 pub mod id;
+pub mod fleet;
 
 use serde::{Deserialize, Serialize};
 
