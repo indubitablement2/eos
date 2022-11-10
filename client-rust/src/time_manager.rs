@@ -9,7 +9,7 @@ pub struct TimeManagerConfig {
     pub max_buffer: f32,
     /// We will hard catch up if the buffered time is under this.
     pub min_buffer: f32,
-    /// Amount of buffer we try reach by changing time dilation.
+    /// Amount of buffer we try to reach by changing time dilation.
     pub wish_buffer: f32,
     /// Multiply time dilation when speeding up time.
     pub increase_change_strenght: f32,
@@ -114,6 +114,9 @@ impl<const F: u32> TimeManager<F> {
                 change
             );
             self.tick_frac = 0.0f32.max(self.tick_frac + change);
+        }
+
+        if remaining < self.config.wish_buffer && self.time_dilation > 1.0 {
             self.time_dilation = 1.0;
         }
 
