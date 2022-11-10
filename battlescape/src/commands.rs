@@ -31,6 +31,9 @@ pub struct SetPlayerInput {
 pub struct AddFleet {
     pub fleet_id: FleetId,
     pub fleet: Fleet,
+    /// This should be an existing team.
+    /// If `None`, create a new team.
+    pub team: Option<Team>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

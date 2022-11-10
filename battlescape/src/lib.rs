@@ -74,16 +74,7 @@ impl Battlescape {
     }
 
     pub fn step(&mut self, cmds: &[BattlescapeCommand]) {
-        let mut ship_spawn_queue = ShipSpawnQueue::new();
-
-        apply_commands::apply_commands(self, cmds);
-        debug_spawn_ships(self, &mut ship_spawn_queue);
-        self.physics.step();
-        // TODO: Handle events.
-
-        self.process_ship_spawn_queue(ship_spawn_queue);
-
-        self.tick += 1;
+        self._step(cmds);
     }
 
     pub fn save(&self) -> Vec<u8> {
@@ -107,6 +98,12 @@ impl Battlescape {
         id
     }
 
+    fn new_team(&mut self) -> Team {
+        let team = self.num_team + 1;
+        self.num_team += 1;
+        team
+    }
+
     pub fn ship_spawn_angle(&self, team: Team) -> f32 {
         (team as f32 / self.num_team as f32) * std::f32::consts::TAU
     }
@@ -118,112 +115,9 @@ impl Battlescape {
     pub fn ship_spawn_position(&self, team: Team) -> na::Vector2<f32> {
         na::UnitComplex::from_angle(self.ship_spawn_angle(team)) * na::vector![0.0, self.bound]
     }
-
-    fn process_ship_spawn_queue(&mut self, ship_spawn_queue: ShipSpawnQueue) {
-        for (fleet_id, index) in ship_spawn_queue {
-            let (team, ship_data_id, ship_id) = if let Some(fleet) = self.fleets.get_mut(&fleet_id)
-            {
-                if let Some(ship_id) = fleet.available_ships.remove(&index) {
-                    (
-                        fleet.team,
-                        fleet.original_fleet.ships[index].ship_data_id,
-                        ship_id,
-                    )
-                } else {
-                    log::warn!("Ship {:?}:{} is not available. Ignoring", fleet_id, index);
-                    continue;
-                }
-            } else {
-                log::warn!("{:?} does not exist. Ignoring", fleet_id);
-                continue;
-            };
-
-            let ship_data = ship_data_id.data();
-            let group_ignore = self.physics.new_group_ignore();
-            let spawn_position = na::Isometry2::new(
-                self.ship_spawn_position(team),
-                self.ship_spawn_rotation(team),
-            );
-
-            let rb = RigidBodyBuilder::dynamic()
-                .position(spawn_position)
-                .user_data(UserData::build(
-                    team,
-                    group_ignore,
-                    GenericId::ShipId(ship_id),
-                    false,
-                ))
-                .build();
-            let parrent_rb = self.physics.bodies.insert(rb);
-
-            // Add hulls.
-            let main_hull = self.add_hull(
-                ship_data.main_hull,
-                team,
-                group_ignore,
-                parrent_rb,
-                GROUPS_SHIP,
-            );
-            let auxiliary_hulls: AuxiliaryHulls = ship_data
-                .auxiliary_hulls
-                .iter()
-                .map(|&hull_data_id| {
-                    self.add_hull(hull_data_id, team, group_ignore, parrent_rb, GROUPS_SHIP)
-                })
-                .collect();
-
-            self.ships.insert(
-                ship_id,
-                BattlescapeShip {
-                    fleet_id,
-                    index,
-                    ship_data_id,
-                    rb: parrent_rb,
-                    mobility: ship_data.mobility,
-                    main_hull,
-                    auxiliary_hulls,
-                },
-            );
-        }
-    }
-
-    fn add_hull(
-        &mut self,
-        hull_data_id: HullDataId,
-        team: u32,
-        group_ignore: u32,
-        parrent_rb: RigidBodyHandle,
-        groups: InteractionGroups,
-    ) -> HullId {
-        let hull_data = hull_data_id.data();
-        let hull_id = self.new_hull_id();
-        let user_data =
-            UserData::build(team, group_ignore, GenericId::from_hull_id(hull_id), false);
-        let coll = build_hull_collider(hull_data_id, groups, user_data);
-        let coll_handle = self.physics.insert_collider(parrent_rb, coll);
-        self.hulls.insert(
-            hull_id,
-            Hull {
-                hull_data_id,
-                current_defence: hull_data.defence,
-                collider: coll_handle,
-            },
-        );
-        hull_id
-    }
 }
 impl Default for Battlescape {
     fn default() -> Self {
         Self::new(Default::default())
-    }
-}
-
-#[deprecated]
-fn debug_spawn_ships(bc: &mut Battlescape, ship_queue: &mut ShipSpawnQueue) {
-    for (fleet_id, fleet) in bc.fleets.iter() {
-        for ship_index in fleet.available_ships.keys() {
-            ship_queue.insert((*fleet_id, *ship_index));
-            break;
-        }
     }
 }
