@@ -15,11 +15,12 @@
 
 ### Dependencies
 
-client-rust -> battlescape, common
-server -> metascape, battlescape, common
+client-rust -> battlescape, common, net
+server -> metascape, battlescape, common, net
 
 battlescape -> common
 metascape -> common, acc
+net -> common, bc
 
 common
 acc
