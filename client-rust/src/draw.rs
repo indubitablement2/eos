@@ -75,12 +75,6 @@ impl DrawApi {
         Self::new(self.item)
     }
 
-    pub fn visible(&self, visible: bool) {
-        unsafe {
-            vs().canvas_item_set_visible(self.item, visible);
-        }
-    }
-
     pub fn clear(&mut self) {
         unsafe {
             vs().canvas_item_clear(self.item);
@@ -175,7 +169,7 @@ impl DrawApi {
         }
     }
 
-    pub fn set_visible(&mut self, visible: bool) {
+    pub fn set_visible(&self, visible: bool) {
         unsafe {
             vs().canvas_item_set_visible(self.item, visible);
         }

@@ -61,7 +61,7 @@ impl ClientBattlescape {
         }
 
         self.time_manager.update(delta);
-        log::debug!("t: {:.4}", self.time_manager.time_dilation);
+        // log::debug!("t: {:.4}", self.time_manager.time_dilation);
 
         if let Some(next_tick) = can_advance {
             if let Some(cmds) = self.replay.cmds.get(next_tick as usize) {
@@ -90,5 +90,9 @@ impl ClientBattlescape {
             self.snapshot
                 .draw_lerp(self.time_manager.interpolation_weight(), base);
         }
+    }
+
+    pub fn hide(&mut self) {
+        self.snapshot.hide()
     }
 }

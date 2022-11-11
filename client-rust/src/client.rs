@@ -42,30 +42,28 @@ impl Client {
 
     #[method]
     unsafe fn _ready(&mut self, #[base] base: &Node2D) {
-        let cmd = AddFleet {
-            fleet_id: FleetId(0),
-            fleet: common::fleet::Fleet {
-                ships: (0..1)
-                    .map(|_| Ship {
-                        ship_data_id: rand::random(),
-                    })
-                    .collect(),
-            },
-            team: None,
-        };
-        let mut cmds = vec![cmd; 4];
-        cmds.iter_mut()
-            .enumerate()
-            .for_each(|(i, cmd)| cmd.fleet_id.0 = i as _);
+        let cmds = (0..4)
+            .map(|i| {
+                BattlescapeCommand::AddFleet(AddFleet {
+                    fleet_id: FleetId(i),
+                    fleet: common::fleet::Fleet {
+                        ships: (0..1)
+                            .map(|_| Ship {
+                                ship_data_id: rand::random(),
+                            })
+                            .collect(),
+                        owner: Some(ClientId(i)),
+                    },
+                    team: None,
+                })
+            })
+            .collect();
         let mut replay = Replay::default();
         replay.push_cmds(
             0,
             FullCmds {
                 jump_point: None,
-                cmds: cmds
-                    .into_iter()
-                    .map(|cmd| BattlescapeCommand::AddFleet(cmd))
-                    .collect(),
+                cmds,
             },
         );
         let bc = ClientBattlescape::new(base, replay, &self.client_config);
@@ -89,14 +87,42 @@ impl Client {
         // Somehow delta can be negative...
         let delta = delta.clamp(0.0, 1.0);
 
-        // TODO: Remove. Manualy ad cmds
+        // TODO: Remove. Manualy add cmds
         self.t += delta;
         if self.t >= 1.0 / 20.0 {
             self.t -= 1.0 / 20.0;
 
             for bc in self.bcs.iter_mut() {
+                let input = Input::godot_singleton();
+                let cmds = FullCmds {
+                    jump_point: None,
+                    cmds: vec![
+                        BattlescapeCommand::SetClientControl(SetClientControl {
+                            client_id: ClientId(0),
+                            ship_id: Some(battlescape::ShipId(0)),
+                        }),
+                        BattlescapeCommand::SetClientInput(SetClientInput {
+                            client_id: ClientId(0),
+                            inputs: battlescape::bc_client::PlayerInput {
+                                wish_rot: input.get_action_strength("right", false) as f32
+                                    - input.get_action_strength("left", false) as f32,
+                                wish_dir: na::vector![
+                                    0.0,
+                                    input.get_action_strength("down", false) as f32
+                                        - input.get_action_strength("up", false) as f32
+                                ],
+                                wish_aim: 0.0,
+                                fire_toggle: false,
+                                wish_rot_absolute: false,
+                                wish_dir_relative: true,
+                                stop: input.is_action_pressed("stop", false),
+                            },
+                        }),
+                    ],
+                };
+
                 let tick = bc.replay.cmds.len() as u64;
-                bc.replay.push_cmds(tick, Default::default());
+                bc.replay.push_cmds(tick, cmds);
             }
         }
 

@@ -6,9 +6,14 @@ impl Battlescape {
         let mut ship_spawn_queue = ShipSpawnQueue::new();
 
         self.apply_commands(cmds);
+
+        self.update_client_control();
+        self.ship_ai();
+
         self.debug_spawn_ships(&mut ship_spawn_queue);
+
         self.physics.step();
-        // TODO: Handle events.
+        // TODO: Handle physic events.
 
         self.process_ship_spawn_queue(ship_spawn_queue);
 
@@ -17,6 +22,73 @@ impl Battlescape {
 }
 
 impl Battlescape {
+    fn update_client_control(&mut self) {
+        for client in self.clients.values_mut() {
+            if !client.active(self.tick) {
+                if let Some(ship_id) = client.control.take() {
+                    if let Some(ship) = self.ships.get_mut(&ship_id) {
+                        ship.contol = None;
+                        log::info!("Removed control from {:?} as owner is inactive", ship_id);
+                    }
+                }
+            }
+        }
+    }
+
+    fn ship_ai(&mut self) {
+        for ship in self.ships.values_mut() {
+            let rb = &mut self.physics.bodies[ship.rb];
+
+            let pos = *rb.position();
+            let linvel: na::Vector2<f32> = *rb.linvel();
+            let angvel = rb.angvel();
+            let mut target_vel: na::Vector2<f32> = na::Vector2::zeros();
+            let mut angvel_change = 0.0f32;
+
+            if let Some(client_id) = ship.contol {
+                let inputs = self.clients.get(&client_id).unwrap().last_inputs;
+
+                // Velocity
+                if !inputs.stop {
+                    if inputs.wish_dir.magnitude_squared() < 0.01 {
+                        // Just keep our linvel unless we are above our limit.
+                        target_vel = linvel.cap_magnitude(ship.mobility.max_linear_velocity);
+                    } else {
+                        target_vel = inputs.wish_dir * ship.mobility.max_linear_velocity;
+                        if inputs.wish_dir_relative {
+                            target_vel = pos.rotation.transform_vector(&target_vel);
+                        }
+                    }
+                }
+
+                // Rotation
+                if inputs.wish_rot_absolute {
+                    // TODO: abs wish rot
+                } else {
+                    if na::ComplexField::abs(inputs.wish_rot) < 0.01 {
+                        // Slow down to reach 0 angvel without overshoot.
+                        angvel_change = na::RealField::min(
+                            ship.mobility.angular_acceleration,
+                            na::ComplexField::abs(angvel),
+                        ) * -na::ComplexField::signum(angvel);
+                    } else {
+                        // Accelerate to reach max_angular_velocity without overshoot.
+                        angvel_change = na::RealField::clamp(
+                            inputs.wish_rot * ship.mobility.angular_acceleration,
+                            -ship.mobility.max_angular_velocity - angvel,
+                            ship.mobility.max_angular_velocity - angvel,
+                        );
+                    }
+                }
+            }
+
+            let linvel_change =
+                (target_vel - linvel).cap_magnitude(ship.mobility.linear_acceleration);
+            rb.set_linvel(linvel + linvel_change, false);
+            rb.set_angvel(angvel + angvel_change, false);
+        }
+    }
+
     fn process_ship_spawn_queue(&mut self, ship_spawn_queue: ShipSpawnQueue) {
         for (fleet_id, index) in ship_spawn_queue {
             let (team, ship_data_id, ship_id) = if let Some(fleet) = self.fleets.get_mut(&fleet_id)
@@ -51,6 +123,7 @@ impl Battlescape {
                     GenericId::ShipId(ship_id),
                     false,
                 ))
+                .can_sleep(false)
                 .build();
             let parrent_rb = self.physics.bodies.insert(rb);
 
@@ -75,6 +148,7 @@ impl Battlescape {
                 BattlescapeShip {
                     fleet_id,
                     index,
+                    contol: None,
                     ship_data_id,
                     rb: parrent_rb,
                     mobility: ship_data.mobility,

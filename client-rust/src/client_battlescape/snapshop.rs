@@ -3,6 +3,7 @@ use crate::draw::*;
 use crate::util::*;
 use ahash::AHashMap;
 use battlescape::*;
+use common::*;
 use gdnative::prelude::Node2D;
 use gdnative::prelude::*;
 use glam::Vec2;
@@ -106,6 +107,10 @@ impl BattlescapeSnapshot {
         }
     }
 
+    pub fn hide(&mut self) {
+        self.root.set_visible(false)
+    }
+
     pub fn update(&mut self, bc: &Battlescape) {
         self.bound = bc.bound;
         self.tick = bc.tick;
@@ -155,6 +160,8 @@ impl BattlescapeSnapshot {
     }
 
     pub unsafe fn draw_lerp(&mut self, weight: f32, _base: &Node2D) {
+        self.root.set_visible(true);
+
         self.ships.drain_filter(|_, ship| {
             if ship.tick != self.tick {
                 // This was not updated last frame. eg. it's removed.

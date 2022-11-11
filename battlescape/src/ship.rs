@@ -11,11 +11,16 @@ pub struct ShipId(pub u32);
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BattlescapeShip {
     pub fleet_id: FleetId,
+    /// Index if the ship in fleet's ships.
     pub index: usize,
+
+    pub contol: Option<ClientId>,
 
     pub ship_data_id: ShipDataId,
     pub rb: RigidBodyHandle,
+
     pub mobility: Mobility,
+
     pub main_hull: HullId,
     pub auxiliary_hulls: AuxiliaryHulls,
 }
