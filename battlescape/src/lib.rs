@@ -1,11 +1,11 @@
 #![feature(slice_as_chunks)]
 #![feature(duration_consts_float)]
 
+pub mod bc_client;
 pub mod commands;
 pub mod fleet;
 pub mod hull;
 pub mod physics;
-pub mod player_inputs;
 mod schedule;
 pub mod ship;
 pub mod state_init;
@@ -14,20 +14,21 @@ extern crate nalgebra as na;
 
 use ahash::{AHashMap, AHashSet};
 use commands::BattlescapeCommand;
+use common::*;
 use indexmap::IndexMap;
-use state_init::BattlescapeInitialState;
-use std::time::Duration;
 use rand::prelude::*;
 use rapier2d::prelude::*;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use common::*;
+use state_init::BattlescapeInitialState;
+use std::time::Duration;
 use user_data::*;
 
+pub use bc_client::*;
 pub use fleet::*;
-pub use ship::*;
 pub use hull::*;
 pub use physics::*;
+pub use ship::*;
 
 type SimRng = rand_xoshiro::Xoshiro128StarStar;
 type ShipSpawnQueue = AHashSet<(FleetId, usize)>;
@@ -40,12 +41,13 @@ pub struct Battlescape {
     rng: SimRng,
     pub physics: Physics,
 
-    
-
     pub num_team: Team,
-    pub fleets: IndexMap<FleetId, BattlescapeFleet>,
-    pub next_ship_id: ShipId,
 
+    pub clients: IndexMap<ClientId, BattlescapeClient, ahash::RandomState>,
+
+    pub fleets: IndexMap<FleetId, BattlescapeFleet, ahash::RandomState>,
+
+    pub next_ship_id: ShipId,
     pub ships: IndexMap<ShipId, BattlescapeShip, ahash::RandomState>,
 
     next_hull_id: HullId,
@@ -63,6 +65,7 @@ impl Battlescape {
             tick: Default::default(),
             physics: Default::default(),
             num_team: Default::default(),
+            clients: Default::default(),
             fleets: Default::default(),
             next_ship_id: Default::default(),
             ships: Default::default(),

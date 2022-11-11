@@ -1,7 +1,6 @@
-use common::fleet::Fleet;
-
 use super::*;
-use crate::{player_inputs::PlayerInput, state_init::BattlescapeInitialState};
+use crate::state_init::BattlescapeInitialState;
+use common::fleet::Fleet;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpawnShip {
@@ -9,22 +8,15 @@ pub struct SpawnShip {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AddPlayer {
-    /// If this player will be added to an existing team or create its own.
-    pub team_id: Option<u16>,
-    pub human: bool,
+pub struct SetClientControl {
+    pub client_id: ClientId,
+    pub ship_id: Option<ShipId>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlayerControlShip {
-    pub player_id: u16,
-    pub ship_idx: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SetPlayerInput {
-    pub player_id: u16,
-    pub player_input: PlayerInput,
+pub struct SetClientInput {
+    pub client_id: ClientId,
+    pub inputs: bc_client::PlayerInput,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,10 +30,8 @@ pub struct AddFleet {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BattlescapeCommand {
-    // SpawnShip(SpawnShip),
-    // AddPlayer(AddPlayer),
-    // PlayerControlShip(PlayerControlShip),
-    // SetPlayerInput(SetPlayerInput),
+    SetClientControl(SetClientControl),
+    SetClientInput(SetClientInput),
     AddFleet(AddFleet),
 }
 

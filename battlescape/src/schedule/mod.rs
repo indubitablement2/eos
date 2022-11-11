@@ -1,5 +1,4 @@
 mod apply_commands;
-
 use super::*;
 
 impl Battlescape {
