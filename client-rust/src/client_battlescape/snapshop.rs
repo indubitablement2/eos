@@ -1,3 +1,6 @@
+use std::hash::Hash;
+use std::iter::once;
+
 use crate::constants::GAME_TO_GODOT_RATIO;
 use crate::draw::*;
 use crate::util::*;
@@ -5,212 +8,270 @@ use ahash::AHashMap;
 use battlescape::*;
 use common::*;
 use gdnative::prelude::Node2D;
-use gdnative::prelude::*;
 use glam::Vec2;
 
-struct HullSnapshot {
+struct HullRender {
     item: DrawApi,
-
     hull_data_id: HullDataId,
     hull_id: HullId,
-    pos: (Vec2, Vec2),
-    rot: (f32, f32),
 }
-impl HullSnapshot {
-    pub fn new(
-        root: &DrawApi,
-        hull_data_id: HullDataId,
-        hull_id: HullId,
-        pos: Vec2,
-        rot: f32,
-    ) -> Self {
-        let mut item = root.new_child();
-        let hull_data = hull_data_id.data();
+impl HullRender {
+    pub fn new(root: &DrawApi, hull_data_id: HullDataId, hull_id: HullId) -> Self {
+        let item = root.new_child();
         item.add_texture(
-            hull_data.texture_paths.albedo,
-            hull_data.texture_paths.normal,
+            hull_data_id.data().texture_paths.albedo,
+            hull_data_id.data().texture_paths.normal,
             true,
         );
-
         Self {
             item,
             hull_data_id,
             hull_id,
-            pos: (pos, pos),
-            rot: (rot, rot),
         }
-    }
-
-    fn update(&mut self, pos: Vec2, rot: f32) {
-        self.pos.0 = self.pos.1;
-        self.pos.1 = pos;
-        self.rot.0 = self.rot.1;
-        self.rot.1 = rot;
-    }
-
-    fn draw(&self, weight: f32) {
-        let pos = self.pos.0.lerp(self.pos.1, weight);
-        let rot = self.rot.0.slerp(self.rot.1, weight);
-
-        self.item
-            .set_transform(pos.to_godot() * GAME_TO_GODOT_RATIO, rot);
     }
 }
 
-struct ShipSnapshot {
+struct ShipRender {
     item: DrawApi,
-
-    /// Used to detect when a ship should be removed.
-    tick: u64,
-
     ship_data_id: ShipDataId,
-    pos: (Vec2, Vec2),
-    rot: (f32, f32),
-    hulls: Vec<HullSnapshot>,
+    hulls: Vec<HullRender>,
 }
-impl ShipSnapshot {
-    fn update(&mut self, pos: Vec2, rot: f32, tick: u64) {
-        self.tick = tick;
-        self.pos.0 = self.pos.1;
-        self.pos.1 = pos;
-        self.rot.0 = self.rot.1;
-        self.rot.1 = rot;
-    }
 
-    fn position(&self, weight: f32) -> Vec2 {
-        self.pos.0.lerp(self.pos.1, weight)
-    }
+struct ItemSnapshot {
+    pos: Vec2,
+    rot: f32,
+}
 
-    fn draw(&self, weight: f32) {
-        let pos = self.position(weight);
-        let rot = self.rot.0.slerp(self.rot.1, weight);
-
-        self.item
-            .set_transform(pos.to_godot() * GAME_TO_GODOT_RATIO, rot);
-        for hull in self.hulls.iter() {
-            hull.draw(weight);
-        }
-    }
+struct _BattlescapeSnapshot {
+    follow: Option<ShipId>,
+    ships: AHashMap<ShipId, ItemSnapshot>,
+    hulls: AHashMap<HullId, ItemSnapshot>,
 }
 
 pub struct BattlescapeSnapshot {
     client_id: ClientId,
     root: DrawApi,
 
-    follow: Option<ShipId>,
     target: Vec2,
 
     bound: f32,
-    tick: u64,
 
-    ships: AHashMap<ShipId, ShipSnapshot>,
+    /// We are ready to render any tick in this range.
+    /// 
+    /// It could be empty as we need at least 2 snapshots to interpolate.
+    /// 
+    /// We expect the next call to `take_snapshot()` to have a bc with tick `this.end`.
+    pub available_render_tick: std::ops::Range<u64>,
+
+    snapshots: Vec<_BattlescapeSnapshot>,
+    ship_renders: AHashMap<ShipId, ShipRender>,
+    events: Vec<()>,
 }
 impl BattlescapeSnapshot {
-    pub fn new(client_id: ClientId, base: &Node2D) -> Self {
-        Self {
+    pub fn new(client_id: ClientId, base: &Node2D, bc: &Battlescape) -> Self {
+        let mut s = Self {
             client_id,
             root: DrawApi::new_root(base),
-            follow: None,
-            target: Vec2::ZERO,
+            target: Default::default(),
             bound: Default::default(),
-            tick: Default::default(),
-            ships: Default::default(),
-        }
+            available_render_tick: Default::default(),
+            snapshots: Default::default(),
+            ship_renders: Default::default(),
+            events: Default::default(),
+        };
+
+        s.reset(bc);
+
+        s
+    }
+
+    /// Clear all internal and set it with the bc's current state.
+    pub fn reset(&mut self, bc: &Battlescape) {
+        // Take initial ship state.
+        self.ship_renders = AHashMap::from_iter(bc.ships.iter().map(|(ship_id, ship)| {
+            let ship_root = self.root.new_child();
+
+            let hulls = once(&ship.main_hull)
+                .chain(ship.auxiliary_hulls.iter())
+                .map(|hull_id| {
+                    let hull = bc.hulls.get(hull_id).unwrap();
+                    HullRender::new(&ship_root, hull.hull_data_id, *hull_id)
+                })
+                .collect();
+
+            (
+                *ship_id,
+                ShipRender {
+                    item: ship_root,
+                    ship_data_id: ship.ship_data_id,
+                    hulls,
+                },
+            )
+        }));
+
+        self.bound = bc.bound;
+        
+        self.snapshots.clear();
+        self.events.clear();
+
+        self.take_snapshot_internal(bc);
+
+        // We only have a single snapshot, so an empty range.
+        self.available_render_tick = bc.tick..bc.tick;
     }
 
     pub fn set_visible(&mut self, visible: bool) {
         self.root.set_visible(visible);
     }
 
-    pub fn update(&mut self, bc: &Battlescape) {        
-        self.bound = bc.bound;
-        self.tick = bc.tick;
-        log::debug!("update");
+    pub fn next_expected_tick(&self) -> u64 {
+        self.available_render_tick.end
+    }
 
-        if let Some(client) = bc.clients.get(&self.client_id) {
-            if let Some(ship_id) = client.control {
-                // Follow controlled ship.
-                self.follow = Some(ship_id);
-            } else {
-                // TODO: Follow any ship in our fleet.
-            }
+    /// The last tick we are ready to render.
+    pub fn max_tick(&self) -> Option<u64> {
+        // self.available_render_tick.last(), but range are not copy.
+        if self.available_render_tick.is_empty() {
+            None
+        } else {
+            Some(self.available_render_tick.end - 1)
         }
+    }
 
-        // Fallback to following any ship.
-        if self.follow.is_none() {
-            self.follow = bc.ships.keys().next().copied();
+    /// If we are ready to draw that tick.
+    pub fn can_draw(&self, tick: u64) -> bool {
+        self.available_render_tick.contains(&tick)
+    }
+
+    /// ## Warning
+    /// We expect bc to be at tick `self.next_expected_tick()`. 
+    /// Otherwise we will reset the snapshot the received tick.
+    /// 
+    /// Return if states was reset.
+    pub fn take_snapshot(&mut self, bc: &Battlescape) -> bool {
+        if bc.tick != self.next_expected_tick() {
+            log::info!("Snapshot reset as bc tick is {} while expecting {}", bc.tick, self.next_expected_tick());
+            self.reset(bc);
+            true
+        } else {
+            self.take_snapshot_internal(bc);
+            false
         }
+    }
 
-        for (ship_id, ship) in bc.ships.iter() {
+    fn take_snapshot_internal(&mut self, bc: &Battlescape) {
+        let ships = AHashMap::from_iter(bc.ships.iter().map(|(ship_id, ship)| {
             let rb = &bc.physics.bodies[ship.rb];
             let pos = rb.translation().to_glam();
             let rot = rb.rotation().angle();
 
-            let ship_snapshot = self.ships.entry(*ship_id).or_insert_with(|| {
-                let root = self.root.new_child();
+            (*ship_id, ItemSnapshot { pos, rot })
+        }));
 
-                let hulls = std::iter::once(&ship.main_hull)
-                    .chain(ship.auxiliary_hulls.iter())
-                    .map(|hull_id| {
-                        let hull = bc.hulls.get(hull_id).unwrap();
-                        let coll = &bc.physics.colliders[hull.collider];
-                        let pos = coll.position_wrt_parent().unwrap().translation.to_glam();
-                        let rot = coll.position_wrt_parent().unwrap().rotation.angle();
-                        HullSnapshot::new(&root, hull.hull_data_id, *hull_id, pos, rot)
-                    })
-                    .collect();
+        let hulls = AHashMap::from_iter(bc.hulls.iter().map(|(hull_id, hull)| {
+            let coll = &bc.physics.colliders[hull.collider];
+            let pos = coll.position_wrt_parent().unwrap().translation.to_glam();
+            let rot = coll.position_wrt_parent().unwrap().rotation.angle();
 
-                ShipSnapshot {
-                    item: root,
-                    tick: self.tick,
-                    ship_data_id: ship.ship_data_id,
-                    pos: (pos, pos),
-                    rot: (rot, rot),
-                    hulls,
-                }
-            });
+            (*hull_id, ItemSnapshot { pos, rot })
+        }));
 
-            ship_snapshot.update(pos, rot, self.tick);
-            ship_snapshot.hulls.drain_filter(|hull_snapshot| {
-                if let Some(hull) = bc.hulls.get(&hull_snapshot.hull_id) {
-                    let coll = &bc.physics.colliders[hull.collider];
-                    let pos = coll.position_wrt_parent().unwrap().translation.to_glam();
-                    let rot = coll.position_wrt_parent().unwrap().rotation.angle();
-                    hull_snapshot.update(pos, rot);
-                    false
-                } else {
-                    true
-                }
-            });
-        }
+        // TODO: take events.
+
+        // Take followed ship.
+        let follow = if let Some(client) = bc.clients.get(&self.client_id) {
+            client.control
+        } else {
+            None
+        };
+
+        self.snapshots.push(
+            _BattlescapeSnapshot {
+                follow,
+                ships,
+                hulls,
+            },
+        );
+
+        self.available_render_tick.end = bc.tick;
     }
 
-    pub fn draw_lerp(&mut self, weight: f32, _base: &Node2D) {
+    /// Used to interpolate time dilation independent things like camera smoothing.
+    pub fn update(&mut self, delta: f32) {
+        // TODO:
+    }
+
+    pub fn draw_lerp(&mut self, tick: u64, weight: f32, _base: &Node2D) {
+        if !self.available_render_tick.contains(&tick) {
+            log::warn!("Can not draw tick {}. Available {:?}", tick, self.available_render_tick);
+            return;
+        }
+
+        // The number of tick we will consume. 
+        let advance = (tick - self.available_render_tick.start) as usize;
+        self.available_render_tick.start = tick;
+
+        // Apply previous events and remove old snapshots.
+        for _ in 0..advance {
+            let events = self.events.remove(0);
+            self.apply_events(events);
+            self.snapshots.remove(0);
+        }
+
+        // The snapshot we will interpolate between.
+        let from = &self.snapshots[0];
+        let to = &self.snapshots[1];
+
         let prev_target = self.target;
-        
         // Set target on followed ship.
-        if let Some(ship_id) = self.follow {
-            if let Some(ship) = self.ships.get(&ship_id) {
-                self.target = ship.position(weight);
-            } else {
-                // Followed ship is gone.
-                self.follow = None;
+        if let Some(ship_id) = from.follow {
+            if let Some((pos, _)) = get_snapshot_lerp(&ship_id, &from.ships, &to.ships, weight) {
+                self.target = pos;
             }
         }
+        log::debug!(
+            "{:.3} : {:.3}",
+            (prev_target - self.target).length(),
+            weight
+        );
+        self.root
+            .set_transform(self.target.to_godot() * -GAME_TO_GODOT_RATIO, 0.0);
 
-        // TODO: Move ship removal to update.
-        self.ships.drain_filter(|_, ship| {
-            if ship.tick != self.tick {
-                // This was not updated last frame. eg. it's removed.
-                true
-            } else {
-                ship.draw(weight);
+        // Draw ships.
+        for (ship_id, render_ship) in self.ship_renders.iter() {
+            if let Some((pos, rot)) = get_snapshot_lerp(ship_id, &from.ships, &to.ships, weight) {
+                // Update ship position.
+                render_ship
+                    .item
+                    .set_transform(pos.to_godot() * GAME_TO_GODOT_RATIO, rot);
 
-                false
+                // Update hulls position.
+                for render_hull in render_ship.hulls.iter() {
+                    if let Some((pos, rot)) =
+                        get_snapshot_lerp(&render_hull.hull_id, &from.hulls, &to.hulls, weight)
+                    {
+                        render_hull
+                            .item
+                            .set_transform(pos.to_godot() * GAME_TO_GODOT_RATIO, rot);
+                    }
+                }
             }
-        });
-
-        log::debug!("{:.3} : {:.3}", (prev_target - self.target).length(), weight);
-        self.root.set_transform(self.target.to_godot() * -GAME_TO_GODOT_RATIO, 0.0);
+        }
     }
+
+    fn apply_events(&mut self, events: ()) {
+        // TODO:
+    }
+}
+
+fn get_snapshot_lerp<I: Hash + Eq>(
+    id: &I,
+    from: &AHashMap<I, ItemSnapshot>,
+    to: &AHashMap<I, ItemSnapshot>,
+    weight: f32,
+) -> Option<(Vec2, f32)> {
+    from.get(id).and_then(|a| {
+        to.get(&id)
+            .map(|b| (a.pos.lerp(b.pos, weight), a.rot.slerp(b.rot, weight)))
+    })
 }

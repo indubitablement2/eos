@@ -28,39 +28,45 @@ impl ClientBattlescape {
         Self {
             catching_up: true,
             time_manager: TimeManager::new(client_config.battlescape_time_manager_config),
+            snapshot: BattlescapeSnapshot::new(ClientId(0), base, &bc),
             runner_handle: RunnerHandle::new(bc),
-            snapshot: BattlescapeSnapshot::new(ClientId(0), base),
             replay,
         }
     }
 
     pub fn update(&mut self, delta: f32) {
         let mut can_advance = None;
+        let mut reset_time = false;
         if let Some(bc) = self.runner_handle.update() {
-            can_advance = Some(bc.tick);
+            can_advance = Some(bc.tick + 1);
 
-            let last_tick = bc.tick.saturating_sub(1);
-
-            self.time_manager.maybe_max_tick(last_tick);
-
-            self.catching_up = (self.replay.cmds.len() as u64) - last_tick > 40;
+            if self.catching_up {
+                self.catching_up = (self.replay.cmds.len() as u64) - bc.tick > 20;
+            } else {
+                self.catching_up = (self.replay.cmds.len() as u64) - bc.tick > 40;
+            }
 
             // Take snapshot for rendering.
             if !self.catching_up {
-                self.snapshot.update(bc);
+                reset_time = self.snapshot.take_snapshot(bc);
             }
 
             // log::debug!(
-            //     "last: {}, bc: {}, target: {}, max: {}, cmds: {}, t: {:.4}",
-            //     last_tick,
+            //     "bc: {}, snapshot_render: {}, snapshot_max: {}, target: {}, max: {}, cmds: {}, t: {:.4}",
             //     bc.tick,
+            //     self.snapshot.render_tick,
+            //     self.snapshot.max_render_tick,
             //     self.time_manager.tick,
             //     self.time_manager.max_tick,
-            //     data.replay.cmds.len(),
-            //     self.time_manager.tick as f32 + self.time_manager.tick_frac
+            //     self.replay.cmds.len(),
+            //     self.time_manager.tick as f64 + self.time_manager.tick_frac as f64
             // );
         }
 
+        if reset_time {
+            self.time_manager.reset();
+        }
+        self.time_manager.maybe_max_tick(self.snapshot.max_tick().unwrap_or_default());
         self.time_manager.update(delta);
         // log::debug!("t: {:.4}", self.time_manager.time_dilation);
 
@@ -85,11 +91,14 @@ impl ClientBattlescape {
     }
 
     pub fn draw(&mut self, base: &Node2D) {
-        if self.catching_up {
+        if self.catching_up || !self.snapshot.can_draw(self.time_manager.tick) {
             // TODO: Display catching up message.
         } else {
-            self.snapshot
-                .draw_lerp(self.time_manager.interpolation_weight(), base);
+            self.snapshot.draw_lerp(
+                self.time_manager.tick,
+                self.time_manager.interpolation_weight(),
+                base,
+            );
         }
     }
 

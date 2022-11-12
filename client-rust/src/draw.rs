@@ -136,12 +136,7 @@ impl DrawApi {
         }
     }
 
-    pub fn add_texture(
-        &mut self,
-        albedo: &'static str,
-        normal: Option<&'static str>,
-        centered: bool,
-    ) {
+    pub fn add_texture(&self, albedo: &'static str, normal: Option<&'static str>, centered: bool) {
         unsafe {
             let tex = texture(albedo);
             let tex = tex.assume_safe();

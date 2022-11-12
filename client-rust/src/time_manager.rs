@@ -11,9 +11,10 @@ pub struct TimeManagerConfig {
     pub min_buffer: f32,
     /// Amount of buffer we try to reach by changing time dilation.
     pub wish_buffer: f32,
-    /// Multiply time dilation when speeding up time.
+    /// Multiply time dilation strenght when speeding up time.
+    /// Something low avoid overshoot.
     pub increase_change_strenght: f32,
-    /// Multiply time dilation when slowing down time.
+    /// Multiply time dilation strenght when slowing down time.
     pub decrease_change_strenght: f32,
 }
 impl Default for TimeManagerConfig {
@@ -71,6 +72,14 @@ impl<const F: u32> TimeManager<F> {
     /// Call this every time you get a new tick ready.
     pub fn maybe_max_tick(&mut self, new_tick: u64) {
         self.max_tick = self.max_tick.max(new_tick);
+    }
+
+    pub fn reset(&mut self) {
+        let mut s = Self {
+            config: self.config,
+            ..Default::default()
+        };
+        std::mem::swap(self, &mut s);
     }
 
     /// Return if the tick was incremented.
@@ -168,5 +177,11 @@ impl<const F: u32> TimeManager<F> {
     fn new_period(&mut self) {
         self.current_period = 0.0;
         self.min_over_period = 10.0;
+    }
+}
+
+impl<const F: u32> Default for TimeManager<F> {
+    fn default() -> Self {
+        Self::new(Default::default())
     }
 }

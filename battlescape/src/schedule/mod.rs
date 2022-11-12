@@ -3,6 +3,7 @@ use super::*;
 
 impl Battlescape {
     pub fn _step(&mut self, cmds: &[BattlescapeCommand]) {
+        self.tick += 1;
         let mut ship_spawn_queue = ShipSpawnQueue::new();
 
         self.apply_commands(cmds);
@@ -16,8 +17,6 @@ impl Battlescape {
         // TODO: Handle physic events.
 
         self.process_ship_spawn_queue(ship_spawn_queue);
-
-        self.tick += 1;
     }
 }
 
