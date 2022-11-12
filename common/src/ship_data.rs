@@ -16,8 +16,8 @@ impl ShipDataId {
                 mobility: Mobility {
                     linear_acceleration: 1.0,
                     angular_acceleration: 1.0,
-                    max_linear_velocity: 1.0,
-                    max_angular_velocity: 1.0,
+                    max_linear_velocity: 10.0,
+                    max_angular_velocity: 5.0,
                 },
                 main_hull: HullDataId::Ball,
                 auxiliary_hulls: &[],
@@ -26,8 +26,8 @@ impl ShipDataId {
                 mobility: Mobility {
                     linear_acceleration: 1.0,
                     angular_acceleration: 1.0,
-                    max_linear_velocity: 1.0,
-                    max_angular_velocity: 1.0,
+                    max_linear_velocity: 10.0,
+                    max_angular_velocity: 5.0,
                 },
                 main_hull: HullDataId::Cuboid,
                 auxiliary_hulls: &[],

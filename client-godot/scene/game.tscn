@@ -1,11 +1,31 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://native/Client.gdns" type="Script" id=1]
 [ext_resource path="res://assets/debug/target.png" type="Texture" id=2]
+[ext_resource path="res://assets/debug/colored_circle128.png" type="Texture" id=3]
 [ext_resource path="res://scene/game.gd" type="Script" id=4]
 [ext_resource path="res://assets/bg/starfield.png" type="Texture" id=5]
 [ext_resource path="res://shaders/sprite_display.material" type="Material" id=6]
 [ext_resource path="res://component/camera/FollowCamera.tscn" type="PackedScene" id=7]
+
+[sub_resource type="GDScript" id=1]
+script/source = "extends Sprite
+
+
+# Declare member variables here. Examples:
+# var a: int = 2
+# var b: String = \"text\"
+
+
+# Called when the node enters the scene tree for the first time.
+func _ready() -> void:
+	pass # Replace with function body.
+
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(_delta: float) -> void:
+	position = get_global_mouse_position()
+"
 
 [node name="Game" type="Node2D"]
 material = ExtResource( 6 )
@@ -19,7 +39,8 @@ texture = ExtResource( 2 )
 
 [node name="Sprite2" type="Sprite" parent="."]
 position = Vector2( 2560, 0 )
-texture = ExtResource( 2 )
+texture = ExtResource( 3 )
+script = SubResource( 1 )
 
 [node name="FollowCamera" parent="." instance=ExtResource( 7 )]
 current = true
@@ -29,6 +50,7 @@ zoom = Vector2( 4, 4 )
 layer = -1
 
 [node name="Background" type="TextureRect" parent="BackGroundLayer"]
+visible = false
 modulate = Color( 0.329412, 0.329412, 0.329412, 1 )
 anchor_right = 1.0
 anchor_bottom = 1.0

@@ -77,8 +77,12 @@ impl ShipSnapshot {
         self.rot.1 = rot;
     }
 
+    fn position(&self, weight: f32) -> Vec2 {
+        self.pos.0.lerp(self.pos.1, weight)
+    }
+
     fn draw(&self, weight: f32) {
-        let pos = self.pos.0.lerp(self.pos.1, weight);
+        let pos = self.position(weight);
         let rot = self.rot.0.slerp(self.rot.1, weight);
 
         self.item
@@ -90,7 +94,11 @@ impl ShipSnapshot {
 }
 
 pub struct BattlescapeSnapshot {
+    client_id: ClientId,
     root: DrawApi,
+
+    follow: Option<ShipId>,
+    target: Vec2,
 
     bound: f32,
     tick: u64,
@@ -98,22 +106,40 @@ pub struct BattlescapeSnapshot {
     ships: AHashMap<ShipId, ShipSnapshot>,
 }
 impl BattlescapeSnapshot {
-    pub fn new(base: &Node2D) -> Self {
+    pub fn new(client_id: ClientId, base: &Node2D) -> Self {
         Self {
+            client_id,
             root: DrawApi::new_root(base),
+            follow: None,
+            target: Vec2::ZERO,
             bound: Default::default(),
             tick: Default::default(),
             ships: Default::default(),
         }
     }
 
-    pub fn hide(&mut self) {
-        self.root.set_visible(false)
+    pub fn set_visible(&mut self, visible: bool) {
+        self.root.set_visible(visible);
     }
 
-    pub fn update(&mut self, bc: &Battlescape) {
+    pub fn update(&mut self, bc: &Battlescape) {        
         self.bound = bc.bound;
         self.tick = bc.tick;
+        log::debug!("update");
+
+        if let Some(client) = bc.clients.get(&self.client_id) {
+            if let Some(ship_id) = client.control {
+                // Follow controlled ship.
+                self.follow = Some(ship_id);
+            } else {
+                // TODO: Follow any ship in our fleet.
+            }
+        }
+
+        // Fallback to following any ship.
+        if self.follow.is_none() {
+            self.follow = bc.ships.keys().next().copied();
+        }
 
         for (ship_id, ship) in bc.ships.iter() {
             let rb = &bc.physics.bodies[ship.rb];
@@ -159,9 +185,20 @@ impl BattlescapeSnapshot {
         }
     }
 
-    pub unsafe fn draw_lerp(&mut self, weight: f32, _base: &Node2D) {
-        self.root.set_visible(true);
+    pub fn draw_lerp(&mut self, weight: f32, _base: &Node2D) {
+        let prev_target = self.target;
+        
+        // Set target on followed ship.
+        if let Some(ship_id) = self.follow {
+            if let Some(ship) = self.ships.get(&ship_id) {
+                self.target = ship.position(weight);
+            } else {
+                // Followed ship is gone.
+                self.follow = None;
+            }
+        }
 
+        // TODO: Move ship removal to update.
         self.ships.drain_filter(|_, ship| {
             if ship.tick != self.tick {
                 // This was not updated last frame. eg. it's removed.
@@ -172,5 +209,8 @@ impl BattlescapeSnapshot {
                 false
             }
         });
+
+        log::debug!("{:.3} : {:.3}", (prev_target - self.target).length(), weight);
+        self.root.set_transform(self.target.to_godot() * -GAME_TO_GODOT_RATIO, 0.0);
     }
 }

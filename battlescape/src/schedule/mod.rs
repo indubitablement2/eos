@@ -47,7 +47,7 @@ impl Battlescape {
 
             if let Some(client_id) = ship.contol {
                 let inputs = self.clients.get(&client_id).unwrap().last_inputs;
-
+                
                 // Velocity
                 if !inputs.stop {
                     if inputs.wish_dir.magnitude_squared() < 0.01 {

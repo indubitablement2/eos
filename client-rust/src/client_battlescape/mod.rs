@@ -7,6 +7,7 @@ use crate::client::ClientConfig;
 use crate::time_manager::*;
 use battlescape::commands::Replay;
 use battlescape::*;
+use common::ClientId;
 use gdnative::prelude::*;
 
 pub struct ClientBattlescape {
@@ -28,7 +29,7 @@ impl ClientBattlescape {
             catching_up: true,
             time_manager: TimeManager::new(client_config.battlescape_time_manager_config),
             runner_handle: RunnerHandle::new(bc),
-            snapshot: BattlescapeSnapshot::new(base),
+            snapshot: BattlescapeSnapshot::new(ClientId(0), base),
             replay,
         }
     }
@@ -83,7 +84,7 @@ impl ClientBattlescape {
         }
     }
 
-    pub unsafe fn draw(&mut self, base: &Node2D) {
+    pub fn draw(&mut self, base: &Node2D) {
         if self.catching_up {
             // TODO: Display catching up message.
         } else {
@@ -92,7 +93,7 @@ impl ClientBattlescape {
         }
     }
 
-    pub fn hide(&mut self) {
-        self.snapshot.hide()
+    pub fn set_visible(&mut self, visible: bool) {
+        self.snapshot.set_visible(visible);
     }
 }

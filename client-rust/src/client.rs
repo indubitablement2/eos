@@ -42,12 +42,12 @@ impl Client {
 
     #[method]
     unsafe fn _ready(&mut self, #[base] base: &Node2D) {
-        let cmds = (0..4)
+        let cmds = (0..16)
             .map(|i| {
                 BattlescapeCommand::AddFleet(AddFleet {
                     fleet_id: FleetId(i),
                     fleet: common::fleet::Fleet {
-                        ships: (0..1)
+                        ships: (0..4)
                             .map(|_| Ship {
                                 ship_data_id: rand::random(),
                             })
@@ -71,12 +71,6 @@ impl Client {
     }
 
     #[method]
-    unsafe fn _draw(&mut self, #[base] base: &Node2D) {
-        // TODO: Active bc/mc
-        self.bcs[0].draw(base);
-    }
-
-    #[method]
     unsafe fn _process(&mut self, #[base] base: &Node2D, delta: f32) {
         // Handle fatal error.
         if FATAL_ERROR.load(std::sync::atomic::Ordering::Relaxed) {
@@ -87,7 +81,7 @@ impl Client {
         // Somehow delta can be negative...
         let delta = delta.clamp(0.0, 1.0);
 
-        // TODO: Remove. Manualy add cmds
+        // TODO: Remove. Manualy added cmds
         self.t += delta;
         if self.t >= 1.0 / 20.0 {
             self.t -= 1.0 / 20.0;
@@ -133,26 +127,11 @@ impl Client {
         base.update();
     }
 
-    // #[method]
-    // unsafe fn get_debug_info(&mut self) -> String {
-    //     self.metascape_manager.update_debug_info = true;
-    //     std::mem::take(&mut self.metascape_manager.last_debug_info)
-    // }
-
-    // #[godot]
-    // unsafe fn get_client_position(&mut self) -> Vector2 {
-    //     if let ClientState::Connected(client_metascape) = &mut self.client_state {
-    //         if let Some(fleet_state) = client_metascape.states_manager.get_client_fleet() {
-    //             fleet_state
-    //                 .get_interpolated_pos(&client_metascape.time_manager)
-    //                 .to_godot_scaled()
-    //         } else {
-    //             client_metascape.states_manager.client_position.to_godot_scaled()
-    //         }
-    //     } else {
-    //         Vector2::ZERO
-    //     }
-    // }
+    #[method]
+    unsafe fn _draw(&mut self, #[base] base: &Node2D) {
+        // TODO: Active bc/mc
+        self.bcs[0].draw(base);
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

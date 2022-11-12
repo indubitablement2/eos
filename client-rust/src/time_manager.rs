@@ -107,7 +107,7 @@ impl<const F: u32> TimeManager<F> {
         } else if remaining < self.config.min_buffer {
             // The minimum amount of time change to not be ahead.
             let change = remaining - self.config.min_buffer;
-            log::debug!(
+            log::info!(
                 "Buffer time ({:.4}) under limit of {}. Modifying time by up to {:.4}...",
                 remaining,
                 self.config.min_buffer,
