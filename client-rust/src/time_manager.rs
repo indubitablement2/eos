@@ -22,10 +22,10 @@ impl Default for TimeManagerConfig {
         Self {
             period: 4.0,
             max_time_change: 0.08,
-            max_buffer: 1.0,
+            max_buffer: 0.6,
             min_buffer: 0.0,
-            wish_buffer: 0.05,
-            increase_change_strenght: 0.2,
+            wish_buffer: 0.025,
+            increase_change_strenght: 0.4,
             decrease_change_strenght: 1.0,
         }
     }

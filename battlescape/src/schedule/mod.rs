@@ -2,11 +2,13 @@ mod apply_commands;
 use super::*;
 
 impl Battlescape {
-    pub fn _step(&mut self, cmds: &[BattlescapeCommand]) {
+    pub fn _step(&mut self, cmds: &[BattlescapeCommand]) -> BattlescapeEvents {
         self.tick += 1;
+
+        let mut render_events = BattlescapeEvents::default();
         let mut ship_spawn_queue = ShipSpawnQueue::new();
 
-        self.apply_commands(cmds);
+        self.apply_commands(cmds, &mut render_events);
 
         self.update_client_control();
         self.ship_ai();
@@ -16,7 +18,9 @@ impl Battlescape {
         self.physics.step();
         // TODO: Handle physic events.
 
-        self.process_ship_spawn_queue(ship_spawn_queue);
+        self.process_ship_spawn_queue(ship_spawn_queue, &mut render_events);
+    
+        render_events
     }
 }
 
@@ -88,7 +92,7 @@ impl Battlescape {
         }
     }
 
-    fn process_ship_spawn_queue(&mut self, ship_spawn_queue: ShipSpawnQueue) {
+    fn process_ship_spawn_queue(&mut self, ship_spawn_queue: ShipSpawnQueue, render_events: &mut BattlescapeEvents) {
         for (fleet_id, index) in ship_spawn_queue {
             let (team, ship_data_id, ship_id) = if let Some(fleet) = self.fleets.get_mut(&fleet_id)
             {
@@ -155,6 +159,9 @@ impl Battlescape {
                     auxiliary_hulls,
                 },
             );
+
+            // Add event.
+            render_events.add_ship.push(ship_id);
         }
     }
 

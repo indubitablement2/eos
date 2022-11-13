@@ -168,7 +168,7 @@ impl ClientSignal {
 
     const fn params(&self) -> &[(&str, VariantType)] {
         match self {
-            Self::FatalError => &[("err", VariantType::GodotString)],
+            Self::FatalError => &[],
             Self::Poopi => &[],
             Self::Var(_) => &[("param", VariantType::GodotString)],
         }

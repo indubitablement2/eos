@@ -2,17 +2,17 @@ use super::*;
 use commands::*;
 
 impl Battlescape {
-    pub fn apply_commands(&mut self, cmds: &[BattlescapeCommand]) {
+    pub fn apply_commands(&mut self, cmds: &[BattlescapeCommand], render_events: &mut BattlescapeEvents) {
         for cmd in cmds {
             match cmd {
-                BattlescapeCommand::AddFleet(cmd) => self.add_fleet(cmd),
+                BattlescapeCommand::AddFleet(cmd) => self.add_fleet(cmd, render_events),
                 BattlescapeCommand::SetClientControl(cmd) => self.set_client_control(cmd),
                 BattlescapeCommand::SetClientInput(cmd) => self.set_client_input(cmd),
             }
         }
     }
 
-    fn add_fleet(&mut self, cmd: &AddFleet) {
+    fn add_fleet(&mut self, cmd: &AddFleet, render_events: &mut BattlescapeEvents) {
         let battlescape_fleet = BattlescapeFleet {
             original_fleet: cmd.fleet.clone(),
             available_ships: AHashMap::from_iter(
@@ -28,11 +28,14 @@ impl Battlescape {
         {
             log::warn!("Overwritten {:?}", cmd.fleet_id);
         }
+        
         log::info!(
             "Added {:?} with {} ships",
             cmd.fleet_id,
             cmd.fleet.ships.len()
         );
+
+        render_events.add_fleet.push(cmd.fleet_id);
     }
 
     fn set_client_control(&mut self, cmd: &SetClientControl) {

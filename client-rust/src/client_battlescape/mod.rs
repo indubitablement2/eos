@@ -37,8 +37,8 @@ impl ClientBattlescape {
     pub fn update(&mut self, delta: f32) {
         let mut can_advance = None;
         let mut reset_time = false;
-        if let Some(bc) = self.runner_handle.update() {
-            can_advance = Some(bc.tick + 1);
+        if let Some((bc, events)) = self.runner_handle.update() {
+            can_advance = Some(bc.tick);
 
             if self.catching_up {
                 self.catching_up = (self.replay.cmds.len() as u64) - bc.tick > 20;
@@ -48,7 +48,7 @@ impl ClientBattlescape {
 
             // Take snapshot for rendering.
             if !self.catching_up {
-                reset_time = self.snapshot.take_snapshot(bc);
+                reset_time = self.snapshot.take_snapshot(bc, events);
             }
 
             // log::debug!(
@@ -66,27 +66,29 @@ impl ClientBattlescape {
         if reset_time {
             self.time_manager.reset();
         }
-        self.time_manager.maybe_max_tick(self.snapshot.max_tick().unwrap_or_default());
+        self.time_manager
+            .maybe_max_tick(self.snapshot.max_tick().unwrap_or_default());
         self.time_manager.update(delta);
+
+        log::debug!("{}", self.time_manager.buffer_time_remaining());
+
         // log::debug!("t: {:.4}", self.time_manager.time_dilation);
 
-        if let Some(next_tick) = can_advance {
-            if let Some(cmds) = self.replay.cmds.get(next_tick as usize) {
-                // Apply jump point.
-                if let Some((bytes, _)) = &cmds.jump_point {
-                    match Battlescape::load(bytes) {
-                        Ok(new_bc) => {
-                            self.runner_handle.bc = Some(Box::new(new_bc));
-                            log::debug!("Applied jump point.");
-                        }
-                        Err(err) => {
-                            log::error!("{:?} while loading battlescape.", err);
-                        }
+        if let Some(cmds) = can_advance.and_then(|next_tick| self.replay.get_cmds(next_tick)) {
+            // Apply jump point.
+            if let Some((bytes, _)) = &cmds.jump_point {
+                match Battlescape::load(bytes) {
+                    Ok(new_bc) => {
+                        self.runner_handle.bc = Some((Box::new(new_bc), Default::default()));
+                        log::debug!("Applied jump point.");
+                    }
+                    Err(err) => {
+                        log::error!("{:?} while loading battlescape.", err);
                     }
                 }
-
-                self.runner_handle.step(cmds.cmds.to_owned());
             }
+
+            self.runner_handle.step(cmds.cmds.to_owned());
         }
     }
 

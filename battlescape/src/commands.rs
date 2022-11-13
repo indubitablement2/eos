@@ -100,4 +100,8 @@ impl Replay {
             }
         }
     }
+
+    pub fn get_cmds(&self, tick: u64) -> Option<&FullCmds> {
+        self.cmds.get(tick as usize)
+    }
 }

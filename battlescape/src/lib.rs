@@ -9,6 +9,7 @@ pub mod physics;
 mod schedule;
 pub mod ship;
 pub mod state_init;
+pub mod bc_event;
 
 extern crate nalgebra as na;
 
@@ -23,6 +24,7 @@ use smallvec::SmallVec;
 use state_init::BattlescapeInitialState;
 use std::time::Duration;
 use user_data::*;
+use bc_event::*;
 
 pub use bc_client::*;
 pub use fleet::*;
@@ -52,6 +54,12 @@ pub struct Battlescape {
 
     next_hull_id: HullId,
     pub hulls: IndexMap<HullId, Hull, ahash::RandomState>,
+
+    // /// A struct with multiple render event?
+    // /// an dyn with custom impl for server/client.
+    // /// an enum server(ignore)/client
+    // pub render_events: (),
+    // return events!
 }
 impl Battlescape {
     pub const TICK_DURATION: Duration = Duration::from_millis(50);
@@ -74,8 +82,8 @@ impl Battlescape {
         }
     }
 
-    pub fn step(&mut self, cmds: &[BattlescapeCommand]) {
-        self._step(cmds);
+    pub fn step(&mut self, cmds: &[BattlescapeCommand]) -> BattlescapeEvents {
+        self._step(cmds)
     }
 
     pub fn save(&self) -> Vec<u8> {
