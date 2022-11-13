@@ -9,10 +9,10 @@ pub struct BattlescapeClient {
 }
 impl BattlescapeClient {
     /// 5 secs
-    const INATIVE_DELAY: u64 = 20 * 5;
+    const INACTIVE_DELAY: u64 = 20 * 5;
 
     pub fn active(&self, tick: u64) -> bool {
-        tick.saturating_sub(self.last_active) < Self::INATIVE_DELAY
+        tick.saturating_sub(self.last_active) < Self::INACTIVE_DELAY
     }
 }
 
