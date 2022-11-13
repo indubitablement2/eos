@@ -20,12 +20,12 @@ pub struct TimeManagerConfig {
 impl Default for TimeManagerConfig {
     fn default() -> Self {
         Self {
-            period: 3.0,
+            period: 1.0,
             max_time_change: 0.08,
-            max_buffer: 0.15,
+            max_buffer: 0.35,
             min_buffer: 0.0,
-            wish_buffer: 0.02,
-            increase_change_strenght: 1.0,
+            wish_buffer: 0.2,
+            increase_change_strenght: 0.6,
             decrease_change_strenght: 0.8,
         }
     }
