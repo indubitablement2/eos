@@ -15,15 +15,13 @@
 
 ### Dependencies
 
-client-rust -> battlescape, common, net
-server -> metascape, battlescape, common, net
+client -> simulation, net
+simulation_server -> simulation, net
+login_server -> ?
+coordinator_server -> ?
 
-battlescape -> common
-metascape -> common, acc
-net -> common, bc
-
-common
-acc
+simulation
+net -> simulation
 
 ## User Experience
 
