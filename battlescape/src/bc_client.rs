@@ -16,9 +16,22 @@ impl BattlescapeClient {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum WishRot {
+    /// Rotate left/right with a force (-1.0..1.0).
+    Force(f32),
+    /// Rotate to face that point. 
+    Toward(na::Vector2<f32>),
+}
+impl Default for WishRot {
+    fn default() -> Self {
+        Self::Force(0.0)
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct PlayerInput {
-    pub wish_rot: f32,
+    pub wish_rot: WishRot,
     /// Vector with a maximun magnitude of 1.
     pub wish_dir: na::Vector2<f32>,
     /// The global angle to aim to.
@@ -26,8 +39,6 @@ pub struct PlayerInput {
     // TODO: Bitfield
     /// Toggle firing selected weapon group.
     pub fire_toggle: bool,
-    /// If we should rotate to this angle in radian. Otherwise rotate left/right with a force (-1.0..1.0).
-    pub wish_rot_absolute: bool,
     /// If `wish_dir` is relative to the ship's rotation.
     pub wish_dir_relative: bool,
     /// Ignore wish_dir and try to cancel current velocity.
@@ -43,3 +54,4 @@ impl PlayerInput {
         self
     }
 }
+

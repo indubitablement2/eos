@@ -1,5 +1,7 @@
 use crate::client_battlescape::ClientBattlescape;
+use crate::constants::GAME_TO_GODOT_RATIO;
 use crate::time_manager::TimeManagerConfig;
+use crate::util::ToNalgebra;
 use battlescape::commands::*;
 use common::{fleet::Ship, *};
 use gdnative::api::*;
@@ -47,7 +49,7 @@ impl Client {
                 BattlescapeCommand::AddFleet(AddFleet {
                     fleet_id: FleetId(i),
                     fleet: common::fleet::Fleet {
-                        ships: (0..4)
+                        ships: (0..1)
                             .map(|_| Ship {
                                 ship_data_id: rand::random(),
                             })
@@ -98,17 +100,16 @@ impl Client {
                         BattlescapeCommand::SetClientInput(SetClientInput {
                             client_id: ClientId(0),
                             inputs: battlescape::bc_client::PlayerInput {
-                                wish_rot: input.get_action_strength("right", false) as f32
-                                    - input.get_action_strength("left", false) as f32,
+                                wish_rot: battlescape::WishRot::Toward((base.get_global_mouse_position() / GAME_TO_GODOT_RATIO).to_na()),
                                 wish_dir: na::vector![
-                                    0.0,
+                                    input.get_action_strength("right", false) as f32
+                                        - input.get_action_strength("left", false) as f32,
                                     input.get_action_strength("down", false) as f32
                                         - input.get_action_strength("up", false) as f32
                                 ],
                                 wish_aim: 0.0,
                                 fire_toggle: false,
-                                wish_rot_absolute: false,
-                                wish_dir_relative: true,
+                                wish_dir_relative: false,
                                 stop: input.is_action_pressed("stop", false),
                             },
                         }),

@@ -46,6 +46,7 @@ impl Battlescape {
             let linvel: na::Vector2<f32> = *rb.linvel();
             let angvel = rb.angvel();
             let mut target_vel: na::Vector2<f32> = na::Vector2::zeros();
+            let mut target_rot = pos.rotation.angle();
             let mut angvel_change = 0.0f32;
 
             if let Some(client_id) = ship.contol {
@@ -65,29 +66,45 @@ impl Battlescape {
                 }
 
                 // Rotation
-                if inputs.wish_rot_absolute {
-                    // TODO: abs wish rot
-                } else {
-                    if na::ComplexField::abs(inputs.wish_rot) < 0.01 {
-                        // Slow down to reach 0 angvel without overshoot.
-                        angvel_change = na::RealField::min(
-                            ship.mobility.angular_acceleration,
-                            na::ComplexField::abs(angvel),
-                        ) * -na::ComplexField::signum(angvel);
-                    } else {
-                        // Accelerate to reach max_angular_velocity without overshoot.
-                        angvel_change = na::RealField::clamp(
-                            inputs.wish_rot * ship.mobility.angular_acceleration,
-                            -ship.mobility.max_angular_velocity - angvel,
-                            ship.mobility.max_angular_velocity - angvel,
-                        );
+                match inputs.wish_rot {
+                    WishRot::Force(force) => {
+                        target_rot = pos.rotation.angle() + force;
+                        // if na::ComplexField::abs(force) < 0.01 {
+                        //     // Slow down to reach 0 angvel without overshoot.
+                        //     angvel_change = na::RealField::min(
+                        //         ship.mobility.angular_acceleration,
+                        //         na::ComplexField::abs(angvel),
+                        //     ) * -na::ComplexField::signum(angvel);
+                        // } else {
+                        //     // Accelerate to reach max_angular_velocity without overshoot.
+                        //     angvel_change = na::RealField::clamp(
+                        //         force * ship.mobility.angular_acceleration,
+                        //         -ship.mobility.max_angular_velocity - angvel,
+                        //         ship.mobility.max_angular_velocity - angvel,
+                        //     );
+                        // }
+                    }
+                    WishRot::Toward(point) => {
+                        target_rot = (point - pos.translation.vector).angle(&na::vector![0.0, 1.0]);
+                        if ship.fleet_id.0 == 0 {
+                            log::debug!("{:.3}", point);
+                        }
                     }
                 }
             }
 
+            target_vel = target_vel.cap_magnitude(ship.mobility.max_linear_velocity);
             let linvel_change =
                 (target_vel - linvel).cap_magnitude(ship.mobility.linear_acceleration);
             rb.set_linvel(linvel + linvel_change, false);
+            
+
+
+            let angvel_change = na::RealField::clamp(
+                target_rot - pos.rotation.angle(),
+                -ship.mobility.angular_acceleration,
+                ship.mobility.angular_acceleration
+            );
             rb.set_angvel(angvel + angvel_change, false);
         }
     }

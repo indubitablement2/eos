@@ -69,9 +69,7 @@ impl ClientBattlescape {
         self.time_manager
             .maybe_max_tick(self.snapshot.max_tick().unwrap_or_default());
         self.time_manager.update(delta);
-
-        log::debug!("{}", self.time_manager.buffer_time_remaining());
-
+        // log::debug!("{}", self.time_manager.buffer_time_remaining());
         // log::debug!("t: {:.4}", self.time_manager.time_dilation);
 
         if let Some(cmds) = can_advance.and_then(|next_tick| self.replay.get_cmds(next_tick)) {
