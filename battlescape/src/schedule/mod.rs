@@ -211,9 +211,12 @@ impl Battlescape {
 impl Battlescape {
     #[deprecated]
     fn debug_spawn_ships(&mut self, ship_spawn_queue: &mut ShipSpawnQueue) {
-        for (fleet_id, fleet) in self.fleets.iter() {
+        // rapier2d::na::ComplexField::
+        for i in 0..self.fleets.len() {
+            let fleet_id = FleetId(i as u64);
+            let fleet = self.fleets.get(&fleet_id).unwrap();
             for ship_index in fleet.available_ships.keys() {
-                ship_spawn_queue.insert((*fleet_id, *ship_index));
+                ship_spawn_queue.insert((fleet_id, *ship_index));
                 break;
             }
         }

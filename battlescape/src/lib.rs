@@ -11,7 +11,7 @@ pub mod ship;
 pub mod state_init;
 pub mod bc_event;
 
-extern crate nalgebra as na;
+// extern crate nalgebra as na;
 
 use ahash::{AHashMap, AHashSet};
 use commands::BattlescapeCommand;
@@ -31,6 +31,8 @@ pub use fleet::*;
 pub use hull::*;
 pub use physics::*;
 pub use ship::*;
+
+pub use rapier2d::na;
 
 type SimRng = rand_xoshiro::Xoshiro128StarStar;
 type ShipSpawnQueue = AHashSet<(FleetId, usize)>;
@@ -84,6 +86,9 @@ impl Battlescape {
 
     pub fn step(&mut self, cmds: &[BattlescapeCommand]) -> BattlescapeEvents {
         self._step(cmds)
+        // self.tick += 1;
+        // log::debug!("{:?}", self.rng);
+        // Default::default()
     }
 
     pub fn save(&self) -> Vec<u8> {

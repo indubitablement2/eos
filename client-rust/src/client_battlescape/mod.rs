@@ -51,6 +51,12 @@ impl ClientBattlescape {
                 reset_time = self.snapshot.take_snapshot(bc, events);
             }
 
+            if bc.tick == 100 {
+                battlescape::na::RealField::max(0.0, 1.0);
+                let checksum = crc32fast::hash(&bc.save());
+                panic!("{}", checksum);
+            }
+
             // log::debug!(
             //     "bc: {}, snapshot_render: {}, snapshot_max: {}, target: {}, max: {}, cmds: {}, t: {:.4}",
             //     bc.tick,

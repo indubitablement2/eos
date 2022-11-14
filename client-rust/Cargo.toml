@@ -34,6 +34,7 @@ bytemuck = { version = "1.12.3", features = [ "derive" ] }
 
 serde = { version = "1.0.147", features = ["derive"] }
 # bincode = "1.3.3"
+crc32fast = "1.3.2"
 
 # Physic and deterministic math.
 # rapier2d = { version = "0.15.0", features = ["enhanced-determinism", "serde-serialize"] }

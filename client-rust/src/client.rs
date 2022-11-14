@@ -51,7 +51,7 @@ impl Client {
                     fleet: common::fleet::Fleet {
                         ships: (0..1)
                             .map(|_| Ship {
-                                ship_data_id: rand::random(),
+                                ship_data_id: ShipDataId::from((i % 2) as u32),
                             })
                             .collect(),
                         owner: Some(ClientId(i)),
@@ -90,7 +90,7 @@ impl Client {
 
             for bc in self.bcs.iter_mut() {
                 let input = Input::godot_singleton();
-                let cmds = FullCmds {
+                let mut cmds = FullCmds {
                     jump_point: None,
                     cmds: vec![
                         BattlescapeCommand::SetClientControl(SetClientControl {
@@ -115,7 +115,7 @@ impl Client {
                         }),
                     ],
                 };
-
+                cmds.cmds.clear();
                 let tick = bc.replay.cmds.len() as u64;
                 bc.replay.push_cmds(tick, cmds);
             }
