@@ -18,7 +18,7 @@
 client -> simulation, net
 simulation_server -> simulation, net
 login_server -> ?
-coordinator_server -> ?
+coordinator_server -> ?, faction/economy
 
 simulation
 net -> simulation
