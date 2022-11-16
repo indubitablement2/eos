@@ -33,9 +33,9 @@ Explore - Fight - Customize (gradual fleet upgrade)
 Ship need to be rebuilt and maintained.
 Storage cost resource. 
 
-This keep the world fresh. New player are not overwhelmingly behind when joining later.
-
-This push player to utilise their wealt.
+Reasons:
+Keep the world fresh. New player are not overwhelmingly behind when joining later.
+Push player to utilise their wealt instead of hoarding.
 
 #### Resource storage
 * Fleet cargo: 
@@ -71,7 +71,7 @@ Getting higher tier gear is harder:
 * Quests.
 
 ### Disconnected fleet
-When a played disconnect, his fleet does not disappear.
+When a played disconnect, his fleets do not disappear.
 It does not consume resources however. 
 
 It can be assigned to do a number of things:
