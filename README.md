@@ -263,32 +263,3 @@ Reputation trend toward neutral.
 Player can see the whole market. 
 
 Item bought stay where they are and player need to get them. 
-
-## Technical
-* smoke
-  * particles
-* light & shadow
-  * godot cpu lightmapper
-* particles collision
-  * custom particle shader
-* trail metascape
-  * godot lide2d
-* ui
-  * godot control & signal
-
-## Inspiration
-
-* Starsector:
-  * Battle
-* Stellaris:
-  * Terminology
-* Borderlands:
-  * Manufacturer
-* Dawn of war 2:
-  * Effects
-* XPirateZ
-  * World
-* SupCom:
-  * Faction
-* Highfleet
-  * Art style
