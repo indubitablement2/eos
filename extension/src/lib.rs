@@ -28,11 +28,13 @@ use std::f32::consts::{FRAC_PI_2, PI, TAU};
 // TODO: add_ship should also add an ai!
 // TODO: Remove body/colliders when removing entity.
 // TODO: Make entity more private
-// // TODO: Controlled entity is stored in bc_client. Save this when taking snapshot.
+
 // TODO: Add client take control events. Use it on the render side to follow that entity.
-// TODO: Get texture and add to hull sprite.
-// TODO: Get data from godot side and optimise/cache it.
+
 // TODO: Handle battle over event.
+
+// TODO: Get data from godot side and optimise/cache it.
+// TODO: Get texture and add to hull sprite.
 
 mod ext {
     use godot::prelude::*;

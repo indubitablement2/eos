@@ -57,6 +57,13 @@ impl BattlescapeSnapshot {
             .collect();
     }
 }
+impl Drop for BattlescapeSnapshot {
+    fn drop(&mut self) {
+        for (_, entity_render) in self.new_entities.iter_mut() {
+            entity_render.node.queue_free();
+        }
+    }
+}
 impl BattlescapeEventHandler for BattlescapeSnapshot {
     fn fleet_added(&mut self, bc: &Battlescape, fleet_id: crate::FleetId) {}
 
@@ -127,7 +134,8 @@ struct EntityRender {
     hidden: bool,
 }
 impl EntityRender {
-    // Will not be added to the scene tree.
+    /// Will not be added to the scene.
+    /// `node` need to manualy free if this is drop before a call to `insert_to_scene`. 
     fn new(entity: &entity::Entity) -> Self {
         let mut entity_node = Node2D::new_alloc();
         entity_node.set_visible(false);
