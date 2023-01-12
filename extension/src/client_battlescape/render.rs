@@ -58,20 +58,15 @@ impl BattlescapeSnapshot {
     }
 }
 impl BattlescapeEventHandler for BattlescapeSnapshot {
-    fn fleet_added(&mut self, bc: &Battlescape, fleet_id: crate::FleetId) {
-        
-    }
+    fn fleet_added(&mut self, bc: &Battlescape, fleet_id: crate::FleetId) {}
 
-    fn ship_destroyed(&mut self, fleet_id: crate::FleetId, index: usize) {
-        
-    }
+    fn ship_destroyed(&mut self, fleet_id: crate::FleetId, index: usize) {}
 
-    fn entity_removed(&mut self, entity_id: EntityId, entity: entity::Entity) {
-        
-    }
+    fn entity_removed(&mut self, entity_id: EntityId, entity: entity::Entity) {}
 
     fn entity_added(&mut self, entity_id: EntityId, entity: &entity::Entity) {
-        self.new_entities.push((entity_id, EntityRender::new(entity)));
+        self.new_entities
+            .push((entity_id, EntityRender::new(entity)));
     }
 
     fn battle_over(&mut self, _bc: &Battlescape) {
@@ -108,7 +103,12 @@ struct HullRender {
 }
 
 impl HullRender {
-    fn new(hull_index: usize, hull: &Option<entity::Hull>, entity: &entity::Entity, entity_node: &Gd<Node2D>) -> Self {
+    fn new(
+        hull_index: usize,
+        hull: &Option<entity::Hull>,
+        entity: &entity::Entity,
+        entity_node: &Gd<Node2D>,
+    ) -> Self {
         let mut sprite = Sprite2D::new_alloc();
         sprite.set_texture(load("path")); // TODO: Load texture
         add_child(&entity_node, &sprite);
@@ -152,7 +152,7 @@ impl EntityRender {
     }
 }
 // Needed as it is contructed in events.
-unsafe impl Send for EntityRender{}
+unsafe impl Send for EntityRender {}
 
 pub struct BattlescapeRender {
     client_id: ClientId,
@@ -340,7 +340,7 @@ impl BattlescapeRender {
 
     fn apply_snapshot_events(&mut self, snapshot_index: usize) {
         let snapshot = &mut self.snapshots[snapshot_index];
-        
+
         if snapshot.render_handled {
             return;
         }
