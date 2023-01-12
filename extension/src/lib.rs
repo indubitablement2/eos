@@ -31,9 +31,8 @@ use std::f32::consts::{FRAC_PI_2, PI, TAU};
 // // TODO: Controlled entity is stored in bc_client. Save this when taking snapshot.
 // TODO: Add client take control events. Use it on the render side to follow that entity.
 // TODO: Get texture and add to hull sprite.
-// TODO: Render should apply events for current draw tick if it is new.
-// TODO: Use new entity events in render
 // TODO: Get data from godot side and optimise/cache it. 
+// TODO: Handle battle over event.
 
 mod ext {
     use godot::prelude::*;
