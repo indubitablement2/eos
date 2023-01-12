@@ -1,8 +1,5 @@
 # Godot 4+ specific ignores
 .godot/
 
-# Libs
-libs/
-
 # Godot executables
 Godot.x86_64
