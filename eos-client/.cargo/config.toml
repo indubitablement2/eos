@@ -1,5 +1,0 @@
-[unstable]
-configurable-env = true
-
-[env]
-# STEAM_SDK_LOCATION = "home/dev/eos/steam"
