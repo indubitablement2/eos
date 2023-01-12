@@ -1,0 +1,10 @@
+[unstable]
+unstable-options = true
+
+[env]
+GODOT4_BIN = { value = "../godot/Godot.x86_64", relative = true }
+# STEAM_SDK_LOCATION = "/home/username/dev/steam-sdk/redistributable_bin"
+
+[build]
+# This will copy libs directly to godot for faster iteration.
+out-dir = "../godot/libs/"

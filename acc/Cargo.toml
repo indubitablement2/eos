@@ -1,0 +1,11 @@
+[package]
+name = "acc"
+version = "0.8.0"
+edition = "2021"
+
+[dependencies]
+ahash = "0.8.0"
+rand = "0.8.5"
+serde = { version = "1.0.145", features = ["derive"] }
+
+# [dev-dependencies]
