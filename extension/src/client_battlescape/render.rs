@@ -13,8 +13,9 @@ use godot::prelude::*;
 pub struct BattlescapeSnapshot {
     tick: u64,
     entity_snapshots: AHashMap<EntityId, EntitySnapshot>,
-    new_entities: (), // TODO:
-                      // TODO: Collect needed events
+    new_entities: Vec<(EntityId, EntityRender)>,
+    render_handled: bool,
+    battle_over: bool,
 }
 impl BattlescapeSnapshot {
     pub fn take_snapshot(&mut self, bc: &Battlescape) {
@@ -58,23 +59,23 @@ impl BattlescapeSnapshot {
 }
 impl BattlescapeEventHandler for BattlescapeSnapshot {
     fn fleet_added(&mut self, bc: &Battlescape, fleet_id: crate::FleetId) {
-        todo!()
+        
     }
 
     fn ship_destroyed(&mut self, fleet_id: crate::FleetId, index: usize) {
-        todo!()
+        
     }
 
     fn entity_removed(&mut self, entity_id: EntityId, entity: entity::Entity) {
-        todo!()
+        
     }
 
     fn entity_added(&mut self, entity_id: EntityId, entity: &entity::Entity) {
-        todo!()
+        self.new_entities.push((entity_id, EntityRender::new(entity)));
     }
 
-    fn battle_over(&mut self, bc: &Battlescape) {
-        todo!()
+    fn battle_over(&mut self, _bc: &Battlescape) {
+        self.battle_over = true;
     }
 }
 
@@ -103,8 +104,20 @@ struct HullSnapshot {
 
 struct HullRender {
     sprite: Gd<Sprite2D>,
-    hull_index: usize,
     hidden: bool,
+}
+
+impl HullRender {
+    fn new(hull_index: usize, hull: &Option<entity::Hull>, entity: &entity::Entity, entity_node: &Gd<Node2D>) -> Self {
+        let mut sprite = Sprite2D::new_alloc();
+        sprite.set_texture(load("path")); // TODO: Load texture
+        add_child(&entity_node, &sprite);
+
+        HullRender {
+            sprite,
+            hidden: false,
+        }
+    }
 }
 
 struct EntityRender {
@@ -113,6 +126,33 @@ struct EntityRender {
     hulls: SmallVec<[HullRender; 1]>,
     hidden: bool,
 }
+impl EntityRender {
+    // Will not be added to the scene tree.
+    fn new(entity: &entity::Entity) -> Self {
+        let mut entity_node = Node2D::new_alloc();
+        entity_node.set_visible(false);
+
+        let hulls = entity
+            .hulls
+            .iter()
+            .enumerate()
+            .map(|(hull_index, hull)| HullRender::new(hull_index, hull, entity, &entity_node))
+            .collect();
+
+        EntityRender {
+            node: entity_node,
+            entity_data_id: entity.entity_data_id,
+            hulls,
+            hidden: true,
+        }
+    }
+
+    fn insert_to_scene(&self, draw_node: &Gd<Node2D>) {
+        add_child(draw_node, &self.node);
+    }
+}
+// Needed as it is contructed in events.
+unsafe impl Send for EntityRender{}
 
 pub struct BattlescapeRender {
     client_id: ClientId,
@@ -159,8 +199,10 @@ impl BattlescapeRender {
         self.entity_renders.clear();
 
         // Take initial entity state.
-        for entity_id in bc.entities.keys() {
-            self.new_render_entity(bc, entity_id);
+        for (entity_id, entity) in bc.entities.iter() {
+            let render_entity = EntityRender::new(entity);
+            render_entity.insert_to_scene(&self.draw_node);
+            self.entity_renders.insert(*entity_id, render_entity);
         }
 
         // We only have a single snapshot, so an empty range.
@@ -228,9 +270,11 @@ impl BattlescapeRender {
         self.available_render_tick.start = tick;
 
         // Apply previous events.
-        for snapshot in self.snapshots.drain(..advance) {
-            // TODO:
+        for snapshot_index in 0..advance + 1 {
+            self.apply_snapshot_events(snapshot_index);
         }
+        // Remove old snapshots.
+        self.snapshots.drain(..advance);
 
         // The snapshot we will interpolate between.
         let from = &self.snapshots[0].entity_snapshots;
@@ -294,35 +338,18 @@ impl BattlescapeRender {
         }
     }
 
-    fn new_render_entity(&mut self, bc: &Battlescape, entity_id: &EntityId) {
-        let entity = bc.entities.get(entity_id).unwrap();
-        let mut entity_node = Node2D::new_alloc();
-        entity_node.set_visible(false);
-        add_child(&self.draw_node, &entity_node);
+    fn apply_snapshot_events(&mut self, snapshot_index: usize) {
+        let snapshot = &mut self.snapshots[snapshot_index];
+        
+        if snapshot.render_handled {
+            return;
+        }
+        snapshot.render_handled = true;
 
-        let hulls = entity
-            .hulls
-            .iter()
-            .enumerate()
-            .map(|(hull_index, hull)| {
-                let mut sprite = Sprite2D::new_alloc();
-                sprite.set_texture(load("path")); // TODO: Load texture
-                add_child(&entity_node, &sprite);
-
-                HullRender {
-                    sprite,
-                    hull_index,
-                    hidden: false,
-                }
-            })
-            .collect();
-
-        EntityRender {
-            node: entity_node,
-            entity_data_id: entity.entity_data_id,
-            hulls,
-            hidden: true,
-        };
+        for (entity_id, entity_render) in snapshot.new_entities.drain(..) {
+            entity_render.insert_to_scene(&self.draw_node);
+            self.entity_renders.insert(entity_id, entity_render);
+        }
     }
 }
 
