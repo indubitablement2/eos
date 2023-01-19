@@ -25,6 +25,9 @@ use serde::{Deserialize, Serialize};
 use smallvec::{smallvec, SmallVec};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
+/// 1 game unit = 128 godot unit.
+pub const GODOT_SCALE: f32 = 128.0;
+
 // TODO: add_ship should also add an ai!
 // TODO: Remove body/colliders when removing entity.
 // TODO: Make entity more private
@@ -34,6 +37,7 @@ use std::f32::consts::{FRAC_PI_2, PI, TAU};
 // TODO: Handle battle over event.
 
 // TODO: Get data from godot side and optimise/cache it.
+// TODO: Partition hull armor.
 // TODO: Get texture and add to hull sprite.
 
 mod ext {

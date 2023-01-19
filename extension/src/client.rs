@@ -1,5 +1,6 @@
 use super::*;
 use crate::{client_battlescape::ClientBattlescape, client_config::ClientConfig};
+use data::*;
 use godot::prelude::*;
 
 #[derive(GodotClass)]
@@ -13,8 +14,13 @@ pub struct Client {
 #[godot_api]
 impl Client {
     #[func]
-    fn get_time(&mut self) -> f64 {
-        0.0
+    fn load_data(&mut self, path: GodotString) {
+        Data::load_data(path.to_string().as_str());
+    }
+
+    #[func]
+    fn reset_data(&mut self) {
+        Data::reset();
     }
 }
 #[godot_api]
@@ -22,7 +28,9 @@ impl GodotExt for Client {
     fn init(base: Base<Node>) -> Self {
         godot_logger::GodotLogger::init();
 
-        // TODO: Load comfigs from file.
+        Data::reset();
+
+        // TODO: Load configs from file.
         let client_config = Default::default();
 
         Self {
@@ -33,6 +41,12 @@ impl GodotExt for Client {
     }
 
     fn ready(&mut self) {
+        if self.base.has_method("has_method".into()) {
+            log::debug!("true");
+        }
+
+        log::info!("Ready");
+
         self.bcs.push(ClientBattlescape::new(
             self.base.share(),
             Default::default(),
@@ -42,6 +56,7 @@ impl GodotExt for Client {
     }
 
     fn process(&mut self, delta: f64) {
+        return; // TODO: process gets called always?
         for bc in self.bcs.iter_mut() {
             bc.update(delta as f32)
         }

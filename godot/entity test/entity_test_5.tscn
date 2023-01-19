@@ -1,0 +1,28 @@
+[gd_scene load_steps=7 format=3 uid="uid://xid2yes0tgcs"]
+
+[ext_resource type="Script" path="res://data/EntityData.gd" id="1_23n4q"]
+[ext_resource type="Script" path="res://data/ShipData.gd" id="1_vk0x6"]
+[ext_resource type="Texture2D" uid="uid://dtd2c027i6e6p" path="res://icon.svg" id="2_4ehp0"]
+[ext_resource type="Script" path="res://data/HullData.gd" id="3_j1rlr"]
+
+[sub_resource type="CanvasTexture" id="CanvasTexture_vbeqr"]
+diffuse_texture = ExtResource("2_4ehp0")
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_65803"]
+size = Vector2(128, 128)
+
+[node name="ShipData" type="Sprite2D"]
+texture = ExtResource("2_4ehp0")
+script = ExtResource("1_vk0x6")
+display_name = "Test Ship"
+
+[node name="EntityData" type="Node2D" parent="."]
+script = ExtResource("1_23n4q")
+
+[node name="HullData" type="Sprite2D" parent="EntityData"]
+texture = SubResource("CanvasTexture_vbeqr")
+script = ExtResource("3_j1rlr")
+collision_shape = NodePath("CollisionShape2D")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="EntityData/HullData"]
+shape = SubResource("RectangleShape2D_65803")

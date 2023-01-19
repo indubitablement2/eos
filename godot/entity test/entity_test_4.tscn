@@ -1,7 +1,7 @@
-[gd_scene load_steps=3 format=3 uid="uid://wnwd6ekm3f8c"]
+[gd_scene load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://EntityData.gd" id="1_m5i4e"]
-[ext_resource type="Script" path="res://HullData.gd" id="2_mhm5r"]
+[ext_resource type="Script" path="res://data/EntityData.gd" id="1_m5i4e"]
+[ext_resource type="Script" path="res://data/HullData.gd" id="2_mhm5r"]
 
 [node name="EntityData" type="Node2D"]
 script = ExtResource("1_m5i4e")

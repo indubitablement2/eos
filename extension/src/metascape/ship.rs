@@ -1,5 +1,6 @@
-use super::battlescape::entity::EntityDataTransient;
 use super::*;
+use godot::engine::Texture2D;
+use godot::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ship {
@@ -13,17 +14,7 @@ pub struct Ship {
 
 #[derive(Debug)]
 pub struct ShipData {
+    pub display_name: String,
+    pub texture: Gd<Texture2D>,
     pub entity_data_id: EntityDataId,
-}
-
-/// Ship read from file.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ShipDataTransient {
-    pub entity: EntityDataTransient,
-}
-impl ShipDataTransient {
-    pub fn to_ship_data(self, data: &mut Data) -> ShipData {
-        let entity_data_id = data.add_entity_data(self.entity.to_entity_data());
-        ShipData { entity_data_id }
-    }
 }

@@ -1,5 +1,8 @@
 pub mod ai;
+mod script;
 
+use godot::prelude::{Gd, Node2D};
+use self::script::ScriptWrapper;
 use super::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,6 +18,8 @@ pub struct Entity {
     readiness: f32,
     mobility: Mobility,
     pub hulls: SmallVec<[Option<Hull>; 1]>,
+
+    pub script: ScriptWrapper,
 
     pub wish_angvel: WishAngVel,
     pub wish_linvel: WishLinVel,
@@ -65,6 +70,7 @@ impl Entity {
             hulls,
             wish_angvel: Default::default(),
             wish_linvel: Default::default(),
+            script: todo!(),
         }
     }
 
@@ -131,20 +137,12 @@ pub struct Hull {
 }
 
 pub struct EntityData {
-    mobility: Mobility,
+    pub mobility: Mobility,
     /// First hull is main.
     pub hulls: SmallVec<[HullData; 1]>,
     // TODO: ai
-    ai: Option<()>,
-}
-impl Default for EntityData {
-    fn default() -> Self {
-        Self {
-            mobility: Default::default(),
-            hulls: smallvec![Default::default()],
-            ai: Default::default(),
-        }
-    }
+    pub ai: Option<()>,
+    pub node: Gd<Node2D>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
@@ -184,108 +182,10 @@ pub struct HullData {
     pub defence: Defence,
     pub shape: SharedShape,
     pub density: f32,
-    pub texture_paths: String,
     // TODO: weapon slot
     // TODO: built-in weapon (take a slot #)
     // TODO: Engine placement
     // TODO: Shields
-}
-impl Default for HullData {
-    fn default() -> Self {
-        Self {
-            defence: Default::default(),
-            shape: HullShape::default().to_shared_shape(),
-            density: 1.0,
-            texture_paths: Default::default(),
-        }
-    }
-}
-
-/// An entity data read from file.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EntityDataTransient {
-    mobility: Mobility,
-    hulls: Vec<HullDataTransient>,
-    ai: Option<()>,
-}
-impl EntityDataTransient {
-    pub fn to_entity_data(mut self) -> EntityData {
-        if self.hulls.is_empty() {
-            self.hulls.push(Default::default());
-        }
-        let hulls = self
-            .hulls
-            .into_iter()
-            .map(|hull| hull.to_hull_data())
-            .collect::<SmallVec<_>>();
-
-        EntityData {
-            mobility: self.mobility,
-            hulls,
-            ai: self.ai,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct HullDataTransient {
-    defence: Defence,
-    shape: HullShape,
-    density: f32,
-    texture_paths: String,
-    // TODO: weapon slot
-    // TODO: built-in weapon (take a slot #)
-    // TODO: Engine placement
-    // TODO: Shields
-}
-impl HullDataTransient {
-    fn to_hull_data(self) -> HullData {
-        HullData {
-            defence: self.defence,
-            shape: self.shape.to_shared_shape(),
-            density: self.density,
-            texture_paths: self.texture_paths,
-        }
-    }
-}
-impl Default for HullDataTransient {
-    fn default() -> Self {
-        Self {
-            defence: Default::default(),
-            shape: Default::default(),
-            density: 1.0,
-            texture_paths: Default::default(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-enum HullShape {
-    Cuboid { hx: f32, hy: f32 },
-    Ball { radius: f32 },
-    Polygon { vertices: Vec<glam::Vec2> },
-}
-impl HullShape {
-    pub fn to_shared_shape(&self) -> SharedShape {
-        match self {
-            HullShape::Cuboid { hx, hy } => SharedShape::cuboid(*hx, *hy),
-            HullShape::Ball { radius } => SharedShape::ball(*radius),
-            HullShape::Polygon { vertices } => {
-                let vertices = vertices
-                    .iter()
-                    .map(|v| na::point![v.x, v.y])
-                    .collect::<Vec<_>>();
-
-                let indices = (0..vertices.len() as u32 - 1)
-                    .map(|i| [i, i + 1])
-                    .collect::<Vec<_>>();
-                SharedShape::convex_decomposition(&vertices, indices.as_slice())
-            }
-        }
-    }
-}
-impl Default for HullShape {
-    fn default() -> Self {
-        Self::Ball { radius: 0.5 }
-    }
+    /// Node index as child of an entity.
+    pub node_idx: i64,
 }

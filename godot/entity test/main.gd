@@ -1,8 +1,7 @@
 extends Node2D
 
 func _ready() -> void:
-	var e := get_node("EntityTest3")
-	var b := var_to_bytes_with_objects(e)
-	print(b)
-	var er := bytes_to_var_with_objects(b) as EntityData
-	print(er.entity_data.angular_acceleration)
+	var n = preload("res://entity test/entity_test_5.tscn").instantiate()
+	print(n.get_class())
+	print(n.has_method("_is_ship_data"))
+	$Client.load_data("res://entity test/entity_test_5.tscn")

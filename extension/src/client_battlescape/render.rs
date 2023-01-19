@@ -135,7 +135,7 @@ struct EntityRender {
 }
 impl EntityRender {
     /// Will not be added to the scene.
-    /// `node` need to manualy free if this is drop before a call to `insert_to_scene`. 
+    /// `node` need to manualy free if this is drop before a call to `insert_to_scene`.
     fn new(entity: &entity::Entity) -> Self {
         let mut entity_node = Node2D::new_alloc();
         entity_node.set_visible(false);

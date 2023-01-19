@@ -12,28 +12,34 @@ _global_script_classes=[{
 "base": "Node2D",
 "class": &"Entity2",
 "language": &"GDScript",
-"path": "res://Entity.gd"
+"path": "res://data/Entity.gd"
 }, {
 "base": "Node2D",
 "class": &"EntityData",
 "language": &"GDScript",
-"path": "res://EntityData.gd"
+"path": "res://data/EntityData.gd"
 }, {
 "base": "Sprite2D",
 "class": &"Hull",
 "language": &"GDScript",
-"path": "res://Hull.gd"
+"path": "res://data/Hull.gd"
 }, {
 "base": "Sprite2D",
 "class": &"HullData",
 "language": &"GDScript",
-"path": "res://HullData.gd"
+"path": "res://data/HullData.gd"
+}, {
+"base": "Sprite2D",
+"class": &"ShipData",
+"language": &"GDScript",
+"path": "res://data/ShipData.gd"
 }]
 _global_script_class_icons={
 "Entity2": "",
 "EntityData": "",
 "Hull": "",
-"HullData": ""
+"HullData": "",
+"ShipData": ""
 }
 
 [application]

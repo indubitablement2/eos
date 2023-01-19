@@ -1,10 +1,10 @@
-[gd_scene load_steps=7 format=3 uid="uid://do6pttoltxglh"]
+[gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://EntityData.gd" id="1_h7fl2"]
-[ext_resource type="Shader" path="res://hull.gdshader" id="3_dolg7"]
+[ext_resource type="Script" path="res://data/EntityData.gd" id="1_h7fl2"]
+[ext_resource type="Shader" path="res://DamageableHull.gdshader" id="3_dolg7"]
 [ext_resource type="Texture2D" uid="uid://dtd2c027i6e6p" path="res://icon.svg" id="4_6x6tv"]
-[ext_resource type="Script" path="res://HullData.gd" id="5_c75op"]
-[ext_resource type="Script" path="res://Hull.gd" id="6_4o2qe"]
+[ext_resource type="Script" path="res://data/HullData.gd" id="5_c75op"]
+[ext_resource type="Script" path="res://data/Hull.gd" id="6_4o2qe"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_ytdne"]
 shader = ExtResource("3_dolg7")

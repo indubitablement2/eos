@@ -79,6 +79,18 @@ impl ToGodot for na::Vector2<f32> {
         )
     }
 }
+impl ToGodot for na::Translation2<f32> {
+    fn to_godot(self) -> Vector2 {
+        Vector2::new(self.x, self.y)
+    }
+
+    fn to_godot_scaled(self) -> Vector2 {
+        Vector2::new(
+            self.x * BATTLESCAPE_TO_GODOT_SCALE,
+            self.y * BATTLESCAPE_TO_GODOT_SCALE,
+        )
+    }
+}
 impl ToGodot for glam::Vec2 {
     fn to_godot(self) -> Vector2 {
         Vector2::new(self.x, self.y)
