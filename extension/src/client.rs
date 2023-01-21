@@ -14,8 +14,8 @@ pub struct Client {
 #[godot_api]
 impl Client {
     #[func]
-    fn load_data(&mut self, path: GodotString) {
-        Data::load_data(path.to_string().as_str());
+    fn try_load_data(&mut self, path: GodotString) {
+        Data::try_load_data(path);
     }
 
     #[func]
