@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://do11dnuvimtb1"]
+
+[ext_resource type="Texture2D" uid="uid://dtd2c027i6e6p" path="res://icon.svg" id="1_4hqb3"]
+[ext_resource type="Script" path="res://data/ShipData.gd" id="2_7314e"]
+
+[node name="ShipData" type="Sprite2D"]
+texture = ExtResource("1_4hqb3")
+script = ExtResource("2_7314e")
+display_name = "Test Ship"
+entity_path = "res://entity test/entity_test.tscn"

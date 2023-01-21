@@ -1,8 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://cl324wxisjqkb"]
-
-[ext_resource type="Script" path="res://entity test/Server.gd" id="1_edrj0"]
-
-[node name="EntityTest3" type="Node2D"]
-
-[node name="Server" type="Server" parent="."]
-script = ExtResource("1_edrj0")

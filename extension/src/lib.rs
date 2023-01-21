@@ -36,9 +36,10 @@ pub const GODOT_SCALE: f32 = 128.0;
 
 // TODO: Handle battle over event.
 
-// TODO: Get data from godot side and optimise/cache it.
 // TODO: Partition hull armor.
 // TODO: Get texture and add to hull sprite.
+
+// TODO: Move state out of client. Use static bcs
 
 mod ext {
     use godot::prelude::*;

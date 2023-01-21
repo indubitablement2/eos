@@ -94,125 +94,124 @@ impl Data {
 
     /// Return the index of the entity data.
     fn parse_entity_data(&mut self, entity_path: String) -> Option<usize> {
-        self.entities.get_index_of(&entity_path).or_else(|| {
-            let mut node = try_load::<PackedScene>(entity_path.to_string())?
-                .instantiate(GenEditState::GEN_EDIT_STATE_DISABLED)?;
+        if let Some(idx) = self.entities.get_index_of(&entity_path) {
+            return Some(idx);
+        }
 
-            // Find the hulls nodes.
-            let mut hulls: SmallVec<[HullData; 1]> = SmallVec::new();
-            for (mut child_node, render_node_idx) in node.children_iter().zip(0i64..) {
-                if !child_node.has_method("_is_hull_data".into()) {
-                    continue;
-                }
+        let mut node = try_load::<PackedScene>(entity_path.to_string())?
+            .instantiate(GenEditState::GEN_EDIT_STATE_DISABLED)?;
 
-                let mut shape = SharedShape::ball(0.5);
-                let mut init_position = rapier2d::prelude::Isometry::default();
-                for child_child_node in child_node.children_iter() {
-                    if let Some(collision_node) =
-                        child_child_node.share().try_cast::<CollisionShape2D>()
-                    {
-                        let shape_node = collision_node.get_shape()?;
-
-                        init_position = rapier2d::prelude::Isometry::new(
-                            collision_node.get_position().to_na_descaled(),
-                            collision_node.get_rotation() as f32,
-                        );
-
-                        if let Some(circle_shape) = shape_node.share().try_cast::<CircleShape2D>() {
-                            let radius = circle_shape.get_radius() as f32 / GODOT_SCALE;
-                            shape = SharedShape::ball(radius);
-                        } else if let Some(rectangle_shape) =
-                            shape_node.try_cast::<RectangleShape2D>()
-                        {
-                            let size = rectangle_shape.get_size().to_na_descaled();
-                            shape = SharedShape::cuboid(size.x, size.y);
-                        }
-
-                        // Remove collision shape node.
-                        child_node.remove_child(collision_node.upcast());
-
-                        break;
-                    } else if let Some(collision_poly) =
-                        child_child_node.try_cast::<CollisionPolygon2D>()
-                    {
-                        // TODO: Handle poly when array are supported.
-                        // TODO: (GODOT_SCALE)
-                        // TODO: empty poly
-                        collision_poly.get_polygon();
-
-                        // let vertices = vertices
-                        //     .iter()
-                        //     .map(|v| na::point![v.x, v.y])
-                        //     .collect::<Vec<_>>();
-
-                        // let indices = (0..vertices.len() as u32 - 1)
-                        //     .map(|i| [i, i + 1])
-                        //     .collect::<Vec<_>>();
-                        // SharedShape::convex_decomposition(&vertices, indices.as_slice())
-
-                        log::warn!("poly not supported yet");
-
-                        // Remove collision poly node.
-                        child_node.remove_child(collision_poly.upcast());
-
-                        break;
-                    }
-                }
-
-                hulls.push(HullData {
-                    defence: Defence {
-                        hull: child_node.get("hull".into()).try_to().ok()?,
-                        armor: child_node.get("armor".into()).try_to().ok()?,
-                    },
-                    shape,
-                    init_position,
-                    density: child_node.get("density".into()).try_to().ok()?,
-                    render_node_idx,
-                    script: ScriptWrapper::new_hull(
-                        child_node.get("simulation_script".into()).try_to().ok()?,
-                    ),
-                });
-
-                let render_script = child_node.get("render_script".into());
-                child_node.set_script(render_script);
+        // Find the hulls nodes.
+        let mut hulls: SmallVec<[HullData; 1]> = SmallVec::new();
+        for (mut child_node, render_node_idx) in node.children_iter().zip(0i64..) {
+            if !child_node.has_method("_is_hull_data".into()) {
+                continue;
             }
 
-            let entity_data = EntityData {
-                mobility: Mobility {
-                    linear_acceleration: node
-                        .get("linear_acceleration".into())
-                        .try_to::<f32>()
-                        .ok()?
-                        / GODOT_SCALE,
-                    angular_acceleration: node
-                        .get("angular_acceleration".into())
-                        .try_to::<f32>()
-                        .ok()?
-                        / GODOT_SCALE,
-                    max_linear_velocity: node
-                        .get("max_linear_velocity".into())
-                        .try_to::<f32>()
-                        .ok()?
-                        / GODOT_SCALE,
-                    max_angular_velocity: node
-                        .get("max_angular_velocity".into())
-                        .try_to::<f32>()
-                        .ok()?
-                        / GODOT_SCALE,
+            let mut shape = SharedShape::ball(0.5);
+            let mut init_position = rapier2d::prelude::Isometry::default();
+            for child_child_node in child_node.children_iter() {
+                if let Some(collision_node) =
+                    child_child_node.share().try_cast::<CollisionShape2D>()
+                {
+                    let shape_node = collision_node.get_shape()?;
+
+                    init_position = rapier2d::prelude::Isometry::new(
+                        collision_node.get_position().to_na_descaled(),
+                        collision_node.get_rotation() as f32,
+                    );
+
+                    if let Some(circle_shape) = shape_node.share().try_cast::<CircleShape2D>() {
+                        let radius = circle_shape.get_radius() as f32 / GODOT_SCALE;
+                        shape = SharedShape::ball(radius);
+                    } else if let Some(rectangle_shape) = shape_node.try_cast::<RectangleShape2D>()
+                    {
+                        let size = rectangle_shape.get_size().to_na_descaled();
+                        shape = SharedShape::cuboid(size.x, size.y);
+                    }
+
+                    // Remove collision shape node.
+                    child_node.remove_child(collision_node.upcast());
+
+                    break;
+                } else if let Some(collision_poly) =
+                    child_child_node.try_cast::<CollisionPolygon2D>()
+                {
+                    // TODO: Handle poly when array are supported.
+                    // TODO: (GODOT_SCALE)
+                    // TODO: empty poly
+                    collision_poly.get_polygon();
+
+                    // let vertices = vertices
+                    //     .iter()
+                    //     .map(|v| na::point![v.x, v.y])
+                    //     .collect::<Vec<_>>();
+
+                    // let indices = (0..vertices.len() as u32 - 1)
+                    //     .map(|i| [i, i + 1])
+                    //     .collect::<Vec<_>>();
+                    // SharedShape::convex_decomposition(&vertices, indices.as_slice())
+
+                    log::warn!("poly not supported yet");
+
+                    // Remove collision poly node.
+                    child_node.remove_child(collision_poly.upcast());
+
+                    break;
+                }
+            }
+
+            hulls.push(HullData {
+                defence: Defence {
+                    hull: child_node.get("hull".into()).try_to().ok()?,
+                    armor: child_node.get("armor".into()).try_to().ok()?,
                 },
-                hulls,
-                ai: None, // TODO: Initial ai
-                node: node.share().try_cast()?,
-                script: ScriptWrapper::new_entity(
-                    node.get("simulation_script".into()).try_to().ok()?,
+                shape,
+                init_position,
+                density: child_node.get("density".into()).try_to().ok()?,
+                render_node_idx,
+                script: ScriptWrapper::new_hull(
+                    child_node.get("simulation_script".into()).try_to().ok()?,
                 ),
-            };
+            });
 
-            let render_script = node.get("render_script".into());
-            node.set_script(render_script);
+            let render_script = child_node.get("render_script".into());
+            child_node.set_script(render_script);
+        }
 
-            Some(self.entities.insert_full(entity_path, entity_data).0)
-        })
+        let entity_data = EntityData {
+            mobility: Mobility {
+                linear_acceleration: node
+                    .get("linear_acceleration".into())
+                    .try_to::<f32>()
+                    .ok()?
+                    / GODOT_SCALE,
+                angular_acceleration: node
+                    .get("angular_acceleration".into())
+                    .try_to::<f32>()
+                    .ok()?
+                    / GODOT_SCALE,
+                max_linear_velocity: node
+                    .get("max_linear_velocity".into())
+                    .try_to::<f32>()
+                    .ok()?
+                    / GODOT_SCALE,
+                max_angular_velocity: node
+                    .get("max_angular_velocity".into())
+                    .try_to::<f32>()
+                    .ok()?
+                    / GODOT_SCALE,
+            },
+            hulls,
+            ai: None, // TODO: Initial ai
+            node: node.share().try_cast()?,
+            script: ScriptWrapper::new_entity(node.get("simulation_script".into()).try_to().ok()?),
+        };
+
+        let render_script = node.get("render_script".into());
+        node.set_script(render_script);
+
+        Some(self.entities.insert_full(entity_path, entity_data).0)
     }
 
     fn data() -> &'static Data {
@@ -261,15 +260,15 @@ impl ChildIterTrait for Gd<Node> {
         log::debug!("1.1");
         let childs = self.get_children(false);
         log::debug!("1.2");
-        let i = 0;
-        log::debug!("1.3");
         let len = self.get_child_count(false);
-        log::debug!("1.4");
+        log::debug!("1.3");
 
-        ChildIter {
-            childs: self.get_children(false),
-            i: 0,
-            len: self.get_child_count(false),
-        }
+        ChildIter { childs, i: 0, len }
+
+        // ChildIter {
+        //     childs: self.get_children(false),
+        //     i: 0,
+        //     len: self.get_child_count(false),
+        // }
     }
 }

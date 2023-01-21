@@ -1,0 +1,22 @@
+[gd_scene load_steps=6 format=3 uid="uid://xid2yes0tgcs"]
+
+[ext_resource type="Script" path="res://data/EntityData.gd" id="1_kj0ly"]
+[ext_resource type="Texture2D" uid="uid://dtd2c027i6e6p" path="res://icon.svg" id="2_aab0o"]
+[ext_resource type="Script" path="res://data/HullData.gd" id="3_8p8gp"]
+
+[sub_resource type="CanvasTexture" id="CanvasTexture_xboxs"]
+diffuse_texture = ExtResource("2_aab0o")
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_3pmol"]
+size = Vector2(128, 128)
+
+[node name="EntityData" type="Node2D"]
+script = ExtResource("1_kj0ly")
+
+[node name="HullData" type="Sprite2D" parent="."]
+texture = SubResource("CanvasTexture_xboxs")
+script = ExtResource("3_8p8gp")
+collision_shape = NodePath("CollisionShape2D")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HullData"]
+shape = SubResource("RectangleShape2D_3pmol")

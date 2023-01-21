@@ -29,7 +29,7 @@ pub trait ToNalgebra {
 }
 impl ToNalgebra for Vector2 {
     fn to_na(self) -> na::Vector2<f32> {
-        na::Vector2::new(self.inner().x, self.inner().y)
+        na::Vector2::new(self.x, self.y)
     }
 }
 // impl ToNalgebra for glam::Vec2 {
@@ -53,8 +53,7 @@ impl ToGlam for na::Vector2<f32> {
 }
 impl ToGlam for Vector2 {
     fn to_glam(self) -> glam::Vec2 {
-        self.inner()
-        // glam::vec2(self.x, self.y)
+        glam::vec2(self.x, self.y)
     }
 }
 
