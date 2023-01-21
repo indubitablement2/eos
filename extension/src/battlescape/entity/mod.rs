@@ -1,9 +1,9 @@
 pub mod ai;
 pub mod script;
 
-use godot::prelude::*;
 use self::script::ScriptWrapper;
 use super::*;
+use godot::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Entity {
@@ -49,8 +49,8 @@ impl Entity {
             .map(|(hull_data, i)| {
                 let collider = physics.add_collider(
                     SimpleColliderBuilder::new_ship(hull_data.shape.clone())
-                    .density(hull_data.density)
-                    .position(hull_data.init_position),
+                        .density(hull_data.density)
+                        .position(hull_data.init_position),
                     rb,
                     ColliderGenericId::HullIndex(i),
                 );
@@ -93,22 +93,21 @@ impl Entity {
         self.mobility = self.entity_data_id.data().mobility;
     }
 
-    pub fn prepare_script(
-        &mut self,
-        bc_ptr: i64,
-        entity_idx: i64,
-    ) {
-        self.script.prepare_entity(bc_ptr.to_variant(), entity_idx.to_variant());
+    pub fn prepare_script(&mut self, bc_ptr: i64, entity_idx: i64) {
+        self.script
+            .prepare_entity(bc_ptr.to_variant(), entity_idx.to_variant());
         for (hull, hull_idx) in self.hulls.iter_mut().zip(0i64..) {
             if let Some(hull) = hull {
-                hull.script.prepare_hull(bc_ptr.to_variant(), entity_idx.to_variant(), hull_idx.to_variant());
+                hull.script.prepare_hull(
+                    bc_ptr.to_variant(),
+                    entity_idx.to_variant(),
+                    hull_idx.to_variant(),
+                );
             }
         }
     }
 
-    pub fn step_script(
-        &mut self,
-    ) {
+    pub fn step_script(&mut self) {
         self.script.step();
         for (hull, hull_idx) in self.hulls.iter_mut().zip(0i64..) {
             if let Some(hull) = hull {
@@ -117,11 +116,7 @@ impl Entity {
         }
     }
 
-    pub fn step(
-        &mut self,
-    ) {
-
-    }
+    pub fn step(&mut self) {}
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]

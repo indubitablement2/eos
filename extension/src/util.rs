@@ -70,10 +70,7 @@ impl ToGodot for na::Vector2<f32> {
     }
 
     fn to_godot_scaled(self) -> Vector2 {
-        Vector2::new(
-            self.x * GODOT_SCALE,
-            self.y * GODOT_SCALE,
-        )
+        Vector2::new(self.x * GODOT_SCALE, self.y * GODOT_SCALE)
     }
 }
 impl ToGodot for na::Translation2<f32> {
@@ -82,10 +79,7 @@ impl ToGodot for na::Translation2<f32> {
     }
 
     fn to_godot_scaled(self) -> Vector2 {
-        Vector2::new(
-            self.x * GODOT_SCALE,
-            self.y * GODOT_SCALE,
-        )
+        Vector2::new(self.x * GODOT_SCALE, self.y * GODOT_SCALE)
     }
 }
 impl ToGodot for glam::Vec2 {
@@ -94,9 +88,6 @@ impl ToGodot for glam::Vec2 {
     }
 
     fn to_godot_scaled(self) -> Vector2 {
-        Vector2::new(
-            self.x * GODOT_SCALE,
-            self.y * GODOT_SCALE,
-        )
+        Vector2::new(self.x * GODOT_SCALE, self.y * GODOT_SCALE)
     }
 }

@@ -1,10 +1,10 @@
 use std::hash::Hash;
 
-use crate::battlescape::entity::script::ScriptWrapper;
-use crate::util::*;
 use super::battlescape::entity::*;
 use super::metascape::ship::ShipData;
 use super::*;
+use crate::battlescape::entity::script::ScriptWrapper;
+use crate::util::*;
 use godot::engine::packed_scene::GenEditState;
 use godot::engine::{
     CircleShape2D, CollisionPolygon2D, CollisionShape2D, RectangleShape2D, Sprite2D, Texture2D,
@@ -55,8 +55,8 @@ impl Data {
     pub fn try_load_data(path: GodotString) -> Option<()> {
         let data = Data::data_mut();
         let string_path = path.to_string();
-        let node = try_load::<PackedScene>(path)?
-            .instantiate(GenEditState::GEN_EDIT_STATE_DISABLED)?;
+        let node =
+            try_load::<PackedScene>(path)?.instantiate(GenEditState::GEN_EDIT_STATE_DISABLED)?;
 
         if node.has_method("_is_ship_data".into()) {
             if !data.ships.contains_key(&string_path) {
@@ -77,14 +77,18 @@ impl Data {
             .try_to::<GodotString>()
             .ok()?
             .to_string();
-        
+
         Some((
             ShipData {
-                display_name: node.get("display_name".into()).try_to::<GodotString>().ok()?.to_string(),
+                display_name: node
+                    .get("display_name".into())
+                    .try_to::<GodotString>()
+                    .ok()?
+                    .to_string(),
                 render: node.try_cast()?,
                 entity_data_id: EntityDataId(0),
             },
-            entity_path
+            entity_path,
         ))
     }
 
@@ -93,7 +97,7 @@ impl Data {
         self.entities.get_index_of(&entity_path).or_else(|| {
             let mut node = try_load::<PackedScene>(entity_path.to_string())?
                 .instantiate(GenEditState::GEN_EDIT_STATE_DISABLED)?;
-            
+
             // Find the hulls nodes.
             let mut hulls: SmallVec<[HullData; 1]> = SmallVec::new();
             for (mut child_node, render_node_idx) in node.children_iter().zip(0i64..) {
@@ -104,9 +108,11 @@ impl Data {
                 let mut shape = SharedShape::ball(0.5);
                 let mut init_position = rapier2d::prelude::Isometry::default();
                 for child_child_node in child_node.children_iter() {
-                    if let Some(collision_node) = child_child_node.share().try_cast::<CollisionShape2D>() {
+                    if let Some(collision_node) =
+                        child_child_node.share().try_cast::<CollisionShape2D>()
+                    {
                         let shape_node = collision_node.get_shape()?;
-                        
+
                         init_position = rapier2d::prelude::Isometry::new(
                             collision_node.get_position().to_na_descaled(),
                             collision_node.get_rotation() as f32,
@@ -115,16 +121,20 @@ impl Data {
                         if let Some(circle_shape) = shape_node.share().try_cast::<CircleShape2D>() {
                             let radius = circle_shape.get_radius() as f32 / GODOT_SCALE;
                             shape = SharedShape::ball(radius);
-                        } else if let Some(rectangle_shape) = shape_node.try_cast::<RectangleShape2D>() {
+                        } else if let Some(rectangle_shape) =
+                            shape_node.try_cast::<RectangleShape2D>()
+                        {
                             let size = rectangle_shape.get_size().to_na_descaled();
                             shape = SharedShape::cuboid(size.x, size.y);
                         }
-                        
+
                         // Remove collision shape node.
                         child_node.remove_child(collision_node.upcast());
 
                         break;
-                    } else if let Some(collision_poly) = child_child_node.try_cast::<CollisionPolygon2D>() {
+                    } else if let Some(collision_poly) =
+                        child_child_node.try_cast::<CollisionPolygon2D>()
+                    {
                         // TODO: Handle poly when array are supported.
                         // TODO: (GODOT_SCALE)
                         // TODO: empty poly
@@ -158,7 +168,9 @@ impl Data {
                     init_position,
                     density: child_node.get("density".into()).try_to().ok()?,
                     render_node_idx,
-                    script: ScriptWrapper::new_hull(child_node.get("simulation_script".into()).try_to().ok()?),
+                    script: ScriptWrapper::new_hull(
+                        child_node.get("simulation_script".into()).try_to().ok()?,
+                    ),
                 });
 
                 let render_script = child_node.get("render_script".into());
@@ -191,12 +203,14 @@ impl Data {
                 hulls,
                 ai: None, // TODO: Initial ai
                 node: node.share().try_cast()?,
-                script: ScriptWrapper::new_entity(node.get("simulation_script".into()).try_to().ok()?),
+                script: ScriptWrapper::new_entity(
+                    node.get("simulation_script".into()).try_to().ok()?,
+                ),
             };
 
             let render_script = node.get("render_script".into());
             node.set_script(render_script);
-            
+
             Some(self.entities.insert_full(entity_path, entity_data).0)
         })
     }

@@ -1,8 +1,11 @@
-use std::ops::{DerefMut, Deref};
-use crate::util::*;
 use super::*;
-use godot::prelude::{*, utilities::{var_to_bytes_with_objects, bytes_to_var_with_objects}};
+use crate::util::*;
+use godot::prelude::{
+    utilities::{bytes_to_var_with_objects, var_to_bytes_with_objects},
+    *,
+};
 use serde::de::Visitor;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScriptWrapper {
@@ -49,16 +52,20 @@ impl ScriptWrapper {
     }
 
     pub fn prepare_entity(&mut self, bc_ptr: Variant, entity_idx: Variant) {
-        self.wrapper.0.call("__prepare_internal".into(), &[bc_ptr, entity_idx]);
+        self.wrapper
+            .0
+            .call("__prepare_internal".into(), &[bc_ptr, entity_idx]);
     }
 
     pub fn prepare_hull(&mut self, bc_ptr: Variant, entity_idx: Variant, hull_idx: Variant) {
-        self.wrapper.0.call("__prepare_internal".into(), &[bc_ptr, entity_idx, hull_idx]);
+        self.wrapper
+            .0
+            .call("__prepare_internal".into(), &[bc_ptr, entity_idx, hull_idx]);
     }
 
     pub fn step(&mut self) {
         if self.need_step {
-            self.wrapper.0.call("_step".into(), &[]);   
+            self.wrapper.0.call("_step".into(), &[]);
         }
     }
 }
@@ -75,7 +82,8 @@ unsafe impl Send for GodotScriptWrapper {}
 impl Serialize for GodotScriptWrapper {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer {
+        S: serde::Serializer,
+    {
         let bytes = var_to_bytes_with_objects(self.0.to_variant());
         // TODO: use those bytes when array are implemented.
         serializer.serialize_bytes(&[])
@@ -84,10 +92,12 @@ impl Serialize for GodotScriptWrapper {
 impl<'de> Deserialize<'de> for GodotScriptWrapper {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de> {
-            // TODO: Cast to array when implemented
-        deserializer.deserialize_byte_buf(BufVisitor)
-            .map(|buf| GodotScriptWrapper(bytes_to_var_with_objects(todo!()).to()) )
+        D: serde::Deserializer<'de>,
+    {
+        // TODO: Cast to array when implemented
+        deserializer
+            .deserialize_byte_buf(BufVisitor)
+            .map(|buf| GodotScriptWrapper(bytes_to_var_with_objects(todo!()).to()))
     }
 }
 struct BufVisitor;
@@ -99,14 +109,16 @@ impl<'de> Visitor<'de> for BufVisitor {
     }
 
     fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
-        where
-            E: serde::de::Error, {
+    where
+        E: serde::de::Error,
+    {
         Ok(v.to_vec())
     }
 
     fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
-        where
-            E: serde::de::Error, {
+    where
+        E: serde::de::Error,
+    {
         Ok(v)
     }
 }
@@ -235,8 +247,7 @@ impl HullScript {
 
     #[func]
     fn position(&mut self) -> Vector2 {
-        self
-            .collider()
+        self.collider()
             .and_then(|collider| collider.position_wrt_parent())
             .map(|pos_wrt_parent| pos_wrt_parent.translation.to_godot())
             .unwrap_or_default()
@@ -244,8 +255,7 @@ impl HullScript {
 
     #[func]
     fn global_position(&mut self) -> Vector2 {
-        self
-            .collider()
+        self.collider()
             .map(|collider| collider.translation().to_godot())
             .unwrap_or_default()
     }
