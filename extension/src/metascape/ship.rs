@@ -1,5 +1,4 @@
 use super::*;
-use godot::engine::Texture2D;
 use godot::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,6 +14,6 @@ pub struct Ship {
 #[derive(Debug)]
 pub struct ShipData {
     pub display_name: String,
-    pub texture: Gd<Texture2D>,
+    pub render: Gd<Node2D>,
     pub entity_data_id: EntityDataId,
 }

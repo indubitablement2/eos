@@ -1,9 +1,6 @@
 use super::*;
 use godot::prelude::*;
 
-/// 1 battlescape unit == 32 godot unit
-const BATTLESCAPE_TO_GODOT_SCALE: f32 = 32.0;
-
 pub trait Lerp {
     fn lerp(self, to: Self, t: f32) -> Self;
     fn slerp(self, to: Self, t: f32) -> Self;
@@ -22,12 +19,12 @@ impl Lerp for f32 {
 pub trait ToNalgebra {
     fn to_na(self) -> na::Vector2<f32>;
 
-    /// Convert to a nalgebra vector with `BATTLESCAPE_TO_GODOT_SCALE` scale removed.
+    /// Convert to a nalgebra vector with `GODOT_SCALE` scale removed.
     fn to_na_descaled(self) -> na::Vector2<f32>
     where
         Self: Sized,
     {
-        self.to_na() / BATTLESCAPE_TO_GODOT_SCALE
+        self.to_na() / GODOT_SCALE
     }
 }
 impl ToNalgebra for Vector2 {
@@ -64,7 +61,7 @@ impl ToGlam for Vector2 {
 pub trait ToGodot {
     fn to_godot(self) -> Vector2;
 
-    /// Convert to a godot vector with `BATTLESCAPE_TO_GODOT_SCALE` scale added.
+    /// Convert to a godot vector with `GODOT_SCALE` scale added.
     fn to_godot_scaled(self) -> Vector2;
 }
 impl ToGodot for na::Vector2<f32> {
@@ -74,8 +71,8 @@ impl ToGodot for na::Vector2<f32> {
 
     fn to_godot_scaled(self) -> Vector2 {
         Vector2::new(
-            self.x * BATTLESCAPE_TO_GODOT_SCALE,
-            self.y * BATTLESCAPE_TO_GODOT_SCALE,
+            self.x * GODOT_SCALE,
+            self.y * GODOT_SCALE,
         )
     }
 }
@@ -86,8 +83,8 @@ impl ToGodot for na::Translation2<f32> {
 
     fn to_godot_scaled(self) -> Vector2 {
         Vector2::new(
-            self.x * BATTLESCAPE_TO_GODOT_SCALE,
-            self.y * BATTLESCAPE_TO_GODOT_SCALE,
+            self.x * GODOT_SCALE,
+            self.y * GODOT_SCALE,
         )
     }
 }
@@ -98,8 +95,8 @@ impl ToGodot for glam::Vec2 {
 
     fn to_godot_scaled(self) -> Vector2 {
         Vector2::new(
-            self.x * BATTLESCAPE_TO_GODOT_SCALE,
-            self.y * BATTLESCAPE_TO_GODOT_SCALE,
+            self.x * GODOT_SCALE,
+            self.y * GODOT_SCALE,
         )
     }
 }

@@ -8,45 +8,15 @@
 
 config_version=5
 
-_global_script_classes=[{
-"base": "Node2D",
-"class": &"Entity2",
-"language": &"GDScript",
-"path": "res://data/Entity.gd"
-}, {
-"base": "Node2D",
-"class": &"EntityData",
-"language": &"GDScript",
-"path": "res://data/EntityData.gd"
-}, {
-"base": "Sprite2D",
-"class": &"Hull",
-"language": &"GDScript",
-"path": "res://data/Hull.gd"
-}, {
-"base": "Sprite2D",
-"class": &"HullData",
-"language": &"GDScript",
-"path": "res://data/HullData.gd"
-}, {
-"base": "Sprite2D",
-"class": &"ShipData",
-"language": &"GDScript",
-"path": "res://data/ShipData.gd"
-}]
-_global_script_class_icons={
-"Entity2": "",
-"EntityData": "",
-"Hull": "",
-"HullData": "",
-"ShipData": ""
-}
-
 [application]
 
 config/name="eos"
 config/features=PackedStringArray("4.0", "GL Compatibility")
 config/icon="res://icon.svg"
+
+[editor]
+
+export/convert_text_resources_to_binary=true
 
 [rendering]
 

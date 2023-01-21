@@ -5,24 +5,25 @@
 [ext_resource type="Texture2D" uid="uid://dtd2c027i6e6p" path="res://icon.svg" id="2_4ehp0"]
 [ext_resource type="Script" path="res://data/HullData.gd" id="3_j1rlr"]
 
-[sub_resource type="CanvasTexture" id="CanvasTexture_vbeqr"]
+[sub_resource type="CanvasTexture" id="CanvasTexture_xboxs"]
 diffuse_texture = ExtResource("2_4ehp0")
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_65803"]
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_3pmol"]
 size = Vector2(128, 128)
 
 [node name="ShipData" type="Sprite2D"]
 texture = ExtResource("2_4ehp0")
 script = ExtResource("1_vk0x6")
 display_name = "Test Ship"
+entity_path = "asd"
 
 [node name="EntityData" type="Node2D" parent="."]
 script = ExtResource("1_23n4q")
 
 [node name="HullData" type="Sprite2D" parent="EntityData"]
-texture = SubResource("CanvasTexture_vbeqr")
+texture = SubResource("CanvasTexture_xboxs")
 script = ExtResource("3_j1rlr")
 collision_shape = NodePath("CollisionShape2D")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="EntityData/HullData"]
-shape = SubResource("RectangleShape2D_65803")
+shape = SubResource("RectangleShape2D_3pmol")

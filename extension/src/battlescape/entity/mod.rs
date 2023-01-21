@@ -1,7 +1,7 @@
 pub mod ai;
-mod script;
+pub mod script;
 
-use godot::prelude::{Gd, Node2D};
+use godot::prelude::*;
 use self::script::ScriptWrapper;
 use super::*;
 
@@ -48,7 +48,9 @@ impl Entity {
             .zip(0u32..)
             .map(|(hull_data, i)| {
                 let collider = physics.add_collider(
-                    SimpleColliderBuilder::new_ship(hull_data.shape.clone()),
+                    SimpleColliderBuilder::new_ship(hull_data.shape.clone())
+                    .density(hull_data.density)
+                    .position(hull_data.init_position),
                     rb,
                     ColliderGenericId::HullIndex(i),
                 );
@@ -56,6 +58,7 @@ impl Entity {
                 Some(entity::Hull {
                     defence: hull_data.defence,
                     collider,
+                    script: hull_data.script.clone(),
                 })
             })
             .collect::<SmallVec<_>>();
@@ -65,31 +68,59 @@ impl Entity {
             team: 0,
             entity_data_id,
             rb,
-            mobility: entity_data_id.data().mobility,
+            mobility: entity_data.mobility,
             readiness: 1.0,
             hulls,
             wish_angvel: Default::default(),
             wish_linvel: Default::default(),
-            script: todo!(),
+            script: entity_data.script.clone(),
         }
     }
 
     pub fn result(&self) -> Option<bc_fleet::EntityResult> {
-        if let Some(main_hull) = &self.hulls[0] {
+        self.hulls[0].as_ref().map(|main_hull| {
             let max_defence = self.entity_data_id.data().hulls[0].defence;
-            Some(bc_fleet::EntityResult {
+            bc_fleet::EntityResult {
                 new_hull: main_hull.defence.hull as f32 / max_defence.hull as f32,
                 new_armor: main_hull.defence.armor as f32 / max_defence.armor as f32,
                 new_readiness: self.readiness,
-            })
-        } else {
-            None
+            }
+        })
+    }
+
+    fn compute_mobility(&mut self) {
+        // TODO: Compute from buffs.
+        self.mobility = self.entity_data_id.data().mobility;
+    }
+
+    pub fn prepare_script(
+        &mut self,
+        bc_ptr: i64,
+        entity_idx: i64,
+    ) {
+        self.script.prepare_entity(bc_ptr.to_variant(), entity_idx.to_variant());
+        for (hull, hull_idx) in self.hulls.iter_mut().zip(0i64..) {
+            if let Some(hull) = hull {
+                hull.script.prepare_hull(bc_ptr.to_variant(), entity_idx.to_variant(), hull_idx.to_variant());
+            }
         }
     }
 
-    pub fn compute_mobility(&mut self) {
-        // TODO: Compute from buffs.
-        self.mobility = self.entity_data_id.data().mobility;
+    pub fn step_script(
+        &mut self,
+    ) {
+        self.script.step();
+        for (hull, hull_idx) in self.hulls.iter_mut().zip(0i64..) {
+            if let Some(hull) = hull {
+                hull.script.step();
+            }
+        }
+    }
+
+    pub fn step(
+        &mut self,
+    ) {
+
     }
 }
 
@@ -134,6 +165,7 @@ pub enum WishAngVel {
 pub struct Hull {
     pub defence: Defence,
     pub collider: ColliderHandle,
+    pub script: ScriptWrapper,
 }
 
 pub struct EntityData {
@@ -143,6 +175,7 @@ pub struct EntityData {
     // TODO: ai
     pub ai: Option<()>,
     pub node: Gd<Node2D>,
+    pub script: ScriptWrapper,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
@@ -177,15 +210,15 @@ impl Default for Defence {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
 pub struct HullData {
     pub defence: Defence,
     pub shape: SharedShape,
+    pub init_position: Isometry<Real>,
     pub density: f32,
     // TODO: weapon slot
     // TODO: built-in weapon (take a slot #)
     // TODO: Engine placement
     // TODO: Shields
-    /// Node index as child of an entity.
-    pub node_idx: i64,
+    pub render_node_idx: i64,
+    pub script: ScriptWrapper,
 }

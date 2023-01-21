@@ -4,45 +4,90 @@ use super::*;
 use godot::prelude::{*, utilities::{var_to_bytes_with_objects, bytes_to_var_with_objects}};
 use serde::de::Visitor;
 
-#[derive(Debug)]
-pub struct ScriptWrapper(Gd<Resource>);
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptWrapper {
+    wrapper: GodotScriptWrapper,
+    need_step: bool,
+}
 impl ScriptWrapper {
+    pub fn new_empty_entity() -> Self {
+        let script: Gd<EntityScript> = Gd::new_default();
+        Self {
+            wrapper: GodotScriptWrapper(script.upcast()),
+            need_step: false,
+        }
+    }
+
+    pub fn new_empty_hull() -> Self {
+        let script: Gd<HullScript> = Gd::new_default();
+        Self {
+            wrapper: GodotScriptWrapper(script.upcast()),
+            need_step: false,
+        }
+    }
+
+    pub fn new_entity(mut script: Gd<Resource>) -> Self {
+        if script.has_method("__is_entity_script".into()) {
+            Self {
+                need_step: script.call("_need_step".into(), &[]).to(),
+                wrapper: GodotScriptWrapper(script),
+            }
+        } else {
+            Self::new_empty_hull()
+        }
+    }
+
+    pub fn new_hull(mut script: Gd<Resource>) -> Self {
+        if script.has_method("__is_hull_script".into()) {
+            Self {
+                need_step: script.call("_need_step".into(), &[]).to(),
+                wrapper: GodotScriptWrapper(script),
+            }
+        } else {
+            Self::new_empty_hull()
+        }
+    }
+
     pub fn prepare_entity(&mut self, bc_ptr: Variant, entity_idx: Variant) {
-        self.0.call("__prepare_internal".into(), &[bc_ptr, entity_idx]);
+        self.wrapper.0.call("__prepare_internal".into(), &[bc_ptr, entity_idx]);
     }
 
     pub fn prepare_hull(&mut self, bc_ptr: Variant, entity_idx: Variant, hull_idx: Variant) {
-        self.0.call("__prepare_internal".into(), &[bc_ptr, entity_idx, hull_idx]);
+        self.wrapper.0.call("__prepare_internal".into(), &[bc_ptr, entity_idx, hull_idx]);
     }
 
     pub fn step(&mut self) {
-        self.0.call("_step".into(), &[]);
+        if self.need_step {
+            self.wrapper.0.call("_step".into(), &[]);   
+        }
     }
 }
-impl Clone for ScriptWrapper {
+
+#[derive(Debug)]
+struct GodotScriptWrapper(Gd<Resource>);
+impl Clone for GodotScriptWrapper {
     fn clone(&self) -> Self {
         // TODO: Need subresource?
         Self(self.0.duplicate(false).unwrap())
     }
 }
-unsafe impl Send for ScriptWrapper {}
-impl Serialize for ScriptWrapper {
+unsafe impl Send for GodotScriptWrapper {}
+impl Serialize for GodotScriptWrapper {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer {
-        let variable = self.0.to_variant();
-        let bytes = var_to_bytes_with_objects(variable);
+        let bytes = var_to_bytes_with_objects(self.0.to_variant());
         // TODO: use those bytes when array are implemented.
         serializer.serialize_bytes(&[])
     }
 }
-impl<'de> Deserialize<'de> for ScriptWrapper {
+impl<'de> Deserialize<'de> for GodotScriptWrapper {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de> {
             // TODO: Cast to array when implemented
         deserializer.deserialize_byte_buf(BufVisitor)
-            .map(|buf| ScriptWrapper(bytes_to_var_with_objects(todo!()).to::<Gd<Resource>>()) )
+            .map(|buf| GodotScriptWrapper(bytes_to_var_with_objects(todo!()).to()) )
     }
 }
 struct BufVisitor;
@@ -65,7 +110,6 @@ impl<'de> Visitor<'de> for BufVisitor {
         Ok(v)
     }
 }
-
 
 #[derive(GodotClass)]
 #[class(base=Resource)]
@@ -91,6 +135,14 @@ impl EntityScript {
     fn __prepare_internal(&mut self, bc_ptr: i64, entity_idx: i64) {
         self.bc = BcPtr(bc_ptr as *mut _);
         self.entity_idx = entity_idx as usize;
+    }
+
+    #[func]
+    fn __is_entity_script(&mut self) {}
+
+    #[func]
+    fn _need_step(&mut self) -> bool {
+        false
     }
 
     /// Called by the engine each tick.
@@ -165,6 +217,18 @@ impl HullScript {
     }
 
     #[func]
+    fn __is_hull_script(&mut self) {}
+
+    #[func]
+    fn _need_step(&mut self) -> bool {
+        false
+    }
+
+    /// Called by the engine each tick.
+    #[func]
+    fn _step(&mut self) {}
+
+    #[func]
     fn exist(&mut self) -> bool {
         self.hull().is_some()
     }
@@ -188,7 +252,7 @@ impl HullScript {
 
     #[func]
     fn parent_entity(&mut self) -> Gd<EntityScript> {
-        self.entity().script.0.share().cast()
+        self.entity().script.wrapper.0.share().cast()
     }
 
     // #[func]
