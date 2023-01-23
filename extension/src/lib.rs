@@ -30,6 +30,7 @@ pub const GODOT_SCALE: f32 = 128.0;
 
 // TODO: add_ship should also add an ai!
 // TODO: Remove body/colliders when removing entity.
+// TODO: Free scripts on drop.
 // TODO: Make entity more private
 
 // TODO: Add client take control events. Use it on the render side to follow that entity.
@@ -39,7 +40,7 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Partition hull armor.
 // TODO: Get texture and add to hull sprite.
 
-// TODO: Move state out of client. Use static bcs
+// TODO: Move state out of client. Use static vec of bc
 
 mod ext {
     use godot::prelude::*;

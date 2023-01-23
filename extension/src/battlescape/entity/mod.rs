@@ -1,11 +1,11 @@
 pub mod ai;
-pub mod script;
+mod script;
 
-use self::script::ScriptWrapper;
+use self::script::*;
 use super::*;
 use godot::prelude::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Entity {
     /// If this entity is a ship from a fleet.
     pub fleet_ship: Option<(FleetId, usize)>,
@@ -19,7 +19,7 @@ pub struct Entity {
     mobility: Mobility,
     pub hulls: SmallVec<[Option<Hull>; 1]>,
 
-    pub script: ScriptWrapper,
+    pub script: EntityScriptWrapper,
 
     pub wish_angvel: WishAngVel,
     pub wish_linvel: WishLinVel,
@@ -46,19 +46,22 @@ impl Entity {
             .hulls
             .iter()
             .zip(0u32..)
-            .map(|(hull_data, i)| {
+            .map(|(hull_data, hull_idx)| {
                 let collider = physics.add_collider(
                     SimpleColliderBuilder::new_ship(hull_data.shape.clone())
                         .density(hull_data.density)
                         .position(hull_data.init_position),
                     rb,
-                    ColliderGenericId::HullIndex(i),
+                    ColliderGenericId::Hull {
+                        entity_id,
+                        hull_idx,
+                    },
                 );
 
                 Some(entity::Hull {
                     defence: hull_data.defence,
                     collider,
-                    script: hull_data.script.clone(),
+                    script: HullScriptWrapper::new(entity_data_id, hull_idx),
                 })
             })
             .collect::<SmallVec<_>>();
@@ -73,7 +76,7 @@ impl Entity {
             hulls,
             wish_angvel: Default::default(),
             wish_linvel: Default::default(),
-            script: entity_data.script.clone(),
+            script: EntityScriptWrapper::new(entity_data_id),
         }
     }
 
@@ -93,12 +96,47 @@ impl Entity {
         self.mobility = self.entity_data_id.data().mobility;
     }
 
+    /// Prepare the entity to be serialized.
+    pub fn pre_serialize(&mut self) {
+        self.script.pre_serialize();
+        for hull in self.hulls.iter_mut() {
+            if let Some(hull) = hull {
+                hull.script.pre_serialize();
+            }
+        }
+    }
+
+    /// Prepare the entity post serialization.
+    pub fn post_deserialize_prepare(&mut self, bc_ptr: Variant, entity_idx: Variant) {
+        self.script
+            .post_deserialize_prepare(bc_ptr.to_variant(), entity_idx.to_variant());
+        for (hull, hull_idx) in self.hulls.iter_mut().zip(0..) {
+            if let Some(hull) = hull {
+                hull.script.post_deserialize_prepare(
+                    bc_ptr.to_variant(),
+                    entity_idx.to_variant(),
+                    hull_idx,
+                );
+            }
+        }
+    }
+
+    /// Should have called `post_deserialize_prepare` on all entity before this.
+    pub fn post_deserialize_post_prepare(&mut self) {
+        self.script.post_deserialize_post_prepare();
+        for hull in self.hulls.iter_mut() {
+            if let Some(hull) = hull {
+                hull.script.post_deserialize_post_prepare();
+            }
+        }
+    }
+
     pub fn prepare_script(&mut self, bc_ptr: i64, entity_idx: i64) {
         self.script
-            .prepare_entity(bc_ptr.to_variant(), entity_idx.to_variant());
+            .prepare(bc_ptr.to_variant(), entity_idx.to_variant());
         for (hull, hull_idx) in self.hulls.iter_mut().zip(0i64..) {
             if let Some(hull) = hull {
-                hull.script.prepare_hull(
+                hull.script.prepare(
                     bc_ptr.to_variant(),
                     entity_idx.to_variant(),
                     hull_idx.to_variant(),
@@ -109,7 +147,7 @@ impl Entity {
 
     pub fn step_script(&mut self) {
         self.script.step();
-        for (hull, hull_idx) in self.hulls.iter_mut().zip(0i64..) {
+        for hull in self.hulls.iter_mut() {
             if let Some(hull) = hull {
                 hull.script.step();
             }
@@ -156,11 +194,11 @@ pub enum WishAngVel {
     Rotation(na::UnitComplex<f32>),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Hull {
     pub defence: Defence,
     pub collider: ColliderHandle,
-    pub script: ScriptWrapper,
+    pub script: HullScriptWrapper,
 }
 
 pub struct EntityData {
@@ -169,8 +207,9 @@ pub struct EntityData {
     pub hulls: SmallVec<[HullData; 1]>,
     // TODO: ai
     pub ai: Option<()>,
-    pub node: Gd<Node2D>,
-    pub script: ScriptWrapper,
+    pub render_node: Gd<Node2D>,
+    /// `EntityScript`
+    pub script: Variant,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
@@ -215,5 +254,6 @@ pub struct HullData {
     // TODO: Engine placement
     // TODO: Shields
     pub render_node_idx: i64,
-    pub script: ScriptWrapper,
+    /// `HullScript`
+    pub script: Variant,
 }

@@ -3,11 +3,10 @@ use std::hash::Hash;
 use super::battlescape::entity::*;
 use super::metascape::ship::ShipData;
 use super::*;
-use crate::battlescape::entity::script::ScriptWrapper;
 use crate::util::*;
 use godot::engine::packed_scene::GenEditState;
 use godot::engine::{
-    CircleShape2D, CollisionPolygon2D, CollisionShape2D, RectangleShape2D, Sprite2D, Texture2D,
+    CircleShape2D, CollisionPolygon2D, CollisionShape2D, RectangleShape2D, Script,
 };
 use godot::prelude::*;
 use rapier2d::prelude::SharedShape;
@@ -30,21 +29,13 @@ impl EntityDataId {
 }
 
 pub struct Data {
-    error_texture: Gd<Texture2D>,
     ships: IndexMap<String, ShipData, RandomState>,
     entities: IndexMap<String, EntityData, RandomState>,
 }
 impl Data {
+    /// Free all resources.
     /// ## Safety:
     /// Data should not be in use.
-    pub fn reset() {
-        unsafe {
-            DATA = Some(Default::default());
-        }
-    }
-
-    // TODO: Call this when client exit
-    /// Free all resources.
     pub fn clear() {
         unsafe {
             DATA = None;
@@ -59,11 +50,13 @@ impl Data {
             try_load::<PackedScene>(path)?.instantiate(GenEditState::GEN_EDIT_STATE_DISABLED)?;
 
         if node.has_method("_is_ship_data".into()) {
-            if !data.ships.contains_key(&string_path) {
+            if data.ships.contains_key(&string_path) {
+                node.free();
+            } else {
                 let (mut ship_data, entity_path) = data.parse_ship_data(node)?;
                 let entity_data_idx = data.parse_entity_data(entity_path)?;
                 ship_data.entity_data_id = EntityDataId(entity_data_idx as u32);
-                log::info!("Added ship at '{}'.", string_path);
+                log::info!("Added ship from '{}'", string_path);
                 data.ships.insert(string_path, ship_data);
             }
         }
@@ -72,6 +65,8 @@ impl Data {
     }
 
     fn parse_ship_data(&mut self, node: Gd<Node>) -> Option<(ShipData, String)> {
+        log::debug!("Parsing ship data");
+
         let entity_path = node
             .get("entity_path".into())
             .try_to::<GodotString>()
@@ -85,7 +80,7 @@ impl Data {
                     .try_to::<GodotString>()
                     .ok()?
                     .to_string(),
-                render: node.try_cast()?,
+                render_node: node.try_cast()?,
                 entity_data_id: EntityDataId(0),
             },
             entity_path,
@@ -98,6 +93,8 @@ impl Data {
             return Some(idx);
         }
 
+        log::debug!("Parsing entity data at '{}'", entity_path);
+
         let mut node = try_load::<PackedScene>(entity_path.to_string())?
             .instantiate(GenEditState::GEN_EDIT_STATE_DISABLED)?;
 
@@ -108,35 +105,46 @@ impl Data {
                 continue;
             }
 
+            log::debug!("Parsing hull data at Node #{}", render_node_idx);
+
             let mut shape = SharedShape::ball(0.5);
             let mut init_position = rapier2d::prelude::Isometry::default();
             for child_child_node in child_node.children_iter() {
                 if let Some(collision_node) =
                     child_child_node.share().try_cast::<CollisionShape2D>()
                 {
+                    log::debug!("Parsing hull's CollisionShape2D");
+
                     let shape_node = collision_node.get_shape()?;
 
                     init_position = rapier2d::prelude::Isometry::new(
                         collision_node.get_position().to_na_descaled(),
                         collision_node.get_rotation() as f32,
                     );
+                    log::trace!("Got initial position of {:?}", &init_position);
 
                     if let Some(circle_shape) = shape_node.share().try_cast::<CircleShape2D>() {
                         let radius = circle_shape.get_radius() as f32 / GODOT_SCALE;
+                        log::trace!("Got CircleShape2D with radius of {}", radius);
                         shape = SharedShape::ball(radius);
                     } else if let Some(rectangle_shape) = shape_node.try_cast::<RectangleShape2D>()
                     {
                         let size = rectangle_shape.get_size().to_na_descaled();
+                        log::trace!("Got RectangleShape2D with size of {:?}", size);
                         shape = SharedShape::cuboid(size.x, size.y);
                     }
 
                     // Remove collision shape node.
-                    child_node.remove_child(collision_node.upcast());
+                    log::debug!("Removing child CollisionShape2D");
+                    child_node.remove_child(collision_node.share().upcast());
+                    collision_node.free();
 
                     break;
                 } else if let Some(collision_poly) =
                     child_child_node.try_cast::<CollisionPolygon2D>()
                 {
+                    log::debug!("Parsing hull's CollisionPolygon2D");
+
                     // TODO: Handle poly when array are supported.
                     // TODO: (GODOT_SCALE)
                     // TODO: empty poly
@@ -155,11 +163,15 @@ impl Data {
                     log::warn!("poly not supported yet");
 
                     // Remove collision poly node.
-                    child_node.remove_child(collision_poly.upcast());
+                    log::debug!("Removing child CollisionPolygon2D");
+                    child_node.remove_child(collision_poly.share().upcast());
+                    collision_poly.free();
 
                     break;
                 }
             }
+
+            let script = validate_script(child_node.get("simulation_script".into()), "HullScript");
 
             hulls.push(HullData {
                 defence: Defence {
@@ -170,14 +182,21 @@ impl Data {
                 init_position,
                 density: child_node.get("density".into()).try_to().ok()?,
                 render_node_idx,
-                script: ScriptWrapper::new_hull(
-                    child_node.get("simulation_script".into()).try_to().ok()?,
-                ),
+                script,
             });
 
+            log::debug!("Replacing hull data script with render script");
             let render_script = child_node.get("render_script".into());
             child_node.set_script(render_script);
         }
+
+        if hulls.is_empty() {
+            node.free();
+            log::warn!("Entity data without hull not supported. Ignoring...");
+            return None;
+        }
+
+        let script = validate_script(node.get("simulation_script".into()), "EntityScript");
 
         let entity_data = EntityData {
             mobility: Mobility {
@@ -204,10 +223,11 @@ impl Data {
             },
             hulls,
             ai: None, // TODO: Initial ai
-            node: node.share().try_cast()?,
-            script: ScriptWrapper::new_entity(node.get("simulation_script".into()).try_to().ok()?),
+            render_node: node.share().try_cast()?,
+            script,
         };
 
+        log::debug!("Replacing entity data script with render script");
         let render_script = node.get("render_script".into());
         node.set_script(render_script);
 
@@ -225,7 +245,6 @@ impl Data {
 impl Default for Data {
     fn default() -> Self {
         Self {
-            error_texture: load("res://debug/error.png"),
             ships: Default::default(),
             entities: Default::default(),
         }
@@ -257,18 +276,36 @@ trait ChildIterTrait {
 }
 impl ChildIterTrait for Gd<Node> {
     fn children_iter(&self) -> ChildIter {
-        log::debug!("1.1");
-        let childs = self.get_children(false);
-        log::debug!("1.2");
-        let len = self.get_child_count(false);
-        log::debug!("1.3");
+        log::trace!("Iterating over children");
 
-        ChildIter { childs, i: 0, len }
+        ChildIter {
+            childs: self.get_children(false),
+            i: 0,
+            len: self.get_child_count(false),
+        }
+    }
+}
 
-        // ChildIter {
-        //     childs: self.get_children(false),
-        //     i: 0,
-        //     len: self.get_child_count(false),
-        // }
+fn validate_script(script: Variant, extend: &str) -> Variant {
+    if script.is_nil() {
+        log::debug!("Can not validate nil script. TODO: remove thing");
+        return script;
+    }
+
+    if let Ok(gd_script) = script.try_to::<Gd<Script>>() {
+        let base_type = gd_script.get_instance_base_type().to_string();
+        if base_type.as_str() == extend {
+            log::debug!("Simulation script validated");
+            script
+        } else {
+            log::warn!(
+                "Expected simulation script to extend '{}', got '{}' instead. Removing...",
+                extend,
+                base_type
+            );
+            Variant::nil()
+        }
+    } else {
+        Variant::nil()
     }
 }

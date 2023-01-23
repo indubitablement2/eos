@@ -57,8 +57,8 @@ impl ClientBattlescape {
             }
 
             if bc.tick == 100 {
-                let checksum = crc32fast::hash(&bc.serialize());
-                panic!("{}", checksum);
+                // let checksum = crc32fast::hash(&bc.serialize());
+                // panic!("{}", checksum);
             }
 
             // log::debug!(

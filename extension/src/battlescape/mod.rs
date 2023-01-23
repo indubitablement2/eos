@@ -9,6 +9,7 @@ pub mod physics;
 
 use super::*;
 use angle_vector::VectorAngle;
+use godot::prelude::ToVariant;
 use rand::prelude::*;
 use rapier2d::prelude::*;
 
@@ -31,7 +32,7 @@ pub const DT: f32 = 1.0 / 20.0;
 pub const DT_MS: u32 = 50;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct EntityId(u64);
+pub struct EntityId(u32);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BattlescapeStateInit {
@@ -82,13 +83,27 @@ impl Battlescape {
         }
     }
 
-    pub fn serialize(&self) -> Vec<u8> {
+    pub fn serialize(&mut self) -> Vec<u8> {
+        for entity in self.entities.values_mut() {
+            entity.pre_serialize();
+        }
+
         // Afaik this can not fail.
         bincode::Options::serialize(bincode::DefaultOptions::new(), self).unwrap()
     }
 
     pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
         bincode::Options::deserialize(bincode::DefaultOptions::new(), bytes)
+    }
+
+    pub fn post_deserialize_prepare(&mut self, bc_ptr: i64) {
+        for (entity, entity_idx) in self.entities.values_mut().zip(0i64..) {
+            entity.post_deserialize_prepare(bc_ptr.to_variant(), entity_idx.to_variant());
+        }
+
+        for entity in self.entities.values_mut() {
+            entity.post_deserialize_post_prepare();
+        }
     }
 
     /// Take the cmds for the tick `self.tick + 1`.

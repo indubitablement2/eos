@@ -14,6 +14,6 @@ pub struct Ship {
 #[derive(Debug)]
 pub struct ShipData {
     pub display_name: String,
-    pub render: Gd<Node2D>,
+    pub render_node: Gd<Node2D>,
     pub entity_data_id: EntityDataId,
 }

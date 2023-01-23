@@ -1,22 +1,30 @@
-[gd_scene load_steps=6 format=3 uid="uid://xid2yes0tgcs"]
+[gd_scene load_steps=8 format=3 uid="uid://xid2yes0tgcs"]
 
 [ext_resource type="Script" path="res://data/EntityData.gd" id="1_kj0ly"]
 [ext_resource type="Texture2D" uid="uid://dtd2c027i6e6p" path="res://icon.svg" id="2_aab0o"]
 [ext_resource type="Script" path="res://data/HullData.gd" id="3_8p8gp"]
+[ext_resource type="Script" path="res://entity test/hull_sim.gd" id="4_cin1w"]
 
-[sub_resource type="CanvasTexture" id="CanvasTexture_xboxs"]
+[sub_resource type="GDScript" id="GDScript_176tx"]
+script/source = "extends EntityScript
+
+"
+
+[sub_resource type="CanvasTexture" id="CanvasTexture_4662d"]
 diffuse_texture = ExtResource("2_aab0o")
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_3pmol"]
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_dbaov"]
 size = Vector2(128, 128)
 
 [node name="EntityData" type="Node2D"]
 script = ExtResource("1_kj0ly")
+simulation_script = SubResource("GDScript_176tx")
 
 [node name="HullData" type="Sprite2D" parent="."]
-texture = SubResource("CanvasTexture_xboxs")
+texture = SubResource("CanvasTexture_4662d")
 script = ExtResource("3_8p8gp")
+simulation_script = ExtResource("4_cin1w")
 collision_shape = NodePath("CollisionShape2D")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HullData"]
-shape = SubResource("RectangleShape2D_3pmol")
+shape = SubResource("RectangleShape2D_dbaov")

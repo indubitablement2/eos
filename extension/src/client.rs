@@ -5,7 +5,7 @@ use godot::prelude::*;
 
 #[derive(GodotClass)]
 #[class(base=Node)]
-pub struct Client {
+struct Client {
     bcs: Vec<ClientBattlescape>,
     client_config: ClientConfig,
     #[base]
@@ -19,16 +19,14 @@ impl Client {
     }
 
     #[func]
-    fn reset_data(&mut self) {
-        Data::reset();
+    fn clear_data(&mut self) {
+        Data::clear();
     }
 }
 #[godot_api]
 impl GodotExt for Client {
     fn init(base: Base<Node>) -> Self {
         godot_logger::GodotLogger::init();
-
-        Data::reset();
 
         // TODO: Load configs from file.
         let client_config = Default::default();
@@ -41,11 +39,7 @@ impl GodotExt for Client {
     }
 
     fn ready(&mut self) {
-        if self.base.has_method("has_method".into()) {
-            log::debug!("true");
-        }
-
-        log::info!("Ready");
+        Data::clear();
 
         self.bcs.push(ClientBattlescape::new(
             self.base.share(),
@@ -56,9 +50,8 @@ impl GodotExt for Client {
     }
 
     fn process(&mut self, delta: f64) {
-        return; // TODO: process gets called always?
-        for bc in self.bcs.iter_mut() {
-            bc.update(delta as f32)
-        }
+        // for bc in self.bcs.iter_mut() {
+        //     bc.update(delta as f32)
+        // }
     }
 }
