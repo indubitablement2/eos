@@ -211,6 +211,11 @@ pub struct EntityData {
     /// `EntityScript`
     pub script: Variant,
 }
+impl Drop for EntityData {
+    fn drop(&mut self) {
+        self.render_node.share().free();
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct Mobility {

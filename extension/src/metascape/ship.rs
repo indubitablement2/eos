@@ -17,3 +17,8 @@ pub struct ShipData {
     pub render_node: Gd<Node2D>,
     pub entity_data_id: EntityDataId,
 }
+impl Drop for ShipData {
+    fn drop(&mut self) {
+        self.render_node.share().free();
+    }
+}

@@ -14,10 +14,6 @@ pub struct EntityScriptWrapper {
     entity_data_id: EntityDataId,
 }
 impl EntityScriptWrapper {
-    pub fn free(self) {
-        self.wrapper.free();
-    }
-
     pub fn new(entity_data_id: EntityDataId) -> Self {
         let mut obj = Object::new_alloc();
         obj.set_script(entity_data_id.data().script.clone());
@@ -75,10 +71,6 @@ pub struct HullScriptWrapper {
     hull_idx: u32,
 }
 impl HullScriptWrapper {
-    pub fn free(self) {
-        self.wrapper.free();
-    }
-
     pub fn new(entity_data_id: EntityDataId, hull_idx: u32) -> Self {
         let mut obj = Object::new_alloc();
         obj.set_script(
@@ -407,10 +399,6 @@ impl DerefMut for BcPtr {
 #[derive(Debug)]
 struct GodotScriptWrapper(Gd<Object>);
 impl GodotScriptWrapper {
-    fn free(self) {
-        self.0.free();
-    }
-
     fn prepare(&mut self, varargs: &[Variant]) {
         self.0.call("_prepare".into(), varargs);
     }
@@ -433,7 +421,13 @@ impl GodotScriptWrapper {
 }
 impl Default for GodotScriptWrapper {
     fn default() -> Self {
+        // Object is not valid, but this is intended as a temporary default value when deserializing.
         Self(Object::new_alloc())
+    }
+}
+impl Drop for GodotScriptWrapper {
+    fn drop(&mut self) {
+        self.0.share().free()
     }
 }
 unsafe impl Send for GodotScriptWrapper {}
