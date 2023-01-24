@@ -1,5 +1,5 @@
 use super::render::BattlescapeSnapshot;
-use crate::battlescape::{command::Commands, Battlescape};
+use crate::battlescape::{command::Commands, events::BattlescapeEventHandler, Battlescape};
 use crossbeam::channel::{bounded, Receiver, Sender};
 use std::thread::spawn;
 
@@ -93,15 +93,17 @@ fn runner(
     runner_sender: Sender<(Box<Battlescape>, Option<BattlescapeSnapshot>)>,
 ) {
     while let Ok(mut runner_command) = runner_receiver.recv() {
-        if runner_command.take_snapshot {
-            let mut snapshot = BattlescapeSnapshot::default();
-            runner_command.bc.step(&runner_command.cmds, &mut snapshot);
-            runner_sender
-                .send((runner_command.bc, Some(snapshot)))
-                .unwrap()
+        let events: Box<dyn BattlescapeEventHandler> = if runner_command.take_snapshot {
+            Box::new(BattlescapeSnapshot::default())
         } else {
-            runner_command.bc.step(&runner_command.cmds, &mut ());
-            runner_sender.send((runner_command.bc, None)).unwrap()
-        }
+            Box::new(())
+        };
+
+        let event = runner_command
+            .bc
+            .step(&runner_command.cmds, events)
+            .cast_snapshot();
+
+        runner_sender.send((runner_command.bc, event)).unwrap()
     }
 }

@@ -50,6 +50,10 @@ pub struct Battlescape {
     rng: SimRng,
     pub physics: Physics,
 
+    #[serde(skip)]
+    #[serde(default = "default_events")]
+    pub events: Box<dyn BattlescapeEventHandler>,
+
     pub team_num_active_ship: AHashMap<u32, u32>,
     pub fleets: Fleets,
     pub clients: Clients,
@@ -80,6 +84,7 @@ impl Battlescape {
             next_entity_id: EntityId(0),
             entities: Default::default(),
             ais: Default::default(),
+            events: default_events(),
         }
     }
 
@@ -107,15 +112,21 @@ impl Battlescape {
     }
 
     /// Take the cmds for the tick `self.tick + 1`.
-    pub fn step(&mut self, cmds: &Commands, events: &mut impl BattlescapeEventHandler) {
+    pub fn step(
+        &mut self,
+        cmds: &Commands,
+        mut events: Box<dyn BattlescapeEventHandler>,
+    ) -> Box<dyn BattlescapeEventHandler> {
         if self.end_timout() {
-            events.battle_over(&self);
-            return;
+            events.battle_over();
+            return events;
         }
+
+        self.events = events;
 
         self.tick += 1;
 
-        cmds.apply(self, events);
+        cmds.apply(self);
 
         self.ai();
         self.movement();
@@ -124,8 +135,10 @@ impl Battlescape {
         // TODO: Handle physic events.
 
         if self.end_timeout == 0 {
-            events.battle_over(&self);
+            self.events.battle_over();
         }
+
+        std::mem::replace(&mut self.events, default_events())
     }
 
     fn end_timout(&mut self) -> bool {
@@ -323,13 +336,7 @@ impl Battlescape {
         // }
     }
 
-    fn add_fleet_ship(
-        &mut self,
-        fleet_id: FleetId,
-        index: usize,
-        prefered_spawn_point: usize,
-        events: &mut impl BattlescapeEventHandler,
-    ) {
+    fn add_fleet_ship(&mut self, fleet_id: FleetId, index: usize, prefered_spawn_point: usize) {
         if let Some(fleet) = self.fleets.get_mut(&fleet_id) {
             let entity_id = self.next_entity_id;
 
@@ -348,7 +355,7 @@ impl Battlescape {
                 self.next_entity_id.0 += 1;
                 *self.team_num_active_ship.entry(fleet.team).or_default() += 1;
                 let i = self.entities.insert_full(entity_id, entity).0;
-                events.entity_added(entity_id, &self.entities[i]);
+                self.events.entity_added(entity_id, &self.entities[i]);
             }
         }
     }
@@ -379,4 +386,8 @@ impl Default for Battlescape {
     fn default() -> Self {
         Self::new(Default::default())
     }
+}
+
+fn default_events() -> Box<dyn BattlescapeEventHandler> {
+    Box::new(())
 }

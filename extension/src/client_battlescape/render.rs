@@ -65,7 +65,7 @@ impl Drop for BattlescapeSnapshot {
     }
 }
 impl BattlescapeEventHandler for BattlescapeSnapshot {
-    fn fleet_added(&mut self, bc: &Battlescape, fleet_id: crate::FleetId) {}
+    fn fleet_added(&mut self, fleet_id: crate::FleetId) {}
 
     fn ship_destroyed(&mut self, fleet_id: crate::FleetId, index: usize) {}
 
@@ -76,8 +76,12 @@ impl BattlescapeEventHandler for BattlescapeSnapshot {
             .push((entity_id, EntityRender::new(entity)));
     }
 
-    fn battle_over(&mut self, _bc: &Battlescape) {
+    fn battle_over(&mut self) {
         self.battle_over = true;
+    }
+
+    fn cast_snapshot(&mut self) -> Option<BattlescapeSnapshot> {
+        Some(std::mem::take(self))
     }
 }
 

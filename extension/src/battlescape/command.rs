@@ -2,7 +2,7 @@ use super::*;
 use crate::metascape::fleet::Fleet;
 
 pub trait Command {
-    fn apply(&self, bc: &mut Battlescape, events: &mut impl BattlescapeEventHandler);
+    fn apply(&self, bc: &mut Battlescape);
     fn queue(self, cmds: &mut Commands);
 }
 
@@ -13,12 +13,12 @@ pub struct AddFleet {
     pub team: u32,
 }
 impl Command for AddFleet {
-    fn apply(&self, bc: &mut Battlescape, events: &mut impl BattlescapeEventHandler) {
+    fn apply(&self, bc: &mut Battlescape) {
         bc.fleets.insert(
             self.fleet_id,
             BattlescapeFleet::from_fleet(self.fleet.to_owned(), self.team),
         );
-        events.fleet_added(&bc, self.fleet_id);
+        bc.events.fleet_added(self.fleet_id);
     }
 
     fn queue(self, cmds: &mut Commands) {
@@ -33,12 +33,11 @@ pub struct AddShip {
     pub prefered_spawn_point: u32,
 }
 impl Command for AddShip {
-    fn apply(&self, bc: &mut Battlescape, events: &mut impl BattlescapeEventHandler) {
+    fn apply(&self, bc: &mut Battlescape) {
         bc.add_fleet_ship(
             self.fleet_id,
             self.ship_index as usize,
             self.prefered_spawn_point as usize,
-            events,
         );
     }
 
@@ -131,12 +130,12 @@ pub struct Commands {
     pub add_ship: Vec<AddShip>,
 }
 impl Commands {
-    pub fn apply(&self, bc: &mut Battlescape, events: &mut impl BattlescapeEventHandler) {
+    pub fn apply(&self, bc: &mut Battlescape) {
         for cmd in self.add_fleet.iter() {
-            cmd.apply(bc, events);
+            cmd.apply(bc);
         }
         for cmd in self.add_ship.iter() {
-            cmd.apply(bc, events);
+            cmd.apply(bc);
         }
     }
 }

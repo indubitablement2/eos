@@ -1,20 +1,26 @@
 use super::*;
 
-pub trait BattlescapeEventHandler {
-    fn fleet_added(&mut self, bc: &Battlescape, fleet_id: FleetId);
+pub trait BattlescapeEventHandler: Send {
+    fn fleet_added(&mut self, fleet_id: FleetId);
     fn ship_destroyed(&mut self, fleet_id: FleetId, index: usize);
     fn entity_removed(&mut self, entity_id: EntityId, entity: Entity);
     fn entity_added(&mut self, entity_id: EntityId, entity: &Entity);
     /// Calling step after this event is emitted will have no effect.
-    fn battle_over(&mut self, bc: &Battlescape);
+    fn battle_over(&mut self);
+
+    fn cast_snapshot(&mut self) -> Option<client_battlescape::render::BattlescapeSnapshot>;
 }
 
 impl BattlescapeEventHandler for () {
-    fn fleet_added(&mut self, _bc: &Battlescape, _fleet_id: FleetId) {}
+    fn fleet_added(&mut self, _fleet_id: FleetId) {}
     fn ship_destroyed(&mut self, _fleet_id: FleetId, _index: usize) {}
     fn entity_removed(&mut self, _entity_id: EntityId, _entity: Entity) {}
     fn entity_added(&mut self, _entity_id: EntityId, _entity: &Entity) {}
-    fn battle_over(&mut self, _bc: &Battlescape) {}
+    fn battle_over(&mut self) {}
+
+    fn cast_snapshot(&mut self) -> Option<client_battlescape::render::BattlescapeSnapshot> {
+        None
+    }
 }
 
 // SERVER
