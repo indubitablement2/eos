@@ -33,7 +33,6 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Make entity more private
 
 // TODO: Add client take control events. Use it on the render side to follow that entity.
-
 // TODO: Handle battle over event.
 
 // TODO: Partition hull armor.

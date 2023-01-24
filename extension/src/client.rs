@@ -22,6 +22,12 @@ impl Client {
     fn clear_data(&mut self) {
         Data::clear();
     }
+
+    #[func]
+    fn set_log_level(&mut self, level: u8) {
+        self.client_config.log_level = level;
+        log::set_max_level(log_level_from_int(level));
+    }
 }
 #[godot_api]
 impl GodotExt for Client {
@@ -29,7 +35,10 @@ impl GodotExt for Client {
         godot_logger::GodotLogger::init();
 
         // TODO: Load configs from file.
-        let client_config = Default::default();
+        let client_config: ClientConfig = Default::default();
+
+        // Apply configs.
+        log::set_max_level(log_level_from_int(client_config.log_level));
 
         Self {
             bcs: Default::default(),
@@ -53,5 +62,16 @@ impl GodotExt for Client {
         // for bc in self.bcs.iter_mut() {
         //     bc.update(delta as f32)
         // }
+    }
+}
+
+fn log_level_from_int(level: u8) -> log::LevelFilter {
+    match level {
+        0 => log::LevelFilter::Off,
+        1 => log::LevelFilter::Error,
+        2 => log::LevelFilter::Warn,
+        3 => log::LevelFilter::Info,
+        4 => log::LevelFilter::Debug,
+        _ => log::LevelFilter::Trace,
     }
 }
