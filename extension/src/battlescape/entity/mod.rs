@@ -80,6 +80,10 @@ impl Entity {
         }
     }
 
+    pub fn is_destroyed(&mut self) -> bool {
+        self.hulls[0].is_none()
+    }
+
     pub fn result(&self) -> Option<bc_fleet::EntityResult> {
         self.hulls[0].as_ref().map(|main_hull| {
             let max_defence = self.entity_data_id.data().hulls[0].defence;
@@ -131,7 +135,7 @@ impl Entity {
         }
     }
 
-    pub fn prepare_script(&mut self, bc_ptr: i64, entity_idx: i64) {
+    pub fn pre_step(&mut self, bc_ptr: i64, entity_idx: i64) {
         self.script
             .prepare(bc_ptr.to_variant(), entity_idx.to_variant());
         for (hull, hull_idx) in self.hulls.iter_mut().zip(0i64..) {
@@ -145,16 +149,118 @@ impl Entity {
         }
     }
 
-    pub fn step_script(&mut self) {
+    pub fn step(&mut self, physics: &mut Physics) {
+        // Scripts
         self.script.step();
         for hull in self.hulls.iter_mut() {
             if let Some(hull) = hull {
                 hull.script.step();
             }
         }
-    }
 
-    pub fn step(&mut self) {}
+        let rb = &mut physics.bodies[self.rb];
+
+        // Angvel
+        match self.wish_angvel {
+            WishAngVel::Keep => {}
+            WishAngVel::Cancel => {
+                if ComplexField::abs(rb.angvel()) > 0.0001 {
+                    let new_angvel = rb.angvel() - RealField::clamp(
+                        rb.angvel(),
+                        -self.mobility.angular_acceleration,
+                        self.mobility.angular_acceleration,
+                    );
+                    rb.set_angvel(
+                        new_angvel,
+                        false,
+                    );
+                }
+            }
+            WishAngVel::Aim { position } => {
+                let target = position - *rb.translation();
+                let target_angle = target.angle_x();
+                let wish_rot_offset = target_angle - rb.rotation().angle();
+
+                let angvel_change = RealField::clamp(wish_rot_offset, -self.mobility.angular_acceleration, self.mobility.angular_acceleration);
+
+                // TODO: Angvel cap.
+                let wish_new_angvel = rb.angvel() + angvel_change;
+
+                rb.set_angvel(wish_new_angvel, true);
+            }
+            WishAngVel::Rotation(_) => {
+                // TODO:
+            }
+        }
+
+        //     fn apply_wish_linvel(
+        //         wish_vel: Vector2,
+        //         rb: &mut RigidBody,
+        //         linear_acceleration: f32,
+        //         wake_up: bool,
+        //     ) {
+        //         let vel_change = (wish_vel - rb.linvel()).cap_magnitude(linear_acceleration * DT);
+        //         rb.set_linvel(rb.linvel() + vel_change, wake_up);
+        //     }
+
+        //     // Linvel
+        //     match e.wish_linvel {
+        //         WishLinVel::Keep => {}
+        //         WishLinVel::Cancel => {
+        //             if rb.linvel().magnitude_squared() > 0.001 {
+        //                 apply_wish_linvel(-rb.linvel(), rb, e.mobility.linear_acceleration, false);
+        //                 // rb.set_linvel(
+        //                 //     rb.linvel() - rb.linvel().cap_magnitude(e.mobility.linear_acceleration * DT),
+        //                 //     false,
+        //                 // );
+        //             }
+        //         }
+        //         WishLinVel::Forward => {
+        //             let wish_vel = rb
+        //                 .rotation()
+        //                 .transform_vector(&na::vector![0.0, e.mobility.max_linear_velocity]);
+        //             apply_wish_linvel(wish_vel, rb, e.mobility.linear_acceleration, true);
+        //         }
+        //         WishLinVel::Position { position } => {
+        //             // TODO:
+        //         }
+        //         WishLinVel::PositionOvershot { position } => {
+        //             // TODO:
+        //         }
+        //         WishLinVel::Absolute { angle, strenght } => {
+        //             let wish_vel = angle.transform_vector(&na::vector![
+        //                 0.0,
+        //                 e.mobility.max_linear_velocity * strenght
+        //             ]);
+        //             apply_wish_linvel(wish_vel, rb, e.mobility.linear_acceleration, true);
+        //         }
+        //         WishLinVel::Relative { angle, strenght } => {
+        //             let wish_vel =
+        //                 rb.rotation()
+        //                     .transform_vector(&angle.transform_vector(&na::vector![
+        //                         0.0,
+        //                         e.mobility.max_linear_velocity * strenght
+        //                     ]));
+        //             apply_wish_linvel(wish_vel, rb, e.mobility.linear_acceleration, true);
+        //         }
+        //     }
+
+        //     // let linvel: Vector2 = *rb.linvel();
+        //     // let wish_linvel = if let Some(wish_pos) = e.wish_pos {
+        //     //     let linvel_magnitude = linvel.magnitude();
+        //     //     let time_to_break = linvel_magnitude / (e.mobility.linear_acceleration * 1.0);
+
+        //     //     let relative_target = wish_pos - pos.translation.vector;
+
+        //     //     let wish_vel = relative_target - linvel * time_to_break;
+        //     //     wish_vel.cap_magnitude(e.mobility.max_linear_velocity)
+        //     // } else {
+        //     //     na::Vector2::zeros()
+        //     // };
+        //     // let linvel = (wish_linvel - linvel).cap_magnitude(e.mobility.linear_acceleration);
+        //     // rb.set_linvel(linvel, true);
+        // }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
@@ -217,6 +323,7 @@ impl Drop for EntityData {
     }
 }
 
+/// In unit/seconds.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct Mobility {
     pub linear_acceleration: f32,

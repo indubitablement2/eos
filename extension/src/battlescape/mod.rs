@@ -121,7 +121,7 @@ impl Battlescape {
             events.battle_over();
             return events;
         }
-
+        
         self.events = events;
 
         self.tick += 1;
@@ -129,8 +129,7 @@ impl Battlescape {
         cmds.apply(self);
 
         self.ai();
-        self.movement();
-
+        self.step_entities();
         self.physics.step();
         // TODO: Handle physic events.
 
@@ -191,149 +190,24 @@ impl Battlescape {
         }
     }
 
-    fn movement(&mut self) {
-        // for e in self.entities.values_mut() {
-        //     let rb = &mut self.physics.bodies[e.rb];
+    fn step_entities(&mut self) {
+        let bc_ptr = self as *mut Self as i64;
+        for (entity, entity_idx) in self.entities.values_mut().zip(0i64..) {
+            entity.pre_step(bc_ptr, entity_idx);
+        }
 
-        //     // TODO: Does this work?
-        //     fn apply_wish_angvel(
-        //         angle_change: f32,
-        //         rb: &mut RigidBody,
-        //         max_angular_velocity: f32,
-        //         angular_acceleration: f32,
-        //         wake_up: bool,
-        //     ) {
-        //         let wish_angvel =
-        //             RealField::clamp(angle_change, -max_angular_velocity, max_angular_velocity);
-        //         let vel_change = RealField::clamp(
-        //             wish_angvel - rb.angvel(),
-        //             -angular_acceleration * DT,
-        //             angular_acceleration * DT,
-        //         );
-        //         rb.set_angvel(rb.angvel() + vel_change, wake_up);
-        //     }
+        for entity in self.entities.values_mut() {
+            entity.step(&mut self.physics);
+        }
 
-        //     // Angvel
-        //     match e.wish_angvel {
-        //         WishAngVel::Keep => {}
-        //         WishAngVel::Cancel => {
-        //             if ComplexField::abs(rb.angvel()) > 0.001 {
-        //                 rb.set_angvel(
-        //                     rb.angvel()
-        //                         - RealField::clamp(
-        //                             rb.angvel(),
-        //                             -e.mobility.angular_acceleration,
-        //                             e.mobility.angular_acceleration,
-        //                         ),
-        //                     false,
-        //                 );
-        //             }
-        //         }
-        //         WishAngVel::Aim { position } => {
-        //             // TODO: Does this work?
-        //             let relative_pos = position - *rb.translation();
-        //             let angle_change = rb
-        //                 .rotation()
-        //                 .transform_vector(&na::vector![0.0, 1.0])
-        //                 .angle(&relative_pos);
-        //             apply_wish_angvel(
-        //                 angle_change,
-        //                 rb,
-        //                 e.mobility.max_angular_velocity,
-        //                 e.mobility.angular_acceleration,
-        //                 true,
-        //             );
-        //         }
-        //         WishAngVel::Rotation(wish_rot) => {
-        //             // TODO:
-        //         }
-        //     }
-
-        //     // let angvel = rb.angvel();
-        //     // let wish_angvel = if let Some(wish_rot) = e.wish_rot {
-        //     //     RealField::clamp(
-        //     //         pos.rotation.rotation_to(&wish_rot).angle(),
-        //     //         -e.mobility.max_angular_velocity,
-        //     //         e.mobility.max_angular_velocity,
-        //     //     )
-        //     // } else {
-        //     //     // Try to cancel our angvel.
-        //     //     -angvel
-        //     // };
-        //     // let angvel = RealField::clamp(
-        //     //     wish_angvel - angvel,
-        //     //     -e.mobility.angular_acceleration,
-        //     //     e.mobility.angular_acceleration,
-        //     // );
-        //     // rb.set_angvel(angvel, true);
-
-        //     fn apply_wish_linvel(
-        //         wish_vel: Vector2,
-        //         rb: &mut RigidBody,
-        //         linear_acceleration: f32,
-        //         wake_up: bool,
-        //     ) {
-        //         let vel_change = (wish_vel - rb.linvel()).cap_magnitude(linear_acceleration * DT);
-        //         rb.set_linvel(rb.linvel() + vel_change, wake_up);
-        //     }
-
-        //     // Linvel
-        //     match e.wish_linvel {
-        //         WishLinVel::Keep => {}
-        //         WishLinVel::Cancel => {
-        //             if rb.linvel().magnitude_squared() > 0.001 {
-        //                 apply_wish_linvel(-rb.linvel(), rb, e.mobility.linear_acceleration, false);
-        //                 // rb.set_linvel(
-        //                 //     rb.linvel() - rb.linvel().cap_magnitude(e.mobility.linear_acceleration * DT),
-        //                 //     false,
-        //                 // );
-        //             }
-        //         }
-        //         WishLinVel::Forward => {
-        //             let wish_vel = rb
-        //                 .rotation()
-        //                 .transform_vector(&na::vector![0.0, e.mobility.max_linear_velocity]);
-        //             apply_wish_linvel(wish_vel, rb, e.mobility.linear_acceleration, true);
-        //         }
-        //         WishLinVel::Position { position } => {
-        //             // TODO:
-        //         }
-        //         WishLinVel::PositionOvershot { position } => {
-        //             // TODO:
-        //         }
-        //         WishLinVel::Absolute { angle, strenght } => {
-        //             let wish_vel = angle.transform_vector(&na::vector![
-        //                 0.0,
-        //                 e.mobility.max_linear_velocity * strenght
-        //             ]);
-        //             apply_wish_linvel(wish_vel, rb, e.mobility.linear_acceleration, true);
-        //         }
-        //         WishLinVel::Relative { angle, strenght } => {
-        //             let wish_vel =
-        //                 rb.rotation()
-        //                     .transform_vector(&angle.transform_vector(&na::vector![
-        //                         0.0,
-        //                         e.mobility.max_linear_velocity * strenght
-        //                     ]));
-        //             apply_wish_linvel(wish_vel, rb, e.mobility.linear_acceleration, true);
-        //         }
-        //     }
-
-        //     // let linvel: Vector2 = *rb.linvel();
-        //     // let wish_linvel = if let Some(wish_pos) = e.wish_pos {
-        //     //     let linvel_magnitude = linvel.magnitude();
-        //     //     let time_to_break = linvel_magnitude / (e.mobility.linear_acceleration * 1.0);
-
-        //     //     let relative_target = wish_pos - pos.translation.vector;
-
-        //     //     let wish_vel = relative_target - linvel * time_to_break;
-        //     //     wish_vel.cap_magnitude(e.mobility.max_linear_velocity)
-        //     // } else {
-        //     //     na::Vector2::zeros()
-        //     // };
-        //     // let linvel = (wish_linvel - linvel).cap_magnitude(e.mobility.linear_acceleration);
-        //     // rb.set_linvel(linvel, true);
-        // }
+        let mut i = 0usize;
+        while i < self.entities.len() {
+            if self.entities[i].is_destroyed() {
+                self.remove_entity(i);
+            } else {
+                i += 1;
+            }
+        }
     }
 
     fn add_fleet_ship(&mut self, fleet_id: FleetId, index: usize, prefered_spawn_point: usize) {
@@ -360,8 +234,8 @@ impl Battlescape {
         }
     }
 
-    fn remove_entity(&mut self, entity_id: EntityId, events: &mut impl BattlescapeEventHandler) {
-        if let Some(entity) = self.entities.swap_remove(&entity_id) {
+    fn remove_entity(&mut self, entity_idx: usize) {
+        if let Some((entity_id, entity)) = self.entities.swap_remove_index(entity_idx) {
             // Handle if this is a ship from a fleet.
             if let Some((fleet_id, index)) = entity.fleet_ship {
                 let fleet = self.fleets.get_mut(&fleet_id).unwrap();
@@ -372,13 +246,13 @@ impl Battlescape {
                 } else {
                     // Ship destroyed.
                     fleet_ship.state = FleetShipState::Destroyed;
-                    events.ship_destroyed(fleet_id, index);
+                    self.events.ship_destroyed(fleet_id, index);
                 }
 
                 *self.team_num_active_ship.get_mut(&entity.team).unwrap() -= 1;
             }
 
-            events.entity_removed(entity_id, entity);
+            self.events.entity_removed(entity_id, entity);
         }
     }
 }

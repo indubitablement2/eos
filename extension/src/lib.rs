@@ -38,7 +38,7 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Partition hull armor.
 // TODO: Get texture and add to hull sprite.
 
-// TODO: Move state out of client. Use static vec of bc
+// TODO: Events are enum Events { None, Client, Server } instead of dyn.
 
 mod ext {
     use godot::prelude::*;
