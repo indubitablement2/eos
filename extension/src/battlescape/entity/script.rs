@@ -223,6 +223,22 @@ impl EntityScript {
         self.body().rotation().angle()
     }
 
+    // ---------- ANGVEL
+    #[func]
+    fn set_wish_angvel_keep(&mut self) {
+        self.entity().wish_angvel = WishAngVel::Keep;
+    }
+
+    #[func]
+    fn set_wish_angvel_cancel(&mut self) {
+        self.entity().wish_angvel = WishAngVel::Cancel;
+    }
+
+    #[func]
+    fn set_wish_angvel_aim_at(&mut self, position: Vector2) {
+        self.entity().wish_angvel = WishAngVel::Aim { position: position.to_na_descaled() };
+    }
+
     /// Call a function on the corresponding render node, if it exist (rendering may be disabled).
     #[func]
     fn add_render_call(&mut self, method: StringName, arg_array: Variant) {
