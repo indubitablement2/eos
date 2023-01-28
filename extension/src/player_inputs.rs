@@ -7,6 +7,7 @@ use godot::prelude::*;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PlayerInputs {
     // TODO: Add configs: is_face_cursor_toggle: bool,
+    // TODO: Keep actions active until handled by `to_client_inputs`
     /// If wish linvel is relative to current angle.
     relative_linvel: bool,
     face_cursor: bool,
