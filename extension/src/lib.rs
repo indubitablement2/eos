@@ -34,12 +34,10 @@ pub const GODOT_SCALE: f32 = 128.0;
 
 // TODO: Add client take control events. Use it on the render side to follow that entity.
 // TODO: Handle battle over event.
-// TODO: Render with data nodes instead of creating new ones.
+// TODO: Render with data nodes instead of creating new ones. <---
 
 // TODO: Partition hull armor.
 // TODO: Get texture and add to hull sprite.
-
-// TODO: Events are enum Events { None, Client, Server } instead of dyn.
 
 mod ext {
     use godot::prelude::*;
