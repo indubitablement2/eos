@@ -1,6 +1,5 @@
-use crate::client_battlescape::render::ClientBattlescapeEventHandler;
-
 use super::*;
+use crate::client_battlescape::render::ClientBattlescapeEventHandler;
 
 pub trait BattlescapeEventHandlerTrait {
     /// Called once per step at the very end.

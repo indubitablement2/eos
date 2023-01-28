@@ -6,7 +6,6 @@ use crate::EntityDataId;
 use glam::Vec2;
 use godot::engine::node::InternalMode;
 use godot::engine::Sprite2D;
-use godot::engine::Texture2D;
 use godot::prelude::*;
 
 #[derive(Default)]
