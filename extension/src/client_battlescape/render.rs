@@ -221,8 +221,8 @@ impl BattlescapeRender {
         self.available_render_tick = bc.tick..bc.tick;
     }
 
-    pub fn hide(&mut self, visible: bool) {
-        self.draw_node.set_visible(visible);
+    pub fn hide(&mut self, hide: bool) {
+        self.draw_node.set_visible(!hide);
     }
 
     pub fn next_expected_tick(&self) -> u64 {
@@ -237,6 +237,10 @@ impl BattlescapeRender {
     /// If we are ready to draw that tick.
     pub fn can_draw(&self, tick: u64) -> bool {
         self.available_render_tick.contains(&tick)
+    }
+
+    pub fn current_tick(&self) -> u64 {
+        self.available_render_tick.start
     }
 
     /// ## Warning

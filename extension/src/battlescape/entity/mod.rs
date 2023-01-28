@@ -165,15 +165,13 @@ impl Entity {
             WishAngVel::Keep => {}
             WishAngVel::Cancel => {
                 if ComplexField::abs(rb.angvel()) > 0.0001 {
-                    let new_angvel = rb.angvel() - RealField::clamp(
-                        rb.angvel(),
-                        -self.mobility.angular_acceleration,
-                        self.mobility.angular_acceleration,
-                    );
-                    rb.set_angvel(
-                        new_angvel,
-                        false,
-                    );
+                    let new_angvel = rb.angvel()
+                        - RealField::clamp(
+                            rb.angvel(),
+                            -self.mobility.angular_acceleration,
+                            self.mobility.angular_acceleration,
+                        );
+                    rb.set_angvel(new_angvel, false);
                 }
             }
             WishAngVel::Aim { position } => {
@@ -181,7 +179,11 @@ impl Entity {
                 let target_angle = target.angle_x();
                 let wish_rot_offset = target_angle - rb.rotation().angle();
 
-                let angvel_change = RealField::clamp(wish_rot_offset, -self.mobility.angular_acceleration, self.mobility.angular_acceleration);
+                let angvel_change = RealField::clamp(
+                    wish_rot_offset,
+                    -self.mobility.angular_acceleration,
+                    self.mobility.angular_acceleration,
+                );
 
                 // TODO: Angvel cap.
                 let wish_new_angvel = rb.angvel() + angvel_change;
@@ -298,6 +300,7 @@ pub enum WishAngVel {
     Aim { position: na::Vector2<f32> },
     /// Set angvel to reach this rotation without overshot.
     Rotation(na::UnitComplex<f32>),
+    // TODO: Left/right [-1..1]
 }
 
 #[derive(Debug, Serialize, Deserialize)]

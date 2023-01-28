@@ -3,9 +3,10 @@ use super::*;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BattlescapeClient {
     pub client_inputs: ClientInputs,
+    pub control: Option<EntityId>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct ClientInputs {
     pub wish_linvel: WishLinVel,
     pub wish_angvel: WishAngVel,

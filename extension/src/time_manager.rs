@@ -19,6 +19,26 @@ pub struct TimeManagerConfig {
     /// Multiply time dilation strenght when slowing down time.
     pub decrease_change_strenght: f32,
 }
+impl TimeManagerConfig {
+    /// Minimim amount of buffering.
+    pub fn local() -> Self {
+        Self {
+            max_buffer: 0.2,
+            min_buffer: 0.0,
+            wish_buffer: 0.1,
+            ..Default::default()
+        }
+    } 
+
+    pub fn very_smooth() -> Self {
+        Self {
+            max_buffer: 0.8,
+            min_buffer: 0.0,
+            wish_buffer: 0.4,
+            ..Default::default()
+        }
+    } 
+}
 impl Default for TimeManagerConfig {
     fn default() -> Self {
         Self {

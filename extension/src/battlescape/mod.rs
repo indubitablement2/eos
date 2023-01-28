@@ -121,7 +121,7 @@ impl Battlescape {
             events.battle_over();
             return events;
         }
-        
+
         self.events = events;
 
         self.tick += 1;

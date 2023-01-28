@@ -1,15 +1,15 @@
 use std::f32::consts::TAU;
 
-use rapier2d::prelude::*;
-use rapier2d::na;
 use rand::prelude::*;
+use rapier2d::na;
+use rapier2d::prelude::*;
 
 fn rand() -> (na::Vector2<f32>, na::UnitComplex<f32>, f32) {
     let angle = random::<f32>() * TAU;
     (
         na::vector![random::<f32>() - 0.5, random::<f32>() - 0.5] * 20.0,
         na::UnitComplex::new(angle),
-        angle
+        angle,
     )
 }
 
@@ -37,7 +37,12 @@ fn main() {
 
         let result_rot = na::UnitComplex::new(rot.angle() + needed_angle);
         let dif = target_rot.complex() - result_rot.complex();
-        assert!(dif.re.abs() < 0.001 && dif.im.abs() < 0.001, "{}, {:?}", i, dif);
+        assert!(
+            dif.re.abs() < 0.001 && dif.im.abs() < 0.001,
+            "{}, {:?}",
+            i,
+            dif
+        );
         drop((needed_rot, needed_angle, result_rot, dif));
 
         // v2
@@ -46,6 +51,11 @@ fn main() {
 
         let result_rot = na::UnitComplex::new(rot.angle() + needed_angle);
         let dif = target_rot.complex() - result_rot.complex();
-        assert!(dif.re.abs() < 0.001 && dif.im.abs() < 0.001, "{}, {:?}", i, dif);
+        assert!(
+            dif.re.abs() < 0.001 && dif.im.abs() < 0.001,
+            "{}, {:?}",
+            i,
+            dif
+        );
     }
 }

@@ -236,7 +236,9 @@ impl EntityScript {
 
     #[func]
     fn set_wish_angvel_aim_at(&mut self, position: Vector2) {
-        self.entity().wish_angvel = WishAngVel::Aim { position: position.to_na_descaled() };
+        self.entity().wish_angvel = WishAngVel::Aim {
+            position: position.to_na_descaled(),
+        };
     }
 
     /// Call a function on the corresponding render node, if it exist (rendering may be disabled).

@@ -30,7 +30,6 @@ pub const GODOT_SCALE: f32 = 128.0;
 
 // TODO: add_ship should also add an ai!
 // TODO: Remove body/colliders when removing entity.
-// TODO: Make entity more private
 
 // TODO: Add client take control events. Use it on the render side to follow that entity.
 // TODO: Handle battle over event.
@@ -39,6 +38,9 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Get texture and add to hull sprite.
 
 // TODO: Events are enum Events { None, Client, Server } instead of dyn.
+
+// TODO: Add cheat commands.
+// TODO: Better cmds packing `Cmds(Vec<CmdsType>)` `CmdsType(Vec<...>)`
 
 mod ext {
     use godot::prelude::*;
