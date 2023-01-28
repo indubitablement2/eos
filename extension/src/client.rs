@@ -4,13 +4,16 @@ use crate::{
     client_config::ClientConfig,
 };
 use data::*;
-use godot::prelude::*;
+use godot::{engine::node::InternalMode, prelude::*};
+use player_inputs::PlayerInputs;
 
 #[derive(GodotClass)]
 #[class(base=Node)]
 struct Client {
+    inputs: PlayerInputs,
     focus: Option<i64>,
     bcs: AHashMap<i64, ClientBattlescape>,
+    mc: Gd<Node2D>,
     client_config: ClientConfig,
     #[base]
     base: Base<Node>,
@@ -64,7 +67,7 @@ impl Client {
 }
 #[godot_api]
 impl GodotExt for Client {
-    fn init(base: Base<Node>) -> Self {
+    fn init(mut base: Base<Node>) -> Self {
         godot_logger::GodotLogger::init();
 
         // TODO: Load configs from file.
@@ -73,8 +76,18 @@ impl GodotExt for Client {
         // Apply configs.
         log::set_max_level(log_level_from_int(client_config.log_level));
 
+        // TODO: Temporary.
+        let mc = Node2D::new_alloc();
+        base.add_child(
+            mc.share().upcast(),
+            false,
+            InternalMode::INTERNAL_MODE_DISABLED,
+        );
+
         Self {
+            inputs: Default::default(),
             bcs: Default::default(),
+            mc,
             client_config,
             focus: None,
             base,
@@ -86,6 +99,8 @@ impl GodotExt for Client {
     }
 
     fn process(&mut self, delta: f64) {
+        self.inputs.update(&self.mc);
+
         if let Some(bc) = self.focus.and_then(|focus| self.bcs.get_mut(&focus)) {
             let input = Input::singleton();
         } else {
@@ -93,16 +108,21 @@ impl GodotExt for Client {
             // TODO: Give inputs to mc;
         }
 
-        for bc in self.bcs.values_mut() {
-            if let Some(cmds) = bc.update(delta as f32) {
+        for (id, bc) in self.bcs.iter_mut() {
+            // Only give inputs to focused bc.
+            let inputs = self.focus.and_then(|focus| {
+                if *id == focus {
+                    Some(&self.inputs)
+                } else {
+                    None
+                }
+            });
+
+            if let Some(cmds) = bc.update(delta as f32, inputs) {
                 // TODO: Send cmds to server.
             }
         }
     }
-
-    // fn input() {
-
-    // }
 }
 
 fn log_level_from_int(level: u8) -> log::LevelFilter {

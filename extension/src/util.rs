@@ -16,6 +16,20 @@ impl Lerp for f32 {
     }
 }
 
+pub trait AproxZero {
+    fn aprox_zero(self) -> bool;
+}
+impl AproxZero for f32 {
+    fn aprox_zero(self) -> bool {
+        ComplexField::abs(self) < 0.001
+    }
+}
+impl AproxZero for glam::Vec2 {
+    fn aprox_zero(self) -> bool {
+        self.x.abs() < 0.001 && self.y.abs() < 0.001
+    }
+}
+
 pub trait ToNalgebra {
     fn to_na(self) -> na::Vector2<f32>;
 
@@ -32,14 +46,22 @@ impl ToNalgebra for Vector2 {
         na::Vector2::new(self.x, self.y)
     }
 }
-// impl ToNalgebra for glam::Vec2 {
-//     fn to_na(self) -> na::Vector2<f32> {
-//         na::vector![self.x, self.y]
-//     }
-// }
+impl ToNalgebra for glam::Vec2 {
+    fn to_na(self) -> na::Vector2<f32> {
+        na::Vector2::new(self.x, self.y)
+    }
+}
 
 pub trait ToGlam {
     fn to_glam(self) -> glam::Vec2;
+
+    /// Convert to a glam vector with `GODOT_SCALE` scale removed.
+    fn to_glam_descaled(self) -> glam::Vec2
+    where
+        Self: Sized,
+    {
+        self.to_glam() / GODOT_SCALE
+    }
 }
 impl ToGlam for na::Translation2<f32> {
     fn to_glam(self) -> glam::Vec2 {

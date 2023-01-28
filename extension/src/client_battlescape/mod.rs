@@ -7,6 +7,7 @@ use super::*;
 use crate::battlescape::bc_client::ClientInputs;
 use crate::battlescape::{command::*, Battlescape, DT, DT_MS};
 use crate::client_config::ClientConfig;
+use crate::player_inputs::PlayerInputs;
 use crate::time_manager::*;
 use godot::prelude::*;
 
@@ -69,7 +70,7 @@ impl ClientBattlescape {
     }
 
     /// Return wish cmds that should be sent to the server.
-    pub fn update(&mut self, delta: f32) -> Option<Commands> {
+    pub fn update(&mut self, delta: f32, inputs: Option<&PlayerInputs>) -> Option<Commands> {
         let mut can_advance = None;
         if let Some((bc, snapshot)) = self.runner_handle.update() {
             can_advance = Some(bc.tick + 1);
@@ -129,7 +130,16 @@ impl ClientBattlescape {
         self.last_cmds_send += delta;
         if self.last_cmds_send > DT {
             self.last_cmds_send = 0.0;
-            let cmds = std::mem::take(&mut self.wish_cmds);
+
+            let mut cmds = std::mem::take(&mut self.wish_cmds);
+
+            if let Some(inputs) = inputs {
+                cmds.push(SetClientInput {
+                    client_id: self.render.client_id,
+                    inputs: inputs.to_client_inputs(),
+                });
+            }
+
             if self.client_type == ClientType::Local || self.client_type == ClientType::LocalCheat {
                 let tick = self.replay.next_needed_tick();
                 self.replay.add_tick(tick, cmds);

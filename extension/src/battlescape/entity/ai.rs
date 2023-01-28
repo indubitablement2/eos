@@ -134,24 +134,24 @@ impl EntityAi {
         match self.ai {
             EntityAiType::None => {}
             EntityAiType::Seek => {
-                entities[entity_index].wish_linvel = WishLinVel::Forward;
+                entities[entity_index].wish_linvel = WishLinVel::Forward { force: 1.0 };
             }
             EntityAiType::Forward => {
-                entities[entity_index].wish_linvel = WishLinVel::Forward;
+                entities[entity_index].wish_linvel = WishLinVel::Forward { force: 1.0 };
                 entities[entity_index].wish_angvel = WishAngVel::Cancel;
             }
             EntityAiType::Fighter => {
-                entities[entity_index].wish_linvel = WishLinVel::Forward;
+                entities[entity_index].wish_linvel = WishLinVel::Forward { force: 1.0 };
             }
             EntityAiType::Bomber => {
-                entities[entity_index].wish_linvel = WishLinVel::Forward;
+                entities[entity_index].wish_linvel = WishLinVel::Forward { force: 1.0 };
             }
             EntityAiType::Drone => {}
             EntityAiType::DroneStationaryOffset => {}
             EntityAiType::Ship => {}
             EntityAiType::ShipControlled => {}
             EntityAiType::ShipEntering => {
-                entities[entity_index].wish_linvel = WishLinVel::Forward;
+                entities[entity_index].wish_linvel = WishLinVel::Forward { force: 1.0 };
                 // TODO: Face a point forward from spawn position.
             }
         }

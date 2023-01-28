@@ -193,6 +193,9 @@ impl Entity {
             WishAngVel::Rotation(_) => {
                 // TODO:
             }
+            WishAngVel::Force { force } => {
+                // TODO:
+            }
         }
 
         //     fn apply_wish_linvel(
@@ -272,20 +275,26 @@ pub enum WishLinVel {
     Keep,
     /// Try to reach 0 linvel.
     Cancel,
-    /// Always try to go forward at max velocity.
-    Forward,
+    /// Always try to go forward (or backward with negative force)
+    /// at percent of max acceleration [-1..1].
+    Forward {
+        force: f32,
+    },
     /// Cancel our current velocity to reach position as fast as possible.
     /// Does not overshot.
-    Position { position: na::Vector2<f32> },
-    /// Same as position, but always try to go at max velocity.
-    PositionOvershot { position: na::Vector2<f32> },
-    Absolute {
-        angle: na::UnitComplex<f32>,
-        strenght: f32,
+    Position {
+        position: na::Vector2<f32>,
     },
+    /// Same as position, but always try to go at max velocity.
+    PositionOvershot {
+        position: na::Vector2<f32>,
+    },
+    Absolute {
+        force: na::Vector2<f32>,
+    },
+    /// Relative to current rotation.
     Relative {
-        angle: na::UnitComplex<f32>,
-        strenght: f32,
+        force: na::Vector2<f32>,
     },
 }
 
@@ -300,7 +309,8 @@ pub enum WishAngVel {
     Aim { position: na::Vector2<f32> },
     /// Set angvel to reach this rotation without overshot.
     Rotation(na::UnitComplex<f32>),
-    // TODO: Left/right [-1..1]
+    /// Rotate left or right [-1..1].
+    Force { force: f32 },
 }
 
 #[derive(Debug, Serialize, Deserialize)]

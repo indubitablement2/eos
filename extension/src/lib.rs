@@ -12,6 +12,7 @@ mod client_config;
 mod data;
 mod godot_logger;
 mod metascape;
+mod player_inputs;
 mod time_manager;
 mod util;
 
@@ -39,8 +40,6 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Get texture and add to hull sprite.
 
 // TODO: Events are enum Events { None, Client, Server } instead of dyn.
-
-// TODO: client inputs. Takes godot inputs and map them to rust
 
 mod ext {
     use godot::prelude::*;

@@ -167,7 +167,7 @@ impl EntityRender {
 unsafe impl Send for EntityRender {}
 
 pub struct BattlescapeRender {
-    client_id: ClientId,
+    pub client_id: ClientId,
     client_node: Gd<Node>,
     draw_node: Gd<Node2D>,
 
