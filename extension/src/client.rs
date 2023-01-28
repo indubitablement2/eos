@@ -4,7 +4,10 @@ use crate::{
     client_config::ClientConfig,
 };
 use data::*;
-use godot::{engine::node::InternalMode, prelude::*};
+use godot::{
+    engine::{node::InternalMode, Engine},
+    prelude::*,
+};
 use player_inputs::PlayerInputs;
 
 #[derive(GodotClass)]
@@ -99,6 +102,11 @@ impl GodotExt for Client {
     }
 
     fn process(&mut self, delta: f64) {
+        // TODO: Do not want to run in edit. Maybe this won't be needed later?
+        if Engine::singleton().is_editor_hint() {
+            return;
+        }
+
         self.inputs.update(&self.mc);
 
         for (id, bc) in self.bcs.iter_mut() {

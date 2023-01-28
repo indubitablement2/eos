@@ -198,7 +198,7 @@ impl Data {
 
         let script = validate_script(node.get("simulation_script".into()), "EntityScript");
 
-        let entity_data = EntityData {
+        let mut entity_data = EntityData {
             mobility: Mobility {
                 linear_acceleration: node
                     .get("linear_acceleration".into())
@@ -223,13 +223,17 @@ impl Data {
             },
             hulls,
             ai: None, // TODO: Initial ai
-            render_node: node.share().try_cast()?,
+            render_node: PackedScene::new(),
             script,
         };
 
         log::debug!("Replacing entity data script with render script");
         let render_script = node.get("render_script".into());
         node.set_script(render_script);
+
+        // TODO: Check that this is Ok. Otherwise return None
+        entity_data.render_node.pack(node.share());
+        node.free();
 
         Some(self.entities.insert_full(entity_path, entity_data).0)
     }

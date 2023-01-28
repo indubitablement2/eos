@@ -5,6 +5,7 @@ use crate::util::*;
 use crate::EntityDataId;
 use glam::Vec2;
 use godot::engine::node::InternalMode;
+use godot::engine::packed_scene::GenEditState;
 use godot::engine::Sprite2D;
 use godot::prelude::*;
 
@@ -33,6 +34,25 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
             .iter()
             .map(|(entity_id, entity)| {
                 let rb = &bc.physics.bodies[entity.rb];
+
+                let hulls = entity
+                    .hulls
+                    .iter()
+                    .map(|hull| {
+                        hull.as_ref().map(|hull| {
+                            let p = &bc.physics.colliders[hull.collider]
+                                .position_wrt_parent()
+                                .unwrap();
+                            HullSnapshot {
+                                position: Position {
+                                    pos: p.translation.to_glam(),
+                                    rot: p.rotation.angle(),
+                                },
+                            }
+                        })
+                    })
+                    .collect();
+
                 (
                     *entity_id,
                     EntitySnapshot {
@@ -40,23 +60,7 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
                             pos: rb.translation().to_glam(),
                             rot: rb.rotation().angle(),
                         },
-                        hulls: entity
-                            .hulls
-                            .iter()
-                            .map(|hull| {
-                                hull.as_ref().map(|hull| {
-                                    let p = &bc.physics.colliders[hull.collider]
-                                        .position_wrt_parent()
-                                        .unwrap();
-                                    HullSnapshot {
-                                        position: Position {
-                                            pos: p.translation.to_glam(),
-                                            rot: p.rotation.angle(),
-                                        },
-                                    }
-                                })
-                            })
-                            .collect(),
+                        hulls,
                     },
                 )
             })
@@ -104,7 +108,6 @@ struct HullSnapshot {
 
 struct HullRender {
     sprite: Gd<Sprite2D>,
-    hidden: bool,
 }
 
 impl HullRender {
@@ -114,14 +117,14 @@ impl HullRender {
         entity: &entity::Entity,
         entity_node: &Gd<Node2D>,
     ) -> Self {
-        let mut sprite = Sprite2D::new_alloc();
-        sprite.set_texture(load("path")); // TODO: Load texture
-        add_child(&entity_node, &sprite);
+        let entity_data = entity.entity_data_id.data();
+        let sprite = entity_node
+            .get_child(entity_data.hulls[hull_index].render_node_idx, false)
+            .unwrap()
+            .cast();
+        // TODO: Set hull shader.
 
-        HullRender {
-            sprite,
-            hidden: false,
-        }
+        HullRender { sprite }
     }
 }
 
@@ -129,14 +132,18 @@ struct EntityRender {
     node: Gd<Node2D>,
     entity_data_id: EntityDataId,
     hulls: SmallVec<[HullRender; 1]>,
-    hidden: bool,
 }
 impl EntityRender {
     /// Will not be added to the scene.
     /// `node` need to manualy free if this is drop before a call to `insert_to_scene`.
     fn new(entity: &entity::Entity) -> Self {
-        let mut entity_node = Node2D::new_alloc();
-        entity_node.set_visible(false);
+        let entity_data = entity.entity_data_id.data();
+
+        let entity_node = entity_data
+            .render_node
+            .instantiate(GenEditState::GEN_EDIT_STATE_DISABLED)
+            .map(|node| node.cast::<Node2D>())
+            .unwrap_or_else(|| Node2D::new_alloc());
 
         let hulls = entity
             .hulls
@@ -149,7 +156,6 @@ impl EntityRender {
             node: entity_node,
             entity_data_id: entity.entity_data_id,
             hulls,
-            hidden: true,
         }
     }
 
@@ -307,11 +313,6 @@ impl BattlescapeRender {
                 .get(entity_id)
                 .and_then(|from| to.get(entity_id).map(|to| (from, to)))
             {
-                if render_entity.hidden {
-                    render_entity.hidden = false;
-                    render_entity.node.set_visible(true);
-                }
-
                 let position = from.position.lerp(&to.position, weight);
                 render_entity.node.set_position(position.pos.to_godot());
                 render_entity.node.set_rotation(position.rot as f64);
@@ -326,27 +327,10 @@ impl BattlescapeRender {
                         .as_ref()
                         .and_then(|from| to.as_ref().map(|to| (from, to)))
                     {
-                        if render_hull.hidden {
-                            render_hull.hidden = false;
-                            render_hull.sprite.set_visible(true);
-                        }
-
                         let position = from.position.lerp(&to.position, weight);
                         render_hull.sprite.set_position(position.pos.to_godot());
                         render_hull.sprite.set_rotation(position.rot as f64);
-                    } else {
-                        // Missing at least one snapshot to interpolate hull.
-                        if !render_hull.hidden {
-                            render_hull.hidden = true;
-                            render_hull.sprite.set_visible(false);
-                        }
                     }
-                }
-            } else {
-                // Missing at least one snapshot to interpolate entity.
-                if !render_entity.hidden {
-                    render_entity.hidden = true;
-                    render_entity.node.set_visible(false);
                 }
             }
         }

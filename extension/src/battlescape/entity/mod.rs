@@ -326,14 +326,9 @@ pub struct EntityData {
     pub hulls: SmallVec<[HullData; 1]>,
     // TODO: ai
     pub ai: Option<()>,
-    pub render_node: Gd<Node2D>,
+    pub render_node: Gd<PackedScene>,
     /// `EntityScript`
     pub script: Variant,
-}
-impl Drop for EntityData {
-    fn drop(&mut self) {
-        self.render_node.share().free();
-    }
 }
 
 /// In unit/seconds.
