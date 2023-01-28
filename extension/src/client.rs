@@ -86,14 +86,13 @@ impl GodotExt for Client {
     }
 
     fn process(&mut self, delta: f64) {
-        if let Some(bc) = self.focus.and_then(|focus|self.bcs.get_mut(&focus)) {
+        if let Some(bc) = self.focus.and_then(|focus| self.bcs.get_mut(&focus)) {
             let input = Input::singleton();
-            
         } else {
             self.focus = None;
             // TODO: Give inputs to mc;
         }
-        
+
         for bc in self.bcs.values_mut() {
             if let Some(cmds) = bc.update(delta as f32) {
                 // TODO: Send cmds to server.

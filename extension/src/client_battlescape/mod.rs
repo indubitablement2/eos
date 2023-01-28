@@ -94,7 +94,8 @@ impl ClientBattlescape {
             }
         }
 
-        self.time_manager.maybe_max_tick(self.render.max_tick().unwrap_or_default());
+        self.time_manager
+            .maybe_max_tick(self.render.max_tick().unwrap_or_default());
         self.time_manager.update(delta);
 
         if let Some(cmds) = can_advance.and_then(|next_tick| self.replay.get_cmds(next_tick)) {
@@ -119,7 +120,10 @@ impl ClientBattlescape {
             self.last_cmds_send = 0.0;
         } else {
             self.render.update(delta);
-            self.render.draw_lerp(self.time_manager.tick, self.time_manager.interpolation_weight());
+            self.render.draw_lerp(
+                self.time_manager.tick,
+                self.time_manager.interpolation_weight(),
+            );
         }
 
         self.last_cmds_send += delta;

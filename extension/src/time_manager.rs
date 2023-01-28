@@ -28,7 +28,7 @@ impl TimeManagerConfig {
             wish_buffer: 0.1,
             ..Default::default()
         }
-    } 
+    }
 
     pub fn very_smooth() -> Self {
         Self {
@@ -37,7 +37,7 @@ impl TimeManagerConfig {
             wish_buffer: 0.4,
             ..Default::default()
         }
-    } 
+    }
 }
 impl Default for TimeManagerConfig {
     fn default() -> Self {

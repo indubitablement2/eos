@@ -18,30 +18,38 @@ enum TypedCmds {
 impl TypedCmds {
     pub fn try_push(&mut self, typed_cmd: TypedCmd) -> Option<TypedCmd> {
         match self {
-            TypedCmds::AddFleet(v) => if let TypedCmd::AddFleet(c) = typed_cmd {
-                v.push(c);
-                None
-            } else {
-                Some(typed_cmd)
-            },
-            TypedCmds::AddShip(v) => if let TypedCmd::AddShip(c) = typed_cmd {
-                v.push(c);
-                None
-            } else {
-                Some(typed_cmd)
-            },
-            TypedCmds::SetClientInput(v) => if let TypedCmd::SetClientInput(c) = typed_cmd {
-                v.push(c);
-                None
-            } else {
-                Some(typed_cmd)
-            },
-            TypedCmds::SetClientControl(v) => if let TypedCmd::SetClientControl(c) = typed_cmd {
-                v.push(c);
-                None
-            } else {
-                Some(typed_cmd)
-            },
+            TypedCmds::AddFleet(v) => {
+                if let TypedCmd::AddFleet(c) = typed_cmd {
+                    v.push(c);
+                    None
+                } else {
+                    Some(typed_cmd)
+                }
+            }
+            TypedCmds::AddShip(v) => {
+                if let TypedCmd::AddShip(c) = typed_cmd {
+                    v.push(c);
+                    None
+                } else {
+                    Some(typed_cmd)
+                }
+            }
+            TypedCmds::SetClientInput(v) => {
+                if let TypedCmd::SetClientInput(c) = typed_cmd {
+                    v.push(c);
+                    None
+                } else {
+                    Some(typed_cmd)
+                }
+            }
+            TypedCmds::SetClientControl(v) => {
+                if let TypedCmd::SetClientControl(c) = typed_cmd {
+                    v.push(c);
+                    None
+                } else {
+                    Some(typed_cmd)
+                }
+            }
         }
     }
 }
@@ -199,7 +207,7 @@ impl Commands {
             if let Some(r) = v.try_push(typed_cmd) {
                 typed_cmd = r
             } else {
-                return
+                return;
             }
         }
 
