@@ -17,7 +17,7 @@ use bc_client::BattlescapeClient;
 use bc_fleet::{BattlescapeFleet, FleetShipState};
 use entity::ai::EntityAi;
 use entity::{Entity, WishAngVel, WishLinVel};
-use events::BattlescapeEventHandler;
+use events::*;
 use physics::*;
 
 pub use self::mode::BattlescapeMode;
@@ -51,8 +51,7 @@ pub struct Battlescape {
     pub physics: Physics,
 
     #[serde(skip)]
-    #[serde(default = "default_events")]
-    pub events: Box<dyn BattlescapeEventHandler>,
+    pub events: BattlescapeEventHandler,
 
     pub team_num_active_ship: AHashMap<u32, u32>,
     pub fleets: Fleets,
@@ -84,7 +83,7 @@ impl Battlescape {
             next_entity_id: EntityId(0),
             entities: Default::default(),
             ais: Default::default(),
-            events: default_events(),
+            events: Default::default(),
         }
     }
 
@@ -115,8 +114,8 @@ impl Battlescape {
     pub fn step(
         &mut self,
         cmds: &Commands,
-        mut events: Box<dyn BattlescapeEventHandler>,
-    ) -> Box<dyn BattlescapeEventHandler> {
+        mut events: BattlescapeEventHandler,
+    ) -> BattlescapeEventHandler {
         if self.end_timout() {
             events.battle_over();
             return events;
@@ -137,7 +136,9 @@ impl Battlescape {
             self.events.battle_over();
         }
 
-        std::mem::replace(&mut self.events, default_events())
+        let mut events = std::mem::take(&mut self.events);
+        events.stepped(&self);
+        events
     }
 
     fn end_timout(&mut self) -> bool {
@@ -237,16 +238,16 @@ impl Battlescape {
     fn remove_entity(&mut self, entity_idx: usize) {
         if let Some((entity_id, entity)) = self.entities.swap_remove_index(entity_idx) {
             // Handle if this is a ship from a fleet.
-            if let Some((fleet_id, index)) = entity.fleet_ship {
+            if let Some((fleet_id, ship_index)) = entity.fleet_ship {
                 let fleet = self.fleets.get_mut(&fleet_id).unwrap();
-                let fleet_ship = &mut fleet.ships[index];
+                let fleet_ship = &mut fleet.ships[ship_index];
 
                 if let Some(result) = entity.result() {
                     fleet_ship.state = FleetShipState::Removed(result);
                 } else {
                     // Ship destroyed.
                     fleet_ship.state = FleetShipState::Destroyed;
-                    self.events.ship_destroyed(fleet_id, index);
+                    self.events.ship_destroyed(fleet_id, ship_index);
                 }
 
                 *self.team_num_active_ship.get_mut(&entity.team).unwrap() -= 1;
@@ -260,8 +261,4 @@ impl Default for Battlescape {
     fn default() -> Self {
         Self::new(Default::default())
     }
-}
-
-fn default_events() -> Box<dyn BattlescapeEventHandler> {
-    Box::new(())
 }

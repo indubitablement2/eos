@@ -1,26 +1,95 @@
+use crate::client_battlescape::render::ClientBattlescapeEventHandler;
+
 use super::*;
 
-pub trait BattlescapeEventHandler: Send {
+pub trait BattlescapeEventHandlerTrait {
+    /// Called once per step at the very end.
+    fn stepped(&mut self, bc: &Battlescape);
     fn fleet_added(&mut self, fleet_id: FleetId);
-    fn ship_destroyed(&mut self, fleet_id: FleetId, index: usize);
+    fn ship_destroyed(&mut self, fleet_id: FleetId, ship_index: usize);
     fn entity_removed(&mut self, entity_id: EntityId, entity: Entity);
     fn entity_added(&mut self, entity_id: EntityId, entity: &Entity);
     /// Calling step after this event is emitted will have no effect.
     fn battle_over(&mut self);
-
-    fn cast_snapshot(&mut self) -> Option<client_battlescape::render::BattlescapeSnapshot>;
 }
 
-impl BattlescapeEventHandler for () {
+#[derive(Default)]
+pub enum BattlescapeEventHandler {
+    #[default]
+    None,
+    Client(ClientBattlescapeEventHandler),
+    Server(()),
+}
+impl BattlescapeEventHandler {
+    pub fn new_client() -> Self {
+        Self::Client(Default::default())
+    }
+
+    pub fn cast_client(self) -> Option<ClientBattlescapeEventHandler> {
+        match self {
+            BattlescapeEventHandler::None => None,
+            BattlescapeEventHandler::Client(events) => Some(events),
+            BattlescapeEventHandler::Server(_) => None,
+        }
+    }
+}
+impl BattlescapeEventHandlerTrait for BattlescapeEventHandler {
+    fn stepped(&mut self, bc: &Battlescape) {
+        match self {
+            BattlescapeEventHandler::None => {}
+            BattlescapeEventHandler::Client(events) => events.stepped(bc),
+            BattlescapeEventHandler::Server(events) => events.stepped(bc),
+        }
+    }
+
+    fn fleet_added(&mut self, fleet_id: FleetId) {
+        match self {
+            BattlescapeEventHandler::None => {}
+            BattlescapeEventHandler::Client(events) => events.fleet_added(fleet_id),
+            BattlescapeEventHandler::Server(events) => events.fleet_added(fleet_id),
+        }
+    }
+
+    fn ship_destroyed(&mut self, fleet_id: FleetId, ship_index: usize) {
+        match self {
+            BattlescapeEventHandler::None => {}
+            BattlescapeEventHandler::Client(events) => events.ship_destroyed(fleet_id, ship_index),
+            BattlescapeEventHandler::Server(events) => events.ship_destroyed(fleet_id, ship_index),
+        }
+    }
+
+    fn entity_removed(&mut self, entity_id: EntityId, entity: Entity) {
+        match self {
+            BattlescapeEventHandler::None => {}
+            BattlescapeEventHandler::Client(events) => events.entity_removed(entity_id, entity),
+            BattlescapeEventHandler::Server(events) => events.entity_removed(entity_id, entity),
+        }
+    }
+
+    fn entity_added(&mut self, entity_id: EntityId, entity: &Entity) {
+        match self {
+            BattlescapeEventHandler::None => {}
+            BattlescapeEventHandler::Client(events) => events.entity_added(entity_id, entity),
+            BattlescapeEventHandler::Server(events) => events.entity_added(entity_id, entity),
+        }
+    }
+
+    fn battle_over(&mut self) {
+        match self {
+            BattlescapeEventHandler::None => {}
+            BattlescapeEventHandler::Client(events) => events.battle_over(),
+            BattlescapeEventHandler::Server(events) => events.battle_over(),
+        }
+    }
+}
+
+impl BattlescapeEventHandlerTrait for () {
+    fn stepped(&mut self, _bc: &Battlescape) {}
     fn fleet_added(&mut self, _fleet_id: FleetId) {}
     fn ship_destroyed(&mut self, _fleet_id: FleetId, _index: usize) {}
     fn entity_removed(&mut self, _entity_id: EntityId, _entity: Entity) {}
     fn entity_added(&mut self, _entity_id: EntityId, _entity: &Entity) {}
     fn battle_over(&mut self) {}
-
-    fn cast_snapshot(&mut self) -> Option<client_battlescape::render::BattlescapeSnapshot> {
-        None
-    }
 }
 
 // SERVER

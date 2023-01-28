@@ -1,5 +1,5 @@
 use super::*;
-use crate::battlescape::events::BattlescapeEventHandler;
+use crate::battlescape::events::BattlescapeEventHandlerTrait;
 use crate::battlescape::*;
 use crate::util::*;
 use crate::EntityDataId;
@@ -10,15 +10,22 @@ use godot::engine::Texture2D;
 use godot::prelude::*;
 
 #[derive(Default)]
-pub struct BattlescapeSnapshot {
+pub struct ClientBattlescapeEventHandler {
     tick: u64,
     entity_snapshots: AHashMap<EntityId, EntitySnapshot>,
     new_entities: Vec<(EntityId, EntityRender)>,
     render_handled: bool,
     battle_over: bool,
 }
-impl BattlescapeSnapshot {
-    pub fn take_snapshot(&mut self, bc: &Battlescape) {
+impl Drop for ClientBattlescapeEventHandler {
+    fn drop(&mut self) {
+        for (_, entity_render) in self.new_entities.iter_mut() {
+            entity_render.node.queue_free();
+        }
+    }
+}
+impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
+    fn stepped(&mut self, bc: &Battlescape) {
         self.tick = bc.tick;
 
         // Take the position of all entities and their hulls.
@@ -56,15 +63,7 @@ impl BattlescapeSnapshot {
             })
             .collect();
     }
-}
-impl Drop for BattlescapeSnapshot {
-    fn drop(&mut self) {
-        for (_, entity_render) in self.new_entities.iter_mut() {
-            entity_render.node.queue_free();
-        }
-    }
-}
-impl BattlescapeEventHandler for BattlescapeSnapshot {
+
     fn fleet_added(&mut self, fleet_id: crate::FleetId) {}
 
     fn ship_destroyed(&mut self, fleet_id: crate::FleetId, index: usize) {}
@@ -78,10 +77,6 @@ impl BattlescapeEventHandler for BattlescapeSnapshot {
 
     fn battle_over(&mut self) {
         self.battle_over = true;
-    }
-
-    fn cast_snapshot(&mut self) -> Option<BattlescapeSnapshot> {
-        Some(std::mem::take(self))
     }
 }
 
@@ -180,7 +175,7 @@ pub struct BattlescapeRender {
     /// We expect the next call to `take_snapshot()` to have a bc with tick `this.end`.
     pub available_render_tick: std::ops::Range<u64>,
 
-    snapshots: Vec<BattlescapeSnapshot>,
+    events: Vec<ClientBattlescapeEventHandler>,
     entity_renders: AHashMap<EntityId, EntityRender>,
 }
 impl BattlescapeRender {
@@ -191,7 +186,7 @@ impl BattlescapeRender {
             draw_node: Node2D::new_alloc(), // Not adding to scene as it will be free right away.
             target: Default::default(),
             available_render_tick: Default::default(),
-            snapshots: Default::default(),
+            events: Default::default(),
             entity_renders: Default::default(),
         };
 
@@ -207,7 +202,7 @@ impl BattlescapeRender {
         self.draw_node = Node2D::new_alloc();
         add_child_node(&mut self.client_node, &self.draw_node);
 
-        self.snapshots.clear();
+        self.events.clear();
         self.entity_renders.clear();
 
         // Take initial entity state.
@@ -248,15 +243,19 @@ impl BattlescapeRender {
     /// Otherwise we will reset the snapshot to the received tick.
     ///
     /// Return if states was reset.
-    pub fn take_snapshot(&mut self, bc: &Battlescape, snapshot: BattlescapeSnapshot) -> bool {
-        if snapshot.tick == self.next_expected_tick() {
-            self.available_render_tick.end = snapshot.tick;
-            self.snapshots.push(snapshot);
+    pub fn take_snapshot(
+        &mut self,
+        bc: &Battlescape,
+        events: ClientBattlescapeEventHandler,
+    ) -> bool {
+        if events.tick == self.next_expected_tick() {
+            self.available_render_tick.end = events.tick;
+            self.events.push(events);
             false
         } else {
             log::info!(
-                "Render reset as snapshot tick is {} while expecting {}",
-                snapshot.tick,
+                "Render reset as events tick is {} while expecting {}",
+                events.tick,
                 self.next_expected_tick()
             );
             self.reset(bc);
@@ -290,11 +289,11 @@ impl BattlescapeRender {
             self.apply_snapshot_events(snapshot_index);
         }
         // Remove old snapshots.
-        self.snapshots.drain(..advance);
+        self.events.drain(..advance);
 
         // The snapshot we will interpolate between.
-        let from = &self.snapshots[0].entity_snapshots;
-        let to = &self.snapshots[1].entity_snapshots;
+        let from = &self.events[0].entity_snapshots;
+        let to = &self.events[1].entity_snapshots;
 
         // // Set target on followed ship.
         // if let Some(ship_id) = from.follow {
@@ -355,7 +354,7 @@ impl BattlescapeRender {
     }
 
     fn apply_snapshot_events(&mut self, snapshot_index: usize) {
-        let snapshot = &mut self.snapshots[snapshot_index];
+        let snapshot = &mut self.events[snapshot_index];
 
         if snapshot.render_handled {
             return;

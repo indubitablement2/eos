@@ -1,4 +1,4 @@
-use super::render::BattlescapeSnapshot;
+use super::render::ClientBattlescapeEventHandler;
 use crate::battlescape::{command::Commands, events::BattlescapeEventHandler, Battlescape};
 use crossbeam::channel::{bounded, Receiver, Sender};
 use std::thread::spawn;
@@ -6,8 +6,8 @@ use std::thread::spawn;
 /// Run the battlescape on a separate thread and communicate with it through channels.
 pub struct RunnerHandle {
     runner_sender: Sender<RunnerCommand>,
-    runner_receiver: Receiver<(Box<Battlescape>, Option<BattlescapeSnapshot>)>,
-    pub bc: Option<(Box<Battlescape>, Option<BattlescapeSnapshot>)>,
+    runner_receiver: Receiver<(Box<Battlescape>, Option<ClientBattlescapeEventHandler>)>,
+    pub bc: Option<(Box<Battlescape>, Option<ClientBattlescapeEventHandler>)>,
 }
 impl RunnerHandle {
     pub fn new(bc: Battlescape) -> Self {
@@ -26,7 +26,7 @@ impl RunnerHandle {
     /// Handle communication with the runner thread.
     ///
     /// Return the battlescape if it not being updated.
-    pub fn update(&mut self) -> Option<(&Battlescape, Option<BattlescapeSnapshot>)> {
+    pub fn update(&mut self) -> Option<(&Battlescape, Option<ClientBattlescapeEventHandler>)> {
         // Try to fetch the battlescape.
         match self.runner_receiver.try_recv() {
             Ok(bc) => {
@@ -90,20 +90,20 @@ struct RunnerCommand {
 
 fn runner(
     runner_receiver: Receiver<RunnerCommand>,
-    runner_sender: Sender<(Box<Battlescape>, Option<BattlescapeSnapshot>)>,
+    runner_sender: Sender<(Box<Battlescape>, Option<ClientBattlescapeEventHandler>)>,
 ) {
     while let Ok(mut runner_command) = runner_receiver.recv() {
-        let events: Box<dyn BattlescapeEventHandler> = if runner_command.take_snapshot {
-            Box::new(BattlescapeSnapshot::default())
+        let events: BattlescapeEventHandler = if runner_command.take_snapshot {
+            BattlescapeEventHandler::new_client()
         } else {
-            Box::new(())
+            BattlescapeEventHandler::None
         };
 
-        let event = runner_command
+        let events = runner_command
             .bc
             .step(&runner_command.cmds, events)
-            .cast_snapshot();
+            .cast_client();
 
-        runner_sender.send((runner_command.bc, event)).unwrap()
+        runner_sender.send((runner_command.bc, events)).unwrap()
     }
 }
