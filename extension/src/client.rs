@@ -101,13 +101,6 @@ impl GodotExt for Client {
     fn process(&mut self, delta: f64) {
         self.inputs.update(&self.mc);
 
-        if let Some(bc) = self.focus.and_then(|focus| self.bcs.get_mut(&focus)) {
-            let input = Input::singleton();
-        } else {
-            self.focus = None;
-            // TODO: Give inputs to mc;
-        }
-
         for (id, bc) in self.bcs.iter_mut() {
             // Only give inputs to focused bc.
             let inputs = self.focus.and_then(|focus| {
