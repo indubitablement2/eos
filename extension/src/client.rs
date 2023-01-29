@@ -2,7 +2,9 @@ use super::*;
 use crate::{
     client_battlescape::{ClientBattlescape, ClientType},
     client_config::ClientConfig,
+    metascape::{fleet::Fleet, ship::Ship},
 };
+use battlescape::command::*;
 use data::*;
 use godot::{
     engine::{node::InternalMode, Engine},
@@ -13,6 +15,7 @@ use player_inputs::PlayerInputs;
 #[derive(GodotClass)]
 #[class(base=Node)]
 struct Client {
+    client_id: ClientId,
     inputs: PlayerInputs,
     focus: Option<i64>,
     bcs: AHashMap<i64, ClientBattlescape>,
@@ -22,9 +25,9 @@ struct Client {
     base: Base<Node>,
 }
 impl Client {
-    fn focused_battlescape(&mut self) -> Option<&mut ClientBattlescape>{
+    fn focused_battlescape(&mut self) -> Option<&mut ClientBattlescape> {
         self.focus.and_then(|focus| self.bcs.get_mut(&focus))
-    } 
+    }
 }
 #[godot_api]
 impl Client {
@@ -45,18 +48,42 @@ impl Client {
     }
 
     #[func]
-    fn new_local_battlescape(&mut self) -> i64 {
+    fn new_test_battlescape(&mut self) -> i64 {
         // TODO: Actual id.
         let id = rand::random::<i64>();
+
+        let mut cmds = Commands::default();
+
+        let ships = ship_data_iter()
+            .map(|(ship_data_id, _ship_data)| Ship {
+                ship_data_id,
+                hull: 1.0,
+                armor: 1.0,
+                readiness: 1.0,
+            })
+            .collect::<Vec<_>>();
+
+        for i in 0..4 {
+            cmds.push(AddFleet {
+                fleet_id: FleetId(i),
+                fleet: Fleet {
+                    owner: Some(ClientId(i)),
+                    ships: ships.clone(),
+                },
+                team: i as u32,
+            });
+        }
+
+        let replay = Replay::new(Default::default(), vec![cmds]);
 
         self.bcs.insert(
             id,
             ClientBattlescape::new(
                 self.base.share(),
-                Default::default(),
+                replay,
                 &self.client_config,
                 ClientId(0),
-                ClientType::Local,
+                ClientType::LocalCheat,
             ),
         );
 
@@ -78,8 +105,14 @@ impl Client {
     }
 
     #[func]
-    fn c_bs_add_fleet(&mut self, fleet_id: i64, team: u32, owner: ) {
-
+    fn bs_sv_add_ship(&mut self, fleet_idx: u32, ship_idx: u32) {
+        if let Some(bs) = self.focused_battlescape() {
+            bs.try_push_cmd(SvAddShip {
+                fleet_id: FleetId(fleet_idx as u64),
+                ship_idx,
+                prefered_spawn_point: fleet_idx,
+            })
+        }
     }
 }
 #[godot_api]
@@ -102,6 +135,7 @@ impl GodotExt for Client {
         );
 
         Self {
+            client_id: ClientId(0),
             inputs: Default::default(),
             bcs: Default::default(),
             mc,

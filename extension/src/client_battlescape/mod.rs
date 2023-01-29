@@ -158,4 +158,10 @@ impl ClientBattlescape {
         self.hidden = hide;
         self.render.hide(hide);
     }
+
+    pub fn try_push_cmd(&mut self, cmd: impl Command) {
+        if !cmd.server_only() || self.can_cheat {
+            self.wish_cmds.push(cmd)
+        }
+    }
 }

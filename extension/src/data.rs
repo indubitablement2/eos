@@ -28,6 +28,30 @@ impl EntityDataId {
     }
 }
 
+pub struct ShipDataIter {
+    next_id: u32,
+    len: u32,
+}
+impl Iterator for ShipDataIter {
+    type Item = (ShipDataId, &'static ShipData);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.next_id < self.len {
+            let id = ShipDataId(self.next_id);
+            self.next_id += 1;
+            Some((id, id.data()))
+        } else {
+            None
+        }
+    }
+}
+pub fn ship_data_iter() -> ShipDataIter {
+    ShipDataIter {
+        next_id: 0,
+        len: Data::data().ships.len() as u32,
+    }
+}
+
 pub struct Data {
     ships: IndexMap<String, ShipData, RandomState>,
     entities: IndexMap<String, EntityData, RandomState>,

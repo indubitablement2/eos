@@ -3,6 +3,7 @@ use crate::metascape::fleet::Fleet;
 
 pub enum TypedCmd {
     AddFleet(AddFleet),
+    SvAddShip(SvAddShip),
     AddShip(AddShip),
     SetClientInput(SetClientInput),
     SetClientControl(SetClientControl),
@@ -11,6 +12,7 @@ pub enum TypedCmd {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum TypedCmds {
     AddFleet(Vec<AddFleet>),
+    SvAddShip(Vec<SvAddShip>),
     AddShip(Vec<AddShip>),
     SetClientInput(Vec<SetClientInput>),
     SetClientControl(Vec<SetClientControl>),
@@ -20,6 +22,14 @@ impl TypedCmds {
         match self {
             TypedCmds::AddFleet(v) => {
                 if let TypedCmd::AddFleet(c) = typed_cmd {
+                    v.push(c);
+                    None
+                } else {
+                    Some(typed_cmd)
+                }
+            }
+            TypedCmds::SvAddShip(v) => {
+                if let TypedCmd::SvAddShip(c) = typed_cmd {
                     v.push(c);
                     None
                 } else {
@@ -85,18 +95,47 @@ impl Command for AddFleet {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AddShip {
+pub struct SvAddShip {
     pub fleet_id: FleetId,
-    pub ship_index: u32,
+    pub ship_idx: u32,
     pub prefered_spawn_point: u32,
 }
-impl Command for AddShip {
+impl Command for SvAddShip {
     fn apply(&self, bc: &mut Battlescape) {
         bc.add_fleet_ship(
             self.fleet_id,
-            self.ship_index as usize,
+            self.ship_idx as usize,
             self.prefered_spawn_point as usize,
         );
+    }
+
+    fn to_typed(self) -> TypedCmd {
+        TypedCmd::SvAddShip(self)
+    }
+
+    fn server_only(&self) -> bool {
+        true
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddShip {
+    pub caller: ClientId,
+    pub add_ship: SvAddShip,
+}
+impl Command for AddShip {
+    fn apply(&self, bc: &mut Battlescape) {
+        // Check that caller own that fleet.
+        if !bc
+            .fleets
+            .get(&self.add_ship.fleet_id)
+            .and_then(|fleet| fleet.owner)
+            .is_some_and(|fleet_owner| fleet_owner == self.caller)
+        {
+            return;
+        }
+
+        self.add_ship.apply(bc)
     }
 
     fn to_typed(self) -> TypedCmd {
@@ -104,7 +143,7 @@ impl Command for AddShip {
     }
 
     fn server_only(&self) -> bool {
-        true
+        false
     }
 }
 
@@ -193,6 +232,7 @@ impl Commands {
         for cmds in self.0.iter() {
             match cmds {
                 TypedCmds::AddFleet(c) => c.iter().for_each(|c| c.apply(bc)),
+                TypedCmds::SvAddShip(c) => c.iter().for_each(|c| c.apply(bc)),
                 TypedCmds::AddShip(c) => c.iter().for_each(|c| c.apply(bc)),
                 TypedCmds::SetClientInput(c) => c.iter().for_each(|c| c.apply(bc)),
                 TypedCmds::SetClientControl(c) => c.iter().for_each(|c| c.apply(bc)),
@@ -214,6 +254,9 @@ impl Commands {
         match typed_cmd {
             TypedCmd::AddFleet(c) => {
                 self.0.push(TypedCmds::AddFleet(vec![c]));
+            }
+            TypedCmd::SvAddShip(c) => {
+                self.0.push(TypedCmds::SvAddShip(vec![c]));
             }
             TypedCmd::AddShip(c) => {
                 self.0.push(TypedCmds::AddShip(vec![c]));
@@ -243,6 +286,13 @@ pub struct Replay {
     // TODO: sync points
 }
 impl Replay {
+    pub fn new(initial_state: BattlescapeStateInit, cmds: Vec<Commands>) -> Self {
+        Self {
+            initial_state,
+            cmds,
+        }
+    }
+
     pub fn get_cmds(&self, tick: u64) -> Option<&Commands> {
         if let Some(tick) = tick.checked_sub(1) {
             self.cmds.get(tick as usize)

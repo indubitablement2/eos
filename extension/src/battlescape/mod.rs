@@ -211,7 +211,7 @@ impl Battlescape {
         }
     }
 
-    fn add_fleet_ship(&mut self, fleet_id: FleetId, index: usize, prefered_spawn_point: usize) {
+    fn add_fleet_ship(&mut self, fleet_id: FleetId, ship_idx: usize, prefered_spawn_point: usize) {
         if let Some(fleet) = self.fleets.get_mut(&fleet_id) {
             let entity_id = self.next_entity_id;
 
@@ -221,7 +221,7 @@ impl Battlescape {
                 .unwrap_or_else(|| &spawn_points[0]);
 
             if let Some(entity) = fleet.try_spawn(
-                index,
+                ship_idx,
                 spawn_point,
                 self.half_size,
                 entity_id,
