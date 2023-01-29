@@ -169,7 +169,7 @@ unsafe impl Send for EntityRender {}
 pub struct BattlescapeRender {
     pub client_id: ClientId,
     client_node: Gd<Node>,
-    draw_node: Gd<Node2D>,
+    pub draw_node: Gd<Node2D>,
 
     target: Vec2,
 

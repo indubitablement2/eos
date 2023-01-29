@@ -34,6 +34,7 @@ pub const GODOT_SCALE: f32 = 128.0;
 
 // TODO: Add client take control events. Use it on the render side to follow that entity.
 // TODO: Handle battle over event.
+// TODO: Render call should call a static function on the sim node with the render node as an argument. 
 // TODO: Delete nodes on render entity drop.
 
 // TODO: Partition hull armor.

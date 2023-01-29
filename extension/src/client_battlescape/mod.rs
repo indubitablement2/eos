@@ -70,7 +70,7 @@ impl ClientBattlescape {
     }
 
     /// Return wish cmds that should be sent to the server.
-    pub fn update(&mut self, delta: f32, inputs: Option<&PlayerInputs>) -> Option<Commands> {
+    pub fn update(&mut self, delta: f32, inputs: Option<&mut PlayerInputs>) -> Option<Commands> {
         let mut can_advance = None;
         if let Some((bc, snapshot)) = self.runner_handle.update() {
             can_advance = Some(bc.tick + 1);
@@ -136,7 +136,7 @@ impl ClientBattlescape {
             if let Some(inputs) = inputs {
                 cmds.push(SetClientInput {
                     client_id: self.render.client_id,
-                    inputs: inputs.to_client_inputs(),
+                    inputs: inputs.to_client_inputs(&self.render.draw_node),
                 });
             }
 

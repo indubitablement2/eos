@@ -21,6 +21,11 @@ struct Client {
     #[base]
     base: Base<Node>,
 }
+impl Client {
+    fn focused_battlescape(&mut self) -> Option<&mut ClientBattlescape>{
+        self.focus.and_then(|focus| self.bcs.get_mut(&focus))
+    } 
+}
 #[godot_api]
 impl Client {
     #[func]
@@ -65,7 +70,16 @@ impl Client {
 
     #[func]
     fn focus_battlescape(&mut self, id: i64) {
-        self.focus = Some(id);
+        if self.bcs.contains_key(&id) {
+            self.focus = Some(id);
+        } else {
+            log::warn!("Can not focus battlescape {}. Not found. Ignoring...", id);
+        }
+    }
+
+    #[func]
+    fn c_bs_add_fleet(&mut self, fleet_id: i64, team: u32, owner: ) {
+
     }
 }
 #[godot_api]
@@ -107,13 +121,11 @@ impl GodotExt for Client {
             return;
         }
 
-        self.inputs.update(&self.mc);
-
         for (id, bc) in self.bcs.iter_mut() {
             // Only give inputs to focused bc.
             let inputs = self.focus.and_then(|focus| {
                 if *id == focus {
-                    Some(&self.inputs)
+                    Some(&mut self.inputs)
                 } else {
                     None
                 }

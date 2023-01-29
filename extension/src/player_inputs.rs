@@ -22,7 +22,7 @@ impl PlayerInputs {
         // TODO: when inputs are working.
     }
 
-    pub fn update(&mut self, node: &Node2D) {
+    fn update(&mut self, node: &Node2D) {
         self.mouse_pos = node.get_global_mouse_position().to_glam_descaled();
 
         let input = Input::singleton();
@@ -43,7 +43,9 @@ impl PlayerInputs {
         self.strafe = self.strafe.clamp(-1.0, 1.0);
     }
 
-    pub fn to_client_inputs(&self) -> ClientInputs {
+    pub fn to_client_inputs(&mut self, node: &Node2D) -> ClientInputs {
+        self.update(node);
+
         let wish_linvel = if !self.wish_dir.aprox_zero() {
             if self.face_cursor {
                 if self.relative_linvel {
