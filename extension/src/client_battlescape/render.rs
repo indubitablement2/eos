@@ -1,6 +1,7 @@
 use super::*;
 use crate::battlescape::events::BattlescapeEventHandlerTrait;
 use crate::battlescape::*;
+use crate::battlescape::bc_fleet::*;
 use crate::util::*;
 use crate::EntityDataId;
 use glam::Vec2;
@@ -11,11 +12,12 @@ use godot::prelude::*;
 
 #[derive(Default)]
 pub struct ClientBattlescapeEventHandler {
+    render_handled: bool,
     tick: u64,
     entity_snapshots: AHashMap<EntityId, EntitySnapshot>,
     new_entities: Vec<(EntityId, EntityRender)>,
-    render_handled: bool,
     battle_over: bool,
+    fleets: AHashMap<FleetId, RenderFleet>,
 }
 impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
     fn stepped(&mut self, bc: &Battlescape) {
@@ -58,6 +60,15 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
                 )
             })
             .collect();
+
+        // TODO: Take the fleets. Only take what changed and needed.
+        self.fleets = AHashMap::from_iter(bc.fleets.iter()
+        .map(|(fleet_id, battlescape_fleet)| {
+            (
+                *fleet_id,
+                RenderFleet::from_battlescape_fleet(battlescape_fleet),
+            )
+        }));
     }
 
     fn fleet_added(&mut self, fleet_id: crate::FleetId) {}
@@ -74,6 +85,29 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
     fn battle_over(&mut self) {
         self.battle_over = true;
     }
+}
+
+struct RenderFleet {
+    owner: Option<ClientId>,
+    team: u32,
+    ships: Vec<RenderShip>,
+}
+impl RenderFleet {
+    fn from_battlescape_fleet(battlescape_fleet: &BattlescapeFleet) -> Self {
+        Self {
+            owner: battlescape_fleet.owner,
+            team: battlescape_fleet.team,
+            ships: battlescape_fleet.ships.iter().map(|bs_ship| RenderShip {
+                ship_data_id: bs_ship.original_ship.ship_data_id,
+                state: bs_ship.state,
+            }).collect(),
+        }
+    }
+}
+
+struct RenderShip {
+    ship_data_id: ShipDataId,
+    state: FleetShipState,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -166,6 +200,7 @@ unsafe impl Send for EntityRender {}
 
 pub struct BattlescapeRender {
     pub client_id: ClientId,
+
     client_node: Gd<Node>,
     pub draw_node: Gd<Node2D>,
 
@@ -180,18 +215,22 @@ pub struct BattlescapeRender {
 
     events: Vec<ClientBattlescapeEventHandler>,
     entity_renders: AHashMap<EntityId, EntityRender>,
+    fleets: AHashMap<FleetId, RenderFleet>,
 }
 impl BattlescapeRender {
     pub fn new(client_id: ClientId, client_node: Gd<Node>, bc: &Battlescape) -> Self {
         let mut s = Self {
             client_id,
             client_node,
-            draw_node: Node2D::new_alloc(), // Not adding to scene as it will be free right away.
+            draw_node: Node2D::new_alloc(),
             target: Default::default(),
             available_render_tick: Default::default(),
             events: Default::default(),
             entity_renders: Default::default(),
+            fleets: Default::default(),
         };
+
+        add_child_node(&mut s.client_node, &s.draw_node);
 
         s.reset(bc);
 
@@ -200,11 +239,6 @@ impl BattlescapeRender {
 
     /// Clear all internal and set it with the bc's current state.
     pub fn reset(&mut self, bc: &Battlescape) {
-        // Free previous node tree.
-        self.draw_node.queue_free();
-        self.draw_node = Node2D::new_alloc();
-        add_child_node(&mut self.client_node, &self.draw_node);
-
         self.events.clear();
         self.entity_renders.clear();
 
@@ -346,6 +380,13 @@ impl BattlescapeRender {
             entity_render.insert_to_scene(&self.draw_node);
             self.entity_renders.insert(entity_id, entity_render);
         }
+
+        self.fleets = std::mem::take(&mut snapshot.fleets);
+    }
+}
+impl Drop for BattlescapeRender {
+    fn drop(&mut self) {
+        self.draw_node.queue_free();
     }
 }
 

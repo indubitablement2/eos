@@ -35,12 +35,13 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Add client take control events. Use it on the render side to follow that entity.
 // TODO: Handle battle over event.
 // TODO: Render call should call a static function on the sim node with the render node as an argument.
+// TODO: TimeManager should handle fast mode/catching up mode itself.
 
 // TODO: Partition hull armor.
 // TODO: Get texture and add to hull sprite.
 
 // TODO: client can output cmds: add fleet, spawn ship, set control, etc. <---
-// TODO: keep fleets/ships in render <---
+// TODO: display render fleets <---
 
 // TODO: Rename bc to bs and mc to ms
 
