@@ -17,13 +17,6 @@ pub struct ClientBattlescapeEventHandler {
     render_handled: bool,
     battle_over: bool,
 }
-impl Drop for ClientBattlescapeEventHandler {
-    fn drop(&mut self) {
-        for (_, entity_render) in self.new_entities.iter_mut() {
-            entity_render.node.queue_free();
-        }
-    }
-}
 impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
     fn stepped(&mut self, bc: &Battlescape) {
         self.tick = bc.tick;
@@ -161,6 +154,11 @@ impl EntityRender {
 
     fn insert_to_scene(&self, draw_node: &Gd<Node2D>) {
         add_child(draw_node, &self.node);
+    }
+}
+impl Drop for EntityRender {
+    fn drop(&mut self) {
+        self.node.queue_free()
     }
 }
 // Needed as it is contructed in events.
