@@ -281,13 +281,15 @@ impl Commands {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Replay {
+    pub battlescape_id: crate::metascape::BattlescapeId,
     pub initial_state: BattlescapeStateInit,
     cmds: Vec<Commands>,
     // TODO: sync points
 }
 impl Replay {
-    pub fn new(initial_state: BattlescapeStateInit, cmds: Vec<Commands>) -> Self {
+    pub fn new(battlescape_id: crate::metascape::BattlescapeId, initial_state: BattlescapeStateInit, cmds: Vec<Commands>) -> Self {
         Self {
+            battlescape_id,
             initial_state,
             cmds,
         }

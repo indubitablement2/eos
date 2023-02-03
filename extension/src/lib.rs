@@ -31,6 +31,7 @@ pub const GODOT_SCALE: f32 = 128.0;
 
 // TODO: add_ship should also add an ai!
 // TODO: Remove body/colliders when removing entity.
+// TODO: Make spawn point static.
 
 // TODO: Add client take control events. Use it on the render side to follow that entity.
 // TODO: Handle battle over event.
@@ -42,6 +43,8 @@ pub const GODOT_SCALE: f32 = 128.0;
 
 // TODO: client can output cmds: add fleet, spawn ship, set control, etc. <---
 // TODO: display render fleets <---
+
+// TODO: Shared connection to the server. Dispatch packets to apropriate node
 
 // TODO: Rename bc to bs and mc to ms
 
