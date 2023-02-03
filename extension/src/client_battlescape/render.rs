@@ -5,6 +5,8 @@ use crate::battlescape::bc_fleet::*;
 use crate::util::*;
 use crate::EntityDataId;
 use glam::Vec2;
+use godot::engine::Control;
+use godot::engine::ItemList;
 use godot::engine::node::InternalMode;
 use godot::engine::packed_scene::GenEditState;
 use godot::engine::Sprite2D;
@@ -387,6 +389,24 @@ impl BattlescapeRender {
 impl Drop for BattlescapeRender {
     fn drop(&mut self) {
         self.draw_node.queue_free();
+    }
+}
+
+struct Ui {
+    root: Gd<Control>,
+
+}
+impl Ui {
+
+}
+
+struct ShipSelect {
+    item_list: Gd<ItemList>,
+}
+impl Drop for ShipSelect {
+    fn drop(&mut self) {
+        // self.item_list.
+        self.item_list.queue_free();
     }
 }
 

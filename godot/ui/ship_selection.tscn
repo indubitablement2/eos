@@ -1,0 +1,93 @@
+[gd_scene load_steps=5 format=3 uid="uid://b1ngv4yd0k6mb"]
+
+[ext_resource type="Script" path="res://ui/ship_selection.gd" id="1_c4afu"]
+[ext_resource type="Texture2D" uid="uid://ck73ei3ddic5k" path="res://textures/pixel.png" id="1_uuy60"]
+
+[sub_resource type="InputEventKey" id="InputEventKey_rynd2"]
+device = -1
+keycode = 65
+unicode = 97
+
+[sub_resource type="Shortcut" id="Shortcut_0hinh"]
+events = [SubResource("InputEventKey_rynd2")]
+
+[node name="ShipSelection" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_c4afu")
+
+[node name="TextureRect" type="TextureRect" parent="."]
+self_modulate = Color(1, 1, 1, 0.0784314)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_uuy60")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="TextureRect"]
+custom_minimum_size = Vector2(200, 200)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -302.0
+offset_top = -263.0
+offset_right = 302.0
+offset_bottom = 263.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 0
+
+[node name="Label" type="Label" parent="TextureRect/VBoxContainer"]
+modulate = Color(1, 0.219608, 0.219608, 1)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 0
+text = "0/0"
+horizontal_alignment = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="TextureRect/VBoxContainer"]
+layout_mode = 2
+
+[node name="ScrollContainer" type="ScrollContainer" parent="TextureRect/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(0, 500)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+follow_focus = true
+horizontal_scroll_mode = 0
+
+[node name="GridContainer" type="GridContainer" parent="TextureRect/VBoxContainer/HBoxContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+columns = 6
+
+[node name="Accept" type="Button" parent="TextureRect/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 0
+shortcut = SubResource("Shortcut_0hinh")
+text = "Accept"
+
+[node name="Cancel" type="Button" parent="TextureRect/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+text = "Cancel"
+
+[node name="Reset" type="Button" parent="TextureRect/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+text = "Reset"

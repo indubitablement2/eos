@@ -1,0 +1,54 @@
+[gd_scene load_steps=5 format=3 uid="uid://d1bu5p4fym2bh"]
+
+[ext_resource type="Script" path="res://ui/ship.gd" id="1_u6b3c"]
+[ext_resource type="Texture2D" uid="uid://clwdqmw5fa0bw" path="res://textures/spaceship gen.png" id="3_0bv81"]
+[ext_resource type="Texture2D" uid="uid://do0ttbjjbflxy" path="res://textures/x64.png" id="5_as5t8"]
+
+[sub_resource type="Theme" id="Theme_57svq"]
+
+[node name="Ship" type="Button"]
+custom_minimum_size = Vector2(96, 96)
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = SubResource("Theme_57svq")
+toggle_mode = true
+action_mode = 0
+script = ExtResource("1_u6b3c")
+
+[node name="Cost" type="Label" parent="."]
+layout_mode = 1
+offset_right = 40.0
+offset_bottom = 26.0
+horizontal_alignment = 1
+
+[node name="Icon" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_0bv81")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Destroyed" type="TextureRect" parent="."]
+visible = false
+modulate = Color(0.639216, 0, 0, 0.588235)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("5_as5t8")
+expand_mode = 1

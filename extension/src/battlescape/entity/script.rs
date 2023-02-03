@@ -429,11 +429,11 @@ impl GodotScriptWrapper {
         self.0.call("step".into(), &[]);
     }
 
-    fn serialize(&mut self) -> ByteArray {
+    fn serialize(&mut self) -> PackedByteArray {
         var_to_bytes(self.0.call("serialize".into(), &[]))
     }
 
-    fn deserialize(&mut self, bytes: ByteArray) {
+    fn deserialize(&mut self, bytes: PackedByteArray) {
         self.0.call("deserialize".into(), &[bytes_to_var(bytes)]);
     }
 }

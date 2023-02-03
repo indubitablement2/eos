@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://entity test/main.gd" id="1_bu628"]
 
 [node name="Main" type="Node2D"]
+position = Vector2(0, 1)
 script = ExtResource("1_bu628")
 
 [node name="Client" type="Client" parent="."]
