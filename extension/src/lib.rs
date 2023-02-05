@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::{smallvec, SmallVec};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
-/// 1 game unit = 128 godot unit.
+/// 1 simulation unit = 128 godot unit.
 pub const GODOT_SCALE: f32 = 128.0;
 
 // TODO: add_ship should also add an ai!

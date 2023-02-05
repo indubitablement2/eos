@@ -1,18 +1,18 @@
 use super::render::ClientBattlescapeEventHandler;
 use crate::battlescape::{command::Commands, events::BattlescapeEventHandler, Battlescape};
-use crossbeam::channel::{bounded, Receiver, Sender};
+use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::thread::spawn;
 
 /// Run the battlescape on a separate thread and communicate with it through channels.
 pub struct RunnerHandle {
-    runner_sender: Sender<RunnerCommand>,
+    runner_sender: SyncSender<RunnerCommand>,
     runner_receiver: Receiver<(Box<Battlescape>, Option<ClientBattlescapeEventHandler>)>,
     pub bc: Option<(Box<Battlescape>, Option<ClientBattlescapeEventHandler>)>,
 }
 impl RunnerHandle {
     pub fn new(bc: Battlescape) -> Self {
-        let (runner_sender, _runner_receiver) = bounded(1);
-        let (_runner_sender, runner_receiver) = bounded(1);
+        let (runner_sender, _runner_receiver) = sync_channel(1);
+        let (_runner_sender, runner_receiver) = sync_channel(1);
 
         spawn(move || runner(_runner_receiver, _runner_sender));
 
@@ -38,10 +38,10 @@ impl RunnerHandle {
                     );
                 }
             }
-            Err(crossbeam::channel::TryRecvError::Empty) => {
+            Err(std::sync::mpsc::TryRecvError::Empty) => {
                 // Still updating or we already have it.
             }
-            Err(crossbeam::channel::TryRecvError::Disconnected) => {
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                 // Runner has crashed.
                 log::error!("Runner disconnected.");
                 panic!()
@@ -90,7 +90,7 @@ struct RunnerCommand {
 
 fn runner(
     runner_receiver: Receiver<RunnerCommand>,
-    runner_sender: Sender<(Box<Battlescape>, Option<ClientBattlescapeEventHandler>)>,
+    runner_sender: SyncSender<(Box<Battlescape>, Option<ClientBattlescapeEventHandler>)>,
 ) {
     while let Ok(mut runner_command) = runner_receiver.recv() {
         let events: BattlescapeEventHandler = if runner_command.take_snapshot {
