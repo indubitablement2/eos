@@ -35,6 +35,10 @@ impl EntityScriptWrapper {
         self.script.bind_mut().start();
     }
 
+    pub fn destroyed(&mut self) {
+        self.script.bind_mut().destroyed();
+    }
+
     pub fn step(&mut self) {
         self.script.bind_mut().step();
     }
@@ -93,6 +97,10 @@ impl HullScriptWrapper {
 
     pub fn start(&mut self) {
         self.script.bind_mut().start();
+    }
+
+    pub fn destroyed(&mut self) {
+        self.script.bind_mut().destroyed();
     }
 
     pub fn step(&mut self) {
@@ -155,6 +163,9 @@ impl EntityScript {
 
     #[func]
     fn start(&mut self) {}
+
+    #[func]
+    fn destroyed(&mut self) {}
 
     #[func]
     fn step(&mut self) {}
@@ -286,6 +297,9 @@ impl HullScript {
 
     #[func]
     fn start(&mut self) {}
+
+    #[func]
+    fn destroyed(&mut self) {}
 
     #[func]
     fn step(&mut self) {}

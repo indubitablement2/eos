@@ -213,17 +213,17 @@ impl Battlescape {
         }
 
         // Step entities.
-        for entity in self.entities.values_mut() {
-            entity.step(&mut self.physics);
-        }
-
-        let mut i = 0usize;
-        while i < self.entities.len() {
-            if self.entities[i].is_destroyed() {
-                self.remove_entity(i);
+        let removed_entities = self.entities.values_mut().enumerate().filter_map(|(entity_idx, entity)| {
+            if entity.step(&mut self.physics) {
+                Some(entity_idx)
             } else {
-                i += 1;
+                None
             }
+        }).collect::<Vec<_>>();
+
+        // Remove entities.
+        for entity_idx in removed_entities.into_iter().rev() {
+            self.remove_entity(entity_idx);
         }
     }
 

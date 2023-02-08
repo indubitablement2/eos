@@ -149,11 +149,17 @@ impl Entity {
         self.script.start();
     }
 
-    // pub fn destroyed(&mut self) {
+    pub fn destroyed(&mut self) {
+        self.script.destroyed();
+        for hull in self.hulls.iter_mut() {
+            if let Some(hull) = hull {
+                hull.script.destroyed();
+            }
+        }
+    }
 
-    // }
-
-    pub fn step(&mut self, physics: &mut Physics) {
+    /// Return if this should be removed.
+    pub fn step(&mut self, physics: &mut Physics) -> bool {
         // Scripts
         self.script.step();
         for hull in self.hulls.iter_mut() {
@@ -269,6 +275,34 @@ impl Entity {
         //     // let linvel = (wish_linvel - linvel).cap_magnitude(e.mobility.linear_acceleration);
         //     // rb.set_linvel(linvel, true);
         // }
+
+        // Remove destroyed hulls.
+        let mut main_hull = true;
+        let mut remove = false;
+        for hull in self.hulls.iter_mut() {
+            let destroyed = if let Some(hull) = hull {
+                if hull.defence.hull <= 0 {
+                    hull.script.destroyed();
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+            if destroyed {
+                *hull = None;
+
+                if main_hull {
+                    self.script.destroyed();
+                    remove = true;
+                }
+            }
+
+            main_hull = false;
+        }
+        remove
     }
 }
 
