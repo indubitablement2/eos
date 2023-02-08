@@ -58,11 +58,11 @@ impl ClientBattlescape {
         // TODO: Take latest jump point.
         let bc = Battlescape::new(replay.initial_state.clone());
 
-        let (config, can_cheat) = match client_type {
-            ClientType::Local => (TimeManagerConfig::local(), false),
-            ClientType::LocalCheat => (TimeManagerConfig::local(), true),
-            ClientType::Replay => (TimeManagerConfig::very_smooth(), false),
-            ClientType::Client => (client_config.battlescape_time_manager_config, false),
+        let config = match client_type {
+            ClientType::Local => TimeManagerConfig::local(),
+            ClientType::LocalCheat => TimeManagerConfig::local(),
+            ClientType::Replay => TimeManagerConfig::very_smooth(),
+            ClientType::Client => client_config.battlescape_time_manager_config,
         };
 
         Gd::with_base(|mut base: Base<Node2D>| {
