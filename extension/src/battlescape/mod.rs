@@ -52,6 +52,8 @@ pub struct Battlescape {
 
     #[serde(skip)]
     pub events: BattlescapeEventHandler,
+    #[serde(skip)]
+    new_entities: Vec<EntityId>,
 
     pub team_num_active_ship: AHashMap<u32, u32>,
     pub fleets: Fleets,
@@ -84,6 +86,7 @@ impl Battlescape {
             entities: Default::default(),
             ais: Default::default(),
             events: Default::default(),
+            new_entities: Default::default(),
         }
     }
 
@@ -196,11 +199,20 @@ impl Battlescape {
     }
 
     fn step_entities(&mut self) {
+        // Prepare entities.
         let bs_ptr = entity::script::BsPtr::new(self);
         for (entity, entity_idx) in self.entities.values_mut().zip(0usize..) {
             entity.pre_step(bs_ptr, entity_idx);
         }
 
+        // Call start on new entities.
+        for entity_id in self.new_entities.drain(..) {
+            if let Some(entity) = self.entities.get_mut(&entity_id) {
+                entity.start();
+            }
+        }
+
+        // Step entities.
         for entity in self.entities.values_mut() {
             entity.step(&mut self.physics);
         }

@@ -23,13 +23,13 @@ impl BattlescapeFleet {
     /// Can fail if the ship is already spawned or does not exist.
     pub fn try_spawn(
         &mut self,
-        index: usize,
+        ship_idx: usize,
         spawn_point: &mode::SpawnPoint,
         bc_half_size: f32,
         entity_id: EntityId,
         physics: &mut Physics,
     ) -> Option<Entity> {
-        if let Some(fleet_ship) = self.ships.get_mut(index) {
+        if let Some(fleet_ship) = self.ships.get_mut(ship_idx) {
             if !fleet_ship.state.is_ready() {
                 return None;
             }

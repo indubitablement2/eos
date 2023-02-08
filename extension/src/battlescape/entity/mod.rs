@@ -140,6 +140,19 @@ impl Entity {
         }
     }
 
+    pub fn start(&mut self) {
+        for hull in self.hulls.iter_mut() {
+            if let Some(hull) = hull {
+                hull.script.start();
+            }
+        }
+        self.script.start();
+    }
+
+    // pub fn destroyed(&mut self) {
+
+    // }
+
     pub fn step(&mut self, physics: &mut Physics) {
         // Scripts
         self.script.step();
