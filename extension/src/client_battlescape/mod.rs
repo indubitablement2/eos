@@ -4,8 +4,8 @@ mod runner;
 use self::render::{BattlescapeRender, RenderBattlescapeEventHandler};
 use self::runner::RunnerHandle;
 use super::*;
-use crate::battlescape::*;
 use crate::battlescape::events::BattlescapeEventHandlerTrait;
+use crate::battlescape::*;
 use crate::client_config::ClientConfig;
 use crate::metascape::BattlescapeId;
 use crate::player_inputs::PlayerInputs;
@@ -69,22 +69,23 @@ impl ClientBattlescape {
             base.hide();
 
             Self {
-            client_id,
-            render: BattlescapeRender::new(client_id, base.share()),
-            runner_handle: RunnerHandle::new(bc),
-            replay,
-            ship_selection: None,
-            wish_cmds: Default::default(),
-            time_manager: TimeManager::new(config),
-            client_type,
-            inputs: Default::default(),
-            last_cmds_send: 0.0,
-            base,
-            events: Default::default(),
-            catching_up: true,
-            cmd_tick: 0,
-            fleets: Default::default(),
-        }})
+                client_id,
+                render: BattlescapeRender::new(client_id, base.share()),
+                runner_handle: RunnerHandle::new(bc),
+                replay,
+                ship_selection: None,
+                wish_cmds: Default::default(),
+                time_manager: TimeManager::new(config),
+                client_type,
+                inputs: Default::default(),
+                last_cmds_send: 0.0,
+                base,
+                events: Default::default(),
+                catching_up: true,
+                cmd_tick: 0,
+                fleets: Default::default(),
+            }
+        })
     }
 
     pub fn battlescape_id(&self) -> BattlescapeId {
@@ -119,7 +120,6 @@ impl ClientBattlescape {
     #[func]
     fn fleet_ship_selected(&mut self, selected: PackedInt64Array) {
         for mut selection_idx in selected.to_vec().into_iter().map(|i| i as usize) {
-
             let mut fleet_idx = 0;
             loop {
                 if selection_idx < self.fleets[fleet_idx].ships.len() {
@@ -128,7 +128,7 @@ impl ClientBattlescape {
                 selection_idx -= self.fleets[fleet_idx].ships.len();
                 fleet_idx += 1;
             }
-            
+
             let add_ship = SvAddShip {
                 fleet_id: *self.fleets.get_index(fleet_idx).unwrap().0,
                 ship_idx: selection_idx as u32,
@@ -184,11 +184,14 @@ impl GodotExt for ClientBattlescape {
             was_catching_up = false;
         }
 
-        while let Some(cmds) = self.replay.get_cmds(self.cmd_tick+1) {
+        while let Some(cmds) = self.replay.get_cmds(self.cmd_tick + 1) {
             if self.events.len() > 10 {
                 break;
             }
-            self.runner_handle.step(cmds.to_owned(), ClientBattlescapeEventHandler::new(was_catching_up));
+            self.runner_handle.step(
+                cmds.to_owned(),
+                ClientBattlescapeEventHandler::new(was_catching_up),
+            );
             self.cmd_tick += 1;
         }
 
@@ -243,9 +246,8 @@ impl GodotExt for ClientBattlescape {
         }
 
         // Remove previous events.
-        self.events.retain(|event| {
-            event.tick + 1 >= self.time_manager.tick
-        });
+        self.events
+            .retain(|event| event.tick + 1 >= self.time_manager.tick);
 
         let hidden = !self.base.is_visible();
 
@@ -256,11 +258,8 @@ impl GodotExt for ClientBattlescape {
             if self.events.len() >= 2 {
                 let from = &self.events[0];
                 let to = &self.events[1];
-                self.render.draw_lerp(
-                    from, 
-                    to,
-                    self.time_manager.interpolation_weight(),
-                );
+                self.render
+                    .draw_lerp(from, to, self.time_manager.interpolation_weight());
             }
         }
 
@@ -295,13 +294,13 @@ impl ShipSelection {
     const SHIP_SELECTION_PATH: &str = "res://ui/ship_selection.tscn";
 
     fn new(parent: &mut Gd<Node2D>, fleets: &Fleets) -> Self {
-        let mut node = load::<PackedScene>(Self::SHIP_SELECTION_PATH).instantiate(packed_scene::GenEditState::GEN_EDIT_STATE_DISABLED).unwrap();
+        let mut node = load::<PackedScene>(Self::SHIP_SELECTION_PATH)
+            .instantiate(packed_scene::GenEditState::GEN_EDIT_STATE_DISABLED)
+            .unwrap();
         add_child_node_node(&mut parent.share().upcast(), node.share());
         node.set("bind".into(), parent.to_variant());
 
-        let mut s = Self {
-            node,
-        };
+        let mut s = Self { node };
 
         s.set_max_active_cost(100);
 
@@ -325,11 +324,14 @@ impl ShipSelection {
             bc_fleet::FleetShipState::Spawned => true,
             bc_fleet::FleetShipState::Removed(_) => true,
             bc_fleet::FleetShipState::Destroyed => true,
-        }.to_variant();
+        }
+        .to_variant();
 
         // add_ship(icon: Texture2D, size_factor: float, tooptip: String, cost: int, destroyed: bool)
-        self.node.call("add_ship".into(), &[icon, size_factor, tooptip, cost, destroyed]);
-
+        self.node.call(
+            "add_ship".into(),
+            &[icon, size_factor, tooptip, cost, destroyed],
+        );
     }
 
     fn update_ship_state(&mut self, idx: i64, state: bc_fleet::FleetShipState) {
@@ -341,22 +343,26 @@ impl ShipSelection {
             }
             bc_fleet::FleetShipState::Spawned => {
                 // ship_set_spawned(idx: int)
-                self.node.call("ship_set_spawned".into(), &[idx.to_variant()]);
+                self.node
+                    .call("ship_set_spawned".into(), &[idx.to_variant()]);
             }
             bc_fleet::FleetShipState::Removed(_) => {
                 // ship_set_removed(idx: int)
-                self.node.call("ship_set_removed".into(), &[idx.to_variant()]);
+                self.node
+                    .call("ship_set_removed".into(), &[idx.to_variant()]);
             }
             bc_fleet::FleetShipState::Destroyed => {
                 // ship_set_destroyed(idx: int)
-                self.node.call("ship_set_destroyed".into(), &[idx.to_variant()]);
+                self.node
+                    .call("ship_set_destroyed".into(), &[idx.to_variant()]);
             }
         }
     }
 
     fn set_max_active_cost(&mut self, value: i64) {
         // set_max_active_cost(value: int)
-        self.node.call("set_max_active_cost".into(), &[value.to_variant()]);
+        self.node
+            .call("set_max_active_cost".into(), &[value.to_variant()]);
     }
 }
 impl Drop for ShipSelection {
@@ -395,7 +401,8 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
             self.new_fleet = AHashMap::from_iter(bc.fleets.iter().map(|(k, v)| (*k, v.clone())));
         } else {
             for fleet_id in self._new_fleet.iter() {
-                self.new_fleet.insert(*fleet_id, bc.fleets.get(fleet_id).unwrap().clone());
+                self.new_fleet
+                    .insert(*fleet_id, bc.fleets.get(fleet_id).unwrap().clone());
             }
         }
         self._new_fleet.clear();
@@ -410,16 +417,25 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
     }
 
     fn ship_destroyed(&mut self, fleet_id: FleetId, ship_index: usize) {
-        self.ship_state_changes.push((fleet_id, ship_index, bc_fleet::FleetShipState::Destroyed));
+        self.ship_state_changes
+            .push((fleet_id, ship_index, bc_fleet::FleetShipState::Destroyed));
 
         self.render.ship_destroyed(fleet_id, ship_index);
     }
 
-    fn entity_removed(&mut self, entity_id: battlescape::EntityId, entity: battlescape::entity::Entity) {
+    fn entity_removed(
+        &mut self,
+        entity_id: battlescape::EntityId,
+        entity: battlescape::entity::Entity,
+    ) {
         self.render.entity_removed(entity_id, entity);
     }
 
-    fn entity_added(&mut self, entity_id: battlescape::EntityId, entity: &battlescape::entity::Entity) {
+    fn entity_added(
+        &mut self,
+        entity_id: battlescape::EntityId,
+        entity: &battlescape::entity::Entity,
+    ) {
         self.render.entity_added(entity_id, entity);
     }
 

@@ -98,14 +98,14 @@ impl Battlescape {
 
     pub fn deserialize(bytes: &[u8]) -> Option<Self> {
         let mut s = bincode::Options::deserialize(bincode::DefaultOptions::new(), bytes).ok();
-    
+
         if let Some(s) = &mut s {
             let bs_ptr = entity::script::BsPtr::new(s);
 
             for (entity, entity_idx) in s.entities.values_mut().zip(0usize..) {
                 entity.post_deserialize_prepare(bs_ptr, entity_idx);
             }
-    
+
             for entity in s.entities.values_mut() {
                 entity.post_deserialize_post_prepare();
             }

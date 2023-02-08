@@ -17,7 +17,9 @@ pub struct EntityScriptWrapper {
 impl EntityScriptWrapper {
     pub fn new(entity_data_id: EntityDataId) -> Self {
         let mut script = default_entity_script();
-        script.bind_mut().set_script(entity_data_id.data().script.clone());
+        script
+            .bind_mut()
+            .set_script(entity_data_id.data().script.clone());
         Self {
             serde: None,
             script,
@@ -56,7 +58,9 @@ impl EntityScriptWrapper {
     /// Should have called `post_deserialize_prepare` on all script before this.
     pub fn post_deserialize_post_prepare(&mut self) {
         if let Some(bytes) = self.serde.take() {
-            self.script.bind_mut().deserialize(bytes_to_var(PackedByteArray::from(bytes.as_slice())));
+            self.script
+                .bind_mut()
+                .deserialize(bytes_to_var(PackedByteArray::from(bytes.as_slice())));
         }
     }
 }
@@ -73,7 +77,9 @@ pub struct HullScriptWrapper {
 impl HullScriptWrapper {
     pub fn new(entity_data_id: EntityDataId, hull_idx: usize) -> Self {
         let mut script = default_hull_script();
-        script.bind_mut().set_script(entity_data_id.data().hulls[hull_idx].script.clone());
+        script
+            .bind_mut()
+            .set_script(entity_data_id.data().hulls[hull_idx].script.clone());
         Self {
             serde: None,
             script,
@@ -98,12 +104,7 @@ impl HullScriptWrapper {
     }
 
     /// Create and prepare the script.
-    pub fn post_deserialize_prepare(
-        &mut self,
-        bs_ptr: BsPtr,
-        entity_idx: usize,
-        hull_idx: usize,
-    ) {
+    pub fn post_deserialize_prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize, hull_idx: usize) {
         let serde = self.serde.take();
         let entity_data_id = self.entity_data_id;
 
@@ -117,7 +118,9 @@ impl HullScriptWrapper {
     /// Should have called `post_deserialize_prepare` on all script before this.
     pub fn post_deserialize_post_prepare(&mut self) {
         if let Some(bytes) = self.serde.take() {
-            self.script.bind_mut().deserialize(bytes_to_var(PackedByteArray::from(bytes.as_slice())));
+            self.script
+                .bind_mut()
+                .deserialize(bytes_to_var(PackedByteArray::from(bytes.as_slice())));
         }
     }
 }
@@ -175,7 +178,8 @@ impl EntityScript {
     /// Only intended for deserialization.
     #[func]
     fn get_entity_from_id(&mut self, id: i64) -> Gd<EntityScript> {
-        self.bs.entities
+        self.bs
+            .entities
             .get(&EntityId(id as u32))
             .map(|entity| entity.script.script.share())
             .expect("entity should exist")
@@ -184,7 +188,8 @@ impl EntityScript {
     /// Only intended for deserialization.
     #[func]
     fn get_hull_from_id(&mut self, id: i64) -> Gd<HullScript> {
-        self.bs.entities
+        self.bs
+            .entities
             .get(&EntityId(id as u32))
             .and_then(|entity| entity.hulls[(id >> 32) as usize].as_ref())
             .map(|hull| hull.script.script.share())
@@ -304,7 +309,8 @@ impl HullScript {
 
     #[func]
     fn get_entity_from_id(&mut self, id: i64) -> Gd<EntityScript> {
-        self.bs.entities
+        self.bs
+            .entities
             .get(&EntityId(id as u32))
             .map(|entity| entity.script.script.share())
             .expect("entity should exist")
@@ -312,7 +318,8 @@ impl HullScript {
 
     #[func]
     fn get_hull_from_id(&mut self, id: i64) -> Gd<HullScript> {
-        self.bs.entities
+        self.bs
+            .entities
             .get(&EntityId(id as u32))
             .and_then(|entity| entity.hulls[(id >> 32) as usize].as_ref())
             .map(|hull| hull.script.script.share())

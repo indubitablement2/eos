@@ -78,7 +78,12 @@ pub struct AddFleet {
 }
 impl Command for AddFleet {
     fn apply(&self, bc: &mut Battlescape) {
-        log::debug!("Adding {:?} with {} ships owned by {:?}.", self.fleet_id, self.fleet.ships.len(), self.fleet.owner);
+        log::debug!(
+            "Adding {:?} with {} ships owned by {:?}.",
+            self.fleet_id,
+            self.fleet.ships.len(),
+            self.fleet.owner
+        );
         bc.fleets.insert(
             self.fleet_id,
             BattlescapeFleet::from_fleet(self.fleet.to_owned(), self.team),
@@ -283,7 +288,11 @@ pub struct Replay {
     // TODO: sync points
 }
 impl Replay {
-    pub fn new(battlescape_id: crate::metascape::BattlescapeId, initial_state: BattlescapeStateInit, cmds: Vec<Commands>) -> Self {
+    pub fn new(
+        battlescape_id: crate::metascape::BattlescapeId,
+        initial_state: BattlescapeStateInit,
+        cmds: Vec<Commands>,
+    ) -> Self {
         Self {
             battlescape_id,
             initial_state,

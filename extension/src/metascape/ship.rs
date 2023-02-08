@@ -1,5 +1,5 @@
 use super::*;
-use godot::{prelude::*, engine::Sprite2D};
+use godot::{engine::Sprite2D, prelude::*};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ship {

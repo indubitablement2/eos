@@ -57,9 +57,11 @@ impl BattlescapeEventHandlerTrait for RenderBattlescapeEventHandler {
 
         if self.take_full {
             // Take a full snapshot of the battlescape.
-            self.new_entities = bc.entities.iter()
-            .map(|(entity_id, entity)| (*entity_id, EntityRender::new(entity)))
-            .collect();
+            self.new_entities = bc
+                .entities
+                .iter()
+                .map(|(entity_id, entity)| (*entity_id, EntityRender::new(entity)))
+                .collect();
         }
     }
 
@@ -76,7 +78,7 @@ impl BattlescapeEventHandlerTrait for RenderBattlescapeEventHandler {
     fn entity_added(&mut self, entity_id: EntityId, entity: &entity::Entity) {
         if !self.take_full {
             self.new_entities
-            .push((entity_id, EntityRender::new(entity)));
+                .push((entity_id, EntityRender::new(entity)));
         }
     }
 
@@ -90,7 +92,6 @@ impl RenderBattlescapeEventHandler {
         }
     }
 }
-
 
 #[derive(Debug, Clone, Copy)]
 struct Position {
@@ -210,7 +211,12 @@ impl BattlescapeRender {
         }
     }
 
-    pub fn draw_lerp(&mut self, from: &ClientBattlescapeEventHandler, to: &ClientBattlescapeEventHandler, weight: f32) {
+    pub fn draw_lerp(
+        &mut self,
+        from: &ClientBattlescapeEventHandler,
+        to: &ClientBattlescapeEventHandler,
+        weight: f32,
+    ) {
         let from = &from.render.entity_snapshots;
         let to = &to.render.entity_snapshots;
 

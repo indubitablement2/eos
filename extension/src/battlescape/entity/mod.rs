@@ -112,15 +112,11 @@ impl Entity {
 
     /// Prepare the entity post serialization.
     pub fn post_deserialize_prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
-        self.script
-            .post_deserialize_prepare(bs_ptr, entity_idx);
+        self.script.post_deserialize_prepare(bs_ptr, entity_idx);
         for (hull, hull_idx) in self.hulls.iter_mut().zip(0..) {
             if let Some(hull) = hull {
-                hull.script.post_deserialize_prepare(
-                    bs_ptr,
-                    entity_idx,
-                    hull_idx,
-                );
+                hull.script
+                    .post_deserialize_prepare(bs_ptr, entity_idx, hull_idx);
             }
         }
     }
@@ -136,15 +132,10 @@ impl Entity {
     }
 
     pub fn pre_step(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
-        self.script
-            .prepare(bs_ptr, entity_idx);
+        self.script.prepare(bs_ptr, entity_idx);
         for (hull, hull_idx) in self.hulls.iter_mut().zip(0usize..) {
             if let Some(hull) = hull {
-                hull.script.prepare(
-                    bs_ptr,
-                    entity_idx,
-                    hull_idx,
-                );
+                hull.script.prepare(bs_ptr, entity_idx, hull_idx);
             }
         }
     }

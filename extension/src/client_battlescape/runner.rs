@@ -49,8 +49,12 @@ fn runner(
 ) {
     while let Ok(runner_command) = runner_receiver.recv() {
         let events = bs
-            .step(&runner_command.cmds, BattlescapeEventHandler::Client(runner_command.event_handler))
-            .cast_client().unwrap();
+            .step(
+                &runner_command.cmds,
+                BattlescapeEventHandler::Client(runner_command.event_handler),
+            )
+            .cast_client()
+            .unwrap();
 
         runner_sender.send(events).unwrap()
     }

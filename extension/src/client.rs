@@ -2,7 +2,8 @@ use super::*;
 use crate::{
     client_battlescape::{ClientBattlescape, ClientType},
     client_config::ClientConfig,
-    metascape::{fleet::Fleet, ship::Ship, BattlescapeId}, util::*,
+    metascape::{fleet::Fleet, ship::Ship, BattlescapeId},
+    util::*,
 };
 use battlescape::command::*;
 use data::*;
@@ -80,7 +81,7 @@ impl Client {
 
         add_child_node(&mut self.base, &client_bs);
 
-        if let Some(mut previous) = self.bcs.insert(Default::default(),client_bs.share()) {
+        if let Some(mut previous) = self.bcs.insert(Default::default(), client_bs.share()) {
             previous.bind_mut().queue_free();
         }
 
