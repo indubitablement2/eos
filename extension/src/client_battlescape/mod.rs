@@ -1,14 +1,17 @@
 pub mod render;
 mod runner;
 
-use self::render::BattlescapeRender;
+use self::render::{BattlescapeRender, RenderBattlescapeEventHandler};
 use self::runner::RunnerHandle;
 use super::*;
-use crate::battlescape::{command::*, Battlescape, DT, DT_MS};
+use crate::battlescape::*;
+use crate::battlescape::events::BattlescapeEventHandlerTrait;
 use crate::client_config::ClientConfig;
 use crate::metascape::BattlescapeId;
 use crate::player_inputs::PlayerInputs;
 use crate::time_manager::*;
+use crate::util::*;
+use godot::engine::packed_scene;
 use godot::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,24 +29,27 @@ pub enum ClientType {
 #[derive(GodotClass)]
 #[class(base=Node2D)]
 pub struct ClientBattlescape {
+    client_id: ClientId,
     runner_handle: RunnerHandle,
     render: BattlescapeRender,
+    fleets: Fleets,
+    ship_selection: Option<ShipSelection>,
     client_type: ClientType,
     inputs: PlayerInputs,
-    can_cheat: bool,
     wish_cmds: Commands,
     last_cmds_send: f32,
     /// Flag telling if we are very far behind.
     /// This will disable rendering and inputs to speed up simulation.
     catching_up: bool,
     time_manager: TimeManager<{ DT_MS }>,
+    cmd_tick: u64,
+    events: Vec<ClientBattlescapeEventHandler>,
     replay: Replay,
     #[base]
     base: Base<Node2D>,
 }
 impl ClientBattlescape {
     pub fn new(
-        client_node: Gd<Node>,
         replay: Replay,
         client_config: &ClientConfig,
         client_id: ClientId,
@@ -63,17 +69,21 @@ impl ClientBattlescape {
             base.hide();
 
             Self {
-            render: BattlescapeRender::new(client_id, client_node, &bc),
+            client_id,
+            render: BattlescapeRender::new(client_id, base.share()),
             runner_handle: RunnerHandle::new(bc),
             replay,
+            ship_selection: None,
             wish_cmds: Default::default(),
-            can_cheat,
-            catching_up: true,
             time_manager: TimeManager::new(config),
             client_type,
             inputs: Default::default(),
             last_cmds_send: 0.0,
-            base
+            base,
+            events: Default::default(),
+            catching_up: true,
+            cmd_tick: 0,
+            fleets: Default::default(),
         }})
     }
 
@@ -85,17 +95,71 @@ impl ClientBattlescape {
 impl ClientBattlescape {
     #[func]
     fn can_cheat(&self) -> bool {
-        self.can_cheat
+        self.client_type == ClientType::LocalCheat
+    }
+
+    // #[func]
+    // fn sv_add_ship(&mut self, fleet_idx: u32, ship_idx: u32) {
+    //     if self.can_cheat() {
+    //         self.wish_cmds.push(SvAddShip {
+    //             fleet_id: FleetId(fleet_idx as u64),
+    //             ship_idx,
+    //             prefered_spawn_point: fleet_idx,
+    //         });
+    //     } else {
+    //         log::warn!("Tried to cheat.");
+    //     }
+    // }
+
+    #[func]
+    fn create_ship_selection(&mut self) {
+        self.ship_selection = Some(ShipSelection::new(&mut self.base, &self.fleets));
     }
 
     #[func]
-    fn sv_add_ship(&mut self, fleet_idx: u32, ship_idx: u32) {
-        if self.can_cheat {
-            self.wish_cmds.push(SvAddShip {
-                fleet_id: FleetId(fleet_idx as u64),
-                ship_idx,
-                prefered_spawn_point: fleet_idx,
-            });
+    fn fleet_ship_selected(&mut self, selected: PackedInt64Array) {
+        for mut selection_idx in selected.to_vec().into_iter().map(|i| i as usize) {
+
+            let mut fleet_idx = 0;
+            loop {
+                if selection_idx < self.fleets[fleet_idx].ships.len() {
+                    break;
+                }
+                selection_idx -= self.fleets[fleet_idx].ships.len();
+                fleet_idx += 1;
+            }
+            
+            let add_ship = SvAddShip {
+                fleet_id: *self.fleets.get_index(fleet_idx).unwrap().0,
+                ship_idx: selection_idx as u32,
+                prefered_spawn_point: 0,
+            };
+
+            if self.can_cheat() {
+                self.wish_cmds.push(add_ship);
+            } else {
+                self.wish_cmds.push(AddShip {
+                    caller: self.client_id,
+                    add_ship,
+                });
+            }
+        }
+
+        self.ship_selection = None;
+    }
+
+    #[func]
+    fn dbg_print_fleets(&self) {
+        log::info!("Printing fleets");
+        for (fleet_id, fleet) in self.fleets.iter() {
+            godot_print!("Fleet {:?}:", fleet_id);
+            godot_print!("  Owner: {:?}", fleet.owner);
+            godot_print!("  Team: {:?}", fleet.team);
+            for (ship_idx, ship) in fleet.ships.iter().enumerate() {
+                godot_print!("    Ship #{}:", ship_idx);
+                godot_print!("      DataId: {:?}", ship.original_ship.ship_data_id);
+                godot_print!("      State: {:?}", ship.state);
+            }
         }
     }
 }
@@ -104,50 +168,84 @@ impl GodotExt for ClientBattlescape {
     fn process(&mut self, delta: f64) {
         let delta = delta as f32;
 
-        let mut can_advance = None;
-        if let Some((bc, snapshot)) = self.runner_handle.update() {
-            can_advance = Some(bc.tick + 1);
-
-            let behind = self.replay.next_needed_tick() - bc.tick;
-            if self.client_type == ClientType::Replay {
-                self.catching_up = false;
-                if behind > 6 {
-                    can_advance = None;
-                }
-            } else if self.catching_up {
-                self.catching_up = behind > 20;
-            } else {
-                self.catching_up = behind > 40;
-            }
-
-            // Take snapshot for rendering.
-            if let Some(snapshot) = snapshot {
-                if self.render.take_snapshot(bc, snapshot) {
-                    self.time_manager.reset();
-                }
-            }
+        while let Ok(event) = self.runner_handle.runner_receiver.try_recv() {
+            self.time_manager.maybe_max_tick(event.tick);
+            self.events.push(event);
         }
 
-        self.time_manager
-            .maybe_max_tick(self.render.max_tick().unwrap_or_default());
         self.time_manager.update(delta);
 
-        if let Some(cmds) = can_advance.and_then(|next_tick| self.replay.get_cmds(next_tick)) {
-            // TODO: Apply jump point. Do we need this to keep sim deteministic?
-            // if let Some((bytes, _)) = &cmds.jump_point {
-            //     match Battlescape::load(bytes) {
-            //         Ok(new_bc) => {
-            //             self.runner_handle.bc = Some((Box::new(new_bc), Default::default()));
-            //             log::debug!("Applied jump point.");
-            //         }
-            //         Err(err) => {
-            //             log::error!("{:?} while loading battlescape.", err);
-            //         }
-            //     }
-            // }
-
-            self.runner_handle.step(cmds.to_owned(), !self.catching_up);
+        // TODO: Dynamic catching up.
+        let was_catching_up: bool;
+        if self.catching_up {
+            self.catching_up = false;
+            was_catching_up = true;
+        } else {
+            was_catching_up = false;
         }
+
+        while let Some(cmds) = self.replay.get_cmds(self.cmd_tick+1) {
+            if self.events.len() > 10 {
+                break;
+            }
+            self.runner_handle.step(cmds.to_owned(), ClientBattlescapeEventHandler::new(was_catching_up));
+            self.cmd_tick += 1;
+        }
+
+        // Handle events.
+        let mut remake_ship_selection = false;
+        for event in self.events.iter_mut() {
+            if !event.handled {
+                event.handled = true;
+
+                if event.render.take_full && self.ship_selection.is_some() {
+                    self.ship_selection = None;
+                    remake_ship_selection = true
+                }
+
+                for (fleet_id, new_fleet) in event.new_fleet.drain() {
+                    // Add fleet to ship selection.
+                    if let Some(ship_selection) = &mut self.ship_selection {
+                        for ship in new_fleet.ships.iter() {
+                            ship_selection.add_ship(ship);
+                        }
+                    }
+
+                    self.fleets.insert(fleet_id, new_fleet);
+                }
+
+                for (fleet_id, ship_idx, state) in event.ship_state_changes.drain(..) {
+                    self.fleets.get_mut(&fleet_id).unwrap().ships[ship_idx].state = state;
+
+                    if let Some(ship_selection) = &mut self.ship_selection {
+                        // Get the ship idx in the ship selection.
+                        let mut idx = ship_idx;
+                        for (other_fleet_id, other_fleet) in self.fleets.iter() {
+                            if fleet_id == *other_fleet_id {
+                                break;
+                            }
+                            idx += other_fleet.ships.len();
+                        }
+
+                        ship_selection.update_ship_state(idx as i64, state);
+                    }
+                }
+            }
+
+            if event.tick <= self.time_manager.tick && !event.render_handled {
+                event.render_handled = true;
+
+                self.render.handle_event(event);
+            }
+        }
+        if remake_ship_selection {
+            self.create_ship_selection();
+        }
+
+        // Remove previous events.
+        self.events.retain(|event| {
+            event.tick + 1 >= self.time_manager.tick
+        });
 
         let hidden = !self.base.is_visible();
 
@@ -155,11 +253,15 @@ impl GodotExt for ClientBattlescape {
             self.wish_cmds.clear();
             self.last_cmds_send = 0.0;
         } else {
-            self.render.update(delta);
-            self.render.draw_lerp(
-                self.time_manager.tick,
-                self.time_manager.interpolation_weight(),
-            );
+            if self.events.len() >= 2 {
+                let from = &self.events[0];
+                let to = &self.events[1];
+                self.render.draw_lerp(
+                    from, 
+                    to,
+                    self.time_manager.interpolation_weight(),
+                );
+            }
         }
 
         self.last_cmds_send += delta;
@@ -171,7 +273,7 @@ impl GodotExt for ClientBattlescape {
             // Add inputs cmd
             if !hidden && self.client_type != ClientType::Replay {
                 cmds.push(SetClientInput {
-                    client_id: self.render.client_id,
+                    caller: self.render.client_id,
                     inputs: self.inputs.to_client_inputs(&self.base),
                 });
             }
@@ -183,5 +285,147 @@ impl GodotExt for ClientBattlescape {
                 // TODO: Send cmds to server
             }
         }
+    }
+}
+
+struct ShipSelection {
+    node: Gd<Node>,
+}
+impl ShipSelection {
+    const SHIP_SELECTION_PATH: &str = "res://ui/ship_selection.tscn";
+
+    fn new(parent: &mut Gd<Node2D>, fleets: &Fleets) -> Self {
+        let mut node = load::<PackedScene>(Self::SHIP_SELECTION_PATH).instantiate(packed_scene::GenEditState::GEN_EDIT_STATE_DISABLED).unwrap();
+        add_child_node_node(&mut parent.share().upcast(), node.share());
+        node.set("bind".into(), parent.to_variant());
+
+        let mut s = Self {
+            node,
+        };
+
+        s.set_max_active_cost(100);
+
+        for fleet in fleets.values() {
+            for ship in fleet.ships.iter() {
+                s.add_ship(ship);
+            }
+        }
+
+        s
+    }
+
+    fn add_ship(&mut self, ship: &bc_fleet::BattlescapeFleetShip) {
+        let ship_data = ship.original_ship.ship_data_id.data();
+        let icon = ship_data.render_node.get_texture().unwrap().to_variant();
+        let size_factor = 1.0f64.to_variant(); // TODO: size factor
+        let tooptip = ship_data.display_name.to_variant();
+        let cost = 10i64.to_variant(); // TODO: cost
+        let destroyed = match ship.state {
+            bc_fleet::FleetShipState::Ready => false,
+            bc_fleet::FleetShipState::Spawned => true,
+            bc_fleet::FleetShipState::Removed(_) => true,
+            bc_fleet::FleetShipState::Destroyed => true,
+        }.to_variant();
+
+        // add_ship(icon: Texture2D, size_factor: float, tooptip: String, cost: int, destroyed: bool)
+        self.node.call("add_ship".into(), &[icon, size_factor, tooptip, cost, destroyed]);
+
+    }
+
+    fn update_ship_state(&mut self, idx: i64, state: bc_fleet::FleetShipState) {
+        match state {
+            bc_fleet::FleetShipState::Ready => {
+                // TODO: Do we ever need to go back to ready?
+                // ship_set_ready(idx: int)
+                self.node.call("ship_set_ready".into(), &[idx.to_variant()]);
+            }
+            bc_fleet::FleetShipState::Spawned => {
+                // ship_set_spawned(idx: int)
+                self.node.call("ship_set_spawned".into(), &[idx.to_variant()]);
+            }
+            bc_fleet::FleetShipState::Removed(_) => {
+                // ship_set_removed(idx: int)
+                self.node.call("ship_set_removed".into(), &[idx.to_variant()]);
+            }
+            bc_fleet::FleetShipState::Destroyed => {
+                // ship_set_destroyed(idx: int)
+                self.node.call("ship_set_destroyed".into(), &[idx.to_variant()]);
+            }
+        }
+    }
+
+    fn set_max_active_cost(&mut self, value: i64) {
+        // set_max_active_cost(value: int)
+        self.node.call("set_max_active_cost".into(), &[value.to_variant()]);
+    }
+}
+impl Drop for ShipSelection {
+    fn drop(&mut self) {
+        self.node.queue_free();
+    }
+}
+
+#[derive(Default)]
+pub struct ClientBattlescapeEventHandler {
+    handled: bool,
+    render_handled: bool,
+
+    tick: u64,
+    battle_over: bool,
+
+    _new_fleet: Vec<FleetId>,
+    new_fleet: AHashMap<FleetId, battlescape::bc_fleet::BattlescapeFleet>,
+    ship_state_changes: Vec<(FleetId, usize, bc_fleet::FleetShipState)>,
+
+    render: RenderBattlescapeEventHandler,
+}
+impl ClientBattlescapeEventHandler {
+    fn new(take_full: bool) -> Self {
+        Self {
+            render: RenderBattlescapeEventHandler::new(take_full),
+            ..Default::default()
+        }
+    }
+}
+impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
+    fn stepped(&mut self, bc: &Battlescape) {
+        self.tick = bc.tick;
+
+        if self.render.take_full {
+            self.new_fleet = AHashMap::from_iter(bc.fleets.iter().map(|(k, v)| (*k, v.clone())));
+        } else {
+            for fleet_id in self._new_fleet.iter() {
+                self.new_fleet.insert(*fleet_id, bc.fleets.get(fleet_id).unwrap().clone());
+            }
+        }
+        self._new_fleet.clear();
+
+        self.render.stepped(bc);
+    }
+
+    fn fleet_added(&mut self, fleet_id: FleetId) {
+        self._new_fleet.push(fleet_id);
+
+        self.render.fleet_added(fleet_id);
+    }
+
+    fn ship_destroyed(&mut self, fleet_id: FleetId, ship_index: usize) {
+        self.ship_state_changes.push((fleet_id, ship_index, bc_fleet::FleetShipState::Destroyed));
+
+        self.render.ship_destroyed(fleet_id, ship_index);
+    }
+
+    fn entity_removed(&mut self, entity_id: battlescape::EntityId, entity: battlescape::entity::Entity) {
+        self.render.entity_removed(entity_id, entity);
+    }
+
+    fn entity_added(&mut self, entity_id: battlescape::EntityId, entity: &battlescape::entity::Entity) {
+        self.render.entity_added(entity_id, entity);
+    }
+
+    fn battle_over(&mut self) {
+        self.battle_over = true;
+
+        self.render.battle_over();
     }
 }

@@ -78,6 +78,7 @@ pub struct AddFleet {
 }
 impl Command for AddFleet {
     fn apply(&self, bc: &mut Battlescape) {
+        log::debug!("Adding {:?} with {} ships owned by {:?}.", self.fleet_id, self.fleet.ships.len(), self.fleet.owner);
         bc.fleets.insert(
             self.fleet_id,
             BattlescapeFleet::from_fleet(self.fleet.to_owned(), self.team),
@@ -102,6 +103,7 @@ pub struct SvAddShip {
 }
 impl Command for SvAddShip {
     fn apply(&self, bc: &mut Battlescape) {
+        log::debug!("Adding ship #{} from {:?}", self.ship_idx, self.fleet_id);
         bc.add_fleet_ship(
             self.fleet_id,
             self.ship_idx as usize,
@@ -149,21 +151,15 @@ impl Command for AddShip {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SetClientInput {
-    pub client_id: ClientId,
+    pub caller: ClientId,
     pub inputs: ClientInputs,
 }
 impl Command for SetClientInput {
     fn apply(&self, bc: &mut Battlescape) {
-        if let Some(client) = bc.clients.get_mut(&self.client_id) {
-            let mut inputs = self.inputs.clone();
-            inputs.sanetize();
-            client.client_inputs = inputs;
-        } else {
-            log::warn!(
-                "Got SetClientInput cmd, but {:?} not found. Ignoring...",
-                self.client_id
-            );
-        }
+        let client = bc.clients.entry(self.caller).or_default();
+        let mut inputs = self.inputs.clone();
+        inputs.sanetize();
+        client.client_inputs = inputs;
     }
 
     fn to_typed(self) -> TypedCmd {
@@ -177,13 +173,13 @@ impl Command for SetClientInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SetClientControl {
-    pub client_id: ClientId,
+    pub caller: ClientId,
     pub entity_id: Option<EntityId>,
     // pub ship_id: Option<ShipId>,
 }
 impl Command for SetClientControl {
     fn apply(&self, bc: &mut Battlescape) {
-        if let Some(client) = bc.clients.get_mut(&self.client_id) {
+        if let Some(client) = bc.clients.get_mut(&self.caller) {
             let entity_id = if let Some(entity_id) = self.entity_id {
                 entity_id
             } else {
@@ -197,13 +193,13 @@ impl Command for SetClientControl {
                 .and_then(|entity| entity.fleet_ship)
                 .and_then(|(fleet_id, _)| bc.fleets.get(&fleet_id))
                 .and_then(|fleet| fleet.owner)
-                .is_some_and(|owner| owner == self.client_id)
+                .is_some_and(|owner| owner == self.caller)
             {
                 client.control = Some(entity_id);
             } else {
                 log::debug!(
                     "Got SetClientControl cmd, but {:?} does not own {:?}. Removing control...",
-                    self.client_id,
+                    self.caller,
                     entity_id
                 );
                 client.control = None;
@@ -211,7 +207,7 @@ impl Command for SetClientControl {
         } else {
             log::warn!(
                 "Got SetClientControl cmd, but {:?} not found. Ignoring...",
-                self.client_id
+                self.caller
             );
         }
     }

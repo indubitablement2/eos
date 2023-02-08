@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     client_battlescape::{ClientBattlescape, ClientType},
     client_config::ClientConfig,
-    metascape::{fleet::Fleet, ship::Ship, BattlescapeId},
+    metascape::{fleet::Fleet, ship::Ship, BattlescapeId}, util::*,
 };
 use battlescape::command::*;
 use data::*;
@@ -72,14 +72,13 @@ impl Client {
         let replay = Replay::new(Default::default(), Default::default(), vec![cmds]);
 
         let client_bs = ClientBattlescape::new(
-            self.base.share(),
             replay,
             &self.client_config,
             ClientId(0),
             ClientType::LocalCheat,
         );
 
-        self.base.add_child(client_bs.share().upcast(), false, InternalMode::INTERNAL_MODE_DISABLED);
+        add_child_node(&mut self.base, &client_bs);
 
         if let Some(mut previous) = self.bcs.insert(Default::default(),client_bs.share()) {
             previous.bind_mut().queue_free();
@@ -101,11 +100,7 @@ impl GodotExt for Client {
 
         // TODO: Temporary.
         let mc = Node2D::new_alloc();
-        base.add_child(
-            mc.share().upcast(),
-            false,
-            InternalMode::INTERNAL_MODE_DISABLED,
-        );
+        add_child_node(&mut base, &mc);
 
         Self {
             client_id: ClientId(0),

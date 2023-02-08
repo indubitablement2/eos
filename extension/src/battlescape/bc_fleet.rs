@@ -90,8 +90,8 @@ impl BattlescapeFleetShip {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum FleetShipState {
     Ready,
-    Spawned,
-    Removed(EntityResult),
+    Spawned, // TODO: Delay before hable to retreat.
+    Removed(EntityResult), // TODO: Delay before hable to re-enter.
     Destroyed,
 }
 impl FleetShipState {

@@ -1,30 +1,22 @@
 use super::*;
 use crate::battlescape::events::BattlescapeEventHandlerTrait;
 use crate::battlescape::*;
-use crate::battlescape::bc_fleet::*;
 use crate::util::*;
 use crate::EntityDataId;
 use glam::Vec2;
-use godot::engine::Control;
-use godot::engine::ItemList;
-use godot::engine::node::InternalMode;
 use godot::engine::packed_scene::GenEditState;
 use godot::engine::Sprite2D;
 use godot::prelude::*;
 
 #[derive(Default)]
-pub struct ClientBattlescapeEventHandler {
-    render_handled: bool,
-    tick: u64,
+pub struct RenderBattlescapeEventHandler {
+    pub take_full: bool,
     entity_snapshots: AHashMap<EntityId, EntitySnapshot>,
     new_entities: Vec<(EntityId, EntityRender)>,
-    battle_over: bool,
-    fleets: AHashMap<FleetId, RenderFleet>,
+    removed_entities: Vec<EntityId>,
 }
-impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
+impl BattlescapeEventHandlerTrait for RenderBattlescapeEventHandler {
     fn stepped(&mut self, bc: &Battlescape) {
-        self.tick = bc.tick;
-
         // Take the position of all entities and their hulls.
         self.entity_snapshots = bc
             .entities
@@ -63,54 +55,42 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
             })
             .collect();
 
-        // TODO: Take the fleets. Only take what changed and needed.
-        self.fleets = AHashMap::from_iter(bc.fleets.iter()
-        .map(|(fleet_id, battlescape_fleet)| {
-            (
-                *fleet_id,
-                RenderFleet::from_battlescape_fleet(battlescape_fleet),
-            )
-        }));
+        if self.take_full {
+            // Take a full snapshot of the battlescape.
+            self.new_entities = bc.entities.iter()
+            .map(|(entity_id, entity)| (*entity_id, EntityRender::new(entity)))
+            .collect();
+        }
     }
 
     fn fleet_added(&mut self, fleet_id: crate::FleetId) {}
 
-    fn ship_destroyed(&mut self, fleet_id: crate::FleetId, index: usize) {}
+    fn ship_destroyed(&mut self, fleet_id: crate::FleetId, ship_index: usize) {}
 
-    fn entity_removed(&mut self, entity_id: EntityId, entity: entity::Entity) {}
+    fn entity_removed(&mut self, entity_id: EntityId, entity: entity::Entity) {
+        if !self.take_full {
+            self.removed_entities.push(entity_id);
+        }
+    }
 
     fn entity_added(&mut self, entity_id: EntityId, entity: &entity::Entity) {
-        self.new_entities
+        if !self.take_full {
+            self.new_entities
             .push((entity_id, EntityRender::new(entity)));
+        }
     }
 
-    fn battle_over(&mut self) {
-        self.battle_over = true;
-    }
+    fn battle_over(&mut self) {}
 }
-
-struct RenderFleet {
-    owner: Option<ClientId>,
-    team: u32,
-    ships: Vec<RenderShip>,
-}
-impl RenderFleet {
-    fn from_battlescape_fleet(battlescape_fleet: &BattlescapeFleet) -> Self {
+impl RenderBattlescapeEventHandler {
+    pub fn new(take_full: bool) -> Self {
         Self {
-            owner: battlescape_fleet.owner,
-            team: battlescape_fleet.team,
-            ships: battlescape_fleet.ships.iter().map(|bs_ship| RenderShip {
-                ship_data_id: bs_ship.original_ship.ship_data_id,
-                state: bs_ship.state,
-            }).collect(),
+            take_full,
+            ..Default::default()
         }
     }
 }
 
-struct RenderShip {
-    ship_data_id: ShipDataId,
-    state: FleetShipState,
-}
 
 #[derive(Debug, Clone, Copy)]
 struct Position {
@@ -202,144 +182,37 @@ unsafe impl Send for EntityRender {}
 
 pub struct BattlescapeRender {
     pub client_id: ClientId,
+    node: Gd<Node2D>,
 
-    client_node: Gd<Node>,
-    pub draw_node: Gd<Node2D>,
-
-    target: Vec2,
-
-    /// We are ready to render any tick in this range.
-    ///
-    /// It could be empty as we need at least 2 snapshots to interpolate.
-    ///
-    /// We expect the next call to `take_snapshot()` to have a bc with tick `this.end`.
-    pub available_render_tick: std::ops::Range<u64>,
-
-    events: Vec<ClientBattlescapeEventHandler>,
     entity_renders: AHashMap<EntityId, EntityRender>,
-    fleets: AHashMap<FleetId, RenderFleet>,
 }
 impl BattlescapeRender {
-    pub fn new(client_id: ClientId, client_node: Gd<Node>, bc: &Battlescape) -> Self {
-        let mut s = Self {
+    pub fn new(client_id: ClientId, node: Gd<Node2D>) -> Self {
+        Self {
             client_id,
-            client_node,
-            draw_node: Node2D::new_alloc(),
-            target: Default::default(),
-            available_render_tick: Default::default(),
-            events: Default::default(),
+            node,
             entity_renders: Default::default(),
-            fleets: Default::default(),
-        };
-
-        add_child_node(&mut s.client_node, &s.draw_node);
-
-        s.reset(bc);
-
-        s
+        }
     }
 
-    /// Clear all internal and set it with the bc's current state.
-    pub fn reset(&mut self, bc: &Battlescape) {
-        self.events.clear();
+    pub fn clear(&mut self) {
         self.entity_renders.clear();
+    }
 
-        // Take initial entity state.
-        for (entity_id, entity) in bc.entities.iter() {
-            let render_entity = EntityRender::new(entity);
-            render_entity.insert_to_scene(&self.draw_node);
-            self.entity_renders.insert(*entity_id, render_entity);
+    pub fn handle_event(&mut self, event: &mut ClientBattlescapeEventHandler) {
+        for (entity_id, entity_render) in event.render.new_entities.drain(..) {
+            entity_render.insert_to_scene(&self.node);
+            self.entity_renders.insert(entity_id, entity_render);
         }
 
-        // We only have a single snapshot, so an empty range.
-        self.available_render_tick = bc.tick..bc.tick;
-    }
-
-    pub fn hide(&mut self, hide: bool) {
-        self.draw_node.set_visible(!hide);
-    }
-
-    pub fn next_expected_tick(&self) -> u64 {
-        self.available_render_tick.end + 1
-    }
-
-    /// The last tick we are ready to render.
-    pub fn max_tick(&self) -> Option<u64> {
-        self.available_render_tick.clone().last()
-    }
-
-    /// If we are ready to draw that tick.
-    pub fn can_draw(&self, tick: u64) -> bool {
-        self.available_render_tick.contains(&tick)
-    }
-
-    pub fn current_tick(&self) -> u64 {
-        self.available_render_tick.start
-    }
-
-    /// ## Warning
-    /// We expect bc to be at tick `self.next_expected_tick()`.
-    /// Otherwise we will reset the snapshot to the received tick.
-    ///
-    /// Return if states was reset.
-    pub fn take_snapshot(
-        &mut self,
-        bc: &Battlescape,
-        events: ClientBattlescapeEventHandler,
-    ) -> bool {
-        if events.tick == self.next_expected_tick() {
-            self.available_render_tick.end = events.tick;
-            self.events.push(events);
-            false
-        } else {
-            log::info!(
-                "Render reset as events tick is {} while expecting {}",
-                events.tick,
-                self.next_expected_tick()
-            );
-            self.reset(bc);
-            true
+        for entity_id in event.render.removed_entities.drain(..) {
+            self.entity_renders.remove(&entity_id);
         }
     }
 
-    /// Used to interpolate time dilation independent things like camera smoothing.
-    ///
-    /// Delta in real seconds.
-    pub fn update(&mut self, delta: f32) {
-        // TODO:
-    }
-
-    pub fn draw_lerp(&mut self, tick: u64, weight: f32) {
-        if !self.can_draw(tick) {
-            log::warn!(
-                "Can not draw tick {}. Available {:?}",
-                tick,
-                self.available_render_tick
-            );
-            return;
-        }
-
-        // The number of tick we will consume.
-        let advance = (tick - self.available_render_tick.start) as usize;
-        self.available_render_tick.start = tick;
-
-        // Apply previous events.
-        for snapshot_index in 0..advance + 1 {
-            self.apply_snapshot_events(snapshot_index);
-        }
-        // Remove old snapshots.
-        self.events.drain(..advance);
-
-        // The snapshot we will interpolate between.
-        let from = &self.events[0].entity_snapshots;
-        let to = &self.events[1].entity_snapshots;
-
-        // // Set target on followed ship.
-        // if let Some(ship_id) = from.follow {
-        //     if let Some((pos, _)) = get_snapshot_lerp(&ship_id, &from.ships, &to.ships, weight) {
-        //         self.target = pos;
-        //     }
-        // }
+    pub fn draw_lerp(&mut self, from: &ClientBattlescapeEventHandler, to: &ClientBattlescapeEventHandler, weight: f32) {
+        let from = &from.render.entity_snapshots;
+        let to = &to.render.entity_snapshots;
 
         // Update positions.
         for (entity_id, render_entity) in self.entity_renders.iter_mut() {
@@ -369,66 +242,4 @@ impl BattlescapeRender {
             }
         }
     }
-
-    fn apply_snapshot_events(&mut self, snapshot_index: usize) {
-        let snapshot = &mut self.events[snapshot_index];
-
-        if snapshot.render_handled {
-            return;
-        }
-        snapshot.render_handled = true;
-
-        for (entity_id, entity_render) in snapshot.new_entities.drain(..) {
-            entity_render.insert_to_scene(&self.draw_node);
-            self.entity_renders.insert(entity_id, entity_render);
-        }
-
-        self.fleets = std::mem::take(&mut snapshot.fleets);
-    }
-}
-impl Drop for BattlescapeRender {
-    fn drop(&mut self) {
-        self.draw_node.queue_free();
-    }
-}
-
-struct Ui {
-    root: Gd<Control>,
-
-}
-impl Ui {
-
-}
-
-struct ShipSelect {
-    item_list: Gd<ItemList>,
-}
-impl Drop for ShipSelect {
-    fn drop(&mut self) {
-        // self.item_list.
-        self.item_list.queue_free();
-    }
-}
-
-fn add_child<A, B>(parent: &Gd<A>, child: &Gd<B>)
-where
-    A: Inherits<Node> + godot::prelude::GodotClass,
-    B: Inherits<Node> + godot::prelude::GodotClass,
-{
-    parent.share().upcast().add_child(
-        child.share().upcast(),
-        false,
-        InternalMode::INTERNAL_MODE_DISABLED,
-    );
-}
-
-fn add_child_node<B>(parent: &mut Gd<Node>, child: &Gd<B>)
-where
-    B: Inherits<Node> + godot::prelude::GodotClass,
-{
-    parent.add_child(
-        child.share().upcast(),
-        false,
-        InternalMode::INTERNAL_MODE_DISABLED,
-    );
 }

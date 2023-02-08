@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BattlescapeClient {
     pub client_inputs: ClientInputs,
     pub control: Option<EntityId>,

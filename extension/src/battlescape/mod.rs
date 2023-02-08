@@ -26,7 +26,7 @@ pub use command::*;
 type SimRng = rand_xoshiro::Xoshiro128StarStar;
 type Entities = IndexMap<EntityId, Entity, RandomState>;
 type Clients = IndexMap<ClientId, BattlescapeClient, RandomState>;
-type Fleets = IndexMap<FleetId, BattlescapeFleet, RandomState>;
+pub type Fleets = IndexMap<FleetId, BattlescapeFleet, RandomState>;
 
 pub const DT: f32 = 1.0 / 20.0;
 pub const DT_MS: u32 = 50;

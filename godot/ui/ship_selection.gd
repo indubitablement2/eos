@@ -1,4 +1,4 @@
-extends Control
+extends CanvasLayer
 
 const SHIP_SCENE := preload("res://ui/ship.tscn")
 
@@ -13,12 +13,10 @@ var ship_cost :Array[int] = []
 var active_cost := 0
 var _last_toggle := true
 
-func _ready() -> void:
-	accept_button.pressed.connect(_on_accept_pressed)
-	
-	set_max_active_cost(30)
-	for i in 100:
-		add_ship(preload("res://textures/spaceship gen.png"), randf_range(0.5, 1.0), str(i), i, randi() % 4 == 0)
+#func _ready() -> void:
+#	for i in 100:
+#		await get_tree().create_timer(0.5).timeout
+#		add_ship(preload("res://textures/spaceship gen.png"), randf_range(0.5, 1.0), str(i), i, randi() % 4 == 0)
 
 func add_ship(icon: Texture2D, size_factor: float, tooptip: String, cost: int, destroyed: bool) -> void:
 	var ship = SHIP_SCENE.instantiate()
@@ -28,6 +26,18 @@ func add_ship(icon: Texture2D, size_factor: float, tooptip: String, cost: int, d
 	ship.mouse_entered.connect(_on_ship_hovered.bind(ship))
 	ship.set_ship(icon, size_factor, tooptip, cost, destroyed)
 	ship_cost.push_back(cost)
+
+func ship_set_ready(_idx: int) -> void:
+	# Not implemented. Should never need to go back to ready.
+	push_error("ship state going back to ready not implemented")
+
+func ship_set_spawned(idx: int) -> void:
+	# TODO: handle this by disabling button and showing some 'spawned' marker
+	ship_set_destroyed(idx)
+
+func ship_set_removed(idx: int) -> void:
+	# TODO: Display counter when this ship can be spawned again.
+	ship_set_destroyed(idx)
 
 func ship_set_destroyed(idx: int) -> void:
 	grid.get_child(idx).set_destroyed()
@@ -69,7 +79,7 @@ func _on_ship_hovered(ship: BaseButton) -> void:
 
 func _on_accept_pressed() -> void:
 	if bind:
-		var selected = PackedInt32Array([])
+		var selected = PackedInt64Array([])
 		var idx := 0
 		for ship in grid.get_children():
 			if ship.is_pressed():
@@ -79,3 +89,10 @@ func _on_accept_pressed() -> void:
 		print(selected)
 	else:
 		push_error("Can not select ships as not bind")
+
+func _on_cancel_pressed() -> void:
+	if bind:
+		bind.fleet_ship_selected(PackedInt64Array([]))
+
+func _on_reset_pressed() -> void:
+	reset()

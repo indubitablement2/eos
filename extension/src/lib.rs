@@ -47,6 +47,7 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Shared connection to the server. Dispatch packets to apropriate node
 
 // TODO: Rename bc to bs and mc to ms
+// TODO: Split event handler into catching-up, normal, full.
 
 mod ext {
     use godot::prelude::*;

@@ -30,6 +30,37 @@ impl AproxZero for glam::Vec2 {
     }
 }
 
+pub fn add_child<A, B>(parent: &Gd<A>, child: &Gd<B>)
+where
+    A: Inherits<Node> + godot::prelude::GodotClass,
+    B: Inherits<Node> + godot::prelude::GodotClass,
+{
+    parent.share().upcast().add_child(
+        child.share().upcast(),
+        false,
+        godot::engine::node::InternalMode::INTERNAL_MODE_DISABLED,
+    );
+}
+
+pub fn add_child_node<B>(parent: &mut Gd<Node>, child: &Gd<B>)
+where
+    B: Inherits<Node> + godot::prelude::GodotClass,
+{
+    parent.add_child(
+        child.share().upcast(),
+        false,
+        godot::engine::node::InternalMode::INTERNAL_MODE_DISABLED,
+    );
+}
+
+pub fn add_child_node_node(parent: &mut Gd<Node>, child: Gd<Node>) {
+    parent.add_child(
+        child,
+        false,
+        godot::engine::node::InternalMode::INTERNAL_MODE_DISABLED,
+    );
+}
+
 pub trait ToNalgebra {
     fn to_na(self) -> na::Vector2<f32>;
 

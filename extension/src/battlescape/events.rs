@@ -1,5 +1,5 @@
 use super::*;
-use crate::client_battlescape::render::ClientBattlescapeEventHandler;
+use crate::client_battlescape::ClientBattlescapeEventHandler;
 
 pub trait BattlescapeEventHandlerTrait {
     /// Called once per step at the very end.
@@ -20,10 +20,6 @@ pub enum BattlescapeEventHandler {
     Server(()),
 }
 impl BattlescapeEventHandler {
-    pub fn new_client() -> Self {
-        Self::Client(Default::default())
-    }
-
     pub fn cast_client(self) -> Option<ClientBattlescapeEventHandler> {
         match self {
             BattlescapeEventHandler::None => None,

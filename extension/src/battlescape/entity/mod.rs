@@ -326,6 +326,7 @@ pub struct EntityData {
     pub hulls: SmallVec<[HullData; 1]>,
     // TODO: ai
     pub ai: Option<()>,
+    /// Node2D
     pub render_node: Gd<PackedScene>,
     /// `EntityScript`
     pub script: Variant,

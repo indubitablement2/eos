@@ -10,22 +10,23 @@ use std::ops::{Deref, DerefMut};
 pub struct EntityScriptWrapper {
     serde: Option<()>,
     #[serde(skip)]
-    wrapper: GodotScriptWrapper,
+    #[serde(default = "default_entity_script")]
+    script: Gd<EntityScript>,
     entity_data_id: EntityDataId,
 }
 impl EntityScriptWrapper {
     pub fn new(entity_data_id: EntityDataId) -> Self {
-        let mut obj = Object::new_alloc();
-        obj.set_script(entity_data_id.data().script.clone());
+        let mut script = default_entity_script();
+        script.bind_mut().set_script(entity_data_id.data().script.clone());
         Self {
             serde: None,
-            wrapper: GodotScriptWrapper(obj),
+            script,
             entity_data_id,
         }
     }
 
-    pub fn prepare(&mut self, bc_ptr: Variant, entity_idx: Variant) {
-        self.wrapper.prepare(&[bc_ptr, entity_idx]);
+    pub fn prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
+        self.script.bind_mut().prepare(bs_ptr, entity_idx);
     }
 
     pub fn start(&mut self) {
@@ -61,26 +62,24 @@ impl EntityScriptWrapper {
         }
     }
 }
+unsafe impl Send for EntityScriptWrapper {}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HullScriptWrapper {
     serde: Option<()>,
     #[serde(skip)]
-    wrapper: GodotScriptWrapper,
+    #[serde(default = "default_hull_script")]
+    script: Gd<HullScript>,
     entity_data_id: EntityDataId,
     hull_idx: u32,
 }
 impl HullScriptWrapper {
     pub fn new(entity_data_id: EntityDataId, hull_idx: u32) -> Self {
-        let mut obj = Object::new_alloc();
-        obj.set_script(
-            entity_data_id.data().hulls[hull_idx as usize]
-                .script
-                .clone(),
-        );
+        let mut script = default_hull_script();
+        script.bind_mut().set_script(entity_data_id.data().hulls[hull_idx as usize].script.clone());
         Self {
             serde: None,
-            wrapper: GodotScriptWrapper(obj),
+            script,
             entity_data_id,
             hull_idx,
         }
@@ -132,31 +131,28 @@ impl HullScriptWrapper {
 #[derive(GodotClass)]
 #[class(base=Object)]
 struct EntityScript {
-    bc: BcPtr,
+    bs: BsPtr,
     entity_idx: usize,
     #[base]
     base: Base<Object>,
 }
 impl EntityScript {
+    fn prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
+        self.bs = bs_ptr;
+        self.entity_idx = entity_idx;
+    }
+
     fn entity(&mut self) -> &mut Entity {
-        &mut self.bc.entities[self.entity_idx]
+        &mut self.bs.entities[self.entity_idx]
     }
 
     fn body(&mut self) -> &mut RigidBody {
         let handle = self.entity().rb;
-        &mut self.bc.physics.bodies[handle]
+        &mut self.bs.physics.bodies[handle]
     }
 }
 #[godot_api]
 impl EntityScript {
-    #[func]
-    fn _prepare(&mut self, bc_ptr: i64, entity_idx: i64) {
-        self.bc = BcPtr(bc_ptr as *mut _);
-        self.entity_idx = entity_idx as usize;
-    }
-
-    // ---------- VIRTUAL
-
     #[func]
     fn start(&mut self) {}
 
@@ -175,12 +171,12 @@ impl EntityScript {
 
     #[func]
     fn get_id(&mut self) -> i64 {
-        self.bc.entities.get_index(self.entity_idx).unwrap().0 .0 as i64
+        self.bs.entities.get_index(self.entity_idx).unwrap().0 .0 as i64
     }
 
     #[func]
     fn get_entity_from_id(&mut self, id: i64) -> Gd<EntityScript> {
-        self.bc.entities
+        self.bs.entities
             .get(&EntityId(id as u32))
             .map(|entity| entity.script.wrapper.0.share().cast())
             .unwrap_or_else(|| {
@@ -395,57 +391,34 @@ impl GodotExt for HullScript {
     }
 }
 
-struct BcPtr(*mut Battlescape);
-impl Default for BcPtr {
+pub struct BsPtr(*mut Battlescape);
+impl BsPtr {
+    pub fn new(bs: &mut Battlescape) -> Self {
+        Self(bs as *mut _)
+    }
+}
+impl Default for BsPtr {
     fn default() -> Self {
         Self(std::ptr::null_mut())
     }
 }
-impl Deref for BcPtr {
+impl Deref for BsPtr {
     type Target = Battlescape;
 
     fn deref(&self) -> &Self::Target {
         unsafe { &*self.0 }
     }
 }
-impl DerefMut for BcPtr {
+impl DerefMut for BsPtr {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { &mut *self.0 }
     }
 }
 
-#[derive(Debug)]
-struct GodotScriptWrapper(Gd<Object>);
-impl GodotScriptWrapper {
-    fn prepare(&mut self, varargs: &[Variant]) {
-        self.0.call("_prepare".into(), varargs);
-    }
-
-    fn start(&mut self) {
-        self.0.call("start".into(), &[]);
-    }
-
-    fn step(&mut self) {
-        self.0.call("step".into(), &[]);
-    }
-
-    fn serialize(&mut self) -> PackedByteArray {
-        var_to_bytes(self.0.call("serialize".into(), &[]))
-    }
-
-    fn deserialize(&mut self, bytes: PackedByteArray) {
-        self.0.call("deserialize".into(), &[bytes_to_var(bytes)]);
-    }
+fn default_entity_script() -> Gd<EntityScript> {
+    Gd::new_default()
 }
-impl Default for GodotScriptWrapper {
-    fn default() -> Self {
-        // Object is not valid, but this is intended as a temporary default value when deserializing.
-        Self(Object::new_alloc())
-    }
+
+fn default_hull_script() -> Gd<HullScript> {
+    Gd::new_default()
 }
-impl Drop for GodotScriptWrapper {
-    fn drop(&mut self) {
-        self.0.share().free()
-    }
-}
-unsafe impl Send for GodotScriptWrapper {}

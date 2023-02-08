@@ -14,23 +14,6 @@ const COLOR_FOCUS_PULSE := Color(0.98, 0.98, 1.0, 0.45)
 
 var tween :Tween = null
 
-func _input(event: InputEvent) -> void:
-	pass
-#	if event is InputEventMouse:
-#		release_focus()
-#	if !has_focus():
-#		return
-#
-#	if event is InputEventMouse:
-#		release_focus()
-#
-#	if event is InputEventMouseButton:
-#			if event.is_pressed && event.button_index == MOUSE_BUTTON_LEFT:
-#				activated.emit()
-#				get_tree().get_root().set_input_as_handled()
-#	elif event.is_action_pressed("ui_accept"):
-#		activated.emit()
-#		get_tree().get_root().set_input_as_handled()
 
 func set_ship(icon: Texture2D, size_factor: float, tooptip: String, cost: int, destroyed := false) -> void:
 	_icon.set_texture(icon)

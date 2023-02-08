@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://b1ngv4yd0k6mb"]
+[gd_scene load_steps=9 format=3 uid="uid://b1ngv4yd0k6mb"]
 
 [ext_resource type="Script" path="res://ui/ship_selection.gd" id="1_c4afu"]
 [ext_resource type="Texture2D" uid="uid://ck73ei3ddic5k" path="res://textures/pixel.png" id="1_uuy60"]
@@ -11,18 +11,26 @@ unicode = 97
 [sub_resource type="Shortcut" id="Shortcut_0hinh"]
 events = [SubResource("InputEventKey_rynd2")]
 
-[node name="ShipSelection" type="Control"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[sub_resource type="InputEventKey" id="InputEventKey_0l6mw"]
+device = -1
+keycode = 4194305
+
+[sub_resource type="Shortcut" id="Shortcut_lc4ut"]
+events = [SubResource("InputEventKey_0l6mw")]
+
+[sub_resource type="InputEventKey" id="InputEventKey_p4y0i"]
+device = -1
+keycode = 82
+unicode = 114
+
+[sub_resource type="Shortcut" id="Shortcut_2yhcw"]
+events = [SubResource("InputEventKey_p4y0i")]
+
+[node name="ShipSelection" type="CanvasLayer"]
 script = ExtResource("1_c4afu")
 
 [node name="TextureRect" type="TextureRect" parent="."]
 self_modulate = Color(1, 1, 1, 0.0784314)
-layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -84,10 +92,16 @@ text = "Accept"
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
+shortcut = SubResource("Shortcut_lc4ut")
 text = "Cancel"
 
 [node name="Reset" type="Button" parent="TextureRect/VBoxContainer/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
+shortcut = SubResource("Shortcut_2yhcw")
 text = "Reset"
+
+[connection signal="pressed" from="TextureRect/VBoxContainer/HBoxContainer/Accept" to="." method="_on_accept_pressed"]
+[connection signal="pressed" from="TextureRect/VBoxContainer/HBoxContainer/Cancel" to="." method="_on_cancel_pressed"]
+[connection signal="pressed" from="TextureRect/VBoxContainer/HBoxContainer/Reset" to="." method="_on_reset_pressed"]

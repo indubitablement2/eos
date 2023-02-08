@@ -1,5 +1,5 @@
 use super::*;
-use godot::prelude::*;
+use godot::{prelude::*, engine::Sprite2D};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ship {
@@ -14,11 +14,7 @@ pub struct Ship {
 #[derive(Debug)]
 pub struct ShipData {
     pub display_name: String,
-    pub render_node: Gd<Node2D>,
+    /// Sprite2D
+    pub render_node: Gd<Sprite2D>,
     pub entity_data_id: EntityDataId,
-}
-impl Drop for ShipData {
-    fn drop(&mut self) {
-        self.render_node.share().free();
-    }
 }
