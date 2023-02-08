@@ -44,3 +44,6 @@ func _ready() -> void:
 #	print(n.get_class())
 #	print(n.has_method("_is_ship_data"))
 #	$Client.try_load_data("res://entity test/ship_test.tscn")
+
+func _exit_tree() -> void:
+	client.clear_data()

@@ -1,5 +1,5 @@
 pub mod ai;
-mod script;
+pub mod script;
 
 use self::script::*;
 use super::*;
@@ -61,7 +61,7 @@ impl Entity {
                 Some(entity::Hull {
                     defence: hull_data.defence,
                     collider,
-                    script: HullScriptWrapper::new(entity_data_id, hull_idx),
+                    script: HullScriptWrapper::new(entity_data_id, hull_idx as usize),
                 })
             })
             .collect::<SmallVec<_>>();
@@ -111,14 +111,14 @@ impl Entity {
     }
 
     /// Prepare the entity post serialization.
-    pub fn post_deserialize_prepare(&mut self, bc_ptr: Variant, entity_idx: Variant) {
+    pub fn post_deserialize_prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
         self.script
-            .post_deserialize_prepare(bc_ptr.to_variant(), entity_idx.to_variant());
+            .post_deserialize_prepare(bs_ptr, entity_idx);
         for (hull, hull_idx) in self.hulls.iter_mut().zip(0..) {
             if let Some(hull) = hull {
                 hull.script.post_deserialize_prepare(
-                    bc_ptr.to_variant(),
-                    entity_idx.to_variant(),
+                    bs_ptr,
+                    entity_idx,
                     hull_idx,
                 );
             }
@@ -135,15 +135,15 @@ impl Entity {
         }
     }
 
-    pub fn pre_step(&mut self, bc_ptr: i64, entity_idx: i64) {
+    pub fn pre_step(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
         self.script
-            .prepare(bc_ptr.to_variant(), entity_idx.to_variant());
-        for (hull, hull_idx) in self.hulls.iter_mut().zip(0i64..) {
+            .prepare(bs_ptr, entity_idx);
+        for (hull, hull_idx) in self.hulls.iter_mut().zip(0usize..) {
             if let Some(hull) = hull {
                 hull.script.prepare(
-                    bc_ptr.to_variant(),
-                    entity_idx.to_variant(),
-                    hull_idx.to_variant(),
+                    bs_ptr,
+                    entity_idx,
+                    hull_idx,
                 );
             }
         }

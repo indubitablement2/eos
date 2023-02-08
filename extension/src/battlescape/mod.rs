@@ -96,18 +96,22 @@ impl Battlescape {
         bincode::Options::serialize(bincode::DefaultOptions::new(), self).unwrap()
     }
 
-    pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<bincode::ErrorKind>> {
-        bincode::Options::deserialize(bincode::DefaultOptions::new(), bytes)
-    }
+    pub fn deserialize(bytes: &[u8]) -> Option<Self> {
+        let mut s = bincode::Options::deserialize(bincode::DefaultOptions::new(), bytes).ok();
+    
+        if let Some(s) = &mut s {
+            let bs_ptr = entity::script::BsPtr::new(s);
 
-    pub fn post_deserialize_prepare(&mut self, bc_ptr: i64) {
-        for (entity, entity_idx) in self.entities.values_mut().zip(0i64..) {
-            entity.post_deserialize_prepare(bc_ptr.to_variant(), entity_idx.to_variant());
+            for (entity, entity_idx) in s.entities.values_mut().zip(0usize..) {
+                entity.post_deserialize_prepare(bs_ptr, entity_idx);
+            }
+    
+            for entity in s.entities.values_mut() {
+                entity.post_deserialize_post_prepare();
+            }
         }
 
-        for entity in self.entities.values_mut() {
-            entity.post_deserialize_post_prepare();
-        }
+        s
     }
 
     /// Take the cmds for the tick `self.tick + 1`.
@@ -192,9 +196,9 @@ impl Battlescape {
     }
 
     fn step_entities(&mut self) {
-        let bc_ptr = self as *mut Self as i64;
-        for (entity, entity_idx) in self.entities.values_mut().zip(0i64..) {
-            entity.pre_step(bc_ptr, entity_idx);
+        let bs_ptr = entity::script::BsPtr::new(self);
+        for (entity, entity_idx) in self.entities.values_mut().zip(0usize..) {
+            entity.pre_step(bs_ptr, entity_idx);
         }
 
         for entity in self.entities.values_mut() {

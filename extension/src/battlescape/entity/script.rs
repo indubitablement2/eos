@@ -8,7 +8,7 @@ use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EntityScriptWrapper {
-    serde: Option<()>,
+    serde: Option<Vec<u8>>,
     #[serde(skip)]
     #[serde(default = "default_entity_script")]
     script: Gd<EntityScript>,
@@ -30,35 +30,33 @@ impl EntityScriptWrapper {
     }
 
     pub fn start(&mut self) {
-        self.wrapper.start();
+        self.script.bind_mut().start();
     }
 
     pub fn step(&mut self) {
-        self.wrapper.step();
+        self.script.bind_mut().step();
     }
 
     pub fn pre_serialize(&mut self) {
-        // TODO: need array
-        // self.serde = Some(self.wrapper.serialize());
+        self.serde = Some(var_to_bytes(self.script.bind_mut().serialize()).to_vec());
     }
 
     /// Create and prepare the script.
-    pub fn post_deserialize_prepare(&mut self, bc_ptr: Variant, entity_idx: Variant) {
-        let serde = self.serde;
+    pub fn post_deserialize_prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
+        let serde = self.serde.take();
         let entity_data_id = self.entity_data_id;
 
         *self = Self::new(entity_data_id);
         self.serde = serde;
 
-        self.prepare(bc_ptr, entity_idx);
+        self.prepare(bs_ptr, entity_idx);
     }
 
     /// Deserialize the script custom data.
     /// Should have called `post_deserialize_prepare` on all script before this.
     pub fn post_deserialize_post_prepare(&mut self) {
         if let Some(bytes) = self.serde.take() {
-            // TODO: need array
-            // self.wrapper.deserialize(bytes);
+            self.script.bind_mut().deserialize(bytes_to_var(PackedByteArray::from(bytes.as_slice())));
         }
     }
 }
@@ -66,67 +64,64 @@ unsafe impl Send for EntityScriptWrapper {}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HullScriptWrapper {
-    serde: Option<()>,
+    serde: Option<Vec<u8>>,
     #[serde(skip)]
     #[serde(default = "default_hull_script")]
     script: Gd<HullScript>,
     entity_data_id: EntityDataId,
-    hull_idx: u32,
 }
 impl HullScriptWrapper {
-    pub fn new(entity_data_id: EntityDataId, hull_idx: u32) -> Self {
+    pub fn new(entity_data_id: EntityDataId, hull_idx: usize) -> Self {
         let mut script = default_hull_script();
-        script.bind_mut().set_script(entity_data_id.data().hulls[hull_idx as usize].script.clone());
+        script.bind_mut().set_script(entity_data_id.data().hulls[hull_idx].script.clone());
         Self {
             serde: None,
             script,
             entity_data_id,
-            hull_idx,
         }
     }
 
-    pub fn prepare(&mut self, bc_ptr: Variant, entity_idx: Variant, hull_idx: Variant) {
-        self.wrapper.prepare(&[bc_ptr, entity_idx, hull_idx]);
+    pub fn prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize, hull_idx: usize) {
+        self.script.bind_mut().prepare(bs_ptr, entity_idx, hull_idx);
     }
 
     pub fn start(&mut self) {
-        self.wrapper.start();
+        self.script.bind_mut().start();
     }
 
     pub fn step(&mut self) {
-        self.wrapper.step();
+        self.script.bind_mut().step();
     }
 
     pub fn pre_serialize(&mut self) {
-        // TODO: need array
-        // self.serde = Some(self.wrapper.serialize());
+        self.serde = Some(var_to_bytes(self.script.bind_mut().serialize()).to_vec());
     }
 
     /// Create and prepare the script.
     pub fn post_deserialize_prepare(
         &mut self,
-        bc_ptr: Variant,
-        entity_idx: Variant,
-        hull_idx: u32,
+        bs_ptr: BsPtr,
+        entity_idx: usize,
+        hull_idx: usize,
     ) {
-        let serde = self.serde;
+        let serde = self.serde.take();
         let entity_data_id = self.entity_data_id;
 
         *self = Self::new(entity_data_id, hull_idx);
         self.serde = serde;
 
-        self.prepare(bc_ptr, entity_idx, hull_idx.to_variant());
+        self.prepare(bs_ptr, entity_idx, hull_idx);
     }
 
     /// Deserialize the script custom data.
     /// Should have called `post_deserialize_prepare` on all script before this.
     pub fn post_deserialize_post_prepare(&mut self) {
         if let Some(bytes) = self.serde.take() {
-            // TODO: need array
-            // self.wrapper.deserialize(bytes);
+            self.script.bind_mut().deserialize(bytes_to_var(PackedByteArray::from(bytes.as_slice())));
         }
     }
 }
+unsafe impl Send for HullScriptWrapper {}
 
 #[derive(GodotClass)]
 #[class(base=Object)]
@@ -153,6 +148,8 @@ impl EntityScript {
 }
 #[godot_api]
 impl EntityScript {
+    // ---------- VIRTUAL
+
     #[func]
     fn start(&mut self) {}
 
@@ -169,36 +166,29 @@ impl EntityScript {
 
     // ---------- API
 
+    /// Only intended for serialization.
     #[func]
     fn get_id(&mut self) -> i64 {
         self.bs.entities.get_index(self.entity_idx).unwrap().0 .0 as i64
     }
 
+    /// Only intended for deserialization.
     #[func]
     fn get_entity_from_id(&mut self, id: i64) -> Gd<EntityScript> {
         self.bs.entities
             .get(&EntityId(id as u32))
-            .map(|entity| entity.script.wrapper.0.share().cast())
-            .unwrap_or_else(|| {
-                log::warn!("Tried to get entity from id {}, but it does not exist. Returning null instance...", id);
-                let new: Gd<EntityScript> = Gd::new_default();
-                new.share().free();
-                new
-            })
+            .map(|entity| entity.script.script.share())
+            .expect("entity should exist")
     }
 
+    /// Only intended for deserialization.
     #[func]
     fn get_hull_from_id(&mut self, id: i64) -> Gd<HullScript> {
-        self.bc.entities
+        self.bs.entities
             .get(&EntityId(id as u32))
             .and_then(|entity| entity.hulls[(id >> 32) as usize].as_ref())
-            .map(|hull| hull.script.wrapper.0.share().cast())
-            .unwrap_or_else(|| {
-                log::warn!("Tried to get hull from id {}, but it does not exist. Returning null instance...", id);
-                let new: Gd<HullScript> = Gd::new_default();
-                new.share().free();
-                new
-            })
+            .map(|hull| hull.script.script.share())
+            .expect("hull should exist")
     }
 
     // ---------- SCRIPT
@@ -247,7 +237,7 @@ impl EntityScript {
 impl GodotExt for EntityScript {
     fn init(base: Base<Object>) -> Self {
         Self {
-            bc: Default::default(),
+            bs: Default::default(),
             entity_idx: Default::default(),
             base,
         }
@@ -257,15 +247,21 @@ impl GodotExt for EntityScript {
 #[derive(GodotClass)]
 #[class(base=Object)]
 struct HullScript {
-    bc: BcPtr,
+    bs: BsPtr,
     entity_idx: usize,
     hull_idx: usize,
     #[base]
     base: Base<Object>,
 }
 impl HullScript {
+    fn prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize, hull_idx: usize) {
+        self.bs = bs_ptr;
+        self.entity_idx = entity_idx;
+        self.hull_idx = hull_idx;
+    }
+
     fn entity(&mut self) -> &mut Entity {
-        &mut self.bc.entities[self.entity_idx]
+        &mut self.bs.entities[self.entity_idx]
     }
 
     fn hull(&mut self) -> Option<&mut Hull> {
@@ -276,18 +272,11 @@ impl HullScript {
     fn collider(&mut self) -> Option<&mut Collider> {
         self.hull()
             .map(|hull| hull.collider)
-            .map(|handle| &mut self.bc.physics.colliders[handle])
+            .map(|handle| &mut self.bs.physics.colliders[handle])
     }
 }
 #[godot_api]
 impl HullScript {
-    #[func]
-    fn _prepare(&mut self, bc_ptr: i64, entity_idx: i64, hull_idx: i64) {
-        self.bc = BcPtr(bc_ptr as *mut _);
-        self.entity_idx = entity_idx as usize;
-        self.hull_idx = hull_idx as usize;
-    }
-
     // ---------- VIRTUAL
 
     #[func]
@@ -308,36 +297,26 @@ impl HullScript {
 
     #[func]
     fn get_id(&mut self) -> i64 {
-        let entity_id = self.bc.entities.get_index(self.entity_idx).unwrap().0 .0 as i64;
+        let entity_id = self.bs.entities.get_index(self.entity_idx).unwrap().0 .0 as i64;
         let hull_idx = self.hull_idx as i64;
         entity_id + (hull_idx << 32)
     }
 
     #[func]
     fn get_entity_from_id(&mut self, id: i64) -> Gd<EntityScript> {
-        self.bc.entities
+        self.bs.entities
             .get(&EntityId(id as u32))
-            .map(|entity| entity.script.wrapper.0.share().cast())
-            .unwrap_or_else(|| {
-                log::warn!("Tried to get entity from id {}, but it does not exist. Returning null instance...", id);
-                let new: Gd<EntityScript> = Gd::new_default();
-                new.share().free();
-                new
-            })
+            .map(|entity| entity.script.script.share())
+            .expect("entity should exist")
     }
 
     #[func]
     fn get_hull_from_id(&mut self, id: i64) -> Gd<HullScript> {
-        self.bc.entities
+        self.bs.entities
             .get(&EntityId(id as u32))
             .and_then(|entity| entity.hulls[(id >> 32) as usize].as_ref())
-            .map(|hull| hull.script.wrapper.0.share().cast())
-            .unwrap_or_else(|| {
-                log::warn!("Tried to get hull from id {}, but it does not exist. Returning null instance...", id);
-                let new: Gd<HullScript> = Gd::new_default();
-                new.share().free();
-                new
-            })
+            .map(|hull| hull.script.script.share())
+            .expect("hull should exist")
     }
 
     // ---------- SCRIPT
@@ -359,7 +338,7 @@ impl HullScript {
 
     #[func]
     fn get_parent_entity(&mut self) -> Gd<EntityScript> {
-        self.entity().script.wrapper.0.share().cast()
+        self.entity().script.script.share()
     }
 
     // #[func]
@@ -383,7 +362,7 @@ impl HullScript {
 impl GodotExt for HullScript {
     fn init(base: Base<Object>) -> Self {
         Self {
-            bc: Default::default(),
+            bs: Default::default(),
             entity_idx: Default::default(),
             hull_idx: Default::default(),
             base,
@@ -391,6 +370,7 @@ impl GodotExt for HullScript {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct BsPtr(*mut Battlescape);
 impl BsPtr {
     pub fn new(bs: &mut Battlescape) -> Self {
