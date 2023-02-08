@@ -41,13 +41,12 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Partition hull armor.
 // TODO: Get texture and add to hull sprite.
 
-// TODO: client can output cmds: add fleet, spawn ship, set control, etc. <---
-// TODO: display render fleets <---
-
 // TODO: Shared connection to the server. Dispatch packets to apropriate node
 
 // TODO: Rename bc to bs and mc to ms
 // TODO: Split event handler into catching-up, normal, full.
+
+// TODO: Godot camera
 
 mod ext {
     use godot::prelude::*;
