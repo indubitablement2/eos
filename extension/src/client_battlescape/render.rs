@@ -196,10 +196,6 @@ impl BattlescapeRender {
         }
     }
 
-    pub fn clear(&mut self) {
-        self.entity_renders.clear();
-    }
-
     pub fn handle_event(&mut self, event: &mut ClientBattlescapeEventHandler) {
         for (entity_id, entity_render) in event.render.new_entities.drain(..) {
             entity_render.insert_to_scene(&self.node);
@@ -227,7 +223,7 @@ impl BattlescapeRender {
                 .and_then(|from| to.get(entity_id).map(|to| (from, to)))
             {
                 let position = from.position.lerp(&to.position, weight);
-                render_entity.node.set_position(position.pos.to_godot());
+                render_entity.node.set_position(position.pos.to_godot_scaled());
                 render_entity.node.set_rotation(position.rot as f64);
 
                 for ((render_hull, from), to) in render_entity
@@ -241,7 +237,7 @@ impl BattlescapeRender {
                         .and_then(|from| to.as_ref().map(|to| (from, to)))
                     {
                         let position = from.position.lerp(&to.position, weight);
-                        render_hull.sprite.set_position(position.pos.to_godot());
+                        render_hull.sprite.set_position(position.pos.to_godot_scaled());
                         render_hull.sprite.set_rotation(position.rot as f64);
                     }
                 }
