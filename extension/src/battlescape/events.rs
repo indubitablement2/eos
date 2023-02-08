@@ -7,6 +7,7 @@ pub trait BattlescapeEventHandlerTrait {
     fn fleet_added(&mut self, fleet_id: FleetId);
     fn ship_destroyed(&mut self, fleet_id: FleetId, ship_index: usize);
     fn entity_removed(&mut self, entity_id: EntityId, entity: Entity);
+    fn hull_removed(&mut self, entity_id: EntityId, hull_index: usize);
     fn entity_added(&mut self, entity_id: EntityId, entity: &Entity);
     /// Calling step after this event is emitted will have no effect.
     fn battle_over(&mut self);
@@ -61,6 +62,14 @@ impl BattlescapeEventHandlerTrait for BattlescapeEventHandler {
         }
     }
 
+    fn hull_removed(&mut self, entity_id: EntityId, hull_index: usize) {
+        match self {
+            BattlescapeEventHandler::None => {}
+            BattlescapeEventHandler::Client(events) => events.hull_removed(entity_id, hull_index),
+            BattlescapeEventHandler::Server(events) => events.hull_removed(entity_id, hull_index),
+        }
+    }
+
     fn entity_added(&mut self, entity_id: EntityId, entity: &Entity) {
         match self {
             BattlescapeEventHandler::None => {}
@@ -83,6 +92,7 @@ impl BattlescapeEventHandlerTrait for () {
     fn fleet_added(&mut self, _fleet_id: FleetId) {}
     fn ship_destroyed(&mut self, _fleet_id: FleetId, _index: usize) {}
     fn entity_removed(&mut self, _entity_id: EntityId, _entity: Entity) {}
+    fn hull_removed(&mut self, _entity_id: EntityId, _hull_index: usize) {}
     fn entity_added(&mut self, _entity_id: EntityId, _entity: &Entity) {}
     fn battle_over(&mut self) {}
 }

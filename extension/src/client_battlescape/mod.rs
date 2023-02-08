@@ -431,6 +431,10 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
         self.render.entity_removed(entity_id, entity);
     }
 
+    fn hull_removed(&mut self, entity_id: EntityId, hull_index: usize) {
+        self.render.hull_removed(entity_id, hull_index);
+    }
+
     fn entity_added(
         &mut self,
         entity_id: battlescape::EntityId,

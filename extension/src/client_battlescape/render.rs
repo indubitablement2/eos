@@ -14,6 +14,7 @@ pub struct RenderBattlescapeEventHandler {
     entity_snapshots: AHashMap<EntityId, EntitySnapshot>,
     new_entities: Vec<(EntityId, EntityRender)>,
     removed_entities: Vec<EntityId>,
+    removed_hull: Vec<(EntityId, usize)>,
 }
 impl BattlescapeEventHandlerTrait for RenderBattlescapeEventHandler {
     fn stepped(&mut self, bc: &Battlescape) {
@@ -72,6 +73,12 @@ impl BattlescapeEventHandlerTrait for RenderBattlescapeEventHandler {
     fn entity_removed(&mut self, entity_id: EntityId, entity: entity::Entity) {
         if !self.take_full {
             self.removed_entities.push(entity_id);
+        }
+    }
+
+    fn hull_removed(&mut self, entity_id: EntityId, hull_index: usize) {
+        if !self.take_full {
+            self.removed_hull.push((entity_id, hull_index));
         }
     }
 
@@ -141,7 +148,7 @@ impl HullRender {
 struct EntityRender {
     node: Gd<Node2D>,
     entity_data_id: EntityDataId,
-    hulls: SmallVec<[HullRender; 1]>,
+    hulls: SmallVec<[Option<HullRender>; 1]>,
 }
 impl EntityRender {
     /// Will not be added to the scene.
@@ -159,7 +166,7 @@ impl EntityRender {
             .hulls
             .iter()
             .enumerate()
-            .map(|(hull_index, hull)| HullRender::new(hull_index, hull, entity, &entity_node))
+            .map(|(hull_index, hull)| Some(HullRender::new(hull_index, hull, entity, &entity_node)))
             .collect();
 
         EntityRender {
@@ -205,6 +212,12 @@ impl BattlescapeRender {
         for entity_id in event.render.removed_entities.drain(..) {
             self.entity_renders.remove(&entity_id);
         }
+
+        for (entity_id, hull_index) in event.render.removed_hull.drain(..) {
+            if let Some(entity_render) = self.entity_renders.get_mut(&entity_id) {
+                entity_render.hulls[hull_index] = None;
+            }
+        }
     }
 
     pub fn draw_lerp(
@@ -223,7 +236,9 @@ impl BattlescapeRender {
                 .and_then(|from| to.get(entity_id).map(|to| (from, to)))
             {
                 let position = from.position.lerp(&to.position, weight);
-                render_entity.node.set_position(position.pos.to_godot_scaled());
+                render_entity
+                    .node
+                    .set_position(position.pos.to_godot_scaled());
                 render_entity.node.set_rotation(position.rot as f64);
 
                 for ((render_hull, from), to) in render_entity
@@ -232,14 +247,29 @@ impl BattlescapeRender {
                     .zip(&from.hulls)
                     .zip(&to.hulls)
                 {
-                    if let Some((from, to)) = from
-                        .as_ref()
-                        .and_then(|from| to.as_ref().map(|to| (from, to)))
-                    {
-                        let position = from.position.lerp(&to.position, weight);
-                        render_hull.sprite.set_position(position.pos.to_godot_scaled());
-                        render_hull.sprite.set_rotation(position.rot as f64);
-                    }
+                    let render_hull = if let Some(render_hull) = render_hull {
+                        render_hull
+                    } else {
+                        continue;
+                    };
+
+                    let from = if let Some(from) = from {
+                        from
+                    } else {
+                        continue;
+                    };
+
+                    let to = if let Some(to) = to {
+                        to
+                    } else {
+                        continue;
+                    };
+
+                    let position = from.position.lerp(&to.position, weight);
+                    render_hull
+                        .sprite
+                        .set_position(position.pos.to_godot_scaled());
+                    render_hull.sprite.set_rotation(position.rot as f64);
                 }
             }
         }
