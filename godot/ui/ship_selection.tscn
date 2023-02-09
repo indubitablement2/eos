@@ -26,7 +26,7 @@ unicode = 114
 [sub_resource type="Shortcut" id="Shortcut_2yhcw"]
 events = [SubResource("InputEventKey_p4y0i")]
 
-[node name="ShipSelection" type="CanvasLayer"]
+[node name="ShipSelection" type="ShipSelection"]
 script = ExtResource("1_c4afu")
 
 [node name="TextureRect" type="TextureRect" parent="."]

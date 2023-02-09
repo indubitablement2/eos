@@ -8,7 +8,7 @@ use godot::prelude::*;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Entity {
     /// If this entity is a ship from a fleet.
-    pub fleet_ship: Option<(FleetId, usize)>,
+    pub fleet_ship: Option<FleetShip>,
     pub team: u32,
 
     pub entity_data_id: EntityDataId,

@@ -1,8 +1,10 @@
-pub mod render;
+mod render;
 mod runner;
+mod selection;
 
 use self::render::{BattlescapeRender, RenderBattlescapeEventHandler};
 use self::runner::RunnerHandle;
+use self::selection::ShipSelection;
 use super::*;
 use crate::battlescape::events::BattlescapeEventHandlerTrait;
 use crate::battlescape::*;
@@ -11,7 +13,6 @@ use crate::metascape::BattlescapeId;
 use crate::player_inputs::PlayerInputs;
 use crate::time_manager::*;
 use crate::util::*;
-use godot::engine::{packed_scene, CanvasLayer};
 use godot::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,11 +30,11 @@ pub enum ClientType {
 #[derive(GodotClass)]
 #[class(base=Node2D)]
 pub struct ClientBattlescape {
-    client_id: ClientId,
+    pub client_id: ClientId,
     runner_handle: RunnerHandle,
     render: BattlescapeRender,
     fleets: Fleets,
-    ship_selection: ShipSelection,
+    ship_selection: Gd<ShipSelection>,
     client_type: ClientType,
     inputs: PlayerInputs,
     wish_cmds: Commands,
@@ -73,7 +74,7 @@ impl ClientBattlescape {
                 render: BattlescapeRender::new(client_id, base.share()),
                 runner_handle: RunnerHandle::new(bc),
                 replay,
-                ship_selection: ShipSelection::new(&mut base),
+                ship_selection: ShipSelection::new_child(&base),
                 wish_cmds: Default::default(),
                 time_manager: TimeManager::new(config),
                 client_type,
@@ -90,6 +91,10 @@ impl ClientBattlescape {
 
     pub fn battlescape_id(&self) -> BattlescapeId {
         self.replay.battlescape_id
+    }
+
+    pub fn add_cmd(&mut self, cmd: impl Command) {
+        self.wish_cmds.push(cmd);
     }
 }
 #[godot_api]
@@ -113,39 +118,8 @@ impl ClientBattlescape {
     // }
 
     #[func]
-    fn get_ship_selection(&mut self) -> Gd<CanvasLayer> {
-        self.ship_selection.node.share()
-    }
-
-    #[func]
-    fn fleet_ship_selected(&mut self, selected: PackedInt64Array) {
-        for mut selection_idx in selected.to_vec().into_iter().map(|i| i as usize) {
-            let mut fleet_idx = 0;
-            loop {
-                if selection_idx < self.fleets[fleet_idx].ships.len() {
-                    break;
-                }
-                selection_idx -= self.fleets[fleet_idx].ships.len();
-                fleet_idx += 1;
-            }
-
-            let add_ship = SvAddShip {
-                fleet_id: *self.fleets.get_index(fleet_idx).unwrap().0,
-                ship_idx: selection_idx as u32,
-                prefered_spawn_point: 0,
-            };
-
-            if self.can_cheat() {
-                self.wish_cmds.push(add_ship);
-            } else {
-                self.wish_cmds.push(AddShip {
-                    caller: self.client_id,
-                    add_ship,
-                });
-            }
-        }
-
-        self.ship_selection.hide();
+    fn get_child_ship_selection(&mut self) -> Gd<ShipSelection> {
+        self.ship_selection.share()
     }
 
     #[func]
@@ -196,32 +170,24 @@ impl GodotExt for ClientBattlescape {
         }
 
         // Handle events.
+        let mut ship_selection = self.ship_selection.bind_mut();
         for event in self.events.iter_mut() {
             if !event.handled {
                 event.handled = true;
 
                 for (fleet_id, new_fleet) in event.new_fleet.drain() {
                     // Add fleet to ship selection.
-                    for ship in new_fleet.ships.iter() {
-                        self.ship_selection.add_ship(ship);
+                    for (ship_idx, ship) in new_fleet.ships.iter().enumerate() {
+                        ship_selection.add_ship_internal((fleet_id, ship_idx), ship);
                     }
-                    
+
                     self.fleets.insert(fleet_id, new_fleet);
                 }
 
                 for (fleet_id, ship_idx, state) in event.ship_state_changes.drain(..) {
                     self.fleets.get_mut(&fleet_id).unwrap().ships[ship_idx].state = state;
 
-                    // Get the ship idx in the ship selection.
-                    let mut idx = ship_idx;
-                    for (other_fleet_id, other_fleet) in self.fleets.iter() {
-                        if fleet_id == *other_fleet_id {
-                            break;
-                        }
-                        idx += other_fleet.ships.len();
-                    }
-
-                    self.ship_selection.update_ship_state(idx as i64, state);
+                    ship_selection.update_ship_state((fleet_id, ship_idx), state);
                 }
             }
 
@@ -271,88 +237,6 @@ impl GodotExt for ClientBattlescape {
                 // TODO: Send cmds to server
             }
         }
-    }
-}
-
-struct ShipSelection {
-    node: Gd<CanvasLayer>,
-}
-impl ShipSelection {
-    const SHIP_SELECTION_PATH: &str = "res://ui/ship_selection.tscn";
-
-    fn new(bs: &mut Gd<Node2D>) -> Self {
-        let mut node = load::<PackedScene>(Self::SHIP_SELECTION_PATH)
-            .instantiate(packed_scene::GenEditState::GEN_EDIT_STATE_DISABLED)
-            .unwrap();
-        add_child_node_node(&mut bs.share().upcast(), node.share());
-        node.set("bs".into(), bs.to_variant());
-
-        Self { node: node.cast() }
-    }
-
-    fn hide(&mut self) {
-        self.node.hide();
-    }
-
-    fn show(&mut self) {
-        self.node.show();
-    }
-
-    fn add_ship(&mut self, ship: &bc_fleet::BattlescapeFleetShip) {
-        let ship_data = ship.original_ship.ship_data_id.data();
-        let icon = ship_data.render_node.get_texture().unwrap().to_variant();
-        let size_factor = 1.0f64.to_variant(); // TODO: size factor
-        let tooptip = ship_data.display_name.to_variant();
-        let cost = 10i64.to_variant(); // TODO: cost
-        let destroyed = match ship.state {
-            bc_fleet::FleetShipState::Ready => false,
-            bc_fleet::FleetShipState::Spawned => true,
-            bc_fleet::FleetShipState::Removed(_) => true,
-            bc_fleet::FleetShipState::Destroyed => true,
-        }
-        .to_variant();
-
-        // add_ship(icon: Texture2D, size_factor: float, tooptip: String, cost: int, destroyed: bool)
-        self.node.call(
-            "add_ship".into(),
-            &[icon, size_factor, tooptip, cost, destroyed],
-        );
-    }
-
-    fn update_ship_state(&mut self, idx: i64, state: bc_fleet::FleetShipState) {
-        match state {
-            bc_fleet::FleetShipState::Ready => {
-                // TODO: Do we ever need to go back to ready?
-                // ship_set_ready(idx: int)
-                self.node.call("ship_set_ready".into(), &[idx.to_variant()]);
-            }
-            bc_fleet::FleetShipState::Spawned => {
-                // ship_set_spawned(idx: int)
-                self.node
-                    .call("ship_set_spawned".into(), &[idx.to_variant()]);
-            }
-            bc_fleet::FleetShipState::Removed(_) => {
-                // ship_set_removed(idx: int)
-                self.node
-                    .call("ship_set_removed".into(), &[idx.to_variant()]);
-            }
-            bc_fleet::FleetShipState::Destroyed => {
-                // ship_set_destroyed(idx: int)
-                self.node
-                    .call("ship_set_destroyed".into(), &[idx.to_variant()]);
-            }
-        }
-    }
-
-    fn set_max_active_cost(&mut self, value: i64) {
-        // set_max_active_cost(value: int)
-        self.node
-            .call("set_max_active_cost".into(), &[value.to_variant()]);
-    }
-}
-impl Drop for ShipSelection {
-    fn drop(&mut self) {
-        self.node.queue_free();
     }
 }
 

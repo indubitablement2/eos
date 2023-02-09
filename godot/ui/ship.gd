@@ -15,14 +15,12 @@ const COLOR_FOCUS_PULSE := Color(0.98, 0.98, 1.0, 0.45)
 var tween :Tween = null
 
 
-func set_ship(icon: Texture2D, size_factor: float, tooptip: String, cost: int, destroyed := false) -> void:
+func set_ship(icon: Texture2D, size_factor: float, tooptip: String, cost: int) -> void:
 	_icon.set_texture(icon)
 	_icon.anchor_left = 0.5 - size_factor * 0.5
 	_icon.anchor_right = 0.5 + size_factor * 0.5
 	set_tooltip_text(tooptip)
 	set_cost(cost)
-	if destroyed:
-		set_destroyed()
 
 func set_destroyed() -> void:
 	disabled = true

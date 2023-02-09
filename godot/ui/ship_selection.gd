@@ -1,4 +1,4 @@
-extends CanvasLayer
+extends ShipSelection
 
 const SHIP_SCENE := preload("res://ui/ship.tscn")
 
@@ -6,10 +6,8 @@ const SHIP_SCENE := preload("res://ui/ship.tscn")
 @onready var total_cost_label :Label = $TextureRect/VBoxContainer/Label
 @onready var accept_button :Button = $TextureRect/VBoxContainer/HBoxContainer/Accept
 
-@onready var bs :ClientBattlescape = get_parent()
 var max_active_cost := 0 : set = set_max_active_cost
-
-var ship_cost :Array[int] = []
+var num_ship := 0
 var active_cost := 0
 var _last_toggle := true
 
@@ -18,18 +16,21 @@ var _last_toggle := true
 #		await get_tree().create_timer(0.5).timeout
 #		add_ship(preload("res://textures/spaceship gen.png"), randf_range(0.5, 1.0), str(i), i, randi() % 4 == 0)
 
-func add_ship(icon: Texture2D, size_factor: float, tooptip: String, cost: int, destroyed: bool) -> void:
+func add_ship(icon: Texture2D, size_factor: float, tooptip: String, cost: int) -> int:
 	var ship = SHIP_SCENE.instantiate()
 	grid.add_child(ship)
-	var idx := ship_cost.size()
-	ship.toggled.connect(_on_ship_toggled.bind(ship, idx))
+	ship.set_ship(icon, size_factor, tooptip, cost)
+	
+	var idx := num_ship
+	num_ship += 1
+	
+	ship.toggled.connect(_on_ship_toggled.bind(ship, idx, cost))
 	ship.mouse_entered.connect(_on_ship_hovered.bind(ship))
-	ship.set_ship(icon, size_factor, tooptip, cost, destroyed)
-	ship_cost.push_back(cost)
+	
+	return idx
 
 func ship_set_ready(_idx: int) -> void:
-	# Not implemented. Should never need to go back to ready.
-	push_error("ship state going back to ready not implemented")
+	pass
 
 func ship_set_spawned(idx: int) -> void:
 	# TODO: handle this by disabling button and showing some 'spawned' marker
@@ -47,12 +48,14 @@ func set_max_active_cost(value: int) -> void:
 	_update_cost()
 
 func reset() -> void:
-	active_cost = 0
 	for ship in grid.get_children():
 		ship.set_pressed_no_signal(false)
+	active_cost = 0
+	clear_selection()
 
 func _update_cost() -> void:
 	total_cost_label.set_text(str(active_cost) + "/" + str(max_active_cost))
+	
 	if active_cost > max_active_cost:
 		total_cost_label.set_modulate(Color(1.0, 0.22, 0.22))
 		accept_button.set_disabled(true)
@@ -60,15 +63,17 @@ func _update_cost() -> void:
 		total_cost_label.set_modulate(Color.ALICE_BLUE)
 		accept_button.set_disabled(false)
 
-func _on_ship_toggled(toggle: bool, ship: BaseButton, idx: int) -> void:
+func _on_ship_toggled(toggle: bool, ship: BaseButton, idx: int,  cost: int) -> void:
 	if ship.is_disabled():
 		return
 	
-	var cost := ship_cost[idx]
 	if toggle:
 		active_cost += cost
+		select(idx)
 	else:
 		active_cost -= cost
+		deselect(idx)
+	
 	_update_cost()
 	
 	_last_toggle = toggle
@@ -78,17 +83,9 @@ func _on_ship_hovered(ship: BaseButton) -> void:
 		ship.set_pressed(_last_toggle)
 
 func _on_accept_pressed() -> void:
-	if bs:
-		var selected = PackedInt64Array([])
-		var idx := 0
-		for ship in grid.get_children():
-			if ship.is_pressed():
-				selected.push_back(idx)
-			idx += 1
-		bs.fleet_ship_selected(selected)
-		print(selected)
-	else:
-		push_error("Can not select ships as not bind")
+	hide()
+	spawn_selected()
+	reset()
 
 func _on_cancel_pressed() -> void:
 	hide()
