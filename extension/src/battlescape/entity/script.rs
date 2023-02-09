@@ -156,27 +156,47 @@ impl EntityScript {
         let handle = self.entity().rb;
         &mut self.bs.physics.bodies[handle]
     }
+
+    fn start(&mut self) {
+        self.call("i_start".into(), &[]);
+    }
+
+    fn destroyed(&mut self) {
+        self.emit_signal("destroyed".into(), &[]);
+    }
+
+    fn step(&mut self) {
+        self.call("i_step".into(), &[]);
+    }
+
+    fn serialize(&mut self) -> Variant {
+        self.call("i_serialize".into(), &[])
+    }
+
+    fn deserialize(&mut self, var: Variant) {
+        self.call("i_deserialize".into(), &[var]);
+    }
 }
 #[godot_api]
 impl EntityScript {
-    // ---------- VIRTUAL
+    #[signal]
+    fn destroyed();
+
+    // ---------- INTERFACE
 
     #[func]
-    fn start(&mut self) {}
+    fn i_start(&mut self) {}
 
     #[func]
-    fn destroyed(&mut self) {}
+    fn i_step(&mut self) {}
 
     #[func]
-    fn step(&mut self) {}
-
-    #[func]
-    fn serialize(&mut self) -> Variant {
+    fn i_serialize(&mut self) -> Variant {
         Variant::nil()
     }
 
     #[func]
-    fn deserialize(&mut self, _var: Variant) {}
+    fn i_deserialize(&mut self, _var: Variant) {}
 
     // ---------- API
 
@@ -290,27 +310,47 @@ impl HullScript {
             .map(|hull| hull.collider)
             .map(|handle| &mut self.bs.physics.colliders[handle])
     }
+
+    fn start(&mut self) {
+        self.call("i_start".into(), &[]);
+    }
+
+    fn destroyed(&mut self) {
+        self.emit_signal("destroyed".into(), &[]);
+    }
+
+    fn step(&mut self) {
+        self.call("i_step".into(), &[]);
+    }
+
+    fn serialize(&mut self) -> Variant {
+        self.call("i_serialize".into(), &[])
+    }
+
+    fn deserialize(&mut self, var: Variant) {
+        self.call("i_deserialize".into(), &[var]);
+    }
 }
 #[godot_api]
 impl HullScript {
-    // ---------- VIRTUAL
+    #[signal]
+    fn destroyed();
+
+    // ---------- INTERFACE
 
     #[func]
-    fn start(&mut self) {}
+    fn i_start(&mut self) {}
 
     #[func]
-    fn destroyed(&mut self) {}
+    fn i_step(&mut self) {}
 
     #[func]
-    fn step(&mut self) {}
-
-    #[func]
-    fn serialize(&mut self) -> Variant {
+    fn i_serialize(&mut self) -> Variant {
         Variant::nil()
     }
 
     #[func]
-    fn deserialize(&mut self, _var: Variant) {}
+    fn i_deserialize(&mut self, _var: Variant) {}
 
     // ---------- API
 
