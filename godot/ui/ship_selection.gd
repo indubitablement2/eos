@@ -6,7 +6,7 @@ const SHIP_SCENE := preload("res://ui/ship.tscn")
 @onready var total_cost_label :Label = $TextureRect/VBoxContainer/Label
 @onready var accept_button :Button = $TextureRect/VBoxContainer/HBoxContainer/Accept
 
-var bind :Node
+@onready var bs :ClientBattlescape = get_parent()
 var max_active_cost := 0 : set = set_max_active_cost
 
 var ship_cost :Array[int] = []
@@ -78,21 +78,21 @@ func _on_ship_hovered(ship: BaseButton) -> void:
 		ship.set_pressed(_last_toggle)
 
 func _on_accept_pressed() -> void:
-	if bind:
+	if bs:
 		var selected = PackedInt64Array([])
 		var idx := 0
 		for ship in grid.get_children():
 			if ship.is_pressed():
 				selected.push_back(idx)
 			idx += 1
-		bind.fleet_ship_selected(selected)
+		bs.fleet_ship_selected(selected)
 		print(selected)
 	else:
 		push_error("Can not select ships as not bind")
 
 func _on_cancel_pressed() -> void:
-	if bind:
-		bind.fleet_ship_selected(PackedInt64Array([]))
+	hide()
+	reset()
 
 func _on_reset_pressed() -> void:
 	reset()

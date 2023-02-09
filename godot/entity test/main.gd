@@ -6,9 +6,6 @@ func _ready() -> void:
 	client.try_load_data("res://entity test/ship_test.tscn")
 	var bs := client.new_test_battlescape()
 	bs.show()
-#	bs.add_child(preload("res://ui/ship_selection.tscn").instantiate())
-	await get_tree().create_timer(2.0).timeout
-	bs.create_ship_selection()
 	bs.dbg_print_fleets()
 	
 #	var s := preload("res://test_export.gd")

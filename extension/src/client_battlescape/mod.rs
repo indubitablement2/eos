@@ -11,7 +11,7 @@ use crate::metascape::BattlescapeId;
 use crate::player_inputs::PlayerInputs;
 use crate::time_manager::*;
 use crate::util::*;
-use godot::engine::packed_scene;
+use godot::engine::{packed_scene, CanvasLayer};
 use godot::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,7 +33,7 @@ pub struct ClientBattlescape {
     runner_handle: RunnerHandle,
     render: BattlescapeRender,
     fleets: Fleets,
-    ship_selection: Option<ShipSelection>,
+    ship_selection: ShipSelection,
     client_type: ClientType,
     inputs: PlayerInputs,
     wish_cmds: Commands,
@@ -73,7 +73,7 @@ impl ClientBattlescape {
                 render: BattlescapeRender::new(client_id, base.share()),
                 runner_handle: RunnerHandle::new(bc),
                 replay,
-                ship_selection: None,
+                ship_selection: ShipSelection::new(&mut base),
                 wish_cmds: Default::default(),
                 time_manager: TimeManager::new(config),
                 client_type,
@@ -113,8 +113,8 @@ impl ClientBattlescape {
     // }
 
     #[func]
-    fn create_ship_selection(&mut self) {
-        self.ship_selection = Some(ShipSelection::new(&mut self.base, &self.fleets));
+    fn get_ship_selection(&mut self) -> Gd<CanvasLayer> {
+        self.ship_selection.node.share()
     }
 
     #[func]
@@ -145,7 +145,7 @@ impl ClientBattlescape {
             }
         }
 
-        self.ship_selection = None;
+        self.ship_selection.hide();
     }
 
     #[func]
@@ -196,42 +196,32 @@ impl GodotExt for ClientBattlescape {
         }
 
         // Handle events.
-        let mut remake_ship_selection = false;
         for event in self.events.iter_mut() {
             if !event.handled {
                 event.handled = true;
 
-                if event.render.take_full && self.ship_selection.is_some() {
-                    self.ship_selection = None;
-                    remake_ship_selection = true
-                }
-
                 for (fleet_id, new_fleet) in event.new_fleet.drain() {
                     // Add fleet to ship selection.
-                    if let Some(ship_selection) = &mut self.ship_selection {
-                        for ship in new_fleet.ships.iter() {
-                            ship_selection.add_ship(ship);
-                        }
+                    for ship in new_fleet.ships.iter() {
+                        self.ship_selection.add_ship(ship);
                     }
-
+                    
                     self.fleets.insert(fleet_id, new_fleet);
                 }
 
                 for (fleet_id, ship_idx, state) in event.ship_state_changes.drain(..) {
                     self.fleets.get_mut(&fleet_id).unwrap().ships[ship_idx].state = state;
 
-                    if let Some(ship_selection) = &mut self.ship_selection {
-                        // Get the ship idx in the ship selection.
-                        let mut idx = ship_idx;
-                        for (other_fleet_id, other_fleet) in self.fleets.iter() {
-                            if fleet_id == *other_fleet_id {
-                                break;
-                            }
-                            idx += other_fleet.ships.len();
+                    // Get the ship idx in the ship selection.
+                    let mut idx = ship_idx;
+                    for (other_fleet_id, other_fleet) in self.fleets.iter() {
+                        if fleet_id == *other_fleet_id {
+                            break;
                         }
-
-                        ship_selection.update_ship_state(idx as i64, state);
+                        idx += other_fleet.ships.len();
                     }
+
+                    self.ship_selection.update_ship_state(idx as i64, state);
                 }
             }
 
@@ -240,9 +230,6 @@ impl GodotExt for ClientBattlescape {
 
                 self.render.handle_event(event);
             }
-        }
-        if remake_ship_selection {
-            self.create_ship_selection();
         }
 
         // Remove previous events.
@@ -288,29 +275,27 @@ impl GodotExt for ClientBattlescape {
 }
 
 struct ShipSelection {
-    node: Gd<Node>,
+    node: Gd<CanvasLayer>,
 }
 impl ShipSelection {
     const SHIP_SELECTION_PATH: &str = "res://ui/ship_selection.tscn";
 
-    fn new(parent: &mut Gd<Node2D>, fleets: &Fleets) -> Self {
+    fn new(bs: &mut Gd<Node2D>) -> Self {
         let mut node = load::<PackedScene>(Self::SHIP_SELECTION_PATH)
             .instantiate(packed_scene::GenEditState::GEN_EDIT_STATE_DISABLED)
             .unwrap();
-        add_child_node_node(&mut parent.share().upcast(), node.share());
-        node.set("bind".into(), parent.to_variant());
+        add_child_node_node(&mut bs.share().upcast(), node.share());
+        node.set("bs".into(), bs.to_variant());
 
-        let mut s = Self { node };
+        Self { node: node.cast() }
+    }
 
-        s.set_max_active_cost(100);
+    fn hide(&mut self) {
+        self.node.hide();
+    }
 
-        for fleet in fleets.values() {
-            for ship in fleet.ships.iter() {
-                s.add_ship(ship);
-            }
-        }
-
-        s
+    fn show(&mut self) {
+        self.node.show();
     }
 
     fn add_ship(&mut self, ship: &bc_fleet::BattlescapeFleetShip) {
