@@ -6,7 +6,7 @@ const SHIP_SCENE := preload("res://ui/ship.tscn")
 @onready var total_cost_label :Label = $TextureRect/VBoxContainer/Label
 @onready var accept_button :Button = $TextureRect/VBoxContainer/HBoxContainer/Accept
 
-var max_active_cost := 0 : set = set_max_active_cost
+var max_active_cost := 0 : set = i_set_max_active_cost
 var num_ship := 0
 var active_cost := 0
 var _last_toggle := true
@@ -16,7 +16,7 @@ var _last_toggle := true
 #		await get_tree().create_timer(0.5).timeout
 #		add_ship(preload("res://textures/spaceship gen.png"), randf_range(0.5, 1.0), str(i), i, randi() % 4 == 0)
 
-func add_ship(icon: Texture2D, size_factor: float, tooptip: String, cost: int) -> int:
+func i_add_ship(icon: Texture2D, size_factor: float, tooptip: String, cost: int) -> int:
 	var ship = SHIP_SCENE.instantiate()
 	grid.add_child(ship)
 	ship.set_ship(icon, size_factor, tooptip, cost)
@@ -29,21 +29,21 @@ func add_ship(icon: Texture2D, size_factor: float, tooptip: String, cost: int) -
 	
 	return idx
 
-func ship_set_ready(_idx: int) -> void:
+func i_ship_set_ready(_idx: int) -> void:
 	pass
 
-func ship_set_spawned(idx: int) -> void:
+func i_ship_set_spawned(idx: int) -> void:
 	# TODO: handle this by disabling button and showing some 'spawned' marker
-	ship_set_destroyed(idx)
+	i_ship_set_destroyed(idx)
 
-func ship_set_removed(idx: int) -> void:
+func i_ship_set_removed(idx: int) -> void:
 	# TODO: Display counter when this ship can be spawned again.
-	ship_set_destroyed(idx)
+	i_ship_set_destroyed(idx)
 
-func ship_set_destroyed(idx: int) -> void:
+func i_ship_set_destroyed(idx: int) -> void:
 	grid.get_child(idx).set_destroyed()
 
-func set_max_active_cost(value: int) -> void:
+func i_set_max_active_cost(value: int) -> void:
 	max_active_cost = value
 	_update_cost()
 

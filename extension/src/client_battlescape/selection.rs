@@ -36,7 +36,7 @@ impl ShipSelection {
         let icon = ship_data.render_node.get_texture().unwrap();
         let size_factor = 1.0f64; // TODO: size factor
         let tooptip = GodotString::from(ship_data.display_name.as_str()); // TODO: Custom name
-        let cost = 10i64; // TODO: cost
+        let cost = 0i64; // TODO: cost
 
         let idx = self.add_ship(icon, size_factor, tooptip, cost);
         self.fleet_ship_idx.insert(fleet_ship, idx);

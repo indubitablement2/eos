@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://ui/ship.gd" id="1_u6b3c"]
 [ext_resource type="Texture2D" uid="uid://do0ttbjjbflxy" path="res://textures/x64.png" id="5_as5t8"]
 
-[sub_resource type="Theme" id="Theme_da28q"]
+[sub_resource type="Theme" id="Theme_v4e0g"]
 
 [node name="Ship" type="Button"]
 custom_minimum_size = Vector2(96, 96)
@@ -18,7 +18,7 @@ offset_right = 48.0
 offset_bottom = 48.0
 grow_horizontal = 2
 grow_vertical = 2
-theme = SubResource("Theme_da28q")
+theme = SubResource("Theme_v4e0g")
 toggle_mode = true
 action_mode = 0
 script = ExtResource("1_u6b3c")

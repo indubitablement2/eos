@@ -124,7 +124,7 @@ impl Data {
 
         // Find the hulls nodes.
         let mut hulls: SmallVec<[HullData; 1]> = SmallVec::new();
-        for (mut child_node, render_node_idx) in node.children_iter().zip(0i64..) {
+        for (mut child_node, render_node_idx) in node.get_children(false).iter_shared().zip(0i64..) {
             if !child_node.has_method("_is_hull_data".into()) {
                 continue;
             }
@@ -133,7 +133,7 @@ impl Data {
 
             let mut shape = SharedShape::ball(0.5);
             let mut init_position = rapier2d::prelude::Isometry::default();
-            for child_child_node in child_node.children_iter() {
+            for child_child_node in child_node.get_children(false).iter_shared() {
                 if let Some(collision_node) =
                     child_child_node.share().try_cast::<CollisionShape2D>()
                 {
@@ -280,39 +280,6 @@ impl Default for Data {
 }
 
 static mut DATA: Option<Data> = None;
-
-struct ChildIter {
-    childs: TypedArray<Gd<Node>>,
-    i: i64,
-    len: i64,
-}
-impl Iterator for ChildIter {
-    type Item = Gd<Node>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.i < self.len {
-            let r = self.childs.get(self.i);
-            self.i += 1;
-            r
-        } else {
-            None
-        }
-    }
-}
-trait ChildIterTrait {
-    fn children_iter(&self) -> ChildIter;
-}
-impl ChildIterTrait for Gd<Node> {
-    fn children_iter(&self) -> ChildIter {
-        log::trace!("Iterating over children");
-
-        ChildIter {
-            childs: self.get_children(false),
-            i: 0,
-            len: self.get_child_count(false),
-        }
-    }
-}
 
 fn validate_script(script: Variant, extend: &str) -> Variant {
     if script.is_nil() {

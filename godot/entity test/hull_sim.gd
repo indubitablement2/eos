@@ -1,7 +1,4 @@
 extends HullScript
 
-func step():
-	pass
-
-func start():
-	pass
+func start() -> void:
+	print("hull started")
