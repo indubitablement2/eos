@@ -17,9 +17,12 @@ pub struct EntityScriptWrapper {
 impl EntityScriptWrapper {
     pub fn new(entity_data_id: EntityDataId) -> Self {
         let mut script = default_entity_script();
-        script
-            .bind_mut()
-            .set_script(entity_data_id.data().script.clone());
+        let gdscript = &entity_data_id.data().script.script;
+        if !gdscript.is_nil() {
+            script
+                .bind_mut()
+                .set_script(gdscript.clone());
+        }
         Self {
             serde: None,
             script,
@@ -32,19 +35,27 @@ impl EntityScriptWrapper {
     }
 
     pub fn start(&mut self) {
-        self.script.bind_mut().start();
+        if self.script_data().has_start {
+            self.script.bind_mut().call("start".into(), &[]);
+        }
     }
 
     pub fn destroyed(&mut self) {
-        self.script.bind_mut().destroyed();
+        if self.script_data().has_destroyed {
+            self.script.bind_mut().call("destroyed".into(), &[]);
+        }
     }
 
     pub fn step(&mut self) {
-        self.script.bind_mut().step();
+        if self.script_data().has_step {
+            self.script.bind_mut().call("step".into(), &[]);
+        }
     }
 
     pub fn pre_serialize(&mut self) {
-        self.serde = Some(var_to_bytes(self.script.bind_mut().serialize()).to_vec());
+        if self.script_data().has_serialize {
+            self.serde = Some(var_to_bytes(self.script.bind_mut().call("pre_serialize".into(), &[])).to_vec());
+        }
     }
 
     /// Create and prepare the script.
@@ -62,10 +73,16 @@ impl EntityScriptWrapper {
     /// Should have called `post_deserialize_prepare` on all script before this.
     pub fn post_deserialize_post_prepare(&mut self) {
         if let Some(bytes) = self.serde.take() {
-            self.script
-                .bind_mut()
-                .deserialize(bytes_to_var(PackedByteArray::from(bytes.as_slice())));
+            if self.script_data().has_deserialize {
+                self.script
+                    .bind_mut()
+                    .call("deserialize".into(), &[bytes_to_var(PackedByteArray::from(bytes.as_slice()))]);
+            }
         }
+    }
+
+    fn script_data(&self) -> &EntityDataScript {
+        &self.entity_data_id.data().script
     }
 }
 unsafe impl Send for EntityScriptWrapper {}
@@ -77,59 +94,79 @@ pub struct HullScriptWrapper {
     #[serde(default = "default_hull_script")]
     script: Gd<HullScript>,
     entity_data_id: EntityDataId,
+    hull_idx: u32,
 }
 impl HullScriptWrapper {
     pub fn new(entity_data_id: EntityDataId, hull_idx: usize) -> Self {
         let mut script = default_hull_script();
-        script
-            .bind_mut()
-            .set_script(entity_data_id.data().hulls[hull_idx].script.clone());
+        let gdscript = &entity_data_id.data().hulls[hull_idx].script.script;
+        if !gdscript.is_nil() {
+            script
+                .bind_mut()
+                .set_script(gdscript.clone());
+        }
         Self {
             serde: None,
             script,
             entity_data_id,
+            hull_idx: hull_idx as u32,
         }
     }
 
-    pub fn prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize, hull_idx: usize) {
-        self.script.bind_mut().prepare(bs_ptr, entity_idx, hull_idx);
+    pub fn prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
+        self.script.bind_mut().prepare(bs_ptr, entity_idx, self.hull_idx as usize);
     }
 
     pub fn start(&mut self) {
-        self.script.bind_mut().start();
+        if self.script_data().has_start {
+            self.script.bind_mut().call("start".into(), &[]);
+        }
     }
 
     pub fn destroyed(&mut self) {
-        self.script.bind_mut().destroyed();
+        if self.script_data().has_destroyed {
+            self.script.bind_mut().call("destroyed".into(), &[]);
+        }
     }
 
     pub fn step(&mut self) {
-        self.script.bind_mut().step();
+        if self.script_data().has_step {
+            self.script.bind_mut().call("step".into(), &[]);
+        }
     }
 
     pub fn pre_serialize(&mut self) {
-        self.serde = Some(var_to_bytes(self.script.bind_mut().serialize()).to_vec());
+        if self.script_data().has_serialize {
+            self.serde = Some(var_to_bytes(self.script.bind_mut().call("serialize".into(), &[])).to_vec());
+        }
     }
 
     /// Create and prepare the script.
-    pub fn post_deserialize_prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize, hull_idx: usize) {
+    pub fn post_deserialize_prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
         let serde = self.serde.take();
         let entity_data_id = self.entity_data_id;
+        let hull_idx = self.hull_idx as usize;
 
         *self = Self::new(entity_data_id, hull_idx);
         self.serde = serde;
 
-        self.prepare(bs_ptr, entity_idx, hull_idx);
+        self.prepare(bs_ptr, entity_idx);
     }
 
     /// Deserialize the script custom data.
     /// Should have called `post_deserialize_prepare` on all script before this.
     pub fn post_deserialize_post_prepare(&mut self) {
         if let Some(bytes) = self.serde.take() {
-            self.script
-                .bind_mut()
-                .deserialize(bytes_to_var(PackedByteArray::from(bytes.as_slice())));
+            if self.script_data().has_deserialize {
+                self.script
+                    .bind_mut()
+                    .call("deserialize".into(), &[bytes_to_var(PackedByteArray::from(bytes.as_slice()))]);
+            }
         }
+    }
+
+    fn script_data(&self) -> &HullDataScript {
+        &self.entity_data_id.data().hulls[self.hull_idx as usize].script
     }
 }
 unsafe impl Send for HullScriptWrapper {}
@@ -156,48 +193,9 @@ impl EntityScript {
         let handle = self.entity().rb;
         &mut self.bs.physics.bodies[handle]
     }
-
-    fn start(&mut self) {
-        self.call("i_start".into(), &[]);
-    }
-
-    fn destroyed(&mut self) {
-        self.emit_signal("destroyed".into(), &[]);
-    }
-
-    fn step(&mut self) {
-        self.call("i_step".into(), &[]);
-    }
-
-    fn serialize(&mut self) -> Variant {
-        self.call("i_serialize".into(), &[])
-    }
-
-    fn deserialize(&mut self, var: Variant) {
-        self.call("i_deserialize".into(), &[var]);
-    }
 }
 #[godot_api]
 impl EntityScript {
-    #[signal]
-    fn destroyed();
-
-    // ---------- INTERFACE
-
-    #[func]
-    fn i_start(&mut self) {}
-
-    #[func]
-    fn i_step(&mut self) {}
-
-    #[func]
-    fn i_serialize(&mut self) -> Variant {
-        Variant::nil()
-    }
-
-    #[func]
-    fn i_deserialize(&mut self, _var: Variant) {}
-
     // ---------- API
 
     /// Only intended for serialization.
@@ -310,48 +308,9 @@ impl HullScript {
             .map(|hull| hull.collider)
             .map(|handle| &mut self.bs.physics.colliders[handle])
     }
-
-    fn start(&mut self) {
-        self.call("i_start".into(), &[]);
-    }
-
-    fn destroyed(&mut self) {
-        self.emit_signal("destroyed".into(), &[]);
-    }
-
-    fn step(&mut self) {
-        self.call("i_step".into(), &[]);
-    }
-
-    fn serialize(&mut self) -> Variant {
-        self.call("i_serialize".into(), &[])
-    }
-
-    fn deserialize(&mut self, var: Variant) {
-        self.call("i_deserialize".into(), &[var]);
-    }
 }
 #[godot_api]
 impl HullScript {
-    #[signal]
-    fn destroyed();
-
-    // ---------- INTERFACE
-
-    #[func]
-    fn i_start(&mut self) {}
-
-    #[func]
-    fn i_step(&mut self) {}
-
-    #[func]
-    fn i_serialize(&mut self) -> Variant {
-        Variant::nil()
-    }
-
-    #[func]
-    fn i_deserialize(&mut self, _var: Variant) {}
-
     // ---------- API
 
     #[func]

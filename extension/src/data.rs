@@ -195,7 +195,7 @@ impl Data {
                 }
             }
 
-            let script = validate_script(child_node.get("simulation_script".into()), "HullScript");
+            let script = HullDataScript::new(child_node.get("simulation_script".into()));
 
             hulls.push(HullData {
                 defence: Defence {
@@ -219,8 +219,8 @@ impl Data {
             log::warn!("Entity data without hull not supported. Ignoring...");
             return None;
         }
-
-        let script = validate_script(node.get("simulation_script".into()), "EntityScript");
+        
+        let script = EntityDataScript::new(node.get("simulation_script".into()));
 
         let mut entity_data = EntityData {
             mobility: Mobility {
@@ -280,27 +280,3 @@ impl Default for Data {
 }
 
 static mut DATA: Option<Data> = None;
-
-fn validate_script(script: Variant, extend: &str) -> Variant {
-    if script.is_nil() {
-        log::debug!("Can not validate nil script. TODO: remove thing");
-        return script;
-    }
-
-    if let Ok(gd_script) = script.try_to::<Gd<Script>>() {
-        let base_type = gd_script.get_instance_base_type().to_string();
-        if base_type.as_str() == extend {
-            log::debug!("Simulation script validated");
-            script
-        } else {
-            log::warn!(
-                "Expected simulation script to extend '{}', got '{}' instead. Removing...",
-                extend,
-                base_type
-            );
-            Variant::nil()
-        }
-    } else {
-        Variant::nil()
-    }
-}

@@ -113,10 +113,10 @@ impl Entity {
     /// Prepare the entity post serialization.
     pub fn post_deserialize_prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
         self.script.post_deserialize_prepare(bs_ptr, entity_idx);
-        for (hull, hull_idx) in self.hulls.iter_mut().zip(0..) {
+        for hull in self.hulls.iter_mut() {
             if let Some(hull) = hull {
                 hull.script
-                    .post_deserialize_prepare(bs_ptr, entity_idx, hull_idx);
+                    .post_deserialize_prepare(bs_ptr, entity_idx);
             }
         }
     }
@@ -133,9 +133,9 @@ impl Entity {
 
     pub fn pre_step(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
         self.script.prepare(bs_ptr, entity_idx);
-        for (hull, hull_idx) in self.hulls.iter_mut().zip(0usize..) {
+        for hull in self.hulls.iter_mut() {
             if let Some(hull) = hull {
-                hull.script.prepare(bs_ptr, entity_idx, hull_idx);
+                hull.script.prepare(bs_ptr, entity_idx);
             }
         }
     }
@@ -367,7 +367,53 @@ pub struct EntityData {
     /// Node2D
     pub render_node: Gd<PackedScene>,
     /// `EntityScript`
+    pub script: EntityDataScript,
+}
+
+pub struct EntityDataScript {
     pub script: Variant,
+    pub has_start: bool,
+    pub has_destroyed: bool,
+    pub has_step: bool,
+    pub has_serialize: bool,
+    pub has_deserialize: bool,
+}
+impl EntityDataScript {
+    pub fn new(script: Variant) -> Self {
+        if let Ok(gd_script) = script.try_to::<Gd<godot::engine::Script>>() {
+            let base_type = gd_script.get_instance_base_type().to_string();
+            if base_type.as_str() == "EntityScript" {
+                Self {
+                    script,
+                    has_start: gd_script.has_method("start".into()),
+                    has_destroyed: gd_script.has_method("destroyed".into()),
+                    has_step: gd_script.has_method("step".into()),
+                    has_serialize: gd_script.has_method("serialize".into()),
+                    has_deserialize: gd_script.has_method("deserialize".into()),
+                }
+            } else {
+                log::warn!(
+                    "Expected simulation script to extend 'EntityScript', got '{}' instead. Removing...",
+                    base_type
+                );
+                Default::default()
+            }
+        } else {
+            Default::default()
+        }
+    }
+}
+impl Default for EntityDataScript {
+    fn default() -> Self {
+        Self {
+            script: Variant::nil(),
+            has_start: false,
+            has_destroyed: false,
+            has_step: false,
+            has_serialize: false,
+            has_deserialize: false,
+        }
+    }
 }
 
 /// In unit/seconds.
@@ -414,5 +460,51 @@ pub struct HullData {
     // TODO: Shields
     pub render_node_idx: i64,
     /// `HullScript`
+    pub script: HullDataScript,
+}
+
+pub struct HullDataScript {
     pub script: Variant,
+    pub has_start: bool,
+    pub has_destroyed: bool,
+    pub has_step: bool,
+    pub has_serialize: bool,
+    pub has_deserialize: bool,
+}
+impl HullDataScript {
+    pub fn new(script: Variant) -> Self {
+        if let Ok(gd_script) = script.try_to::<Gd<godot::engine::Script>>() {
+            let base_type = gd_script.get_instance_base_type().to_string();
+            if base_type.as_str() == "HullScript" {
+                Self {
+                    script,
+                    has_start: gd_script.has_method("start".into()),
+                    has_destroyed: gd_script.has_method("destroyed".into()),
+                    has_step: gd_script.has_method("step".into()),
+                    has_serialize: gd_script.has_method("serialize".into()),
+                    has_deserialize: gd_script.has_method("deserialize".into()),
+                }
+            } else {
+                log::warn!(
+                    "Expected simulation script to extend 'HullScript', got '{}' instead. Removing...",
+                    base_type
+                );
+                Default::default()
+            }
+        } else {
+            Default::default()
+        }
+    }
+}
+impl Default for HullDataScript {
+    fn default() -> Self {
+        Self {
+            script: Variant::nil(),
+            has_start: false,
+            has_destroyed: false,
+            has_step: false,
+            has_serialize: false,
+            has_deserialize: false,
+        }
+    }
 }
