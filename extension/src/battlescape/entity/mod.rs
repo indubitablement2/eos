@@ -115,8 +115,7 @@ impl Entity {
         self.script.post_deserialize_prepare(bs_ptr, entity_idx);
         for hull in self.hulls.iter_mut() {
             if let Some(hull) = hull {
-                hull.script
-                    .post_deserialize_prepare(bs_ptr, entity_idx);
+                hull.script.post_deserialize_prepare(bs_ptr, entity_idx);
             }
         }
     }
@@ -370,6 +369,7 @@ pub struct EntityData {
     pub script: EntityDataScript,
 }
 
+#[derive(Debug)]
 pub struct EntityDataScript {
     pub script: Variant,
     pub has_start: bool,
@@ -383,14 +383,21 @@ impl EntityDataScript {
         if let Ok(gd_script) = script.try_to::<Gd<godot::engine::Script>>() {
             let base_type = gd_script.get_instance_base_type().to_string();
             if base_type.as_str() == "EntityScript" {
-                Self {
+                // TODO: has_method is not working
+                let code = gd_script.get_source_code().to_string();
+
+                let s = Self {
                     script,
-                    has_start: gd_script.has_method("start".into()),
-                    has_destroyed: gd_script.has_method("destroyed".into()),
-                    has_step: gd_script.has_method("step".into()),
+                    has_start: code.contains("func start"),
+                    has_destroyed: code.contains("func destroyed"),
+                    has_step: code.contains("func step"),
                     has_serialize: gd_script.has_method("serialize".into()),
                     has_deserialize: gd_script.has_method("deserialize".into()),
-                }
+                };
+
+                log::debug!("{:#?}", &s);
+
+                s
             } else {
                 log::warn!(
                     "Expected simulation script to extend 'EntityScript', got '{}' instead. Removing...",
@@ -463,6 +470,7 @@ pub struct HullData {
     pub script: HullDataScript,
 }
 
+#[derive(Debug)]
 pub struct HullDataScript {
     pub script: Variant,
     pub has_start: bool,
@@ -476,14 +484,21 @@ impl HullDataScript {
         if let Ok(gd_script) = script.try_to::<Gd<godot::engine::Script>>() {
             let base_type = gd_script.get_instance_base_type().to_string();
             if base_type.as_str() == "HullScript" {
-                Self {
+                // TODO: has_method is not working
+                let code = gd_script.get_source_code().to_string();
+
+                let s = Self {
                     script,
-                    has_start: gd_script.has_method("start".into()),
-                    has_destroyed: gd_script.has_method("destroyed".into()),
-                    has_step: gd_script.has_method("step".into()),
+                    has_start: code.contains("func start"),
+                    has_destroyed: code.contains("func destroyed"),
+                    has_step: code.contains("func step"),
                     has_serialize: gd_script.has_method("serialize".into()),
                     has_deserialize: gd_script.has_method("deserialize".into()),
-                }
+                };
+
+                log::debug!("{:#?}", &s);
+
+                s
             } else {
                 log::warn!(
                     "Expected simulation script to extend 'HullScript', got '{}' instead. Removing...",

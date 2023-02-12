@@ -8,6 +8,8 @@
 [sub_resource type="GDScript" id="GDScript_176tx"]
 script/source = "extends EntityScript
 
+func start() -> void:
+	print(\"Entity started\")
 "
 
 [sub_resource type="CanvasTexture" id="CanvasTexture_4662d"]

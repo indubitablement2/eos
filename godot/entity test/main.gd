@@ -3,6 +3,14 @@ extends Node2D
 @onready var client :Client = $Client
 
 func _ready() -> void:
+#	var data := preload("res://entity test/entity_test.tscn").instantiate()
+#	var script := data.simulation_script as Script 
+#	var code := script.get_source_code()
+#	print(code)
+#	print(code.contains("func start"))
+#	print(script.get_script_method_list()[0]["name"] == "start")
+#	print(script.has_method("start"))
+	
 	client.try_load_data("res://entity test/ship_test.tscn")
 	var bs := client.new_test_battlescape()
 	bs.show()

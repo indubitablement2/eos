@@ -252,6 +252,7 @@ impl Battlescape {
                 self.next_entity_id.0 += 1;
                 *self.team_num_active_ship.entry(fleet.team).or_default() += 1;
                 let i = self.entities.insert_full(entity_id, entity).0;
+                self.new_entities.push(entity_id);
                 self.events.entity_added(entity_id, &self.entities[i]);
             }
         }

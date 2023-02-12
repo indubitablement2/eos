@@ -16,18 +16,13 @@ pub struct EntityScriptWrapper {
 }
 impl EntityScriptWrapper {
     pub fn new(entity_data_id: EntityDataId) -> Self {
-        let mut script = default_entity_script();
-        let gdscript = &entity_data_id.data().script.script;
-        if !gdscript.is_nil() {
-            script
-                .bind_mut()
-                .set_script(gdscript.clone());
-        }
-        Self {
+        let mut s = Self {
             serde: None,
-            script,
+            script: default_entity_script(),
             entity_data_id,
-        }
+        };
+        s.set_script();
+        s
     }
 
     pub fn prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
@@ -54,18 +49,15 @@ impl EntityScriptWrapper {
 
     pub fn pre_serialize(&mut self) {
         if self.script_data().has_serialize {
-            self.serde = Some(var_to_bytes(self.script.bind_mut().call("pre_serialize".into(), &[])).to_vec());
+            self.serde = Some(
+                var_to_bytes(self.script.bind_mut().call("pre_serialize".into(), &[])).to_vec(),
+            );
         }
     }
 
     /// Create and prepare the script.
     pub fn post_deserialize_prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
-        let serde = self.serde.take();
-        let entity_data_id = self.entity_data_id;
-
-        *self = Self::new(entity_data_id);
-        self.serde = serde;
-
+        self.set_script();
         self.prepare(bs_ptr, entity_idx);
     }
 
@@ -74,10 +66,18 @@ impl EntityScriptWrapper {
     pub fn post_deserialize_post_prepare(&mut self) {
         if let Some(bytes) = self.serde.take() {
             if self.script_data().has_deserialize {
-                self.script
-                    .bind_mut()
-                    .call("deserialize".into(), &[bytes_to_var(PackedByteArray::from(bytes.as_slice()))]);
+                self.script.bind_mut().call(
+                    "deserialize".into(),
+                    &[bytes_to_var(PackedByteArray::from(bytes.as_slice()))],
+                );
             }
+        }
+    }
+
+    fn set_script(&mut self) {
+        if !self.script_data().script.is_nil() {
+            let gdscript = self.script_data().script.clone();
+            self.script.bind_mut().set_script(gdscript);
         }
     }
 
@@ -98,23 +98,20 @@ pub struct HullScriptWrapper {
 }
 impl HullScriptWrapper {
     pub fn new(entity_data_id: EntityDataId, hull_idx: usize) -> Self {
-        let mut script = default_hull_script();
-        let gdscript = &entity_data_id.data().hulls[hull_idx].script.script;
-        if !gdscript.is_nil() {
-            script
-                .bind_mut()
-                .set_script(gdscript.clone());
-        }
-        Self {
+        let mut s = Self {
             serde: None,
-            script,
+            script: default_hull_script(),
             entity_data_id,
             hull_idx: hull_idx as u32,
-        }
+        };
+        s.set_script();
+        s
     }
 
     pub fn prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
-        self.script.bind_mut().prepare(bs_ptr, entity_idx, self.hull_idx as usize);
+        self.script
+            .bind_mut()
+            .prepare(bs_ptr, entity_idx, self.hull_idx as usize);
     }
 
     pub fn start(&mut self) {
@@ -137,7 +134,8 @@ impl HullScriptWrapper {
 
     pub fn pre_serialize(&mut self) {
         if self.script_data().has_serialize {
-            self.serde = Some(var_to_bytes(self.script.bind_mut().call("serialize".into(), &[])).to_vec());
+            self.serde =
+                Some(var_to_bytes(self.script.bind_mut().call("serialize".into(), &[])).to_vec());
         }
     }
 
@@ -158,10 +156,18 @@ impl HullScriptWrapper {
     pub fn post_deserialize_post_prepare(&mut self) {
         if let Some(bytes) = self.serde.take() {
             if self.script_data().has_deserialize {
-                self.script
-                    .bind_mut()
-                    .call("deserialize".into(), &[bytes_to_var(PackedByteArray::from(bytes.as_slice()))]);
+                self.script.bind_mut().call(
+                    "deserialize".into(),
+                    &[bytes_to_var(PackedByteArray::from(bytes.as_slice()))],
+                );
             }
+        }
+    }
+
+    fn set_script(&mut self) {
+        if !self.script_data().script.is_nil() {
+            let gdscript = self.script_data().script.clone();
+            self.script.bind_mut().set_script(gdscript);
         }
     }
 

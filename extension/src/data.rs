@@ -124,7 +124,8 @@ impl Data {
 
         // Find the hulls nodes.
         let mut hulls: SmallVec<[HullData; 1]> = SmallVec::new();
-        for (mut child_node, render_node_idx) in node.get_children(false).iter_shared().zip(0i64..) {
+        for (mut child_node, render_node_idx) in node.get_children(false).iter_shared().zip(0i64..)
+        {
             if !child_node.has_method("_is_hull_data".into()) {
                 continue;
             }
@@ -219,7 +220,7 @@ impl Data {
             log::warn!("Entity data without hull not supported. Ignoring...");
             return None;
         }
-        
+
         let script = EntityDataScript::new(node.get("simulation_script".into()));
 
         let mut entity_data = EntityData {
