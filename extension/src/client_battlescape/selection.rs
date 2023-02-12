@@ -81,67 +81,27 @@ impl ShipSelection {
     }
 
     fn ship_set_ready(&mut self, idx: i64) {
-        self.call("i_ship_set_ready".into(), &[idx.to_variant()]);
+        self.call("ship_set_ready".into(), &[idx.to_variant()]);
     }
 
     fn ship_set_spawned(&mut self, idx: i64) {
-        self.call("i_ship_set_spawned".into(), &[idx.to_variant()]);
+        self.call("ship_set_spawned".into(), &[idx.to_variant()]);
     }
 
     fn ship_set_removed(&mut self, idx: i64) {
-        self.call("i_ship_set_removed".into(), &[idx.to_variant()]);
+        self.call("ship_set_removed".into(), &[idx.to_variant()]);
     }
 
     fn ship_set_destroyed(&mut self, idx: i64) {
-        self.call("i_ship_set_destroyed".into(), &[idx.to_variant()]);
+        self.call("ship_set_destroyed".into(), &[idx.to_variant()]);
     }
 
     pub fn set_max_active_cost(&mut self, value: i64) {
-        self.call("i_set_max_active_cost".into(), &[value.to_variant()]);
+        self.call("set_max_active_cost".into(), &[value.to_variant()]);
     }
 }
 #[godot_api]
 impl ShipSelection {
-    // ---------- INTERFACE
-
-    #[func]
-    fn i_add_ship(
-        &mut self,
-        _icon: Gd<godot::engine::Texture2D>,
-        _size_factor: f64,
-        _tooptip: GodotString,
-        _cost: i64,
-    ) -> i64 {
-        unimplemented!()
-    }
-
-    #[func]
-    fn i_ship_set_ready(&mut self, _idx: i64) {
-        unimplemented!()
-    }
-
-    #[func]
-    fn i_ship_set_spawned(&mut self, _idx: i64) {
-        unimplemented!()
-    }
-
-    #[func]
-    fn i_ship_set_removed(&mut self, _idx: i64) {
-        unimplemented!()
-    }
-
-    #[func]
-    fn i_ship_set_destroyed(&mut self, _idx: i64) {
-        unimplemented!()
-    }
-
-    #[func]
-    fn i_set_max_active_cost(&mut self, _value: i64) {
-        unimplemented!()
-    }
-
-    // ---------- API
-
     #[func]
     pub fn get_parent_battlescape(&mut self) -> Gd<ClientBattlescape> {
         self.get_parent().unwrap().cast()
