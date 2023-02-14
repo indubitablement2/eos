@@ -61,7 +61,6 @@ impl Entity {
                 Some(entity::Hull {
                     defence: hull_data.defence,
                     collider,
-                    script: HullScriptWrapper::new(entity_data_id, hull_idx as usize),
                 })
             })
             .collect::<SmallVec<_>>();
@@ -103,69 +102,33 @@ impl Entity {
     /// Prepare the entity to be serialized.
     pub fn pre_serialize(&mut self) {
         self.script.pre_serialize();
-        for hull in self.hulls.iter_mut() {
-            if let Some(hull) = hull {
-                hull.script.pre_serialize();
-            }
-        }
     }
 
     /// Prepare the entity post serialization.
     pub fn post_deserialize_prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
         self.script.post_deserialize_prepare(bs_ptr, entity_idx);
-        for hull in self.hulls.iter_mut() {
-            if let Some(hull) = hull {
-                hull.script.post_deserialize_prepare(bs_ptr, entity_idx);
-            }
-        }
     }
 
     /// Should have called `post_deserialize_prepare` on all entity before this.
     pub fn post_deserialize_post_prepare(&mut self) {
         self.script.post_deserialize_post_prepare();
-        for hull in self.hulls.iter_mut() {
-            if let Some(hull) = hull {
-                hull.script.post_deserialize_post_prepare();
-            }
-        }
     }
 
     pub fn pre_step(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
         self.script.prepare(bs_ptr, entity_idx);
-        for hull in self.hulls.iter_mut() {
-            if let Some(hull) = hull {
-                hull.script.prepare(bs_ptr, entity_idx);
-            }
-        }
     }
 
     pub fn start(&mut self) {
-        for hull in self.hulls.iter_mut() {
-            if let Some(hull) = hull {
-                hull.script.start();
-            }
-        }
         self.script.start();
     }
 
     pub fn destroyed(&mut self) {
         self.script.destroyed();
-        for hull in self.hulls.iter_mut() {
-            if let Some(hull) = hull {
-                hull.script.destroyed();
-            }
-        }
     }
 
     /// Return if this should be removed.
     pub fn step(&mut self, physics: &mut Physics) -> bool {
-        // Scripts
         self.script.step();
-        for hull in self.hulls.iter_mut() {
-            if let Some(hull) = hull {
-                hull.script.step();
-            }
-        }
 
         let rb = &mut physics.bodies[self.rb];
 
@@ -281,7 +244,6 @@ impl Entity {
         for hull in self.hulls.iter_mut() {
             let destroyed = if let Some(hull) = hull {
                 if hull.defence.hull <= 0 {
-                    hull.script.destroyed();
                     true
                 } else {
                     false
@@ -354,7 +316,6 @@ pub enum WishAngVel {
 pub struct Hull {
     pub defence: Defence,
     pub collider: ColliderHandle,
-    pub script: HullScriptWrapper,
 }
 
 pub struct EntityData {
@@ -412,6 +373,4 @@ pub struct HullData {
     // TODO: Engine placement
     // TODO: Shields
     pub render_node_idx: i64,
-    /// `HullScript`
-    pub script: HullDataScript,
 }

@@ -196,8 +196,6 @@ impl Data {
                 }
             }
 
-            let script = script::HullDataScript::new(child_node.get("simulation_script".into()));
-
             hulls.push(HullData {
                 defence: Defence {
                     hull: child_node.get("hull".into()).try_to().ok()?,
@@ -207,7 +205,6 @@ impl Data {
                 init_position,
                 density: child_node.get("density".into()).try_to().ok()?,
                 render_node_idx,
-                script,
             });
 
             log::debug!("Replacing hull data script with render script");

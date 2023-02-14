@@ -70,14 +70,14 @@ impl Battlescape {
     /// Amount of tick before end timeout may start.
     pub const END_TIMEOUT_START_TICK: u64 = (1.0 / DT) as u64 * 50;
 
-    pub const SPAWN_OFFSET: f32 = 10.0;
+    pub const SPAWN_OFFSET: f32 = 4.0;
 
     pub fn new(state_init: BattlescapeStateInit) -> Self {
         Self {
             rng: SimRng::seed_from_u64(state_init.seed),
             tick: Default::default(),
             mode: state_init.mode,
-            half_size: 100.0,
+            half_size: 10.0,
             end_timeout: Self::END_TIMEOUT,
             physics: Default::default(),
             team_num_active_ship: Default::default(),
