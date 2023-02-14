@@ -369,60 +369,6 @@ pub struct EntityData {
     pub script: EntityDataScript,
 }
 
-#[derive(Debug)]
-pub struct EntityDataScript {
-    pub script: Variant,
-    pub has_start: bool,
-    pub has_destroyed: bool,
-    pub has_step: bool,
-    pub has_serialize: bool,
-    pub has_deserialize: bool,
-}
-impl EntityDataScript {
-    pub fn new(script: Variant) -> Self {
-        if let Ok(gd_script) = script.try_to::<Gd<godot::engine::Script>>() {
-            let base_type = gd_script.get_instance_base_type().to_string();
-            if base_type.as_str() == "EntityScript" {
-                // TODO: has_method is not working
-                let code = gd_script.get_source_code().to_string();
-
-                let s = Self {
-                    script,
-                    has_start: code.contains("func start"),
-                    has_destroyed: code.contains("func destroyed"),
-                    has_step: code.contains("func step"),
-                    has_serialize: gd_script.has_method("serialize".into()),
-                    has_deserialize: gd_script.has_method("deserialize".into()),
-                };
-
-                log::debug!("{:#?}", &s);
-
-                s
-            } else {
-                log::warn!(
-                    "Expected simulation script to extend 'EntityScript', got '{}' instead. Removing...",
-                    base_type
-                );
-                Default::default()
-            }
-        } else {
-            Default::default()
-        }
-    }
-}
-impl Default for EntityDataScript {
-    fn default() -> Self {
-        Self {
-            script: Variant::nil(),
-            has_start: false,
-            has_destroyed: false,
-            has_step: false,
-            has_serialize: false,
-            has_deserialize: false,
-        }
-    }
-}
-
 /// In unit/seconds.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct Mobility {
@@ -468,58 +414,4 @@ pub struct HullData {
     pub render_node_idx: i64,
     /// `HullScript`
     pub script: HullDataScript,
-}
-
-#[derive(Debug)]
-pub struct HullDataScript {
-    pub script: Variant,
-    pub has_start: bool,
-    pub has_destroyed: bool,
-    pub has_step: bool,
-    pub has_serialize: bool,
-    pub has_deserialize: bool,
-}
-impl HullDataScript {
-    pub fn new(script: Variant) -> Self {
-        if let Ok(gd_script) = script.try_to::<Gd<godot::engine::Script>>() {
-            let base_type = gd_script.get_instance_base_type().to_string();
-            if base_type.as_str() == "HullScript" {
-                // TODO: has_method is not working
-                let code = gd_script.get_source_code().to_string();
-
-                let s = Self {
-                    script,
-                    has_start: code.contains("func start"),
-                    has_destroyed: code.contains("func destroyed"),
-                    has_step: code.contains("func step"),
-                    has_serialize: gd_script.has_method("serialize".into()),
-                    has_deserialize: gd_script.has_method("deserialize".into()),
-                };
-
-                log::debug!("{:#?}", &s);
-
-                s
-            } else {
-                log::warn!(
-                    "Expected simulation script to extend 'HullScript', got '{}' instead. Removing...",
-                    base_type
-                );
-                Default::default()
-            }
-        } else {
-            Default::default()
-        }
-    }
-}
-impl Default for HullDataScript {
-    fn default() -> Self {
-        Self {
-            script: Variant::nil(),
-            has_start: false,
-            has_destroyed: false,
-            has_step: false,
-            has_serialize: false,
-            has_deserialize: false,
-        }
-    }
 }

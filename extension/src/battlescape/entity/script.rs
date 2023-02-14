@@ -36,9 +36,9 @@ impl EntityScriptWrapper {
     }
 
     pub fn destroyed(&mut self) {
-        if self.script_data().has_destroyed {
-            self.script.bind_mut().call("destroyed".into(), &[]);
-        }
+        // if self.script_data().has_destroyed {
+        //     self.script.bind_mut().call("destroyed".into(), &[]);
+        // }
     }
 
     pub fn step(&mut self) {
@@ -87,6 +87,62 @@ impl EntityScriptWrapper {
 }
 unsafe impl Send for EntityScriptWrapper {}
 
+#[derive(Debug)]
+pub struct EntityDataScript {
+    pub script: Variant,
+    pub has_start: bool,
+    pub has_step: bool,
+    pub has_serialize: bool,
+    pub has_deserialize: bool,
+}
+impl EntityDataScript {
+    pub fn new(script: Variant) -> Self {
+        if let Ok(gd_script) = script.try_to::<Gd<godot::engine::Script>>() {
+            let base_type = gd_script.get_instance_base_type().to_string();
+            if "EntityScript" != base_type.as_str() {
+                log::warn!(
+                    "Expected simulation script to extend 'EntityScript', got '{}' instead. Removing...",
+                    base_type
+                );
+                return Default::default();
+            }
+        } else {
+            log::warn!("Hull simulation script is not a script. Ignoring...");
+            return Default::default();
+        }
+
+        let mut obj: Gd<EntityScript> = Gd::new_default();
+        let mut bind = obj.bind_mut();
+        bind.set_script(script.clone());
+
+        let s = Self {
+            script,
+            has_start: bind.has_method("start".into()),
+            has_step: bind.has_method("step".into()),
+            has_serialize: bind.has_method("serialize".into()),
+            has_deserialize: bind.has_method("deserialize".into()),
+        };
+
+        drop(bind);
+        obj.free();
+
+        log::debug!("{:#?}", &s);
+
+        s
+    }
+}
+impl Default for EntityDataScript {
+    fn default() -> Self {
+        Self {
+            script: Variant::nil(),
+            has_start: false,
+            has_step: false,
+            has_serialize: false,
+            has_deserialize: false,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HullScriptWrapper {
     serde: Option<Vec<u8>>,
@@ -121,9 +177,9 @@ impl HullScriptWrapper {
     }
 
     pub fn destroyed(&mut self) {
-        if self.script_data().has_destroyed {
-            self.script.bind_mut().call("destroyed".into(), &[]);
-        }
+        // if self.script_data().has_destroyed {
+        //     self.script.bind_mut().call("destroyed".into(), &[]);
+        // }
     }
 
     pub fn step(&mut self) {
@@ -176,6 +232,62 @@ impl HullScriptWrapper {
     }
 }
 unsafe impl Send for HullScriptWrapper {}
+
+#[derive(Debug)]
+pub struct HullDataScript {
+    script: Variant,
+    has_start: bool,
+    has_step: bool,
+    has_serialize: bool,
+    has_deserialize: bool,
+}
+impl HullDataScript {
+    pub fn new(script: Variant) -> Self {
+        if let Ok(gd_script) = script.try_to::<Gd<godot::engine::Script>>() {
+            let base_type = gd_script.get_instance_base_type().to_string();
+            if "HullScript" != base_type.as_str() {
+                log::warn!(
+                    "Expected simulation script to extend 'HullScript', got '{}' instead. Removing...",
+                    base_type
+                );
+                return Default::default();
+            }
+        } else {
+            log::warn!("Hull simulation script is not a script. Ignoring...");
+            return Default::default();
+        }
+
+        let mut obj: Gd<HullScript> = Gd::new_default();
+        let mut bind = obj.bind_mut();
+        bind.set_script(script.clone());
+
+        let s = Self {
+            script,
+            has_start: bind.has_method("start".into()),
+            has_step: bind.has_method("step".into()),
+            has_serialize: bind.has_method("serialize".into()),
+            has_deserialize: bind.has_method("deserialize".into()),
+        };
+
+        drop(bind);
+        obj.free();
+
+        log::debug!("{:#?}", &s);
+
+        s
+    }
+}
+impl Default for HullDataScript {
+    fn default() -> Self {
+        Self {
+            script: Variant::nil(),
+            has_start: false,
+            has_step: false,
+            has_serialize: false,
+            has_deserialize: false,
+        }
+    }
+}
 
 #[derive(GodotClass)]
 #[class(base=Object)]

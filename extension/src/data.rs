@@ -196,7 +196,7 @@ impl Data {
                 }
             }
 
-            let script = HullDataScript::new(child_node.get("simulation_script".into()));
+            let script = script::HullDataScript::new(child_node.get("simulation_script".into()));
 
             hulls.push(HullData {
                 defence: Defence {
@@ -221,7 +221,7 @@ impl Data {
             return None;
         }
 
-        let script = EntityDataScript::new(node.get("simulation_script".into()));
+        let script = script::EntityDataScript::new(node.get("simulation_script".into()));
 
         let mut entity_data = EntityData {
             mobility: Mobility {

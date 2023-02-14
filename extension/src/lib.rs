@@ -46,7 +46,7 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Rename bc to bs and mc to ms
 // TODO: Split event handler into catching-up, normal, full.
 
-// TODO: Add script callbacks. 
+// TODO: Add script callbacks.
 // TODO: Destroyed is an optional callback.
 
 // TODO: Godot camera <----
