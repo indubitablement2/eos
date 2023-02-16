@@ -50,15 +50,13 @@ pub struct ClientBattlescape {
     base: Base<Node2D>,
 }
 impl ClientBattlescape {
+    // TODO: Take latest jump point.
     pub fn new(
         replay: Replay,
         client_config: &ClientConfig,
         client_id: ClientId,
         client_type: ClientType,
     ) -> Gd<Self> {
-        // TODO: Take latest jump point.
-        let bc = Battlescape::new(replay.initial_state.clone());
-
         let config = match client_type {
             ClientType::Local => TimeManagerConfig::local(),
             ClientType::LocalCheat => TimeManagerConfig::local(),
@@ -72,7 +70,7 @@ impl ClientBattlescape {
             Self {
                 client_id,
                 render: BattlescapeRender::new(client_id, base.share()),
-                runner_handle: RunnerHandle::new(bc),
+                runner_handle: RunnerHandle::new(replay.initial_state.clone()),
                 replay,
                 ship_selection: ShipSelection::new_child(&base),
                 wish_cmds: Default::default(),

@@ -53,8 +53,6 @@ pub struct Battlescape {
 
     #[serde(skip)]
     pub events: BattlescapeEventHandler,
-    #[serde(skip)]
-    new_entities: Vec<EntityId>,
 
     pub team_num_active_ship: AHashMap<u32, u32>,
     pub fleets: Fleets,
@@ -63,6 +61,7 @@ pub struct Battlescape {
     next_entity_id: EntityId,
     pub entities: Entities,
     pub ais: IndexMap<EntityId, EntityAi, RandomState>,
+    // callbacks: Vec<>,
 }
 impl Battlescape {
     /// Amount of tick with active ships from only one team before battle is over.
@@ -87,7 +86,6 @@ impl Battlescape {
             entities: Default::default(),
             ais: Default::default(),
             events: Default::default(),
-            new_entities: Default::default(),
         }
     }
 
@@ -101,17 +99,18 @@ impl Battlescape {
     }
 
     pub fn deserialize(bytes: &[u8]) -> Option<Self> {
-        let mut s = bincode::Options::deserialize(bincode::DefaultOptions::new(), bytes).ok();
+        let mut s: Option<Battlescape> =
+            bincode::Options::deserialize(bincode::DefaultOptions::new(), bytes).ok();
 
         if let Some(s) = &mut s {
-            let bs_ptr = entity::script::BsPtr::new(s);
+            let bs_ptr = s.bs_ptr();
 
             for (entity, entity_idx) in s.entities.values_mut().zip(0usize..) {
-                entity.post_deserialize_prepare(bs_ptr, entity_idx);
+                entity.post_deserialize(bs_ptr, entity_idx);
             }
 
             for entity in s.entities.values_mut() {
-                entity.post_deserialize_post_prepare();
+                entity.post_post_deserialize();
             }
         }
 
@@ -201,16 +200,9 @@ impl Battlescape {
 
     fn step_entities(&mut self) {
         // Prepare entities.
-        let bs_ptr = entity::script::BsPtr::new(self);
+        let bs_ptr = self.bs_ptr();
         for (entity, entity_idx) in self.entities.values_mut().zip(0usize..) {
             entity.pre_step(bs_ptr, entity_idx);
-        }
-
-        // Call start on new entities.
-        for entity_id in self.new_entities.drain(..) {
-            if let Some(entity) = self.entities.get_mut(&entity_id) {
-                entity.start();
-            }
         }
 
         // Step entities.
@@ -234,6 +226,7 @@ impl Battlescape {
     }
 
     fn add_fleet_ship(&mut self, fleet_id: FleetId, ship_idx: usize, prefered_spawn_point: usize) {
+        let bs_ptr = self.bs_ptr();
         if let Some(fleet) = self.fleets.get_mut(&fleet_id) {
             let entity_id = self.next_entity_id;
 
@@ -251,9 +244,10 @@ impl Battlescape {
             ) {
                 self.next_entity_id.0 += 1;
                 *self.team_num_active_ship.entry(fleet.team).or_default() += 1;
-                let i = self.entities.insert_full(entity_id, entity).0;
-                self.new_entities.push(entity_id);
-                self.events.entity_added(entity_id, &self.entities[i]);
+                let entity_idx = self.entities.insert_full(entity_id, entity).0;
+                self.entities[entity_idx].start(bs_ptr, entity_idx);
+                self.events
+                    .entity_added(entity_id, &self.entities[entity_idx]);
             }
         }
     }
@@ -278,6 +272,10 @@ impl Battlescape {
 
             self.events.entity_removed(entity_id, entity);
         }
+    }
+
+    fn bs_ptr(&mut self) -> entity::script::BsPtr {
+        entity::script::BsPtr::new(self)
     }
 }
 impl Default for Battlescape {

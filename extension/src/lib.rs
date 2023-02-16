@@ -45,9 +45,9 @@ pub const GODOT_SCALE: f32 = 128.0;
 
 // TODO: Rename bc to bs and mc to ms
 // TODO: Split event handler into catching-up, normal, full.
+// TODO: Do not create node when taking render events.
 
-// TODO: Add script callbacks.
-// TODO: Destroyed is an optional callback.
+// TODO: When serializing/deserializing, check if anything is an EntityScript when convert it to its id.
 
 // TODO: Godot camera <----
 

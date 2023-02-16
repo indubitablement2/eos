@@ -5,7 +5,7 @@ use self::script::*;
 use super::*;
 use godot::prelude::*;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Entity {
     /// If this entity is a ship from a fleet.
     pub fleet_ship: Option<FleetShip>,
@@ -24,6 +24,7 @@ pub struct Entity {
     pub wish_angvel: WishAngVel,
     pub wish_linvel: WishLinVel,
     // pub wish_aim: (),
+    cb_destroyed: Callbacks,
 }
 impl Entity {
     pub fn new(
@@ -58,9 +59,10 @@ impl Entity {
                     },
                 );
 
-                Some(entity::Hull {
+                Some(Hull {
                     defence: hull_data.defence,
                     collider,
+                    cb_destroyed: Default::default(),
                 })
             })
             .collect::<SmallVec<_>>();
@@ -76,6 +78,7 @@ impl Entity {
             wish_angvel: Default::default(),
             wish_linvel: Default::default(),
             script: EntityScriptWrapper::new(entity_data_id),
+            cb_destroyed: Default::default(),
         }
     }
 
@@ -101,29 +104,25 @@ impl Entity {
 
     /// Prepare the entity to be serialized.
     pub fn pre_serialize(&mut self) {
-        self.script.pre_serialize();
+        self.script.prepare_serialize();
     }
 
     /// Prepare the entity post serialization.
-    pub fn post_deserialize_prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
-        self.script.post_deserialize_prepare(bs_ptr, entity_idx);
+    pub fn post_deserialize(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
+        self.script.post_deserialize(bs_ptr, entity_idx);
     }
 
-    /// Should have called `post_deserialize_prepare` on all entity before this.
-    pub fn post_deserialize_post_prepare(&mut self) {
-        self.script.post_deserialize_post_prepare();
+    /// Should have called `post_deserialize` on all entity before this.
+    pub fn post_post_deserialize(&mut self) {
+        self.script.post_post_deserialize();
+    }
+
+    pub fn start(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
+        self.script.start(bs_ptr, entity_idx);
     }
 
     pub fn pre_step(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
         self.script.prepare(bs_ptr, entity_idx);
-    }
-
-    pub fn start(&mut self) {
-        self.script.start();
-    }
-
-    pub fn destroyed(&mut self) {
-        self.script.destroyed();
     }
 
     /// Return if this should be removed.
@@ -239,11 +238,10 @@ impl Entity {
         // }
 
         // Remove destroyed hulls.
-        let mut main_hull = true;
-        let mut remove = false;
         for hull in self.hulls.iter_mut() {
             let destroyed = if let Some(hull) = hull {
                 if hull.defence.hull <= 0 {
+                    hull.cb_destroyed.emit();
                     true
                 } else {
                     false
@@ -254,16 +252,15 @@ impl Entity {
 
             if destroyed {
                 *hull = None;
-
-                if main_hull {
-                    self.script.destroyed();
-                    remove = true;
-                }
             }
-
-            main_hull = false;
         }
-        remove
+
+        if self.is_destroyed() {
+            self.cb_destroyed.emit();
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -312,10 +309,11 @@ pub enum WishAngVel {
     Force { force: f32 },
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Hull {
     pub defence: Defence,
     pub collider: ColliderHandle,
+    cb_destroyed: Callbacks,
 }
 
 pub struct EntityData {
@@ -327,7 +325,7 @@ pub struct EntityData {
     /// Node2D
     pub render_node: Gd<PackedScene>,
     /// `EntityScript`
-    pub script: EntityDataScript,
+    pub script: EntityScriptData,
 }
 
 /// In unit/seconds.

@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://c8112m146w4bg"]
+
+[ext_resource type="Script" path="res://DELETE.gd" id="1_tvio6"]
+[ext_resource type="Script" path="res://DELETE2.gd" id="2_1xxka"]
+
+[node name="Node2D" type="Node2D"]
+script = ExtResource("1_tvio6")
+
+[node name="Node2D" type="Node2D" parent="."]
+script = ExtResource("2_1xxka")

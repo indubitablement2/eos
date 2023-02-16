@@ -1,7 +1,5 @@
 class_name HullData extends Sprite2D
 
-## See EntityData's simulation_script.
-@export var simulation_script: GDScript
 ## See EntityData's render_script.
 @export var render_script: GDScript
 

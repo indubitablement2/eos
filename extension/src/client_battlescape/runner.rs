@@ -1,4 +1,5 @@
 use super::ClientBattlescapeEventHandler;
+use crate::battlescape::BattlescapeStateInit;
 use crate::battlescape::{command::Commands, events::BattlescapeEventHandler, Battlescape};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::thread::spawn;
@@ -9,11 +10,12 @@ pub struct RunnerHandle {
     pub runner_receiver: Receiver<ClientBattlescapeEventHandler>,
 }
 impl RunnerHandle {
-    pub fn new(bs: Battlescape) -> Self {
+    // TODO: Take either state init or a serialized bs.
+    pub fn new(bs_state_init: BattlescapeStateInit) -> Self {
         let (runner_sender, _runner_receiver) = sync_channel(1);
         let (_runner_sender, runner_receiver) = sync_channel(1);
 
-        spawn(move || runner(bs, _runner_receiver, _runner_sender));
+        spawn(move || runner(bs_state_init, _runner_receiver, _runner_sender));
 
         Self {
             runner_sender,
@@ -43,10 +45,12 @@ struct RunnerCommand {
 }
 
 fn runner(
-    mut bs: Battlescape,
+    bs_state_init: BattlescapeStateInit,
     runner_receiver: Receiver<RunnerCommand>,
     runner_sender: SyncSender<ClientBattlescapeEventHandler>,
 ) {
+    let mut bs = Battlescape::new(bs_state_init);
+
     while let Ok(runner_command) = runner_receiver.recv() {
         let events = bs
             .step(

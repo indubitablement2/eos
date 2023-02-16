@@ -218,7 +218,7 @@ impl Data {
             return None;
         }
 
-        let script = script::EntityDataScript::new(node.get("simulation_script".into()));
+        let script = script::EntityScriptData::new(node.get("simulation_script".into()));
 
         let mut entity_data = EntityData {
             mobility: Mobility {

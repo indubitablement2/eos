@@ -1,101 +1,26 @@
 use super::*;
 use crate::util::*;
-use godot::prelude::{
-    utilities::{bytes_to_var, var_to_bytes},
-    *,
+use godot::{
+    engine::Engine,
+    prelude::{
+        utilities::{bytes_to_var, var_to_bytes},
+        *,
+    },
 };
 use std::ops::{Deref, DerefMut};
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct EntityScriptWrapper {
-    serde: Option<Vec<u8>>,
-    #[serde(skip)]
-    #[serde(default = "default_entity_script")]
-    script: Gd<EntityScript>,
-    entity_data_id: EntityDataId,
-}
-impl EntityScriptWrapper {
-    pub fn new(entity_data_id: EntityDataId) -> Self {
-        let mut s = Self {
-            serde: None,
-            script: default_entity_script(),
-            entity_data_id,
-        };
-        s.set_script();
-        s
-    }
-
-    pub fn prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
-        self.script.bind_mut().prepare(bs_ptr, entity_idx);
-    }
-
-    pub fn start(&mut self) {
-        if self.script_data().has_start {
-            self.script.bind_mut().call("start".into(), &[]);
-        }
-    }
-
-    pub fn destroyed(&mut self) {
-        // if self.script_data().has_destroyed {
-        //     self.script.bind_mut().call("destroyed".into(), &[]);
-        // }
-    }
-
-    pub fn step(&mut self) {
-        if self.script_data().has_step {
-            self.script.bind_mut().call("step".into(), &[]);
-        }
-    }
-
-    pub fn pre_serialize(&mut self) {
-        if self.script_data().has_serialize {
-            self.serde = Some(
-                var_to_bytes(self.script.bind_mut().call("pre_serialize".into(), &[])).to_vec(),
-            );
-        }
-    }
-
-    /// Create and prepare the script.
-    pub fn post_deserialize_prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
-        self.set_script();
-        self.prepare(bs_ptr, entity_idx);
-    }
-
-    /// Deserialize the script custom data.
-    /// Should have called `post_deserialize_prepare` on all script before this.
-    pub fn post_deserialize_post_prepare(&mut self) {
-        if let Some(bytes) = self.serde.take() {
-            if self.script_data().has_deserialize {
-                self.script.bind_mut().call(
-                    "deserialize".into(),
-                    &[bytes_to_var(PackedByteArray::from(bytes.as_slice()))],
-                );
-            }
-        }
-    }
-
-    fn set_script(&mut self) {
-        if !self.script_data().script.is_nil() {
-            let gdscript = self.script_data().script.clone();
-            self.script.bind_mut().set_script(gdscript);
-        }
-    }
-
-    fn script_data(&self) -> &EntityDataScript {
-        &self.entity_data_id.data().script
-    }
-}
-unsafe impl Send for EntityScriptWrapper {}
+// prepare -> cmds -> script_step -> entity_step -> despawn
 
 #[derive(Debug)]
-pub struct EntityDataScript {
-    pub script: Variant,
-    pub has_start: bool,
-    pub has_step: bool,
-    pub has_serialize: bool,
-    pub has_deserialize: bool,
+pub struct EntityScriptData {
+    script: Variant,
+    has_script: bool,
+    has_start: bool,
+    has_step: bool,
+    has_serialize: bool,
+    has_deserialize: bool,
 }
-impl EntityDataScript {
+impl EntityScriptData {
     pub fn new(script: Variant) -> Self {
         if let Ok(gd_script) = script.try_to::<Gd<godot::engine::Script>>() {
             let base_type = gd_script.get_instance_base_type().to_string();
@@ -117,6 +42,7 @@ impl EntityDataScript {
 
         let s = Self {
             script,
+            has_script: true,
             has_start: bind.has_method("start".into()),
             has_step: bind.has_method("step".into()),
             has_serialize: bind.has_method("serialize".into()),
@@ -131,15 +57,162 @@ impl EntityDataScript {
         s
     }
 }
-impl Default for EntityDataScript {
+impl Default for EntityScriptData {
     fn default() -> Self {
         Self {
             script: Variant::nil(),
+            has_script: false,
             has_start: false,
             has_step: false,
             has_serialize: false,
             has_deserialize: false,
         }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct EntityScriptWrapper {
+    serde: Option<Vec<u8>>,
+    #[serde(skip)]
+    #[serde(default = "default_entity_script")]
+    script: Gd<EntityScript>,
+    entity_data_id: EntityDataId,
+}
+impl EntityScriptWrapper {
+    pub fn new(entity_data_id: EntityDataId) -> Self {
+        let mut s = Self {
+            serde: None,
+            script: default_entity_script(),
+            entity_data_id,
+        };
+
+        s.set_script();
+
+        s
+    }
+
+    pub fn prepare(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
+        self.script.bind_mut().prepare(bs_ptr, entity_idx);
+    }
+
+    pub fn start(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
+        self.prepare(bs_ptr, entity_idx);
+
+        if self.script_data().has_start {
+            hack().start(self.script.to_variant());
+        }
+    }
+
+    pub fn step(&mut self) {
+        if self.script_data().has_step {
+            hack().step(self.script.to_variant());
+        }
+    }
+
+    pub fn prepare_serialize(&mut self) {
+        if self.script_data().has_serialize {
+            self.serde = Some(var_to_bytes(hack().serialize(self.script.to_variant())).to_vec());
+        }
+    }
+
+    pub fn post_deserialize(&mut self, bs_ptr: BsPtr, entity_idx: usize) {
+        self.set_script();
+        self.prepare(bs_ptr, entity_idx);
+    }
+
+    pub fn post_post_deserialize(&mut self) {
+        if self.script_data().has_deserialize {
+            if let Some(serde) = self.serde.take() {
+                hack().deserialize(
+                    self.script.to_variant(),
+                    bytes_to_var(PackedByteArray::from(serde.as_slice())),
+                )
+            }
+        }
+    }
+
+    fn set_script(&mut self) {
+        if !self.script_data().script.is_nil() {
+            let gdscript = self.script_data().script.clone();
+            self.script.bind_mut().set_script(gdscript);
+        }
+    }
+
+    fn script_data(&self) -> &EntityScriptData {
+        &self.entity_data_id.data().script
+    }
+}
+impl Drop for EntityScriptWrapper {
+    fn drop(&mut self) {
+        self.script.share().free();
+    }
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct Callbacks {
+    next_id: i64,
+    callbacks: Vec<Callback>,
+}
+impl Callbacks {
+    pub fn emit(&mut self) {
+        let mut i = 0usize;
+        while i < self.callbacks.len() {
+            if self.callbacks[i].emit() {
+                i += 1;
+            } else {
+                self.callbacks.swap_remove(i);
+            }
+        }
+    }
+
+    fn push(&mut self, method_args: Option<Variant>, callable: Variant) -> i64 {
+        let id = self.next_id;
+        self.next_id += 1;
+
+        self.callbacks.push(Callback {
+            method_args,
+            callable,
+            id,
+        });
+
+        id
+    }
+
+    fn remove(&mut self, callback_id: i64) {
+        let mut i = 0usize;
+        while i < self.callbacks.len() {
+            if self.callbacks[i].id == callback_id {
+                self.callbacks.swap_remove(i);
+                return;
+            }
+            i += 1;
+        }
+    }
+}
+
+// TODO: Serialize/Deserialize callbacks
+#[derive(Serialize, Deserialize)]
+struct Callback {
+    #[serde(skip)]
+    method_args: Option<Variant>,
+    #[serde(skip)]
+    callable: Variant,
+    id: i64,
+}
+impl Callback {
+    /// Return if the callback could be sent.
+    fn emit(&mut self) -> bool {
+        if self.is_valid() {
+            hack().callback(self);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn is_valid(&self) -> bool {
+        // TODO: Check if callable is valid.
+        true
     }
 }
 
@@ -169,6 +242,13 @@ impl EntityScript {
         &mut self.bs.entities[self.entity_idx]
     }
 
+    fn hull_mut(&mut self, hull_idx: usize) -> Option<&mut Hull> {
+        self.entity_mut()
+            .hulls
+            .get_mut(hull_idx)
+            .and_then(|hull| hull.as_mut())
+    }
+
     fn body(&mut self) -> &mut RigidBody {
         let handle = self.entity().rb;
         &mut self.bs.physics.bodies[handle]
@@ -176,70 +256,33 @@ impl EntityScript {
 }
 #[godot_api]
 impl EntityScript {
-    // ---------- API
-
-    /// Only intended for serialization.
-    #[func]
-    fn get_id(&self) -> i64 {
-        self.id().0 as i64
-    }
-
-    /// Only intended for deserialization.
-    #[func]
-    fn get_entity_from_id(&mut self, id: i64) -> Gd<EntityScript> {
-        self.bs
-            .entities
-            .get(&EntityId(id as u32))
-            .map(|entity| entity.script.script.share())
-            .expect("entity should exist")
-    }
-
     // ---------- CALLBACKS
-    
+
+    /// Return nothing when destroyed.
     #[func]
-    fn cb_on_hull_destroyed(&mut self, hull_idx: i64, entity: Gd<EntityScript>, method: StringName, arg_array: Array) {
-        entity.bind().get_id();
-        StringName::from("asd");
-        match arg_array.get(0).get_type() {
-            VariantType::Nil => todo!(),
-            VariantType::Bool => todo!(),
-            VariantType::Int => todo!(),
-            VariantType::Float => todo!(),
-            VariantType::String => todo!(),
-            VariantType::Vector2 => todo!(),
-            VariantType::Vector2i => todo!(),
-            VariantType::Rect2 => todo!(),
-            VariantType::Rect2i => todo!(),
-            VariantType::Vector3 => todo!(),
-            VariantType::Vector3i => todo!(),
-            VariantType::Transform2D => todo!(),
-            VariantType::Vector4 => todo!(),
-            VariantType::Vector4i => todo!(),
-            VariantType::Plane => todo!(),
-            VariantType::Quaternion => todo!(),
-            VariantType::Aabb => todo!(),
-            VariantType::Basis => todo!(),
-            VariantType::Transform3D => todo!(),
-            VariantType::Projection => todo!(),
-            VariantType::Color => todo!(),
-            VariantType::StringName => todo!(),
-            VariantType::NodePath => todo!(),
-            // VariantType::Rid => todo!(),
-            // VariantType::Object => todo!(),
-            // VariantType::Callable => todo!(),
-            // VariantType::Signal => todo!(),
-            VariantType::Dictionary => todo!(),
-            VariantType::Array => todo!(),
-            VariantType::PackedByteArray => todo!(),
-            VariantType::PackedInt32Array => todo!(),
-            VariantType::PackedInt64Array => todo!(),
-            VariantType::PackedFloat32Array => todo!(),
-            VariantType::PackedFloat64Array => todo!(),
-            VariantType::PackedStringArray => todo!(),
-            VariantType::PackedVector2Array => todo!(),
-            VariantType::PackedVector3Array => todo!(),
-            VariantType::PackedColorArray => todo!(),
-            _ => todo!(),
+    fn cb_on_destroyed(&mut self, callable: Variant) -> i64 {
+        self.entity_mut().cb_destroyed.push(None, callable)
+    }
+
+    #[func]
+    fn rcb_on_destroyed(&mut self, callback_id: i64) {
+        self.entity_mut().cb_destroyed.remove(callback_id);
+    }
+
+    /// Return nothing when destroyed.
+    #[func]
+    fn cb_on_hull_destroyed(&mut self, hull_idx: i64, callable: Variant) -> i64 {
+        if let Some(hull) = self.hull_mut(hull_idx as usize) {
+            hull.cb_destroyed.push(None, callable)
+        } else {
+            -1
+        }
+    }
+
+    #[func]
+    fn rcb_on_hull_destroyed(&mut self, hull_idx: i64, callback_id: i64) {
+        if let Some(hull) = self.hull_mut(hull_idx as usize) {
+            hull.cb_destroyed.remove(callback_id);
         }
     }
 
@@ -436,3 +479,58 @@ impl DerefMut for BsPtr {
 fn default_entity_script() -> Gd<EntityScript> {
     Gd::new_default()
 }
+
+struct Hack {
+    node: Gd<Object>,
+    step: StringName,
+    start: StringName,
+    serialize: StringName,
+    deserialize: StringName,
+    callback: StringName,
+    callback_empty: StringName,
+}
+impl Hack {
+    fn new() -> Self {
+        Self {
+            node: Engine::singleton().get_singleton("Hack".into()).unwrap(),
+            start: "start".into(),
+            step: "step".into(),
+            serialize: "serialize".into(),
+            deserialize: "deserialize".into(),
+            callback: "callback".into(),
+            callback_empty: "callback_empty".into(),
+        }
+    }
+
+    fn start(&mut self, on: Variant) {
+        self.node.call(self.start.clone(), &[on]);
+    }
+
+    fn step(&mut self, on: Variant) {
+        self.node.call(self.step.clone(), &[on]);
+    }
+
+    fn serialize(&mut self, on: Variant) -> Variant {
+        self.node.call(self.serialize.clone(), &[on])
+    }
+
+    fn deserialize(&mut self, on: Variant, data: Variant) {
+        self.node.call(self.deserialize.clone(), &[on, data]);
+    }
+
+    fn callback(&mut self, callback: &Callback) {
+        if let Some(method_args) = &callback.method_args {
+            self.node.call(
+                self.callback.clone(),
+                &[method_args.clone(), callback.callable.clone()],
+            );
+        } else {
+            self.node
+                .call(self.callback_empty.clone(), &[callback.callable.clone()]);
+        }
+    }
+}
+fn hack() -> &'static mut Hack {
+    unsafe { HACK.get_or_insert_with(|| Hack::new()) }
+}
+static mut HACK: Option<Hack> = None;
