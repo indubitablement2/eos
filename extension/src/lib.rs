@@ -23,7 +23,7 @@ use ahash::{AHashMap, AHashSet, RandomState};
 use indexmap::IndexMap;
 use rapier2d::na::{self, ComplexField, RealField};
 use serde::{Deserialize, Serialize};
-use smallvec::{smallvec, SmallVec};
+use smallvec::SmallVec;
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 /// 1 simulation unit = 128 godot unit.
@@ -35,11 +35,11 @@ pub const GODOT_SCALE: f32 = 128.0;
 
 // TODO: Add client take control events. Use it on the render side to follow that entity.
 // TODO: Handle battle over event.
-// TODO: Render call should call a static function on the sim node with the render node as an argument.
+// TODO: Render call should call a function on the sim node with the render node as an argument.
 // TODO: TimeManager should handle fast mode/catching up mode itself.
 
 // TODO: Partition hull armor.
-// TODO: Get texture and add to hull sprite.
+// TODO: Get damage texture and add to hull sprite.
 
 // TODO: Shared connection to the server. Dispatch packets to apropriate node
 
