@@ -52,13 +52,17 @@ fn runner(
     let mut bs = Battlescape::new(bs_state_init);
 
     while let Ok(runner_command) = runner_receiver.recv() {
-        let events = bs
+        let mut events = bs
             .step(
                 &runner_command.cmds,
                 BattlescapeEventHandler::Client(runner_command.event_handler),
             )
             .cast_client()
             .unwrap();
+        
+        if events.take_hash.is_some() {
+            events.take_hash = Some(crc32fast::hash(&bs.serialize()));
+        }
 
         runner_sender.send(events).unwrap()
     }

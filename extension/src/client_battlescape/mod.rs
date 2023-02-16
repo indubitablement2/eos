@@ -36,16 +36,23 @@ pub struct ClientBattlescape {
     fleets: Fleets,
     ship_selection: Gd<ShipSelection>,
     client_type: ClientType,
+
     inputs: PlayerInputs,
     wish_cmds: Commands,
     last_cmds_send: f32,
+
     /// Flag telling if we are very far behind.
     /// This will disable rendering and inputs to speed up simulation.
     catching_up: bool,
     time_manager: TimeManager<{ DT_MS }>,
+    /// The last tick send to the runner thread.
     cmd_tick: u64,
+    /// The last tick we received from the runner thread.
+    tick: u64,
     events: Vec<ClientBattlescapeEventHandler>,
     replay: Replay,
+    hash_on_tick: u64,
+
     #[base]
     base: Base<Node2D>,
 }
@@ -82,7 +89,9 @@ impl ClientBattlescape {
                 events: Default::default(),
                 catching_up: true,
                 cmd_tick: 0,
+                tick: 0,
                 fleets: Default::default(),
+                hash_on_tick: 0,
             }
         })
     }
@@ -97,9 +106,27 @@ impl ClientBattlescape {
 }
 #[godot_api]
 impl ClientBattlescape {
+    #[signal]
+    fn hash_received();
+
     #[func]
     fn can_cheat(&self) -> bool {
         self.client_type == ClientType::LocalCheat
+    }
+
+    #[func]
+    fn tick(&self) -> i64 {
+        self.tick as i64
+    }
+
+    #[func]
+    fn cmd_tick(&self) -> i64 {
+        self.cmd_tick as i64
+    }
+
+    #[func]
+    fn hash_on_tick(&mut self, on_tick: i64) {
+        self.hash_on_tick = on_tick as u64;
     }
 
     // #[func]
@@ -156,22 +183,31 @@ impl GodotExt for ClientBattlescape {
             was_catching_up = false;
         }
 
-        while let Some(cmds) = self.replay.get_cmds(self.cmd_tick + 1) {
-            if self.events.len() > 10 {
+        while self.cmd_tick - self.tick < 10 {
+            let next_cmd_tick = self.cmd_tick + 1;
+
+            if let Some(cmds) = self.replay.get_cmds(next_cmd_tick) {
+                self.runner_handle.step(
+                    cmds.to_owned(),
+                    ClientBattlescapeEventHandler::new(
+                        was_catching_up,
+                        next_cmd_tick == self.hash_on_tick
+                    ),
+                );
+                self.cmd_tick = next_cmd_tick;
+            } else {
                 break;
             }
-            self.runner_handle.step(
-                cmds.to_owned(),
-                ClientBattlescapeEventHandler::new(was_catching_up),
-            );
-            self.cmd_tick += 1;
         }
 
         // Handle events.
+        let mut hashs = Vec::new();
         let mut ship_selection = self.ship_selection.bind_mut();
         for event in self.events.iter_mut() {
             if !event.handled {
                 event.handled = true;
+
+                self.tick = self.tick.max(event.tick);
 
                 for (fleet_id, new_fleet) in event.new_fleet.drain() {
                     // Add fleet to ship selection.
@@ -187,6 +223,10 @@ impl GodotExt for ClientBattlescape {
 
                     ship_selection.update_ship_state((fleet_id, ship_idx), state);
                 }
+
+                if let Some(hash) = event.take_hash {
+                    hashs.push(hash);
+                }
             }
 
             if event.tick <= self.time_manager.tick && !event.render_handled {
@@ -194,6 +234,10 @@ impl GodotExt for ClientBattlescape {
 
                 self.render.handle_event(event);
             }
+        }
+        drop(ship_selection);
+        for hash in hashs {
+            self.emit_signal("hash_received".into(), &[hash.to_variant()]);
         }
 
         // Remove previous events.
@@ -243,6 +287,9 @@ pub struct ClientBattlescapeEventHandler {
     handled: bool,
     render_handled: bool,
 
+    /// When Some, take a hash of the bs.
+    take_hash: Option<u32>,
+
     tick: u64,
     battle_over: bool,
 
@@ -253,9 +300,10 @@ pub struct ClientBattlescapeEventHandler {
     render: RenderBattlescapeEventHandler,
 }
 impl ClientBattlescapeEventHandler {
-    fn new(take_full: bool) -> Self {
+    fn new(take_full: bool, take_hash: bool) -> Self {
         Self {
             render: RenderBattlescapeEventHandler::new(take_full),
+            take_hash: take_hash.then_some(0),
             ..Default::default()
         }
     }

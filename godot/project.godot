@@ -17,6 +17,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 Init="res://singleton/init.gd"
+GlobalClient="*res://singleton/global_client.gd"
 
 [editor_plugins]
 

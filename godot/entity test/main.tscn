@@ -24,7 +24,5 @@ texture = ExtResource("3_og2y0")
 [node name="Sprite2D4" type="Sprite2D" parent="."]
 texture = ExtResource("3_og2y0")
 
-[node name="Client" type="Client" parent="."]
-
 [node name="FreeCamera" parent="." instance=ExtResource("2_pa5lu")]
 position_smoothing_enabled = false
