@@ -47,9 +47,7 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Split event handler into catching-up, normal, full.
 // TODO: Do not create node when taking render events.
 
-// TODO: When serializing/deserializing, check if anything is an EntityScript when convert it to its id.
-
-// TODO: Godot camera <----
+// TODO: When serializing/deserializing, check if anything is an EntityScript then convert it to its id.
 
 mod ext {
     use godot::prelude::*;

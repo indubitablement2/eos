@@ -8,7 +8,7 @@ use crate::{
 use battlescape::command::*;
 use data::*;
 use godot::{
-    engine::{node::InternalMode, Engine, GdScript},
+    engine::Engine,
     prelude::*,
 };
 
@@ -92,13 +92,6 @@ impl Client {
 impl GodotExt for Client {
     fn init(mut base: Base<Node>) -> Self {
         godot_logger::GodotLogger::init();
-
-        if !Engine::singleton().has_singleton("Hack".into()) {
-            Engine::singleton().register_singleton(
-                "Hack".into(),
-                load::<GdScript>("res://singleton/hack.gd").upcast(),
-            );
-        }
 
         // TODO: Load configs from file.
         let client_config: ClientConfig = Default::default();

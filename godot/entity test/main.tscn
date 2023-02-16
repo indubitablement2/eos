@@ -8,12 +8,9 @@
 position = Vector2(0, 1)
 script = ExtResource("1_bu628")
 
-[node name="Client" type="Client" parent="."]
-
-[node name="FreeCamera" parent="." instance=ExtResource("2_pa5lu")]
-position_smoothing_enabled = false
-
 [node name="Sprite2D" type="Sprite2D" parent="."]
+modulate = Color(0, 0, 0, 0.117647)
+scale = Vector2(40, 40)
 texture = ExtResource("3_og2y0")
 
 [node name="Sprite2D2" type="Sprite2D" parent="."]
@@ -25,5 +22,9 @@ position = Vector2(-512, 512)
 texture = ExtResource("3_og2y0")
 
 [node name="Sprite2D4" type="Sprite2D" parent="."]
-position = Vector2(-1024, 1024)
 texture = ExtResource("3_og2y0")
+
+[node name="Client" type="Client" parent="."]
+
+[node name="FreeCamera" parent="." instance=ExtResource("2_pa5lu")]
+position_smoothing_enabled = false
