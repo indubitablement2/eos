@@ -247,6 +247,7 @@ impl Data {
             ai: None, // TODO: Initial ai
             render_node: PackedScene::new(),
             script,
+            radius_aprox: node.get("aproximate_radius".into()).try_to::<f32>().ok()?,
         };
 
         log::debug!("Replacing entity data script with render script");

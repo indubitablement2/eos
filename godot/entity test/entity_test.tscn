@@ -24,6 +24,7 @@ size = Vector2(98, 84)
 [node name="EntityData" type="Node2D"]
 script = ExtResource("1_kj0ly")
 simulation_script = SubResource("GDScript_176tx")
+aproximate_radius = 55.0
 
 [node name="HullData" type="Sprite2D" parent="."]
 texture = SubResource("CanvasTexture_4662d")
@@ -31,4 +32,5 @@ script = ExtResource("3_8p8gp")
 collision_shape = NodePath("CollisionShape2D")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HullData"]
+visible = false
 shape = SubResource("RectangleShape2D_dbaov")

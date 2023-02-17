@@ -129,23 +129,71 @@ impl ClientBattlescape {
         self.hash_on_tick = on_tick as u64;
     }
 
-    // #[func]
-    // fn sv_add_ship(&mut self, fleet_idx: u32, ship_idx: u32) {
-    //     if self.can_cheat() {
-    //         self.wish_cmds.push(SvAddShip {
-    //             fleet_id: FleetId(fleet_idx as u64),
-    //             ship_idx,
-    //             prefered_spawn_point: fleet_idx,
-    //         });
-    //     } else {
-    //         log::warn!("Tried to cheat.");
-    //     }
-    // }
+    /// ---------- Entity ----------
+
+    #[func]
+    fn get_entity_at(&mut self, position: Vector2) -> i64 {
+        let mut selected_distance_squared = f32::MAX;
+        let mut selected_id = -1;
+
+        for (entity_id, entity) in self.render.entity_renders.iter() {
+            let pos = entity.node.get_position();
+            let r = entity.entity_data_id.data().radius_aprox;
+            let dist = pos.distance_squared_to(position);
+            if r * r > dist && dist < selected_distance_squared {
+                selected_distance_squared = dist;
+                selected_id = entity_id.0 as i64;
+            }
+        }
+
+        selected_id
+    }
+
+    #[func]
+    fn get_owned_entity_at(&mut self, position: Vector2) -> i64 {
+        let mut selected_distance_squared = f32::MAX;
+        let mut selected_id = -1;
+
+        for (entity_id, entity) in self.render.entity_renders.iter() {
+            if !entity
+                .fleet_ship
+                .as_ref()
+                .and_then(|(fleet_id, _)| self.fleets.get(fleet_id).unwrap().owner)
+                .is_some_and(|fleet_owner| fleet_owner == self.client_id)
+            {
+                continue;
+            }
+
+            let pos = entity.node.get_position();
+            let r = entity.entity_data_id.data().radius_aprox;
+            let dist = pos.distance_squared_to(position);
+            if r * r > dist && dist < selected_distance_squared {
+                selected_distance_squared = dist;
+                selected_id = entity_id.0 as i64;
+            }
+        }
+
+        selected_id
+    }
+
+    /// ---------- Commands ----------
+
+    #[func]
+    fn cmd_control_ship(&mut self, entity_id: i64) {
+        self.add_cmd(SetClientControl {
+            caller: self.client_id,
+            entity_id: u32::try_from(entity_id).ok().map(|id| EntityId(id)),
+        });
+    }
+
+    /// ---------- Godot ----------
 
     #[func]
     fn get_child_ship_selection(&mut self) -> Gd<ShipSelection> {
         self.ship_selection.share()
     }
+
+    /// ---------- Debug ----------
 
     #[func]
     fn dbg_print_fleets(&self) {
@@ -191,7 +239,7 @@ impl GodotExt for ClientBattlescape {
                     cmds.to_owned(),
                     ClientBattlescapeEventHandler::new(
                         was_catching_up,
-                        next_cmd_tick == self.hash_on_tick
+                        next_cmd_tick == self.hash_on_tick,
                     ),
                 );
                 self.cmd_tick = next_cmd_tick;

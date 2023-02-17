@@ -33,7 +33,7 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Remove body/colliders when removing entity.
 // TODO: Make spawn point static.
 
-// TODO: Add client take control events. Use it on the render side to follow that entity.
+// TODO: Add client take control events. Use it on the render side to follow that entity. <---
 // TODO: Handle battle over event.
 // TODO: Render call should call a function on the sim node with the render node as an argument.
 // TODO: TimeManager should handle fast mode/catching up mode itself.

@@ -180,40 +180,74 @@ impl Command for SetClientInput {
 pub struct SetClientControl {
     pub caller: ClientId,
     pub entity_id: Option<EntityId>,
-    // pub ship_id: Option<ShipId>,
 }
 impl Command for SetClientControl {
     fn apply(&self, bc: &mut Battlescape) {
-        if let Some(client) = bc.clients.get_mut(&self.caller) {
-            let entity_id = if let Some(entity_id) = self.entity_id {
-                entity_id
-            } else {
-                client.control = None;
-                return;
-            };
-
-            if bc
-                .entities
-                .get(&entity_id)
-                .and_then(|entity| entity.fleet_ship)
-                .and_then(|(fleet_id, _)| bc.fleets.get(&fleet_id))
-                .and_then(|fleet| fleet.owner)
-                .is_some_and(|owner| owner == self.caller)
-            {
-                client.control = Some(entity_id);
-            } else {
-                log::debug!(
-                    "Got SetClientControl cmd, but {:?} does not own {:?}. Removing control...",
-                    self.caller,
-                    entity_id
-                );
-                client.control = None;
-            }
+        let client = if let Some(client) = bc.clients.get_mut(&self.caller) {
+            client
         } else {
-            log::warn!(
+            log::debug!("Got SetClientControl cmd, but {:?} not found. Ignoring...", self.caller);
+            return;
+        };
+        
+        let entity_id = if let Some(entity_id) = self.entity_id {
+            entity_id
+        } else {
+            log::debug!("{:?} now control nothing", self.caller);
+            client.control = None;
+            return;
+        };
+
+        let entity = if let Some(entity) = bc.entities.get(&entity_id) {
+            entity
+        } else {
+            log::debug!(
                 "Got SetClientControl cmd, but {:?} not found. Ignoring...",
-                self.caller
+                entity_id
             );
+            return;
+        };
+
+        let fleet_id = if let Some((fleet_id, _)) = entity.fleet_ship {
+            fleet_id
+        } else {
+            log::debug!(
+                "Got SetClientControl cmd, but {:?} is not part of a fleet. Ignoring...",
+                entity_id
+            );
+            return;
+        };
+
+        let fleet = if let Some(fleet) = bc.fleets.get(&fleet_id) {
+            fleet
+        } else {
+            log::debug!(
+                "Got SetClientControl cmd, but {:?} not found. Ignoring...",
+                fleet_id
+            );
+            return;
+        };
+
+        let fleet_owner = if let Some(fleet_owner) = &fleet.owner {
+            fleet_owner
+        } else {
+            log::debug!(
+                "Got SetClientControl cmd, but {:?} is not owned by anyone. Ignoring...",
+                fleet_id
+            );
+            return;
+        };
+
+        if fleet_owner == &self.caller {
+            log::debug!("{:?} now control {:?}", self.caller, entity_id);
+            client.control = Some(entity_id);
+        } else {
+            log::debug!(
+                "Got SetClientControl cmd, but {:?} does not own {:?}. Removing control...",
+                self.caller,
+                entity_id
+            );
+            client.control = None;
         }
     }
 

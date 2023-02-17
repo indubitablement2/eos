@@ -23,6 +23,7 @@ impl BattlescapeFleet {
     /// Can fail if the ship is already spawned or does not exist.
     pub fn try_spawn(
         &mut self,
+        fleet_id: FleetId,
         ship_idx: usize,
         spawn_point: &mode::SpawnPoint,
         bc_half_size: f32,
@@ -66,6 +67,8 @@ impl BattlescapeFleet {
                 physics,
                 translation,
                 angle,
+                Some((fleet_id, ship_idx)),
+                self.team,
             ))
         } else {
             None

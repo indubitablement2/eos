@@ -59,7 +59,7 @@ fn runner(
             )
             .cast_client()
             .unwrap();
-        
+
         if events.take_hash.is_some() {
             events.take_hash = Some(crc32fast::hash(&bs.serialize()));
         }

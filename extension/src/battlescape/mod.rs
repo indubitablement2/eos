@@ -33,7 +33,7 @@ pub const DT: f32 = 1.0 / 20.0;
 pub const DT_MS: u32 = 50;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct EntityId(u32);
+pub struct EntityId(pub u32);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BattlescapeStateInit {
@@ -236,6 +236,7 @@ impl Battlescape {
                 .unwrap_or_else(|| &spawn_points[0]);
 
             if let Some(entity) = fleet.try_spawn(
+                fleet_id,
                 ship_idx,
                 spawn_point,
                 self.half_size,

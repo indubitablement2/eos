@@ -23,9 +23,9 @@ impl TimeManagerConfig {
     /// Minimim amount of buffering.
     pub fn local() -> Self {
         Self {
-            max_buffer: 0.2,
+            max_buffer: 0.3,
             min_buffer: 0.0,
-            wish_buffer: 0.1,
+            wish_buffer: 0.15,
             ..Default::default()
         }
     }
@@ -44,9 +44,9 @@ impl Default for TimeManagerConfig {
         Self {
             period: 1.0,
             max_time_change: 0.08,
-            max_buffer: 0.35,
+            max_buffer: 0.45,
             min_buffer: 0.0,
-            wish_buffer: 0.2,
+            wish_buffer: 0.25,
             increase_change_strenght: 0.6,
             decrease_change_strenght: 0.8,
         }

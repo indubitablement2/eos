@@ -33,6 +33,8 @@ impl Entity {
         physics: &mut Physics,
         translation: na::Vector2<f32>,
         angle: f32,
+        fleet_ship: Option<FleetShip>,
+        team: u32,
     ) -> Entity {
         let entity_data = entity_data_id.data();
 
@@ -68,7 +70,7 @@ impl Entity {
             .collect::<SmallVec<_>>();
 
         Self {
-            fleet_ship: None,
+            fleet_ship,
             team: 0,
             entity_data_id,
             rb,
@@ -316,6 +318,15 @@ pub struct Hull {
     cb_destroyed: Callbacks,
 }
 
+// #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, PartialOrd, Ord)]
+// pub enum EntityType {
+//     #[default]
+//     Debris,
+//     Missile,
+//     Fighter,
+//     MainShip,
+// }
+
 pub struct EntityData {
     pub mobility: Mobility,
     /// First hull is main.
@@ -326,6 +337,8 @@ pub struct EntityData {
     pub render_node: Gd<PackedScene>,
     /// `EntityScript`
     pub script: EntityScriptData,
+    /// In godot scale.
+    pub radius_aprox: f32,
 }
 
 /// In unit/seconds.

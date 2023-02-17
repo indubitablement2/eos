@@ -145,10 +145,11 @@ impl HullRender {
     }
 }
 
-struct EntityRender {
-    node: Gd<Node2D>,
-    entity_data_id: EntityDataId,
+pub struct EntityRender {
+    pub node: Gd<Node2D>,
+    pub entity_data_id: EntityDataId,
     hulls: SmallVec<[Option<HullRender>; 1]>,
+    pub fleet_ship: Option<FleetShip>,
 }
 impl EntityRender {
     /// Will not be added to the scene.
@@ -173,6 +174,7 @@ impl EntityRender {
             node: entity_node,
             entity_data_id: entity.entity_data_id,
             hulls,
+            fleet_ship: entity.fleet_ship,
         }
     }
 
@@ -192,7 +194,7 @@ pub struct BattlescapeRender {
     pub client_id: ClientId,
     node: Gd<Node2D>,
 
-    entity_renders: AHashMap<EntityId, EntityRender>,
+    pub entity_renders: AHashMap<EntityId, EntityRender>,
 }
 impl BattlescapeRender {
     pub fn new(client_id: ClientId, node: Gd<Node2D>) -> Self {

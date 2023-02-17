@@ -7,10 +7,7 @@ use crate::{
 };
 use battlescape::command::*;
 use data::*;
-use godot::{
-    engine::Engine,
-    prelude::*,
-};
+use godot::{engine::Engine, prelude::*};
 
 #[derive(GodotClass)]
 #[class(base=Node)]
