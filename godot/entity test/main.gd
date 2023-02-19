@@ -9,7 +9,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		bs.cmd_control_ship(eid)
 
 func _ready() -> void:
-	GlobalClient.try_load_data("res://entity test/ship_test.tscn")
+	GlobalClient.load_data()
 	bs = GlobalClient.new_test_battlescape()
 	bs.show()
 	bs.hash_on_tick(40)

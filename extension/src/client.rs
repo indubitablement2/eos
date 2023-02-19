@@ -27,14 +27,16 @@ impl Client {
         self.mc.share()
     }
 
-    #[func]
-    fn try_load_data(&mut self, path: GodotString) {
-        Data::try_load_data(path);
-    }
+    // ---------- Data ----------
 
     #[func]
     fn clear_data(&mut self) {
         Data::clear();
+    }
+
+    #[func]
+    fn dbg_print_data(&mut self) {
+        log::info!("{:#?}", Data::data());
     }
 
     #[func]

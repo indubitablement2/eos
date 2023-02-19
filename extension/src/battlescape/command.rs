@@ -186,10 +186,13 @@ impl Command for SetClientControl {
         let client = if let Some(client) = bc.clients.get_mut(&self.caller) {
             client
         } else {
-            log::debug!("Got SetClientControl cmd, but {:?} not found. Ignoring...", self.caller);
+            log::debug!(
+                "Got SetClientControl cmd, but {:?} not found. Ignoring...",
+                self.caller
+            );
             return;
         };
-        
+
         let entity_id = if let Some(entity_id) = self.entity_id {
             entity_id
         } else {

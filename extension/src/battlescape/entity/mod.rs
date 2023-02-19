@@ -327,6 +327,7 @@ pub struct Hull {
 //     MainShip,
 // }
 
+#[derive(Debug)]
 pub struct EntityData {
     pub mobility: Mobility,
     /// First hull is main.
@@ -334,11 +335,23 @@ pub struct EntityData {
     // TODO: ai
     pub ai: Option<()>,
     /// Node2D
-    pub render_node: Gd<PackedScene>,
+    pub render_scene: Gd<PackedScene>,
     /// `EntityScript`
     pub script: EntityScriptData,
     /// In godot scale.
     pub radius_aprox: f32,
+}
+impl Default for EntityData {
+    fn default() -> Self {
+        Self {
+            mobility: Default::default(),
+            hulls: smallvec![HullData::default()],
+            ai: Default::default(),
+            render_scene: load("res://fallback_entity_render.tscn"),
+            script: Default::default(),
+            radius_aprox: 0.5,
+        }
+    }
 }
 
 /// In unit/seconds.
@@ -374,9 +387,11 @@ impl Default for Defence {
     }
 }
 
+#[derive(Clone)]
 pub struct HullData {
     pub defence: Defence,
     pub shape: SharedShape,
+    /// The initial position of the shape.
     pub init_position: Isometry<Real>,
     pub density: f32,
     // TODO: weapon slot
@@ -384,4 +399,26 @@ pub struct HullData {
     // TODO: Engine placement
     // TODO: Shields
     pub render_node_idx: i64,
+}
+impl Default for HullData {
+    fn default() -> Self {
+        Self {
+            defence: Default::default(),
+            shape: SharedShape::ball(0.5),
+            init_position: Default::default(),
+            density: 1.0,
+            render_node_idx: 0,
+        }
+    }
+}
+impl std::fmt::Debug for HullData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HullData")
+            .field("defence", &self.defence)
+            .field("shape", &self.shape.shape_type())
+            .field("init_position", &self.init_position)
+            .field("density", &self.density)
+            .field("render_node_idx", &self.render_node_idx)
+            .finish()
+    }
 }

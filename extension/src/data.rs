@@ -3,13 +3,6 @@ use std::hash::Hash;
 use super::battlescape::entity::*;
 use super::metascape::ship::ShipData;
 use super::*;
-use crate::util::*;
-use godot::engine::packed_scene::GenEditState;
-use godot::engine::{
-    CircleShape2D, CollisionPolygon2D, CollisionShape2D, RectangleShape2D, Script,
-};
-use godot::prelude::*;
-use rapier2d::prelude::SharedShape;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ShipDataId(u32);
@@ -20,7 +13,7 @@ impl ShipDataId {
 }
 
 /// An entity that can be spawned in a battlescape.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub struct EntityDataId(u32);
 impl EntityDataId {
     pub fn data(self) -> &'static EntityData {
@@ -52,9 +45,10 @@ pub fn ship_data_iter() -> ShipDataIter {
     }
 }
 
+#[derive(Debug)]
 pub struct Data {
-    ships: IndexMap<String, ShipData, RandomState>,
-    entities: IndexMap<String, EntityData, RandomState>,
+    pub ships: IndexMap<String, ShipData, RandomState>,
+    pub entities: IndexMap<String, EntityData, RandomState>,
 }
 impl Data {
     /// Free all resources.
@@ -66,202 +60,23 @@ impl Data {
         }
     }
 
-    /// Return None on error that should not occur.
-    pub fn try_load_data(path: GodotString) -> Option<()> {
-        let data = Data::data_mut();
-        let string_path = path.to_string();
-        let node =
-            try_load::<PackedScene>(path)?.instantiate(GenEditState::GEN_EDIT_STATE_DISABLED)?;
-
-        if node.has_method("_is_ship_data".into()) {
-            if data.ships.contains_key(&string_path) {
-                node.free();
-            } else {
-                let (mut ship_data, entity_path) = data.parse_ship_data(node)?;
-                let entity_data_idx = data.parse_entity_data(entity_path)?;
-                ship_data.entity_data_id = EntityDataId(entity_data_idx as u32);
-                log::info!("Added ship from '{}'", string_path);
-                data.ships.insert(string_path, ship_data);
-            }
-        }
-
-        Some(())
+    pub fn add_ship(path: String, ship_data: ShipData) -> ShipDataId {
+        ShipDataId(Self::data_mut().ships.insert_full(path, ship_data).0 as u32)
     }
 
-    fn parse_ship_data(&mut self, node: Gd<Node>) -> Option<(ShipData, String)> {
-        log::debug!("Parsing ship data");
-
-        let entity_path = node
-            .get("entity_path".into())
-            .try_to::<GodotString>()
-            .ok()?
-            .to_string();
-
-        Some((
-            ShipData {
-                display_name: node
-                    .get("display_name".into())
-                    .try_to::<GodotString>()
-                    .ok()?
-                    .to_string(),
-                render_node: node.try_cast()?,
-                entity_data_id: EntityDataId(0),
-            },
-            entity_path,
-        ))
+    pub fn add_entity(path: String, entity_data: EntityData) -> EntityDataId {
+        EntityDataId(Self::data_mut().entities.insert_full(path, entity_data).0 as u32)
     }
 
-    /// Return the index of the entity data.
-    fn parse_entity_data(&mut self, entity_path: String) -> Option<usize> {
-        if let Some(idx) = self.entities.get_index_of(&entity_path) {
-            return Some(idx);
-        }
-
-        log::debug!("Parsing entity data at '{}'", entity_path);
-
-        let mut node = try_load::<PackedScene>(entity_path.to_string())?
-            .instantiate(GenEditState::GEN_EDIT_STATE_DISABLED)?;
-
-        // Find the hulls nodes.
-        let mut hulls: SmallVec<[HullData; 1]> = SmallVec::new();
-        for (mut child_node, render_node_idx) in node.get_children(false).iter_shared().zip(0i64..)
-        {
-            if !child_node.has_method("_is_hull_data".into()) {
-                continue;
-            }
-
-            log::debug!("Parsing hull data at Node #{}", render_node_idx);
-
-            let mut shape = SharedShape::ball(0.5);
-            let mut init_position = rapier2d::prelude::Isometry::default();
-            for child_child_node in child_node.get_children(false).iter_shared() {
-                if let Some(collision_node) =
-                    child_child_node.share().try_cast::<CollisionShape2D>()
-                {
-                    log::debug!("Parsing hull's CollisionShape2D");
-
-                    let shape_node = collision_node.get_shape()?;
-
-                    init_position = rapier2d::prelude::Isometry::new(
-                        collision_node.get_position().to_na_descaled(),
-                        collision_node.get_rotation() as f32,
-                    );
-                    log::trace!("Got initial position of {:?}", &init_position);
-
-                    if let Some(circle_shape) = shape_node.share().try_cast::<CircleShape2D>() {
-                        let radius = circle_shape.get_radius() as f32 / GODOT_SCALE;
-                        log::trace!("Got CircleShape2D with radius of {}", radius);
-                        shape = SharedShape::ball(radius);
-                    } else if let Some(rectangle_shape) = shape_node.try_cast::<RectangleShape2D>()
-                    {
-                        let size = rectangle_shape.get_size().to_na_descaled();
-                        log::trace!("Got RectangleShape2D with size of {:?}", size);
-                        shape = SharedShape::cuboid(size.x, size.y);
-                    }
-
-                    // Remove collision shape node.
-                    log::debug!("Removing child CollisionShape2D");
-                    child_node.remove_child(collision_node.share().upcast());
-                    collision_node.free();
-
-                    break;
-                } else if let Some(collision_poly) =
-                    child_child_node.try_cast::<CollisionPolygon2D>()
-                {
-                    log::debug!("Parsing hull's CollisionPolygon2D");
-
-                    // TODO: Handle poly when array are supported.
-                    // TODO: (GODOT_SCALE)
-                    // TODO: empty poly
-                    collision_poly.get_polygon();
-
-                    // let vertices = vertices
-                    //     .iter()
-                    //     .map(|v| na::point![v.x, v.y])
-                    //     .collect::<Vec<_>>();
-
-                    // let indices = (0..vertices.len() as u32 - 1)
-                    //     .map(|i| [i, i + 1])
-                    //     .collect::<Vec<_>>();
-                    // SharedShape::convex_decomposition(&vertices, indices.as_slice())
-
-                    log::warn!("poly not supported yet");
-
-                    // Remove collision poly node.
-                    log::debug!("Removing child CollisionPolygon2D");
-                    child_node.remove_child(collision_poly.share().upcast());
-                    collision_poly.free();
-
-                    break;
-                }
-            }
-
-            hulls.push(HullData {
-                defence: Defence {
-                    hull: child_node.get("hull".into()).try_to().ok()?,
-                    armor: child_node.get("armor".into()).try_to().ok()?,
-                },
-                shape,
-                init_position,
-                density: child_node.get("density".into()).try_to().ok()?,
-                render_node_idx,
-            });
-
-            log::debug!("Replacing hull data script with render script");
-            let render_script = child_node.get("render_script".into());
-            child_node.set_script(render_script);
-        }
-
-        if hulls.is_empty() {
-            node.free();
-            log::warn!("Entity data without hull not supported. Ignoring...");
-            return None;
-        }
-
-        let script = script::EntityScriptData::new(node.get("simulation_script".into()));
-
-        let mut entity_data = EntityData {
-            mobility: Mobility {
-                linear_acceleration: node
-                    .get("linear_acceleration".into())
-                    .try_to::<f32>()
-                    .ok()?
-                    / GODOT_SCALE,
-                angular_acceleration: node
-                    .get("angular_acceleration".into())
-                    .try_to::<f32>()
-                    .ok()?
-                    / GODOT_SCALE,
-                max_linear_velocity: node
-                    .get("max_linear_velocity".into())
-                    .try_to::<f32>()
-                    .ok()?
-                    / GODOT_SCALE,
-                max_angular_velocity: node
-                    .get("max_angular_velocity".into())
-                    .try_to::<f32>()
-                    .ok()?
-                    / GODOT_SCALE,
-            },
-            hulls,
-            ai: None, // TODO: Initial ai
-            render_node: PackedScene::new(),
-            script,
-            radius_aprox: node.get("aproximate_radius".into()).try_to::<f32>().ok()?,
-        };
-
-        log::debug!("Replacing entity data script with render script");
-        let render_script = node.get("render_script".into());
-        node.set_script(render_script);
-
-        // TODO: Check that this is Ok. Otherwise return None
-        entity_data.render_node.pack(node.share());
-        node.free();
-
-        Some(self.entities.insert_full(entity_path, entity_data).0)
+    pub fn ship_data_from_path(path: String) -> Option<(ShipDataId, &'static ShipData)> {
+        Self::data().ships.get_full(&path).map(|(idx, _, data)| (ShipDataId(idx as u32), data))
     }
 
-    fn data() -> &'static Data {
+    pub fn entity_data_from_path(path: String) -> Option<(EntityDataId, &'static EntityData)> {
+        Self::data().entities.get_full(&path).map(|(idx, _, data)| (EntityDataId(idx as u32), data))
+    }
+
+    pub fn data() -> &'static Data {
         unsafe { DATA.get_or_insert_default() }
     }
 

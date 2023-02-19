@@ -1,5 +1,5 @@
 use super::*;
-use godot::{engine::Sprite2D, prelude::*};
+use godot::{engine::Texture2D, prelude::*};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ship {
@@ -15,6 +15,16 @@ pub struct Ship {
 pub struct ShipData {
     pub display_name: String,
     /// Sprite2D
-    pub render_node: Gd<Sprite2D>,
+    pub texture: Gd<Texture2D>,
     pub entity_data_id: EntityDataId,
+}
+
+impl Default for ShipData {
+    fn default() -> Self {
+        Self {
+            display_name: Default::default(),
+            texture: load::<Texture2D>("res://textures/error.png"),
+            entity_data_id: Default::default(),
+        }
+    }
 }

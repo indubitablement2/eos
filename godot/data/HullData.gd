@@ -16,9 +16,9 @@ class_name HullData extends Sprite2D
 ##
 ## Only support CollisionPolygon2D(circle, rectangle)
 ## and CollisionShape2D(only used for the point array).
-@export var collision_shape: NodePath
+@export var collision_shape: Node2D 
 @export var density := 1.0
 
 # Needed to identify hull when scanning parent entity's children.
-func _is_hull_data() -> void:
+func _is_hull_data():
 	pass

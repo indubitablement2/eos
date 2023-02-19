@@ -158,7 +158,7 @@ impl EntityRender {
         let entity_data = entity.entity_data_id.data();
 
         let entity_node = entity_data
-            .render_node
+            .render_scene
             .instantiate(GenEditState::GEN_EDIT_STATE_DISABLED)
             .map(|node| node.cast::<Node2D>())
             .unwrap_or_else(|| Node2D::new_alloc());

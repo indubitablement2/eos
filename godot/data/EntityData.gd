@@ -31,3 +31,6 @@ func set_aproximate_radius(value: float) -> void:
 func set_hide_aproximate_radius_preview(value: bool) -> void:
 	hide_aproximate_radius_preview = value
 	queue_redraw()
+
+func _is_entity_data():
+	pass

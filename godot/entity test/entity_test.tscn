@@ -18,19 +18,18 @@ func _on_destroyed(bind: String):
 [sub_resource type="CanvasTexture" id="CanvasTexture_4662d"]
 diffuse_texture = ExtResource("2_yvhq7")
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_dbaov"]
-size = Vector2(98, 84)
+[sub_resource type="CircleShape2D" id="CircleShape2D_dgw7v"]
+radius = 55.0
 
 [node name="EntityData" type="Node2D"]
 script = ExtResource("1_kj0ly")
 simulation_script = SubResource("GDScript_176tx")
 aproximate_radius = 55.0
 
-[node name="HullData" type="Sprite2D" parent="."]
+[node name="HullData" type="Sprite2D" parent="." node_paths=PackedStringArray("collision_shape")]
 texture = SubResource("CanvasTexture_4662d")
 script = ExtResource("3_8p8gp")
 collision_shape = NodePath("CollisionShape2D")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HullData"]
-visible = false
-shape = SubResource("RectangleShape2D_dbaov")
+shape = SubResource("CircleShape2D_dgw7v")

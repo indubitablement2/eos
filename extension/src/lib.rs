@@ -10,6 +10,7 @@ mod client;
 mod client_battlescape;
 mod client_config;
 mod data;
+mod data_builder;
 mod godot_logger;
 mod metascape;
 mod player_inputs;
@@ -23,7 +24,7 @@ use ahash::{AHashMap, AHashSet, RandomState};
 use indexmap::IndexMap;
 use rapier2d::na::{self, ComplexField, RealField};
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 /// 1 simulation unit = 128 godot unit.
@@ -48,6 +49,9 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Do not create node when taking render events.
 
 // TODO: When serializing/deserializing, check if anything is an EntityScript then convert it to its id.
+
+// TODO: Split render/sim data. Hull should have a sprite offset from its collider.
+// TODO: Make data public as a & only. Remove `helper`
 
 mod ext {
     use godot::prelude::*;

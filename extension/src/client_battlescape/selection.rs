@@ -33,7 +33,7 @@ impl ShipSelection {
         ship: &bc_fleet::BattlescapeFleetShip,
     ) {
         let ship_data = ship.original_ship.ship_data_id.data();
-        let icon = ship_data.render_node.get_texture().unwrap();
+        let icon = ship_data.texture.share();
         let size_factor = 1.0f64; // TODO: size factor
         let tooptip = GodotString::from(ship_data.display_name.as_str()); // TODO: Custom name
         let cost = 0i64; // TODO: cost

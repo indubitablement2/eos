@@ -132,7 +132,7 @@ impl EntityScriptWrapper {
     }
 
     fn set_script(&mut self) {
-        if !self.script_data().script.is_nil() {
+        if self.script_data().has_script {
             let gdscript = self.script_data().script.clone();
             self.script.bind_mut().set_script(gdscript);
         }
