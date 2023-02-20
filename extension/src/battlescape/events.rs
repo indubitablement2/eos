@@ -5,7 +5,7 @@ pub trait BattlescapeEventHandlerTrait {
     /// Called once per step at the very end.
     fn stepped(&mut self, bc: &Battlescape);
     fn fleet_added(&mut self, fleet_id: FleetId);
-    fn ship_destroyed(&mut self, fleet_id: FleetId, ship_index: usize);
+    fn ship_state_changed(&mut self, fleet_id: FleetId, ship_index: usize, state: FleetShipState);
     fn entity_removed(&mut self, entity_id: EntityId, entity: Entity);
     fn hull_removed(&mut self, entity_id: EntityId, hull_index: usize);
     fn entity_added(&mut self, entity_id: EntityId, entity: &Entity);
@@ -46,11 +46,15 @@ impl BattlescapeEventHandlerTrait for BattlescapeEventHandler {
         }
     }
 
-    fn ship_destroyed(&mut self, fleet_id: FleetId, ship_index: usize) {
+    fn ship_state_changed(&mut self, fleet_id: FleetId, ship_index: usize, state: FleetShipState) {
         match self {
             BattlescapeEventHandler::None => {}
-            BattlescapeEventHandler::Client(events) => events.ship_destroyed(fleet_id, ship_index),
-            BattlescapeEventHandler::Server(events) => events.ship_destroyed(fleet_id, ship_index),
+            BattlescapeEventHandler::Client(events) => {
+                events.ship_state_changed(fleet_id, ship_index, state)
+            }
+            BattlescapeEventHandler::Server(events) => {
+                events.ship_state_changed(fleet_id, ship_index, state)
+            }
         }
     }
 
@@ -90,7 +94,13 @@ impl BattlescapeEventHandlerTrait for BattlescapeEventHandler {
 impl BattlescapeEventHandlerTrait for () {
     fn stepped(&mut self, _bc: &Battlescape) {}
     fn fleet_added(&mut self, _fleet_id: FleetId) {}
-    fn ship_destroyed(&mut self, _fleet_id: FleetId, _index: usize) {}
+    fn ship_state_changed(
+        &mut self,
+        _fleet_id: FleetId,
+        _ship_index: usize,
+        _state: FleetShipState,
+    ) {
+    }
     fn entity_removed(&mut self, _entity_id: EntityId, _entity: Entity) {}
     fn hull_removed(&mut self, _entity_id: EntityId, _hull_index: usize) {}
     fn entity_added(&mut self, _entity_id: EntityId, _entity: &Entity) {}

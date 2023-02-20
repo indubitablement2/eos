@@ -379,11 +379,15 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
         self.render.fleet_added(fleet_id);
     }
 
-    fn ship_destroyed(&mut self, fleet_id: FleetId, ship_index: usize) {
-        self.ship_state_changes
-            .push((fleet_id, ship_index, bc_fleet::FleetShipState::Destroyed));
+    fn ship_state_changed(
+        &mut self,
+        fleet_id: FleetId,
+        ship_index: usize,
+        state: bc_fleet::FleetShipState,
+    ) {
+        self.ship_state_changes.push((fleet_id, ship_index, state));
 
-        self.render.ship_destroyed(fleet_id, ship_index);
+        self.render.ship_state_changed(fleet_id, ship_index, state);
     }
 
     fn entity_removed(

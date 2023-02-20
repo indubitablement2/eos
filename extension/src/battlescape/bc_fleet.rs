@@ -1,5 +1,8 @@
 use super::*;
-use crate::metascape::{fleet::Fleet, ship::Ship};
+use crate::metascape::{
+    fleet::Fleet,
+    ship::{EntityCondition, Ship},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BattlescapeFleet {
@@ -74,6 +77,14 @@ impl BattlescapeFleet {
             None
         }
     }
+
+    pub fn ship_removed(&mut self, ship_idx: usize, condition: EntityCondition) {
+        self.ships[ship_idx].state = FleetShipState::Removed(condition);
+    }
+
+    pub fn ship_destroyed(&mut self, ship_idx: usize) {
+        self.ships[ship_idx].state = FleetShipState::Destroyed;
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,8 +104,8 @@ impl BattlescapeFleetShip {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum FleetShipState {
     Ready,
-    Spawned,               // TODO: Delay before hable to retreat.
-    Removed(EntityResult), // TODO: Delay before hable to re-enter.
+    Spawned,                  // TODO: Delay before hable to retreat.
+    Removed(EntityCondition), // TODO: Delay before hable to re-enter.
     Destroyed,
 }
 impl FleetShipState {
@@ -104,11 +115,4 @@ impl FleetShipState {
             _ => false,
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct EntityResult {
-    pub new_hull: f32,
-    pub new_armor: f32,
-    pub new_readiness: f32,
 }

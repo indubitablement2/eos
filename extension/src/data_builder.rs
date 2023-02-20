@@ -23,7 +23,10 @@ impl ShipDataBuilder {
         assert!(!self.handled);
         self.handled = true;
 
-        Data::add_ship(std::mem::take(&mut self.path.clone()), std::mem::take(&mut self.ship_data));
+        Data::add_ship(
+            std::mem::take(&mut self.path.clone()),
+            std::mem::take(&mut self.ship_data),
+        );
     }
 
     #[func]
@@ -33,7 +36,9 @@ impl ShipDataBuilder {
 
     #[func]
     fn set_entity_data_path(&mut self, entity_data_path: GodotString) {
-        self.ship_data.entity_data_id = Data::entity_data_from_path(entity_data_path.to_string()).unwrap().0;
+        self.ship_data.entity_data_id = Data::entity_data_from_path(entity_data_path.to_string())
+            .unwrap()
+            .0;
     }
 
     #[func]
@@ -211,7 +216,9 @@ impl HullDataBuilder {
 
     #[func]
     fn set_shape_polygon(&mut self, points: PackedVector2Array) {
-        let vertices = points.to_vec().into_iter()
+        let vertices = points
+            .to_vec()
+            .into_iter()
             .map(|v| {
                 let v = v.to_na_descaled();
                 na::Point2::new(v.x, v.y)

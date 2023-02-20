@@ -1,6 +1,8 @@
 pub mod ai;
 pub mod script;
 
+use crate::metascape::ship::EntityCondition;
+
 use self::script::*;
 use super::*;
 use godot::prelude::*;
@@ -84,19 +86,27 @@ impl Entity {
         }
     }
 
-    pub fn is_destroyed(&mut self) -> bool {
+    pub fn is_destroyed(&self) -> bool {
         self.hulls[0].is_none()
     }
 
-    pub fn result(&self) -> Option<bc_fleet::EntityResult> {
-        self.hulls[0].as_ref().map(|main_hull| {
-            let max_defence = self.entity_data_id.data().hulls[0].defence;
-            bc_fleet::EntityResult {
-                new_hull: main_hull.defence.hull as f32 / max_defence.hull as f32,
-                new_armor: main_hull.defence.armor as f32 / max_defence.armor as f32,
-                new_readiness: self.readiness,
+    pub fn condition(&self) -> EntityCondition {
+        let mut c = EntityCondition {
+            hull: 0.0,
+            armor: 0.0,
+            readiness: self.readiness,
+        };
+        for (hull_idx, hull) in self.hulls.iter().enumerate() {
+            if let Some(hull) = hull {
+                let max_defence = self.entity_data_id.data().hulls[hull_idx].defence;
+                c.hull += hull.defence.hull as f32 / max_defence.hull as f32;
+                c.armor += hull.defence.armor as f32 / max_defence.armor as f32;
             }
-        })
+        }
+        c.hull /= self.hulls.len() as f32;
+        c.armor /= self.hulls.len() as f32;
+
+        c
     }
 
     fn compute_mobility(&mut self) {

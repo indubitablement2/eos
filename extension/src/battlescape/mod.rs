@@ -9,7 +9,6 @@ pub mod physics;
 
 use super::*;
 use angle_vector::VectorAngle;
-use godot::prelude::ToVariant;
 use rand::prelude::*;
 use rapier2d::prelude::*;
 
@@ -256,17 +255,16 @@ impl Battlescape {
     fn remove_entity(&mut self, entity_idx: usize) {
         if let Some((entity_id, entity)) = self.entities.swap_remove_index(entity_idx) {
             // Handle if this is a ship from a fleet.
-            if let Some((fleet_id, ship_index)) = entity.fleet_ship {
+            if let Some((fleet_id, ship_idx)) = entity.fleet_ship {
                 let fleet = self.fleets.get_mut(&fleet_id).unwrap();
-                let fleet_ship = &mut fleet.ships[ship_index];
-
-                if let Some(result) = entity.result() {
-                    fleet_ship.state = FleetShipState::Removed(result);
+                if entity.is_destroyed() {
+                    fleet.ship_destroyed(ship_idx);
                 } else {
-                    // Ship destroyed.
-                    fleet_ship.state = FleetShipState::Destroyed;
-                    self.events.ship_destroyed(fleet_id, ship_index);
+                    let condition = entity.condition();
+                    fleet.ship_removed(ship_idx, condition);
                 }
+                self.events
+                    .ship_state_changed(fleet_id, ship_idx, fleet.ships[ship_idx].state);
 
                 *self.team_num_active_ship.get_mut(&entity.team).unwrap() -= 1;
             }

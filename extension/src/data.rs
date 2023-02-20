@@ -69,11 +69,17 @@ impl Data {
     }
 
     pub fn ship_data_from_path(path: String) -> Option<(ShipDataId, &'static ShipData)> {
-        Self::data().ships.get_full(&path).map(|(idx, _, data)| (ShipDataId(idx as u32), data))
+        Self::data()
+            .ships
+            .get_full(&path)
+            .map(|(idx, _, data)| (ShipDataId(idx as u32), data))
     }
 
     pub fn entity_data_from_path(path: String) -> Option<(EntityDataId, &'static EntityData)> {
-        Self::data().entities.get_full(&path).map(|(idx, _, data)| (EntityDataId(idx as u32), data))
+        Self::data()
+            .entities
+            .get_full(&path)
+            .map(|(idx, _, data)| (EntityDataId(idx as u32), data))
     }
 
     pub fn data() -> &'static Data {

@@ -68,7 +68,13 @@ impl BattlescapeEventHandlerTrait for RenderBattlescapeEventHandler {
 
     fn fleet_added(&mut self, fleet_id: crate::FleetId) {}
 
-    fn ship_destroyed(&mut self, fleet_id: crate::FleetId, ship_index: usize) {}
+    fn ship_state_changed(
+        &mut self,
+        fleet_id: FleetId,
+        ship_index: usize,
+        state: bc_fleet::FleetShipState,
+    ) {
+    }
 
     fn entity_removed(&mut self, entity_id: EntityId, entity: entity::Entity) {
         if !self.take_full {
