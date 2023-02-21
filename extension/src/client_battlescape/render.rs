@@ -140,9 +140,11 @@ impl HullRender {
         entity: &entity::Entity,
         entity_node: &Gd<Node2D>,
     ) -> Self {
-        let entity_data = entity.entity_data_id.data();
         let sprite = entity_node
-            .get_child(entity_data.hulls[hull_index].render_node_idx, false)
+            .get_child(
+                entity.entity_data_id.render_data().hulls[hull_index].render_node_idx,
+                false,
+            )
             .unwrap()
             .cast();
         // TODO: Set hull shader.
@@ -161,9 +163,9 @@ impl EntityRender {
     /// Will not be added to the scene.
     /// `node` need to manualy free if this is drop before a call to `insert_to_scene`.
     fn new(entity: &entity::Entity) -> Self {
-        let entity_data = entity.entity_data_id.data();
-
-        let entity_node = entity_data
+        let entity_node = entity
+            .entity_data_id
+            .render_data()
             .render_scene
             .instantiate(GenEditState::GEN_EDIT_STATE_DISABLED)
             .map(|node| node.cast::<Node2D>())
@@ -283,4 +285,3 @@ impl BattlescapeRender {
         }
     }
 }
-

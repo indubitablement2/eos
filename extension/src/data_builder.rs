@@ -1,6 +1,7 @@
 use super::*;
 use crate::{
     battlescape::entity::{script::EntityScriptData, *},
+    client_battlescape::{EntityRenderData, HullRenderData},
     metascape::ship::ShipData,
     util::*,
 };
@@ -36,7 +37,10 @@ impl ShipDataBuilder {
 
     #[func]
     fn set_entity_data_path(&mut self, entity_data_path: GodotString) {
-        self.ship_data.entity_data_id = *Data::data().entities_path.get(&entity_data_path.to_string()).unwrap();
+        self.ship_data.entity_data_id = *Data::data()
+            .entities_path
+            .get(&entity_data_path.to_string())
+            .unwrap();
     }
 
     #[func]
@@ -66,67 +70,94 @@ impl GodotExt for ShipDataBuilder {
 pub struct EntityDataBuilder {
     path: String,
     entity_data: EntityData,
+    entity_render_data: EntityRenderData,
     hulls: Vec<Gd<HullDataBuilder>>,
-    handled: bool,
+    handled: AHashSet<i32>,
     #[base]
     base: Base<Resource>,
+}
+impl EntityDataBuilder {
+    fn handle(&mut self, i: i32) {
+        assert!(self.handled.remove(&i));
+    }
 }
 #[godot_api]
 impl EntityDataBuilder {
     #[func]
     fn build(&mut self) {
-        assert!(!self.handled);
-        self.handled = true;
+        assert!(self.handled.is_empty());
 
         if !self.hulls.is_empty() {
-            self.entity_data.hulls = self
-                .hulls
-                .drain(..)
-                .map(|mut hull| hull.bind_mut().finish())
-                .collect();
+            self.entity_data.hulls.clear();
+            self.entity_render_data.hulls.clear();
+
+            self.hulls.drain(..).for_each(|mut hull| {
+                let (hull_data, hull_render_data) = hull.bind_mut().finish();
+                self.entity_data.hulls.push(hull_data);
+                self.entity_render_data.hulls.push(hull_render_data);
+            });
         }
 
-        Data::add_entity(self.path.clone(), std::mem::take(&mut self.entity_data));
+        Data::add_entity(
+            self.path.clone(),
+            std::mem::take(&mut self.entity_data),
+            std::mem::take(&mut self.entity_render_data),
+        );
     }
 
     #[func]
     fn set_path(&mut self, path: GodotString) {
+        self.handle(0);
         self.path = path.to_string();
     }
 
     #[func]
     fn set_linear_acceleration(&mut self, linear_acceleration: f32) {
+        self.handle(1);
         self.entity_data.mobility.linear_acceleration = linear_acceleration;
     }
 
     #[func]
     fn set_angular_acceleration(&mut self, angular_acceleration: f32) {
+        self.handle(2);
         self.entity_data.mobility.angular_acceleration = angular_acceleration;
     }
 
     #[func]
     fn set_max_linear_velocity(&mut self, max_linear_velocity: f32) {
+        self.handle(3);
         self.entity_data.mobility.max_linear_velocity = max_linear_velocity;
     }
 
     #[func]
     fn set_max_angular_velocity(&mut self, max_angular_velocity: f32) {
+        self.handle(4);
         self.entity_data.mobility.max_angular_velocity = max_angular_velocity;
     }
 
     #[func]
-    fn set_render_scene(&mut self, render_scene: Gd<PackedScene>) {
-        self.entity_data.render_scene = render_scene;
-    }
-
-    #[func]
     fn set_simulation_script(&mut self, script: Variant) {
+        self.handle(5);
         self.entity_data.script = EntityScriptData::new(script);
     }
 
     #[func]
+    fn set_render_scene(
+        &mut self,
+        render_scene: Gd<PackedScene>,
+        position_offset: Vector2,
+        rotation_offset: f32,
+    ) {
+        self.handle(6);
+        self.entity_render_data.render_scene = render_scene;
+        self.entity_render_data.render_scene_position_offset = position_offset;
+        self.entity_render_data.render_scene_rotation_offset = rotation_offset;
+    }
+
+    #[func]
     fn set_aproximate_radius(&mut self, radius_aprox: f32) {
-        self.entity_data.radius_aprox = radius_aprox;
+        self.handle(7);
+        self.entity_render_data.radius_aprox = radius_aprox;
     }
 
     #[func]
@@ -140,8 +171,9 @@ impl GodotExt for EntityDataBuilder {
         Self {
             path: Default::default(),
             entity_data: Default::default(),
+            entity_render_data: Default::default(),
             hulls: Default::default(),
-            handled: false,
+            handled: AHashSet::from_iter(0..=10),
             base,
         }
     }
@@ -151,58 +183,73 @@ impl GodotExt for EntityDataBuilder {
 #[class(base=Resource)]
 struct HullDataBuilder {
     hull_data: HullData,
-    handled: bool,
+    hull_render_data: HullRenderData,
+    handled: AHashSet<i32>,
     #[base]
     base: Base<Resource>,
 }
 impl HullDataBuilder {
-    fn finish(&mut self) -> HullData {
-        assert!(!self.handled);
-        self.handled = true;
+    fn finish(&mut self) -> (HullData, HullRenderData) {
+        assert!(self.handled.is_empty());
 
-        std::mem::take(&mut self.hull_data)
+        (
+            std::mem::take(&mut self.hull_data),
+            std::mem::take(&mut self.hull_render_data),
+        )
+    }
+
+    fn handle(&mut self, i: i32) {
+        assert!(self.handled.remove(&i));
     }
 }
 #[godot_api]
 impl HullDataBuilder {
     #[func]
     fn set_render_node_idx(&mut self, render_node_idx: i64) {
-        self.hull_data.render_node_idx = render_node_idx;
+        self.handle(0);
+        self.hull_render_data.render_node_idx = render_node_idx;
     }
 
     #[func]
     fn set_hull(&mut self, hull: i32) {
+        self.handle(1);
         self.hull_data.defence.hull = hull;
     }
 
     #[func]
     fn set_armor(&mut self, armor: i32) {
+        self.handle(2);
         self.hull_data.defence.armor = armor;
     }
 
     #[func]
     fn set_density(&mut self, density: f32) {
+        self.handle(3);
         self.hull_data.density = density;
     }
 
     #[func]
     fn set_initial_position(&mut self, position: Vector2, rotation: f32) {
+        self.handle(4);
         self.hull_data.init_position = na::Isometry2::new(position.to_na_descaled(), rotation);
     }
 
     #[func]
     fn set_shape_circle(&mut self, radius: f32) {
+        self.handle(5);
         self.hull_data.shape = SharedShape::ball(radius / GODOT_SCALE);
     }
 
     #[func]
     fn set_shape_cuboid(&mut self, half_size: Vector2) {
+        self.handle(5);
         let half_size = half_size.to_na_descaled();
         self.hull_data.shape = SharedShape::cuboid(half_size.x, half_size.y);
     }
 
     #[func]
     fn set_shape_polygon(&mut self, points: PackedVector2Array) {
+        self.handle(5);
         let vertices = points
             .to_vec()
             .into_iter()
@@ -223,13 +270,21 @@ impl HullDataBuilder {
 
         self.hull_data.shape = SharedShape::convex_decomposition(&vertices, indices.as_slice());
     }
+
+    #[func]
+    fn set_render_node_offset(&mut self, offset: Vector2, rotation: f32) {
+        self.handle(6);
+        self.hull_render_data.render_node_position_offset = offset;
+        self.hull_render_data.render_node_rotation_offset = rotation;
+    }
 }
 #[godot_api]
 impl GodotExt for HullDataBuilder {
     fn init(base: Base<Self::Base>) -> Self {
         Self {
             hull_data: Default::default(),
-            handled: false,
+            hull_render_data: Default::default(),
+            handled: AHashSet::from_iter(0..=6),
             base,
         }
     }

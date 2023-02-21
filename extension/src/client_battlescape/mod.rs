@@ -138,7 +138,7 @@ impl ClientBattlescape {
 
         for (entity_id, entity) in self.render.entity_renders.iter() {
             let pos = entity.node.get_position();
-            let r = entity.entity_data_id.data().radius_aprox;
+            let r = entity.entity_data_id.render_data().radius_aprox;
             let dist = pos.distance_squared_to(position);
             if r * r > dist && dist < selected_distance_squared {
                 selected_distance_squared = dist;
@@ -165,7 +165,7 @@ impl ClientBattlescape {
             }
 
             let pos = entity.node.get_position();
-            let r = entity.entity_data_id.data().radius_aprox;
+            let r = entity.entity_data_id.render_data().radius_aprox;
             let dist = pos.distance_squared_to(position);
             if r * r > dist && dist < selected_distance_squared {
                 selected_distance_squared = dist;
@@ -414,5 +414,44 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
         self.battle_over = true;
 
         self.render.battle_over();
+    }
+}
+
+#[derive(Debug)]
+pub struct EntityRenderData {
+    /// Node2D
+    pub render_scene: Gd<PackedScene>,
+    pub render_scene_position_offset: Vector2,
+    pub render_scene_rotation_offset: f32,
+    /// In godot scale.
+    pub radius_aprox: f32,
+    pub hulls: SmallVec<[HullRenderData; 1]>,
+}
+impl Default for EntityRenderData {
+    fn default() -> Self {
+        Self {
+            render_scene: load("res://fallback_entity_render.tscn"),
+            render_scene_position_offset: Default::default(),
+            render_scene_rotation_offset: 0.0,
+            radius_aprox: 0.5 * GODOT_SCALE,
+            hulls: smallvec![HullRenderData::default()],
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct HullRenderData {
+    pub render_node_idx: i64,
+    pub render_node_position_offset: Vector2,
+    pub render_node_rotation_offset: f32,
+    // TODO: Engine placement.
+}
+impl Default for HullRenderData {
+    fn default() -> Self {
+        Self {
+            render_node_idx: 0,
+            render_node_position_offset: Default::default(),
+            render_node_rotation_offset: 0.0,
+        }
     }
 }

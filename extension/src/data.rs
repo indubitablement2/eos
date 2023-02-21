@@ -1,4 +1,6 @@
+use crate::client_battlescape::EntityRenderData;
 use std::hash::Hash;
+
 use super::battlescape::entity::*;
 use super::metascape::ship::ShipData;
 use super::*;
@@ -17,6 +19,10 @@ pub struct EntityDataId(u32);
 impl EntityDataId {
     pub fn data(self) -> &'static EntityData {
         &Data::data().entities[self.0 as usize]
+    }
+
+    pub fn render_data(self) -> &'static EntityRenderData {
+        &Data::data().entities_render[self.0 as usize]
     }
 }
 
@@ -51,6 +57,7 @@ pub struct Data {
 
     pub entities_path: AHashMap<String, EntityDataId>,
     pub entities: Vec<EntityData>,
+    pub entities_render: Vec<EntityRenderData>,
 }
 impl Data {
     /// Free all resources.
@@ -70,11 +77,16 @@ impl Data {
         id
     }
 
-    pub fn add_entity(path: String, entity_data: EntityData) -> EntityDataId {
+    pub fn add_entity(
+        path: String,
+        entity_data: EntityData,
+        entity_render_data: EntityRenderData,
+    ) -> EntityDataId {
         let data = Self::data_mut();
         let id = EntityDataId(data.entities.len() as u32);
         data.entities_path.insert(path, id);
         data.entities.push(entity_data);
+        data.entities_render.push(entity_render_data);
         id
     }
 
@@ -93,6 +105,7 @@ impl Default for Data {
             ships: Default::default(),
             entities_path: Default::default(),
             entities: Default::default(),
+            entities_render: Default::default(),
         }
     }
 }

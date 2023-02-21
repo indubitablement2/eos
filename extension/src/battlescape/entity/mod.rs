@@ -1,11 +1,9 @@
 pub mod ai;
 pub mod script;
 
-use crate::metascape::ship::EntityCondition;
-
 use self::script::*;
 use super::*;
-use godot::prelude::*;
+use crate::metascape::ship::EntityCondition;
 
 #[derive(Serialize, Deserialize)]
 pub struct Entity {
@@ -346,11 +344,9 @@ pub struct EntityData {
     pub ai: Option<()>,
     /// `EntityScript`
     pub script: EntityScriptData,
-
-    /// Node2D
-    pub render_scene: Gd<PackedScene>,
-    /// In godot scale.
-    pub radius_aprox: f32,
+    // TODO: weapon slot
+    // TODO: built-in weapon (take a slot #)
+    // TODO: A Shields
 }
 impl Default for EntityData {
     fn default() -> Self {
@@ -358,9 +354,7 @@ impl Default for EntityData {
             mobility: Default::default(),
             hulls: smallvec![HullData::default()],
             ai: Default::default(),
-            render_scene: load("res://fallback_entity_render.tscn"),
             script: Default::default(),
-            radius_aprox: 0.5,
         }
     }
 }
@@ -405,11 +399,6 @@ pub struct HullData {
     /// The initial position of the shape.
     pub init_position: Isometry<Real>,
     pub density: f32,
-    // TODO: weapon slot
-    // TODO: built-in weapon (take a slot #)
-    // TODO: Engine placement
-    // TODO: Shields
-    pub render_node_idx: i64,
 }
 impl Default for HullData {
     fn default() -> Self {
@@ -418,7 +407,6 @@ impl Default for HullData {
             shape: SharedShape::ball(0.5),
             init_position: Default::default(),
             density: 1.0,
-            render_node_idx: 0,
         }
     }
 }
@@ -429,7 +417,6 @@ impl std::fmt::Debug for HullData {
             .field("shape", &self.shape.shape_type())
             .field("init_position", &self.init_position)
             .field("density", &self.density)
-            .field("render_node_idx", &self.render_node_idx)
             .finish()
     }
 }
