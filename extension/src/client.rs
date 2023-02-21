@@ -50,7 +50,7 @@ impl Client {
         let mut cmds = Commands::default();
 
         let ships = ship_data_iter()
-            .map(|(ship_data_id, _ship_data)| Ship {
+            .map(|ship_data_id| Ship {
                 ship_data_id,
                 entity_condition: Default::default(),
             })

@@ -344,10 +344,11 @@ pub struct EntityData {
     pub hulls: SmallVec<[HullData; 1]>,
     // TODO: ai
     pub ai: Option<()>,
-    /// Node2D
-    pub render_scene: Gd<PackedScene>,
     /// `EntityScript`
     pub script: EntityScriptData,
+
+    /// Node2D
+    pub render_scene: Gd<PackedScene>,
     /// In godot scale.
     pub radius_aprox: f32,
 }

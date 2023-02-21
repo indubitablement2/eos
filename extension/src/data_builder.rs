@@ -36,9 +36,7 @@ impl ShipDataBuilder {
 
     #[func]
     fn set_entity_data_path(&mut self, entity_data_path: GodotString) {
-        self.ship_data.entity_data_id = Data::entity_data_from_path(entity_data_path.to_string())
-            .unwrap()
-            .0;
+        self.ship_data.entity_data_id = *Data::data().entities_path.get(&entity_data_path.to_string()).unwrap();
     }
 
     #[func]
@@ -158,17 +156,6 @@ struct HullDataBuilder {
     base: Base<Resource>,
 }
 impl HullDataBuilder {
-    fn new(render_node_idx: i64) -> Gd<Self> {
-        Gd::with_base(|base| Self {
-            hull_data: HullData {
-                render_node_idx,
-                ..Default::default()
-            },
-            handled: false,
-            base,
-        })
-    }
-
     fn finish(&mut self) -> HullData {
         assert!(!self.handled);
         self.handled = true;

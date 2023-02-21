@@ -1,5 +1,4 @@
 use std::hash::Hash;
-
 use super::battlescape::entity::*;
 use super::metascape::ship::ShipData;
 use super::*;
@@ -26,13 +25,13 @@ pub struct ShipDataIter {
     len: u32,
 }
 impl Iterator for ShipDataIter {
-    type Item = (ShipDataId, &'static ShipData);
+    type Item = ShipDataId;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.next_id < self.len {
             let id = ShipDataId(self.next_id);
             self.next_id += 1;
-            Some((id, id.data()))
+            Some(id)
         } else {
             None
         }
@@ -47,8 +46,11 @@ pub fn ship_data_iter() -> ShipDataIter {
 
 #[derive(Debug)]
 pub struct Data {
-    pub ships: IndexMap<String, ShipData, RandomState>,
-    pub entities: IndexMap<String, EntityData, RandomState>,
+    pub ships_path: AHashMap<String, ShipDataId>,
+    pub ships: Vec<ShipData>,
+
+    pub entities_path: AHashMap<String, EntityDataId>,
+    pub entities: Vec<EntityData>,
 }
 impl Data {
     /// Free all resources.
@@ -61,25 +63,19 @@ impl Data {
     }
 
     pub fn add_ship(path: String, ship_data: ShipData) -> ShipDataId {
-        ShipDataId(Self::data_mut().ships.insert_full(path, ship_data).0 as u32)
+        let data = Self::data_mut();
+        let id = ShipDataId(data.ships.len() as u32);
+        data.ships_path.insert(path, id);
+        data.ships.push(ship_data);
+        id
     }
 
     pub fn add_entity(path: String, entity_data: EntityData) -> EntityDataId {
-        EntityDataId(Self::data_mut().entities.insert_full(path, entity_data).0 as u32)
-    }
-
-    pub fn ship_data_from_path(path: String) -> Option<(ShipDataId, &'static ShipData)> {
-        Self::data()
-            .ships
-            .get_full(&path)
-            .map(|(idx, _, data)| (ShipDataId(idx as u32), data))
-    }
-
-    pub fn entity_data_from_path(path: String) -> Option<(EntityDataId, &'static EntityData)> {
-        Self::data()
-            .entities
-            .get_full(&path)
-            .map(|(idx, _, data)| (EntityDataId(idx as u32), data))
+        let data = Self::data_mut();
+        let id = EntityDataId(data.entities.len() as u32);
+        data.entities_path.insert(path, id);
+        data.entities.push(entity_data);
+        id
     }
 
     pub fn data() -> &'static Data {
@@ -93,7 +89,9 @@ impl Data {
 impl Default for Data {
     fn default() -> Self {
         Self {
+            ships_path: Default::default(),
             ships: Default::default(),
+            entities_path: Default::default(),
             entities: Default::default(),
         }
     }
