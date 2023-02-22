@@ -320,10 +320,10 @@ impl Battlescape {
 
     pub fn spawn_point(&self, team: u32) -> (na::Vector2<f32>, f32) {
         match team {
-            0 => (self.half_size * na::Vector2::new(0.0, -1.0), -FRAC_PI_2),
+            0 => (self.half_size * na::Vector2::new(0.0, -1.0), PI),
             1 => (self.half_size * na::Vector2::new(0.0, 1.0), 0.0),
             2 => (self.half_size * na::Vector2::new(-1.0, 0.0), FRAC_PI_2),
-            _ => (self.half_size * na::Vector2::new(1.0, 0.0), PI),
+            _ => (self.half_size * na::Vector2::new(1.0, 0.0), -FRAC_PI_2),
         }
     }
 

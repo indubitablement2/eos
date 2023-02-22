@@ -51,10 +51,7 @@ pub const GODOT_SCALE: f32 = 128.0;
 
 // TODO: When serializing/deserializing, check if anything is an EntityScript then convert it to its id.
 
-// // TODO: Split render/sim data. Hull should have a sprite offset from its collider.
-// // TODO: Use these render offset.
 // TODO: Do not instance render sprite on sim thread.
-// // TODO: Make data public as a & only. Remove `helper`
 
 mod ext {
     use godot::prelude::*;
