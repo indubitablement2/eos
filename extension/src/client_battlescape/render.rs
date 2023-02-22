@@ -100,7 +100,8 @@ impl Position {
     fn new(iso: na::Isometry2<f32>) -> Self {
         Self {
             pos: iso.translation.to_godot_scaled(),
-            rot: iso.rotation.angle(), // TODO: A way to use hardware acceleration.
+            // TODO: Use hardware acceleration.
+            rot: iso.rotation.im.atan2(iso.rotation.re),
         }
     }
 
