@@ -1,4 +1,4 @@
-use super::{bc_client::ClientInputs, *};
+use super::{bs_client::ClientInputs, *};
 use crate::metascape::fleet::Fleet;
 
 pub enum TypedCmd {
@@ -65,7 +65,7 @@ impl TypedCmds {
 }
 
 pub trait Command {
-    fn apply(&self, bc: &mut Battlescape);
+    fn apply(&self, bs: &mut Battlescape);
     fn to_typed(self) -> TypedCmd;
     fn server_only(&self) -> bool;
 }
@@ -77,18 +77,18 @@ pub struct AddFleet {
     pub team: u32,
 }
 impl Command for AddFleet {
-    fn apply(&self, bc: &mut Battlescape) {
+    fn apply(&self, bs: &mut Battlescape) {
         log::debug!(
             "Adding {:?} with {} ships owned by {:?}.",
             self.fleet_id,
             self.fleet.ships.len(),
             self.fleet.owner
         );
-        bc.fleets.insert(
+        bs.fleets.insert(
             self.fleet_id,
             BattlescapeFleet::from_fleet(self.fleet.to_owned(), self.team),
         );
-        bc.events.fleet_added(self.fleet_id);
+        bs.events.fleet_added(self.fleet_id);
     }
 
     fn to_typed(self) -> TypedCmd {
@@ -107,9 +107,9 @@ pub struct SvAddShip {
     pub prefered_spawn_point: u32,
 }
 impl Command for SvAddShip {
-    fn apply(&self, bc: &mut Battlescape) {
+    fn apply(&self, bs: &mut Battlescape) {
         log::debug!("Adding ship #{} from {:?}", self.ship_idx, self.fleet_id);
-        bc.add_fleet_ship(
+        bs.add_fleet_ship(
             self.fleet_id,
             self.ship_idx as usize,
             self.prefered_spawn_point as usize,
@@ -131,9 +131,9 @@ pub struct AddShip {
     pub add_ship: SvAddShip,
 }
 impl Command for AddShip {
-    fn apply(&self, bc: &mut Battlescape) {
+    fn apply(&self, bs: &mut Battlescape) {
         // Check that caller own that fleet.
-        if !bc
+        if !bs
             .fleets
             .get(&self.add_ship.fleet_id)
             .and_then(|fleet| fleet.owner)
@@ -142,7 +142,7 @@ impl Command for AddShip {
             return;
         }
 
-        self.add_ship.apply(bc)
+        self.add_ship.apply(bs)
     }
 
     fn to_typed(self) -> TypedCmd {
@@ -160,8 +160,8 @@ pub struct SetClientInput {
     pub inputs: ClientInputs,
 }
 impl Command for SetClientInput {
-    fn apply(&self, bc: &mut Battlescape) {
-        let client = bc.clients.entry(self.caller).or_default();
+    fn apply(&self, bs: &mut Battlescape) {
+        let client = bs.clients.entry(self.caller).or_default();
         let mut inputs = self.inputs.clone();
         inputs.sanetize();
         client.client_inputs = inputs;
@@ -182,8 +182,8 @@ pub struct SetClientControl {
     pub entity_id: Option<EntityId>,
 }
 impl Command for SetClientControl {
-    fn apply(&self, bc: &mut Battlescape) {
-        let client = if let Some(client) = bc.clients.get_mut(&self.caller) {
+    fn apply(&self, bs: &mut Battlescape) {
+        let client = if let Some(client) = bs.clients.get_mut(&self.caller) {
             client
         } else {
             log::debug!(
@@ -201,7 +201,7 @@ impl Command for SetClientControl {
             return;
         };
 
-        let entity = if let Some(entity) = bc.entities.get(&entity_id) {
+        let entity = if let Some(entity) = bs.entities.get(&entity_id) {
             entity
         } else {
             log::debug!(
@@ -221,7 +221,7 @@ impl Command for SetClientControl {
             return;
         };
 
-        let fleet = if let Some(fleet) = bc.fleets.get(&fleet_id) {
+        let fleet = if let Some(fleet) = bs.fleets.get(&fleet_id) {
             fleet
         } else {
             log::debug!(
@@ -266,14 +266,14 @@ impl Command for SetClientControl {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Commands(Vec<TypedCmds>);
 impl Commands {
-    pub fn apply(&self, bc: &mut Battlescape) {
+    pub fn apply(&self, bs: &mut Battlescape) {
         for cmds in self.0.iter() {
             match cmds {
-                TypedCmds::AddFleet(c) => c.iter().for_each(|c| c.apply(bc)),
-                TypedCmds::SvAddShip(c) => c.iter().for_each(|c| c.apply(bc)),
-                TypedCmds::AddShip(c) => c.iter().for_each(|c| c.apply(bc)),
-                TypedCmds::SetClientInput(c) => c.iter().for_each(|c| c.apply(bc)),
-                TypedCmds::SetClientControl(c) => c.iter().for_each(|c| c.apply(bc)),
+                TypedCmds::AddFleet(c) => c.iter().for_each(|c| c.apply(bs)),
+                TypedCmds::SvAddShip(c) => c.iter().for_each(|c| c.apply(bs)),
+                TypedCmds::AddShip(c) => c.iter().for_each(|c| c.apply(bs)),
+                TypedCmds::SetClientInput(c) => c.iter().for_each(|c| c.apply(bs)),
+                TypedCmds::SetClientControl(c) => c.iter().for_each(|c| c.apply(bs)),
             }
         }
     }

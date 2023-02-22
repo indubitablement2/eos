@@ -30,7 +30,7 @@ impl ShipSelection {
     pub fn add_ship_internal(
         &mut self,
         fleet_ship: FleetShip,
-        ship: &bc_fleet::BattlescapeFleetShip,
+        ship: &bs_fleet::BattlescapeFleetShip,
     ) {
         let ship_data = ship.original_ship.ship_data_id.data();
         let icon = ship_data.texture.share();
@@ -45,14 +45,14 @@ impl ShipSelection {
         self.update_ship_state(fleet_ship, ship.state);
     }
 
-    pub fn update_ship_state(&mut self, fleet_ship: FleetShip, state: bc_fleet::FleetShipState) {
+    pub fn update_ship_state(&mut self, fleet_ship: FleetShip, state: bs_fleet::FleetShipState) {
         let idx = *self.fleet_ship_idx.get(&fleet_ship).unwrap();
 
         match state {
-            bc_fleet::FleetShipState::Ready => self.ship_set_ready(idx),
-            bc_fleet::FleetShipState::Spawned => self.ship_set_spawned(idx),
-            bc_fleet::FleetShipState::Removed => self.ship_set_removed(idx),
-            bc_fleet::FleetShipState::Destroyed => self.ship_set_destroyed(idx),
+            bs_fleet::FleetShipState::Ready => self.ship_set_ready(idx),
+            bs_fleet::FleetShipState::Spawned => self.ship_set_spawned(idx),
+            bs_fleet::FleetShipState::Removed => self.ship_set_removed(idx),
+            bs_fleet::FleetShipState::Destroyed => self.ship_set_destroyed(idx),
         }
     }
 

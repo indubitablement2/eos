@@ -3,7 +3,7 @@ use crate::client_battlescape::ClientBattlescapeEventHandler;
 
 pub trait BattlescapeEventHandlerTrait {
     /// Called once per step at the very end.
-    fn stepped(&mut self, bc: &Battlescape);
+    fn stepped(&mut self, bs: &Battlescape);
     fn fleet_added(&mut self, fleet_id: FleetId);
     fn ship_state_changed(&mut self, fleet_id: FleetId, ship_idx: usize, state: FleetShipState);
     fn entity_removed(&mut self, entity_id: EntityId, entity: Entity);
@@ -35,11 +35,11 @@ impl BattlescapeEventHandler {
     }
 }
 impl BattlescapeEventHandlerTrait for BattlescapeEventHandler {
-    fn stepped(&mut self, bc: &Battlescape) {
+    fn stepped(&mut self, bs: &Battlescape) {
         match self {
             BattlescapeEventHandler::None => {}
-            BattlescapeEventHandler::Client(events) => events.stepped(bc),
-            BattlescapeEventHandler::Server(events) => events.stepped(bc),
+            BattlescapeEventHandler::Client(events) => events.stepped(bs),
+            BattlescapeEventHandler::Server(events) => events.stepped(bs),
         }
     }
 
@@ -99,7 +99,7 @@ impl BattlescapeEventHandlerTrait for BattlescapeEventHandler {
 }
 
 impl BattlescapeEventHandlerTrait for () {
-    fn stepped(&mut self, _bc: &Battlescape) {}
+    fn stepped(&mut self, _bs: &Battlescape) {}
     fn fleet_added(&mut self, _fleet_id: FleetId) {}
     fn ship_state_changed(&mut self, _fleet_id: FleetId, _ship_idx: usize, _state: FleetShipState) {
     }

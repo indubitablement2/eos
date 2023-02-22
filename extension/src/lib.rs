@@ -45,14 +45,10 @@ pub const GODOT_SCALE: f32 = 128.0;
 
 // TODO: Shared connection to the server. Dispatch packets to apropriate node
 
-// TODO: Rename bc to bs and mc to ms
 // TODO: Split event handler into catching-up, normal, full.
-// TODO: Do not create node when taking render events.
 
 // TODO: When serializing/deserializing, check if anything is an EntityScript then convert it to its id.
 // TODO: Add optional array of entity path to data which will be converted to EntityId and given to EntityScript.
-
-// TODO: Do not instance render sprite on sim thread.
 
 mod ext {
     use godot::prelude::*;

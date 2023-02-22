@@ -1,6 +1,6 @@
 pub mod angle_vector;
-pub mod bc_client;
-pub mod bc_fleet;
+pub mod bs_client;
+pub mod bs_fleet;
 pub mod command;
 pub mod entity;
 pub mod events;
@@ -11,8 +11,8 @@ use angle_vector::VectorAngle;
 use rand::prelude::*;
 use rapier2d::prelude::*;
 
-use bc_client::BattlescapeClient;
-use bc_fleet::{BattlescapeFleet, FleetShipState};
+use bs_client::BattlescapeClient;
+use bs_fleet::{BattlescapeFleet, FleetShipState};
 use entity::ai::EntityAi;
 use entity::{Entity, EntityCondition, WishAngVel, WishLinVel};
 use events::*;

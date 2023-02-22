@@ -55,7 +55,7 @@ impl BattlescapeEventHandlerTrait for RenderBattlescapeEventHandler {
         &mut self,
         _fleet_id: FleetId,
         _ship_idx: usize,
-        _state: bc_fleet::FleetShipState,
+        _state: bs_fleet::FleetShipState,
     ) {
     }
 

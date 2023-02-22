@@ -42,7 +42,7 @@ impl BattlescapeFleet {
     //     fleet_id: FleetId,
     //     ship_idx: usize,
     //     spawn_point: &mode::SpawnPoint,
-    //     bc_half_size: f32,
+    //     bs_half_size: f32,
     //     entity_id: EntityId,
     //     physics: &mut Physics,
     // ) -> Option<Entity> {
@@ -62,7 +62,7 @@ impl BattlescapeFleet {
 
     //         // Find spawn point.
     //         let angle = spawn_point.spawn_direction_angle;
-    //         let mut translation = spawn_point.spawn_position * bc_half_size;
+    //         let mut translation = spawn_point.spawn_position * bs_half_size;
     //         let mut spawn_iso = na::Isometry2::new(translation, angle);
     //         let y_offset = Rotation::new(angle)
     //             .transform_vector(&na::vector![0.0, -Battlescape::SPAWN_OFFSET]);

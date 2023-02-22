@@ -1,6 +1,6 @@
 use super::*;
 use crate::util::*;
-use battlescape::bc_client::*;
+use battlescape::bs_client::*;
 use battlescape::entity::{WishAngVel, WishLinVel};
 use godot::prelude::*;
 

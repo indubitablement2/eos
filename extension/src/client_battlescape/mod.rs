@@ -342,8 +342,8 @@ pub struct ClientBattlescapeEventHandler {
     battle_over: bool,
 
     _new_fleet: Vec<FleetId>,
-    new_fleet: AHashMap<FleetId, battlescape::bc_fleet::BattlescapeFleet>,
-    ship_state_changes: Vec<(FleetId, usize, bc_fleet::FleetShipState)>,
+    new_fleet: AHashMap<FleetId, battlescape::bs_fleet::BattlescapeFleet>,
+    ship_state_changes: Vec<(FleetId, usize, bs_fleet::FleetShipState)>,
 
     render: RenderBattlescapeEventHandler,
 }
@@ -357,20 +357,20 @@ impl ClientBattlescapeEventHandler {
     }
 }
 impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
-    fn stepped(&mut self, bc: &Battlescape) {
-        self.tick = bc.tick;
+    fn stepped(&mut self, bs: &Battlescape) {
+        self.tick = bs.tick;
 
         if self.render.take_full {
-            self.new_fleet = AHashMap::from_iter(bc.fleets.iter().map(|(k, v)| (*k, v.clone())));
+            self.new_fleet = AHashMap::from_iter(bs.fleets.iter().map(|(k, v)| (*k, v.clone())));
         } else {
             for fleet_id in self._new_fleet.iter() {
                 self.new_fleet
-                    .insert(*fleet_id, bc.fleets.get(fleet_id).unwrap().clone());
+                    .insert(*fleet_id, bs.fleets.get(fleet_id).unwrap().clone());
             }
         }
         self._new_fleet.clear();
 
-        self.render.stepped(bc);
+        self.render.stepped(bs);
     }
 
     fn fleet_added(&mut self, fleet_id: FleetId) {
@@ -383,7 +383,7 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
         &mut self,
         fleet_id: FleetId,
         ship_idx: usize,
-        state: bc_fleet::FleetShipState,
+        state: bs_fleet::FleetShipState,
     ) {
         self.ship_state_changes.push((fleet_id, ship_idx, state));
 

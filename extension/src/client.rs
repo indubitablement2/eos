@@ -13,8 +13,8 @@ use godot::{engine::Engine, prelude::*};
 #[class(base=Node)]
 struct Client {
     client_id: ClientId,
-    bcs: AHashMap<BattlescapeId, Gd<ClientBattlescape>>,
-    mc: Gd<Node2D>,
+    bss: AHashMap<BattlescapeId, Gd<ClientBattlescape>>,
+    ms: Gd<Node2D>,
     client_config: ClientConfig,
     #[base]
     base: Base<Node>,
@@ -24,7 +24,7 @@ impl Client {}
 impl Client {
     #[func]
     fn metascape(&mut self) -> Gd<Node2D> {
-        self.mc.share()
+        self.ms.share()
     }
 
     // ---------- Data ----------
@@ -78,7 +78,7 @@ impl Client {
 
         add_child_node(&mut self.base, &client_bs);
 
-        if let Some(mut previous) = self.bcs.insert(Default::default(), client_bs.share()) {
+        if let Some(mut previous) = self.bss.insert(Default::default(), client_bs.share()) {
             previous.bind_mut().queue_free();
         }
 
@@ -97,13 +97,13 @@ impl GodotExt for Client {
         log::set_max_level(log_level_from_int(client_config.log_level));
 
         // TODO: Temporary.
-        let mc = Node2D::new_alloc();
-        add_child_node(&mut base, &mc);
+        let ms = Node2D::new_alloc();
+        add_child_node(&mut base, &ms);
 
         Self {
             client_id: ClientId(0),
-            bcs: Default::default(),
-            mc,
+            bss: Default::default(),
+            ms,
             client_config,
             base,
         }
