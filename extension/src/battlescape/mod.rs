@@ -4,7 +4,6 @@ pub mod bc_fleet;
 pub mod command;
 pub mod entity;
 pub mod events;
-pub mod mode;
 pub mod physics;
 
 use super::*;
@@ -15,11 +14,10 @@ use rapier2d::prelude::*;
 use bc_client::BattlescapeClient;
 use bc_fleet::{BattlescapeFleet, FleetShipState};
 use entity::ai::EntityAi;
-use entity::{Entity, WishAngVel, WishLinVel};
+use entity::{Entity, EntityCondition, WishAngVel, WishLinVel};
 use events::*;
 use physics::*;
 
-pub use self::mode::BattlescapeMode;
 pub use command::*;
 
 type SimRng = rand_xoshiro::Xoshiro128StarStar;
@@ -37,13 +35,11 @@ pub struct EntityId(pub u32);
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BattlescapeStateInit {
     pub seed: u64,
-    pub mode: BattlescapeMode,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Battlescape {
     pub tick: u64,
-    pub mode: BattlescapeMode,
     pub half_size: f32,
     /// Battle will end when timeout reach 0.
     pub end_timeout: u32,
@@ -74,7 +70,6 @@ impl Battlescape {
         Self {
             rng: SimRng::seed_from_u64(state_init.seed),
             tick: Default::default(),
-            mode: state_init.mode,
             half_size: 10.0,
             end_timeout: Self::END_TIMEOUT,
             physics: Default::default(),
@@ -225,46 +220,92 @@ impl Battlescape {
     }
 
     fn add_fleet_ship(&mut self, fleet_id: FleetId, ship_idx: usize, prefered_spawn_point: usize) {
-        let bs_ptr = self.bs_ptr();
-        if let Some(fleet) = self.fleets.get_mut(&fleet_id) {
-            let entity_id = self.next_entity_id;
-
-            let spawn_points = self.mode.spawn_points(fleet.team);
-            let spawn_point = spawn_points
-                .get(prefered_spawn_point)
-                .unwrap_or_else(|| &spawn_points[0]);
-
-            if let Some(entity) = fleet.try_spawn(
-                fleet_id,
-                ship_idx,
-                spawn_point,
-                self.half_size,
-                entity_id,
-                &mut self.physics,
-            ) {
-                self.next_entity_id.0 += 1;
-                *self.team_num_active_ship.entry(fleet.team).or_default() += 1;
-                let entity_idx = self.entities.insert_full(entity_id, entity).0;
-                self.entities[entity_idx].start(bs_ptr, entity_idx);
+        let (condition, entity_data_id, team) = if let Some(fleet) = self.fleets.get_mut(&fleet_id)
+        {
+            if let Some((condition, entity_data_id)) = fleet.try_spawn(ship_idx) {
                 self.events
-                    .entity_added(entity_id, &self.entities[entity_idx]);
+                    .ship_state_changed(fleet_id, ship_idx, FleetShipState::Spawned);
+
+                (condition, entity_data_id, fleet.team)
+            } else {
+                return;
             }
-        }
+        } else {
+            return;
+        };
+
+        *self.team_num_active_ship.entry(team).or_default() += 1;
+
+        let (translation, angle) = self.entity_spawn_point(team);
+        self.add_entity(
+            entity_data_id,
+            translation,
+            angle,
+            Some((fleet_id, ship_idx)),
+            team,
+            condition,
+        );
+    }
+
+    fn add_entity(
+        &mut self,
+        entity_data_id: EntityDataId,
+        translation: na::Vector2<f32>,
+        angle: f32,
+        fleet_ship: Option<FleetShip>,
+        team: u32,
+        condition: EntityCondition,
+    ) -> EntityId {
+        let entity_id = self.next_entity_id;
+        self.next_entity_id.0 += 1;
+
+        let entity_data = entity_data_id.data();
+
+        let rb = self.physics.add_body(
+            SimpleRigidBodyBuilder::dynamic()
+                .translation(translation)
+                .rotation(angle),
+            BodyGenericId::EntityId(entity_id),
+        );
+
+        let hull_collider = self.physics.add_collider(
+            SimpleColliderBuilder::new_ship(entity_data.shape.clone()).density(entity_data.density),
+            rb,
+            ColliderGenericId::Hull { entity_id },
+        );
+
+        let entity = Entity::new(
+            entity_data_id,
+            fleet_ship,
+            team,
+            rb,
+            hull_collider,
+            condition,
+        );
+
+        let bs_ptr = self.bs_ptr();
+        let entity_idx = self.entities.insert_full(entity_id, entity).0;
+        let entity = &mut self.entities[entity_idx];
+        entity.start(bs_ptr, entity_idx);
+
+        self.events.entity_added(entity_id, &entity);
+
+        entity_id
     }
 
     fn remove_entity(&mut self, entity_idx: usize) {
         if let Some((entity_id, entity)) = self.entities.swap_remove_index(entity_idx) {
             // Handle if this is a ship from a fleet.
             if let Some((fleet_id, ship_idx)) = entity.fleet_ship {
-                let fleet = self.fleets.get_mut(&fleet_id).unwrap();
+                let fleet_ship = &mut self.fleets.get_mut(&fleet_id).unwrap().ships[ship_idx];
+                fleet_ship.condition = entity.condition();
                 if entity.is_destroyed() {
-                    fleet.ship_destroyed(ship_idx);
+                    fleet_ship.state = FleetShipState::Destroyed;
                 } else {
-                    let condition = entity.condition();
-                    fleet.ship_removed(ship_idx, condition);
+                    fleet_ship.state = FleetShipState::Removed;
                 }
                 self.events
-                    .ship_state_changed(fleet_id, ship_idx, fleet.ships[ship_idx].state);
+                    .ship_state_changed(fleet_id, ship_idx, fleet_ship.state);
 
                 *self.team_num_active_ship.get_mut(&entity.team).unwrap() -= 1;
             }
@@ -275,6 +316,20 @@ impl Battlescape {
 
     fn bs_ptr(&mut self) -> entity::script::BsPtr {
         entity::script::BsPtr::new(self)
+    }
+
+    pub fn spawn_point(&self, team: u32) -> (na::Vector2<f32>, f32) {
+        match team {
+            0 => (self.half_size * na::Vector2::new(0.0, -1.0), -FRAC_PI_2),
+            1 => (self.half_size * na::Vector2::new(0.0, 1.0), 0.0),
+            2 => (self.half_size * na::Vector2::new(-1.0, 0.0), FRAC_PI_2),
+            _ => (self.half_size * na::Vector2::new(1.0, 0.0), PI),
+        }
+    }
+
+    fn entity_spawn_point(&mut self, team: u32) -> (na::Vector2<f32>, f32) {
+        // TODO: No overlapping.
+        self.spawn_point(team)
     }
 }
 impl Default for Battlescape {

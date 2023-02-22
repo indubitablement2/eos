@@ -242,13 +242,6 @@ impl EntityScript {
         &mut self.bs.entities[self.entity_idx]
     }
 
-    fn hull_mut(&mut self, hull_idx: usize) -> Option<&mut Hull> {
-        self.entity_mut()
-            .hulls
-            .get_mut(hull_idx)
-            .and_then(|hull| hull.as_mut())
-    }
-
     fn body(&mut self) -> &mut RigidBody {
         let handle = self.entity().rb;
         &mut self.bs.physics.bodies[handle]
@@ -267,23 +260,6 @@ impl EntityScript {
     #[func]
     fn rcb_on_destroyed(&mut self, callback_id: i64) {
         self.entity_mut().cb_destroyed.remove(callback_id);
-    }
-
-    /// Return nothing when destroyed.
-    #[func]
-    fn cb_on_hull_destroyed(&mut self, hull_idx: i64, callable: Variant) -> i64 {
-        if let Some(hull) = self.hull_mut(hull_idx as usize) {
-            hull.cb_destroyed.push(None, callable)
-        } else {
-            -1
-        }
-    }
-
-    #[func]
-    fn rcb_on_hull_destroyed(&mut self, hull_idx: i64, callback_id: i64) {
-        if let Some(hull) = self.hull_mut(hull_idx as usize) {
-            hull.cb_destroyed.remove(callback_id);
-        }
     }
 
     // ---------- SCRIPT

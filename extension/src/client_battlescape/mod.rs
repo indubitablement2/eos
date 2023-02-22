@@ -137,7 +137,7 @@ impl ClientBattlescape {
         let mut selected_id = -1;
 
         for (entity_id, entity) in self.render.entity_renders.iter() {
-            let pos = entity.node.get_position();
+            let pos = entity.position.pos;
             let r = entity.entity_data_id.render_data().radius_aprox;
             let dist = pos.distance_squared_to(position);
             if r * r > dist && dist < selected_distance_squared {
@@ -164,7 +164,7 @@ impl ClientBattlescape {
                 continue;
             }
 
-            let pos = entity.node.get_position();
+            let pos = entity.position.pos;
             let r = entity.entity_data_id.render_data().radius_aprox;
             let dist = pos.distance_squared_to(position);
             if r * r > dist && dist < selected_distance_squared {
@@ -382,12 +382,12 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
     fn ship_state_changed(
         &mut self,
         fleet_id: FleetId,
-        ship_index: usize,
+        ship_idx: usize,
         state: bc_fleet::FleetShipState,
     ) {
-        self.ship_state_changes.push((fleet_id, ship_index, state));
+        self.ship_state_changes.push((fleet_id, ship_idx, state));
 
-        self.render.ship_state_changed(fleet_id, ship_index, state);
+        self.render.ship_state_changed(fleet_id, ship_idx, state);
     }
 
     fn entity_removed(
@@ -396,10 +396,6 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
         entity: battlescape::entity::Entity,
     ) {
         self.render.entity_removed(entity_id, entity);
-    }
-
-    fn hull_removed(&mut self, entity_id: EntityId, hull_index: usize) {
-        self.render.hull_removed(entity_id, hull_index);
     }
 
     fn entity_added(
@@ -419,39 +415,21 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
 
 #[derive(Debug)]
 pub struct EntityRenderData {
-    /// Node2D
+    /// Sprite2D
     pub render_scene: Gd<PackedScene>,
-    pub render_scene_position_offset: Vector2,
-    pub render_scene_rotation_offset: f32,
+    pub position_offset: Vector2,
+    pub rotation_offset: f32,
     /// In godot scale.
     pub radius_aprox: f32,
-    pub hulls: SmallVec<[HullRenderData; 1]>,
+    // TODO: Engine placement.
 }
 impl Default for EntityRenderData {
     fn default() -> Self {
         Self {
             render_scene: load("res://fallback_entity_render.tscn"),
-            render_scene_position_offset: Default::default(),
-            render_scene_rotation_offset: 0.0,
+            position_offset: Default::default(),
+            rotation_offset: 0.0,
             radius_aprox: 0.5 * GODOT_SCALE,
-            hulls: smallvec![HullRenderData::default()],
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct HullRenderData {
-    pub render_node_idx: i64,
-    pub render_node_position_offset: Vector2,
-    pub render_node_rotation_offset: f32,
-    // TODO: Engine placement.
-}
-impl Default for HullRenderData {
-    fn default() -> Self {
-        Self {
-            render_node_idx: 0,
-            render_node_position_offset: Default::default(),
-            render_node_rotation_offset: 0.0,
         }
     }
 }

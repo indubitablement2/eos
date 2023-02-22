@@ -52,7 +52,7 @@ impl Client {
         let ships = ship_data_iter()
             .map(|ship_data_id| Ship {
                 ship_data_id,
-                entity_condition: Default::default(),
+                condition: Default::default(),
             })
             .collect::<Vec<_>>();
 

@@ -42,9 +42,7 @@ impl ShipSelection {
         self.fleet_ship_idx.insert(fleet_ship, idx);
         self.idx_fleet_ship.insert(idx, fleet_ship);
 
-        if !ship.state.is_ready() {
-            self.update_ship_state(fleet_ship, ship.state);
-        }
+        self.update_ship_state(fleet_ship, ship.state);
     }
 
     pub fn update_ship_state(&mut self, fleet_ship: FleetShip, state: bc_fleet::FleetShipState) {
@@ -52,11 +50,8 @@ impl ShipSelection {
 
         match state {
             bc_fleet::FleetShipState::Ready => self.ship_set_ready(idx),
-
             bc_fleet::FleetShipState::Spawned => self.ship_set_spawned(idx),
-
-            bc_fleet::FleetShipState::Removed(_) => self.ship_set_removed(idx),
-
+            bc_fleet::FleetShipState::Removed => self.ship_set_removed(idx),
             bc_fleet::FleetShipState::Destroyed => self.ship_set_destroyed(idx),
         }
     }

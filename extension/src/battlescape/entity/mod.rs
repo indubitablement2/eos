@@ -3,7 +3,6 @@ pub mod script;
 
 use self::script::*;
 use super::*;
-use crate::metascape::ship::EntityCondition;
 
 #[derive(Serialize, Deserialize)]
 pub struct Entity {
@@ -14,69 +13,44 @@ pub struct Entity {
     pub entity_data_id: EntityDataId,
 
     pub rb: RigidBodyHandle,
+    pub hull_collider: ColliderHandle,
 
-    readiness: f32,
-    mobility: Mobility,
-    pub hulls: SmallVec<[Option<Hull>; 1]>,
+    pub readiness: f32,
+    pub mobility: Mobility,
+    pub defence: Defence,
 
     pub script: EntityScriptWrapper,
 
     pub wish_angvel: WishAngVel,
     pub wish_linvel: WishLinVel,
     // pub wish_aim: (),
-    cb_destroyed: Callbacks,
+    pub cb_destroyed: Callbacks,
 }
 impl Entity {
     pub fn new(
         entity_data_id: EntityDataId,
-        entity_id: EntityId,
-        physics: &mut Physics,
-        translation: na::Vector2<f32>,
-        angle: f32,
         fleet_ship: Option<FleetShip>,
         team: u32,
+        rb: RigidBodyHandle,
+        hull_collider: ColliderHandle,
+        condition: EntityCondition,
     ) -> Entity {
         let entity_data = entity_data_id.data();
 
-        let rb = physics.add_body(
-            SimpleRigidBodyBuilder::dynamic()
-                .translation(translation)
-                .rotation(angle),
-            BodyGenericId::EntityId(entity_id),
-        );
-
-        let hulls = entity_data
-            .hulls
-            .iter()
-            .zip(0u32..)
-            .map(|(hull_data, hull_idx)| {
-                let collider = physics.add_collider(
-                    SimpleColliderBuilder::new_ship(hull_data.shape.clone())
-                        .density(hull_data.density)
-                        .position(hull_data.init_position),
-                    rb,
-                    ColliderGenericId::Hull {
-                        entity_id,
-                        hull_idx,
-                    },
-                );
-
-                Some(Hull {
-                    defence: hull_data.defence,
-                    collider,
-                    cb_destroyed: Default::default(),
-                })
-            })
-            .collect::<SmallVec<_>>();
+        let defence = Defence {
+            hull: (entity_data.defence.hull as f32 * condition.hull) as i32,
+            armor: (entity_data.defence.armor as f32 * condition.armor) as i32,
+        };
 
         Self {
             fleet_ship,
-            team: 0,
+            team,
             entity_data_id,
             rb,
+            hull_collider,
             mobility: entity_data.mobility,
-            readiness: 1.0,
-            hulls,
+            defence,
+            readiness: condition.readiness,
             wish_angvel: Default::default(),
             wish_linvel: Default::default(),
             script: EntityScriptWrapper::new(entity_data_id),
@@ -85,26 +59,16 @@ impl Entity {
     }
 
     pub fn is_destroyed(&self) -> bool {
-        self.hulls[0].is_none()
+        self.defence.hull <= 0
     }
 
     pub fn condition(&self) -> EntityCondition {
-        let mut c = EntityCondition {
-            hull: 0.0,
-            armor: 0.0,
+        let max_defence = self.entity_data_id.data().defence;
+        EntityCondition {
+            hull: self.defence.hull as f32 / max_defence.hull as f32,
+            armor: self.defence.armor as f32 / max_defence.armor as f32,
             readiness: self.readiness,
-        };
-        for (hull_idx, hull) in self.hulls.iter().enumerate() {
-            if let Some(hull) = hull {
-                let max_defence = self.entity_data_id.data().hulls[hull_idx].defence;
-                c.hull += hull.defence.hull as f32 / max_defence.hull as f32;
-                c.armor += hull.defence.armor as f32 / max_defence.armor as f32;
-            }
         }
-        c.hull /= self.hulls.len() as f32;
-        c.armor /= self.hulls.len() as f32;
-
-        c
     }
 
     fn compute_mobility(&mut self) {
@@ -247,24 +211,6 @@ impl Entity {
         //     // rb.set_linvel(linvel, true);
         // }
 
-        // Remove destroyed hulls.
-        for hull in self.hulls.iter_mut() {
-            let destroyed = if let Some(hull) = hull {
-                if hull.defence.hull <= 0 {
-                    hull.cb_destroyed.emit();
-                    true
-                } else {
-                    false
-                }
-            } else {
-                false
-            };
-
-            if destroyed {
-                *hull = None;
-            }
-        }
-
         if self.is_destroyed() {
             self.cb_destroyed.emit();
             true
@@ -319,31 +265,15 @@ pub enum WishAngVel {
     Force { force: f32 },
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct Hull {
-    pub defence: Defence,
-    pub collider: ColliderHandle,
-    cb_destroyed: Callbacks,
-}
-
-// #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, PartialOrd, Ord)]
-// pub enum EntityType {
-//     #[default]
-//     Debris,
-//     Missile,
-//     Fighter,
-//     MainShip,
-// }
-
-#[derive(Debug)]
 pub struct EntityData {
     pub mobility: Mobility,
-    /// First hull is main.
-    pub hulls: SmallVec<[HullData; 1]>,
     // TODO: ai
     pub ai: Option<()>,
     /// `EntityScript`
     pub script: EntityScriptData,
+    pub defence: Defence,
+    pub shape: SharedShape,
+    pub density: f32,
     // TODO: weapon slot
     // TODO: built-in weapon (take a slot #)
     // TODO: A Shields
@@ -352,10 +282,24 @@ impl Default for EntityData {
     fn default() -> Self {
         Self {
             mobility: Default::default(),
-            hulls: smallvec![HullData::default()],
             ai: Default::default(),
             script: Default::default(),
+            defence: Default::default(),
+            shape: SharedShape::ball(0.5),
+            density: 1.0,
         }
+    }
+}
+impl std::fmt::Debug for EntityData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EntityData")
+            .field("mobility", &self.mobility)
+            .field("ai", &self.ai)
+            .field("script", &self.script)
+            .field("defence", &self.defence)
+            .field("shape", &self.shape.shape_type())
+            .field("density", &self.density)
+            .finish()
     }
 }
 
@@ -392,31 +336,32 @@ impl Default for Defence {
     }
 }
 
-#[derive(Clone)]
-pub struct HullData {
-    pub defence: Defence,
-    pub shape: SharedShape,
-    /// The initial position of the shape.
-    pub init_position: Isometry<Real>,
-    pub density: f32,
+/// In absolute value 0..1
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct EntityCondition {
+    pub hull: f32,
+    pub armor: f32,
+    pub readiness: f32,
 }
-impl Default for HullData {
-    fn default() -> Self {
+impl EntityCondition {
+    pub fn full() -> Self {
         Self {
-            defence: Default::default(),
-            shape: SharedShape::ball(0.5),
-            init_position: Default::default(),
-            density: 1.0,
+            hull: 1.0,
+            armor: 1.0,
+            readiness: 1.0,
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            hull: 0.0,
+            armor: 0.0,
+            readiness: 0.0,
         }
     }
 }
-impl std::fmt::Debug for HullData {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HullData")
-            .field("defence", &self.defence)
-            .field("shape", &self.shape.shape_type())
-            .field("init_position", &self.init_position)
-            .field("density", &self.density)
-            .finish()
+impl Default for EntityCondition {
+    fn default() -> Self {
+        Self::full()
     }
 }

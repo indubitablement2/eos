@@ -9,7 +9,7 @@ pub enum BodyGenericId {
 /// Possible id of a collider.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ColliderGenericId {
-    Hull { entity_id: EntityId, hull_idx: u32 },
+    Hull { entity_id: EntityId },
 }
 
 /// - id: 64
@@ -37,10 +37,7 @@ impl UserData for u128 {
 
     fn pack_collider(id: ColliderGenericId, group_ignore: GroupIgnore) -> Self {
         let id = match id {
-            ColliderGenericId::Hull {
-                entity_id,
-                hull_idx,
-            } => 0 << u64::BITS | (entity_id.0 as u128 | (hull_idx as u128) << 32),
+            ColliderGenericId::Hull { entity_id } => 0 << u64::BITS | (entity_id.0 as u128),
         };
         id | (group_ignore as u128) << Self::GROUP_IGNORE_OFFSET
     }
@@ -56,7 +53,6 @@ impl UserData for u128 {
         match (self >> u64::BITS) & 0b1111 {
             0 => ColliderGenericId::Hull {
                 entity_id: EntityId(self as u32),
-                hull_idx: (self >> 32) as u32,
             },
             _ => unreachable!(),
         }

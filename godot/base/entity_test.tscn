@@ -1,0 +1,31 @@
+[gd_scene load_steps=6 format=3 uid="uid://xid2yes0tgcs"]
+
+[ext_resource type="Texture2D" uid="uid://cbr87hdo4doso" path="res://texture DELETE/void_fleet_by_ravendarke_2.png" id="1_1y845"]
+[ext_resource type="Script" path="res://data/EntityData.gd" id="1_so5g7"]
+[ext_resource type="Script" path="res://data/ShipData.gd" id="2_3meux"]
+
+[sub_resource type="GDScript" id="GDScript_176tx"]
+script/source = "extends EntityScript
+
+func start() -> void:
+	print(cb_on_destroyed(_on_destroyed.bind(\"hello\")))
+
+func _on_destroyed(bind: String):
+	print(\"I'm destroyed (also callback works). bind is: \", bind)
+"
+
+[sub_resource type="Resource" id="Resource_eb6i4"]
+script = ExtResource("2_3meux")
+display_name = "Ship Test"
+
+[node name="EntityData" type="Sprite2D" node_paths=PackedStringArray("collision_shape")]
+position = Vector2(-30, -32)
+texture = ExtResource("1_1y845")
+script = ExtResource("1_so5g7")
+simulation_script = SubResource("GDScript_176tx")
+ship_data = SubResource("Resource_eb6i4")
+collision_shape = NodePath("CollisionShape2D")
+aproximate_radius = 235.0
+
+[node name="CollisionShape2D" type="CollisionPolygon2D" parent="."]
+polygon = PackedVector2Array(-26, -204, -4, -194, -24, -180, 82, -192, 123, -182, 129, -161, 84, -171, 6, -147, -25, -113, -36, -74, -23, -40, 2, -25, 8, -47, 31, -60, 19, -28, 42, -26, 40, -48, 70, -19, 82, -49, 71, -78, 87, -107, 124, -39, 140, 22, 118, 54, 81, 81, 99, 117, 80, 188, 52, 203, 54, 171, 6, 171, 9, 204, -20, 187, -38, 112, -23, 79, -70, 45, -99, -39, -92, -117, -130, -89, -139, -95, -101, -142)

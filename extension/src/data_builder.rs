@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     battlescape::entity::{script::EntityScriptData, *},
-    client_battlescape::{EntityRenderData, HullRenderData},
+    client_battlescape::EntityRenderData,
     metascape::ship::ShipData,
     util::*,
 };
@@ -10,135 +10,73 @@ use rapier2d::prelude::SharedShape;
 
 #[derive(GodotClass)]
 #[class(base=Resource)]
-pub struct ShipDataBuilder {
-    path: String,
-    ship_data: ShipData,
-    handled: bool,
-    #[base]
-    base: Base<Resource>,
-}
-#[godot_api]
-impl ShipDataBuilder {
-    #[func]
-    fn build(&mut self) {
-        assert!(!self.handled);
-        self.handled = true;
-
-        Data::add_ship(
-            std::mem::take(&mut self.path.clone()),
-            std::mem::take(&mut self.ship_data),
-        );
-    }
-
-    #[func]
-    fn set_path(&mut self, path: GodotString) {
-        self.path = path.to_string();
-    }
-
-    #[func]
-    fn set_entity_data_path(&mut self, entity_data_path: GodotString) {
-        self.ship_data.entity_data_id = *Data::data()
-            .entities_path
-            .get(&entity_data_path.to_string())
-            .unwrap();
-    }
-
-    #[func]
-    fn set_display_name(&mut self, display_name: GodotString) {
-        self.ship_data.display_name = display_name.to_string();
-    }
-
-    #[func]
-    fn set_texture(&mut self, texture: Gd<Texture2D>) {
-        self.ship_data.texture = texture;
-    }
-}
-#[godot_api]
-impl GodotExt for ShipDataBuilder {
-    fn init(base: Base<Self::Base>) -> Self {
-        Self {
-            path: Default::default(),
-            ship_data: Default::default(),
-            handled: false,
-            base,
-        }
-    }
-}
-
-#[derive(GodotClass)]
-#[class(base=Resource)]
 pub struct EntityDataBuilder {
     path: String,
     entity_data: EntityData,
     entity_render_data: EntityRenderData,
-    hulls: Vec<Gd<HullDataBuilder>>,
-    handled: AHashSet<i32>,
+    ship_data: Option<ShipData>,
     #[base]
     base: Base<Resource>,
-}
-impl EntityDataBuilder {
-    fn handle(&mut self, i: i32) {
-        assert!(self.handled.remove(&i));
-    }
 }
 #[godot_api]
 impl EntityDataBuilder {
     #[func]
     fn build(&mut self) {
-        assert!(self.handled.is_empty());
-
-        if !self.hulls.is_empty() {
-            self.entity_data.hulls.clear();
-            self.entity_render_data.hulls.clear();
-
-            self.hulls.drain(..).for_each(|mut hull| {
-                let (hull_data, hull_render_data) = hull.bind_mut().finish();
-                self.entity_data.hulls.push(hull_data);
-                self.entity_render_data.hulls.push(hull_render_data);
-            });
-        }
-
-        Data::add_entity(
+        let entity_data_id = Data::add_entity(
             self.path.clone(),
             std::mem::take(&mut self.entity_data),
             std::mem::take(&mut self.entity_render_data),
         );
+
+        if let Some(mut ship_data) = self.ship_data.take() {
+            ship_data.entity_data_id = entity_data_id;
+            Data::add_ship(self.path.clone(), ship_data);
+        }
     }
 
     #[func]
     fn set_path(&mut self, path: GodotString) {
-        self.handle(0);
         self.path = path.to_string();
     }
 
     #[func]
     fn set_linear_acceleration(&mut self, linear_acceleration: f32) {
-        self.handle(1);
         self.entity_data.mobility.linear_acceleration = linear_acceleration;
     }
 
     #[func]
     fn set_angular_acceleration(&mut self, angular_acceleration: f32) {
-        self.handle(2);
         self.entity_data.mobility.angular_acceleration = angular_acceleration;
     }
 
     #[func]
     fn set_max_linear_velocity(&mut self, max_linear_velocity: f32) {
-        self.handle(3);
         self.entity_data.mobility.max_linear_velocity = max_linear_velocity;
     }
 
     #[func]
     fn set_max_angular_velocity(&mut self, max_angular_velocity: f32) {
-        self.handle(4);
         self.entity_data.mobility.max_angular_velocity = max_angular_velocity;
     }
 
     #[func]
     fn set_simulation_script(&mut self, script: Variant) {
-        self.handle(5);
         self.entity_data.script = EntityScriptData::new(script);
+    }
+
+    #[func]
+    fn set_hull(&mut self, hull: i32) {
+        self.entity_data.defence.hull = hull;
+    }
+
+    #[func]
+    fn set_armor(&mut self, armor: i32) {
+        self.entity_data.defence.armor = armor;
+    }
+
+    #[func]
+    fn set_density(&mut self, density: f32) {
+        self.entity_data.density = density;
     }
 
     #[func]
@@ -148,108 +86,29 @@ impl EntityDataBuilder {
         position_offset: Vector2,
         rotation_offset: f32,
     ) {
-        self.handle(6);
         self.entity_render_data.render_scene = render_scene;
-        self.entity_render_data.render_scene_position_offset = position_offset;
-        self.entity_render_data.render_scene_rotation_offset = rotation_offset;
+        self.entity_render_data.position_offset = position_offset;
+        self.entity_render_data.rotation_offset = rotation_offset;
     }
 
     #[func]
     fn set_aproximate_radius(&mut self, radius_aprox: f32) {
-        self.handle(7);
         self.entity_render_data.radius_aprox = radius_aprox;
     }
 
     #[func]
-    fn add_hull(&mut self, hull: Gd<HullDataBuilder>) {
-        self.hulls.push(hull);
-    }
-}
-#[godot_api]
-impl GodotExt for EntityDataBuilder {
-    fn init(base: Base<Self::Base>) -> Self {
-        Self {
-            path: Default::default(),
-            entity_data: Default::default(),
-            entity_render_data: Default::default(),
-            hulls: Default::default(),
-            handled: AHashSet::from_iter(0..=10),
-            base,
-        }
-    }
-}
-
-#[derive(GodotClass)]
-#[class(base=Resource)]
-struct HullDataBuilder {
-    hull_data: HullData,
-    hull_render_data: HullRenderData,
-    handled: AHashSet<i32>,
-    #[base]
-    base: Base<Resource>,
-}
-impl HullDataBuilder {
-    fn finish(&mut self) -> (HullData, HullRenderData) {
-        assert!(self.handled.is_empty());
-
-        (
-            std::mem::take(&mut self.hull_data),
-            std::mem::take(&mut self.hull_render_data),
-        )
-    }
-
-    fn handle(&mut self, i: i32) {
-        assert!(self.handled.remove(&i));
-    }
-}
-#[godot_api]
-impl HullDataBuilder {
-    #[func]
-    fn set_render_node_idx(&mut self, render_node_idx: i64) {
-        self.handle(0);
-        self.hull_render_data.render_node_idx = render_node_idx;
-    }
-
-    #[func]
-    fn set_hull(&mut self, hull: i32) {
-        self.handle(1);
-        self.hull_data.defence.hull = hull;
-    }
-
-    #[func]
-    fn set_armor(&mut self, armor: i32) {
-        self.handle(2);
-        self.hull_data.defence.armor = armor;
-    }
-
-    #[func]
-    fn set_density(&mut self, density: f32) {
-        self.handle(3);
-        self.hull_data.density = density;
-    }
-
-    #[func]
-    fn set_initial_position(&mut self, position: Vector2, rotation: f32) {
-        self.handle(4);
-        self.hull_data.init_position = na::Isometry2::new(position.to_na_descaled(), rotation);
-    }
-
-    #[func]
     fn set_shape_circle(&mut self, radius: f32) {
-        self.handle(5);
-        self.hull_data.shape = SharedShape::ball(radius / GODOT_SCALE);
+        self.entity_data.shape = SharedShape::ball(radius / GODOT_SCALE);
     }
 
     #[func]
     fn set_shape_cuboid(&mut self, half_size: Vector2) {
-        self.handle(5);
         let half_size = half_size.to_na_descaled();
-        self.hull_data.shape = SharedShape::cuboid(half_size.x, half_size.y);
+        self.entity_data.shape = SharedShape::cuboid(half_size.x, half_size.y);
     }
 
     #[func]
     fn set_shape_polygon(&mut self, points: PackedVector2Array) {
-        self.handle(5);
         let vertices = points
             .to_vec()
             .into_iter()
@@ -268,23 +127,27 @@ impl HullDataBuilder {
             .map(|i| [i, i + 1])
             .collect::<Vec<_>>();
 
-        self.hull_data.shape = SharedShape::convex_decomposition(&vertices, indices.as_slice());
+        self.entity_data.shape = SharedShape::convex_decomposition(&vertices, indices.as_slice());
     }
 
     #[func]
-    fn set_render_node_offset(&mut self, offset: Vector2, rotation: f32) {
-        self.handle(6);
-        self.hull_render_data.render_node_position_offset = offset;
-        self.hull_render_data.render_node_rotation_offset = rotation;
+    fn set_ship_display_name(&mut self, display_name: GodotString) {
+        self.ship_data.get_or_insert_default().display_name = display_name.to_string();
+    }
+
+    #[func]
+    fn set_ship_texture(&mut self, texture: Gd<Texture2D>) {
+        self.ship_data.get_or_insert_default().texture = texture;
     }
 }
 #[godot_api]
-impl GodotExt for HullDataBuilder {
+impl GodotExt for EntityDataBuilder {
     fn init(base: Base<Self::Base>) -> Self {
         Self {
-            hull_data: Default::default(),
-            hull_render_data: Default::default(),
-            handled: AHashSet::from_iter(0..=6),
+            path: Default::default(),
+            entity_data: Default::default(),
+            entity_render_data: Default::default(),
+            ship_data: None,
             base,
         }
     }

@@ -8,7 +8,7 @@ func load_data() -> void:
 	clear_data()
 	
 	# [[path, node]]
-	var nodes = []
+	var nodes := []
 	var dirs :Array[String] = ["res:/"]
 	while !dirs.is_empty():
 		var current_path :String = dirs.pop_back() + "/"
@@ -27,22 +27,12 @@ func load_data() -> void:
 	
 	nodes.sort_custom(_sort_nodes)
 	
-	var entity_data := []
-	var ship_data := []
-	for node in nodes:
-		if node[1] is EntityData:
-			entity_data.push_back(node)
-		else:
-			ship_data.push_back(node)
-	
-	for e in entity_data:
+	for e in nodes:
 		_build_entity_data(e[0], e[1])
-	for s in ship_data:
-		_build_ship_data(s[0], s[1])
 	
 	dbg_print_data()
 
-func _try_load_path(path: String) -> Node:
+func _try_load_path(path: String) -> EntityData:
 	var ext := path.get_extension()
 	if ext != "tscn" && ext != "scn":
 		return null
@@ -54,7 +44,7 @@ func _try_load_path(path: String) -> Node:
 		return null
 	
 	var node := res.instantiate()
-	if node is ShipData || node is EntityData:
+	if node is EntityData:
 		return node
 	else:
 		node.free()
@@ -67,60 +57,54 @@ func _build_entity_data(path: String, e: EntityData) -> void:
 	var b := EntityDataBuilder.new()
 	
 	b.set_path(path)
-	b.set_angular_acceleration(e.angular_acceleration)
-	b.set_simulation_script(e.simulation_script)
-	b.set_aproximate_radius(e.aproximate_radius)
+	
 	b.set_linear_acceleration(e.linear_acceleration)
-	b.set_max_angular_velocity(e.max_angular_velocity)
+	b.set_angular_acceleration(e.angular_acceleration)
 	b.set_max_linear_velocity(e.max_linear_velocity)
+	b.set_max_angular_velocity(e.max_angular_velocity)
 	
-	# Handle hulls
-	var i := 0
-	for child in e.get_children():
-		var h := child as HullData
-		if h:
-			var hb := HullDataBuilder.new()
-			hb.set_render_node_idx(i)
-			_build_hull_data(hb, h)
-			b.add_hull(hb)
-		i += 1
+	b.set_simulation_script(e.simulation_script)
 	
-	var p := PackedScene.new()
-	p.pack(e)
-	b.set_render_scene(p)
+	b.set_hull(e.hull)
+	b.set_armor(e.armor)
+	b.set_density(e.density)
 	
-	b.build()
-	e.free()
-
-func _build_hull_data(b: HullDataBuilder, h: HullData):
-	b.set_armor(h.armor)
-	b.set_density(h.density)
-	b.set_hull(h.hull)
+	b.set_aproximate_radius(e.aproximate_radius)
 	
-	if h.collision_shape is CollisionShape2D:
-		var c :CollisionShape2D = h.collision_shape
+	# Set the shape
+	if e.collision_shape is CollisionShape2D:
+		var c :CollisionShape2D = e.collision_shape
 		if c.shape is CircleShape2D:
 			var s : CircleShape2D = c.shape
 			b.set_shape_circle(s.radius)
 		elif c.shape is RectangleShape2D:
 			var s : RectangleShape2D = c.shape
 			b.set_shape_cuboid(s.size * 0.5)
-	else:
-		var c :CollisionPolygon2D = h.collision_shape
+		else:
+			push_warning("Shape not handled")
+		c.free()
+	elif e.collision_shape is CollisionPolygon2D:
+		var c :CollisionPolygon2D = e.collision_shape
 		b.set_shape_polygon(c.get_polygon())
-	h.collision_shape.free()
+		c.free()
+	else:
+		push_warning("No shape")
 	
-	h.set_script(h.render_script)
-
-func _build_ship_data(ship_path: String, s: ShipData) -> void:
-	var b := ShipDataBuilder.new()
+	# Handle if this is a ship
+	if e.ship_data:
+		b.set_ship_display_name(e.ship_data.display_name)
+		if e.texture:
+			b.set_ship_texture(e.texture)
 	
-	b.set_path(ship_path)
-	b.set_entity_data_path(s.entity_path)
-	b.set_display_name(s.display_name)
-	var texture := s.get_texture()
-	if texture:
-		b.set_texture(texture)
+	# Create the render scene
+	e.set_script(e.render_script)
+	var position_offset := e.position
+	var rotation_offset := e.rotation
+	e.position = Vector2.ZERO
+	e.rotation = 0.0
+	var p := PackedScene.new()
+	p.pack(e)
+	b.set_render_scene(p, position_offset, rotation_offset)
 	
 	b.build()
-	s.free()
+	e.free()
