@@ -288,7 +288,8 @@ impl Battlescape {
         let entity = &mut self.entities[entity_idx];
         entity.start(bs_ptr, entity_idx);
 
-        self.events.entity_added(entity_id, &entity);
+        self.events
+            .entity_added(entity_id, &entity, translation, angle);
 
         entity_id
     }
@@ -330,6 +331,13 @@ impl Battlescape {
     fn entity_spawn_point(&mut self, team: u32) -> (na::Vector2<f32>, f32) {
         // TODO: No overlapping.
         self.spawn_point(team)
+    }
+
+    pub fn entity_position(&self, entity_id: EntityId) -> Isometry<Real> {
+        self.entities
+            .get(&entity_id)
+            .map(|entity| *self.physics.bodies[entity.rb].position())
+            .unwrap_or_default()
     }
 }
 impl Default for Battlescape {

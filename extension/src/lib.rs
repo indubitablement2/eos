@@ -50,6 +50,7 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Do not create node when taking render events.
 
 // TODO: When serializing/deserializing, check if anything is an EntityScript then convert it to its id.
+// TODO: Add optional array of entity path to data which will be converted to EntityId and given to EntityScript.
 
 // TODO: Do not instance render sprite on sim thread.
 

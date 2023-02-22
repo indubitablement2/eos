@@ -402,8 +402,11 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
         &mut self,
         entity_id: battlescape::EntityId,
         entity: &battlescape::entity::Entity,
+        translation: na::Vector2<f32>,
+        angle: f32,
     ) {
-        self.render.entity_added(entity_id, entity);
+        self.render
+            .entity_added(entity_id, entity, translation, angle);
     }
 
     fn battle_over(&mut self) {

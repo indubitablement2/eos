@@ -7,7 +7,13 @@ pub trait BattlescapeEventHandlerTrait {
     fn fleet_added(&mut self, fleet_id: FleetId);
     fn ship_state_changed(&mut self, fleet_id: FleetId, ship_idx: usize, state: FleetShipState);
     fn entity_removed(&mut self, entity_id: EntityId, entity: Entity);
-    fn entity_added(&mut self, entity_id: EntityId, entity: &Entity);
+    fn entity_added(
+        &mut self,
+        entity_id: EntityId,
+        entity: &Entity,
+        translation: na::Vector2<f32>,
+        angle: f32,
+    );
     /// Calling step after this event is emitted will have no effect.
     fn battle_over(&mut self);
 }
@@ -65,11 +71,21 @@ impl BattlescapeEventHandlerTrait for BattlescapeEventHandler {
         }
     }
 
-    fn entity_added(&mut self, entity_id: EntityId, entity: &Entity) {
+    fn entity_added(
+        &mut self,
+        entity_id: EntityId,
+        entity: &Entity,
+        translation: na::Vector2<f32>,
+        angle: f32,
+    ) {
         match self {
             BattlescapeEventHandler::None => {}
-            BattlescapeEventHandler::Client(events) => events.entity_added(entity_id, entity),
-            BattlescapeEventHandler::Server(events) => events.entity_added(entity_id, entity),
+            BattlescapeEventHandler::Client(events) => {
+                events.entity_added(entity_id, entity, translation, angle)
+            }
+            BattlescapeEventHandler::Server(events) => {
+                events.entity_added(entity_id, entity, translation, angle)
+            }
         }
     }
 
@@ -88,7 +104,14 @@ impl BattlescapeEventHandlerTrait for () {
     fn ship_state_changed(&mut self, _fleet_id: FleetId, _ship_idx: usize, _state: FleetShipState) {
     }
     fn entity_removed(&mut self, _entity_id: EntityId, _entity: Entity) {}
-    fn entity_added(&mut self, _entity_id: EntityId, _entity: &Entity) {}
+    fn entity_added(
+        &mut self,
+        _entity_id: EntityId,
+        _entity: &Entity,
+        _translation: na::Vector2<f32>,
+        _angle: f32,
+    ) {
+    }
     fn battle_over(&mut self) {}
 }
 

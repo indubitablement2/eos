@@ -1,4 +1,5 @@
 use super::*;
+use crate::battlescape::entity::Entity;
 use crate::battlescape::events::BattlescapeEventHandlerTrait;
 use crate::battlescape::*;
 use crate::util::*;
@@ -11,24 +12,20 @@ use godot::prelude::*;
 pub struct RenderBattlescapeEventHandler {
     pub take_full: bool,
     entity_snapshots: AHashMap<EntityId, EntitySnapshot>,
-    new_entities: Vec<(EntityId, EntityRender)>,
+    new_entities: Vec<(EntityId, InitEntityRender)>,
     removed_entities: Vec<EntityId>,
 }
 impl BattlescapeEventHandlerTrait for RenderBattlescapeEventHandler {
-    fn stepped(&mut self, bc: &Battlescape) {
+    fn stepped(&mut self, bs: &Battlescape) {
         // Take the position of all entities and their hulls.
-        self.entity_snapshots = bc
+        self.entity_snapshots = bs
             .entities
-            .iter()
-            .map(|(entity_id, entity)| {
-                let rb = &bc.physics.bodies[entity.rb];
+            .keys()
+            .map(|entity_id| {
                 (
                     *entity_id,
                     EntitySnapshot {
-                        position: Position {
-                            pos: rb.translation().to_godot_scaled(),
-                            rot: rb.rotation().angle(),
-                        },
+                        position: Position::new(bs.entity_position(*entity_id)),
                     },
                 )
             })
@@ -36,10 +33,18 @@ impl BattlescapeEventHandlerTrait for RenderBattlescapeEventHandler {
 
         if self.take_full {
             // Take a full snapshot of the battlescape.
-            self.new_entities = bc
+            self.new_entities = bs
                 .entities
                 .iter()
-                .map(|(entity_id, entity)| (*entity_id, EntityRender::new(entity)))
+                .map(|(entity_id, entity)| {
+                    (
+                        *entity_id,
+                        InitEntityRender::new(
+                            entity,
+                            Position::new(bs.entity_position(*entity_id)),
+                        ),
+                    )
+                })
                 .collect();
         }
     }
@@ -60,10 +65,18 @@ impl BattlescapeEventHandlerTrait for RenderBattlescapeEventHandler {
         }
     }
 
-    fn entity_added(&mut self, entity_id: EntityId, entity: &entity::Entity) {
+    fn entity_added(
+        &mut self,
+        entity_id: EntityId,
+        entity: &entity::Entity,
+        translation: na::Vector2<f32>,
+        angle: f32,
+    ) {
         if !self.take_full {
-            self.new_entities
-                .push((entity_id, EntityRender::new(entity)));
+            self.new_entities.push((
+                entity_id,
+                InitEntityRender::new(entity, Position::new2(translation, angle)),
+            ));
         }
     }
 
@@ -84,6 +97,20 @@ pub struct Position {
     pub rot: f32,
 }
 impl Position {
+    fn new(iso: na::Isometry2<f32>) -> Self {
+        Self {
+            pos: iso.translation.to_godot_scaled(),
+            rot: iso.rotation.angle(), // TODO: A way to use hardware acceleration.
+        }
+    }
+
+    fn new2(translation: na::Vector2<f32>, angle: f32) -> Self {
+        Self {
+            pos: translation.to_godot_scaled(),
+            rot: angle,
+        }
+    }
+
     fn lerp(&self, to: &Self, weight: f32) -> Self {
         Self {
             pos: self.pos.lerp(to.pos, weight),
@@ -96,6 +123,21 @@ struct EntitySnapshot {
     position: Position,
 }
 
+struct InitEntityRender {
+    pub position: Position,
+    pub entity_data_id: EntityDataId,
+    pub fleet_ship: Option<FleetShip>,
+}
+impl InitEntityRender {
+    fn new(entity: &Entity, position: Position) -> Self {
+        Self {
+            position,
+            entity_data_id: entity.entity_data_id,
+            fleet_ship: entity.fleet_ship,
+        }
+    }
+}
+
 pub struct EntityRender {
     /// The entity position with its sprite offset.
     pub position: Position,
@@ -104,10 +146,8 @@ pub struct EntityRender {
     pub fleet_ship: Option<FleetShip>,
 }
 impl EntityRender {
-    /// Will not be added to the scene.
-    /// `node` need to manualy free if this is drop before a call to `insert_to_scene`.
-    fn new(entity: &entity::Entity) -> Self {
-        let sprite = entity
+    fn new(init: InitEntityRender, draw_node: &Gd<Node2D>) -> Self {
+        let sprite = init
             .entity_data_id
             .render_data()
             .render_scene
@@ -115,29 +155,30 @@ impl EntityRender {
             .map(|node| node.cast::<Sprite2D>())
             .unwrap_or_else(|| Sprite2D::new_alloc());
 
+        add_child(draw_node, &sprite);
+
         // TODO: Set hull shader.
 
-        EntityRender {
+        let mut s = EntityRender {
             sprite,
             position: Default::default(),
-            entity_data_id: entity.entity_data_id,
-            fleet_ship: entity.fleet_ship,
-        }
+            entity_data_id: init.entity_data_id,
+            fleet_ship: init.fleet_ship,
+        };
+
+        s.set_position(init.position);
+
+        s
     }
 
     fn set_position(&mut self, new_position: Position) {
-        self.position.pos = new_position.pos;
-        self.position.rot = new_position.rot;
+        self.position = new_position;
 
         self.sprite
             .set_position(new_position.pos + self.entity_data_id.render_data().position_offset);
         self.sprite.set_rotation(
             (new_position.rot + self.entity_data_id.render_data().rotation_offset) as f64,
         );
-    }
-
-    fn insert_to_scene(&self, draw_node: &Gd<Node2D>) {
-        add_child(draw_node, &self.sprite);
     }
 }
 impl Drop for EntityRender {
@@ -164,8 +205,8 @@ impl BattlescapeRender {
     }
 
     pub fn handle_event(&mut self, event: &mut ClientBattlescapeEventHandler) {
-        for (entity_id, entity_render) in event.render.new_entities.drain(..) {
-            entity_render.insert_to_scene(&self.node);
+        for (entity_id, init) in event.render.new_entities.drain(..) {
+            let entity_render = EntityRender::new(init, &self.node);
             self.entity_renders.insert(entity_id, entity_render);
         }
 
