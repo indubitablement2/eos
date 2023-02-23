@@ -131,23 +131,23 @@ impl ClientBattlescape {
 
     /// ---------- Entity ----------
 
-    #[func]
-    fn get_entity_at(&mut self, position: Vector2) -> i64 {
-        let mut selected_distance_squared = f32::MAX;
-        let mut selected_id = -1;
+    // #[func]
+    // fn get_entity_at(&mut self, position: Vector2) -> i64 {
+    //     let mut selected_distance_squared = f32::MAX;
+    //     let mut selected_id = -1;
 
-        for (entity_id, entity) in self.render.entity_renders.iter() {
-            let pos = entity.position.pos;
-            let r = entity.entity_data_id.render_data().radius_aprox;
-            let dist = pos.distance_squared_to(position);
-            if r * r > dist && dist < selected_distance_squared {
-                selected_distance_squared = dist;
-                selected_id = entity_id.0 as i64;
-            }
-        }
+    //     for (entity_id, entity) in self.render.entity_renders.iter() {
+    //         let pos = entity.position.pos;
+    //         let r = entity.entity_data_id.render_data().radius_aprox;
+    //         let dist = pos.distance_squared_to(position);
+    //         if r * r > dist && dist < selected_distance_squared {
+    //             selected_distance_squared = dist;
+    //             selected_id = entity_id.0 as i64;
+    //         }
+    //     }
 
-        selected_id
-    }
+    //     selected_id
+    // }
 
     #[func]
     fn get_owned_entity_at(&mut self, position: Vector2) -> i64 {
@@ -155,19 +155,14 @@ impl ClientBattlescape {
         let mut selected_id = -1;
 
         for (entity_id, entity) in self.render.entity_renders.iter() {
-            if !entity
-                .fleet_ship
-                .as_ref()
-                .and_then(|(fleet_id, _)| self.fleets.get(fleet_id).unwrap().owner)
-                .is_some_and(|fleet_owner| fleet_owner == self.client_id)
-            {
+            if !entity.owner.is_some_and(|owner| owner == self.client_id) {
                 continue;
             }
 
-            let pos = entity.position.pos;
-            let r = entity.entity_data_id.render_data().radius_aprox;
-            let dist = pos.distance_squared_to(position);
-            if r * r > dist && dist < selected_distance_squared {
+            let dist = entity.position().distance_squared_to(position);
+            if entity.entity_data_id.render_data().radius_aprox.powi(2) > dist
+                && dist < selected_distance_squared
+            {
                 selected_distance_squared = dist;
                 selected_id = entity_id.0 as i64;
             }
@@ -240,6 +235,7 @@ impl GodotExt for ClientBattlescape {
                     ClientBattlescapeEventHandler::new(
                         was_catching_up,
                         next_cmd_tick == self.hash_on_tick,
+                        self.client_id,
                     ),
                 );
                 self.cmd_tick = next_cmd_tick;
@@ -315,7 +311,7 @@ impl GodotExt for ClientBattlescape {
             // Add inputs cmd
             if !hidden && self.client_type != ClientType::Replay {
                 cmds.push(SetClientInput {
-                    caller: self.render.client_id,
+                    caller: self.client_id,
                     inputs: self.inputs.to_client_inputs(&self.base),
                 });
             }
@@ -348,9 +344,9 @@ pub struct ClientBattlescapeEventHandler {
     render: RenderBattlescapeEventHandler,
 }
 impl ClientBattlescapeEventHandler {
-    fn new(take_full: bool, take_hash: bool) -> Self {
+    fn new(take_full: bool, take_hash: bool, client_id: ClientId) -> Self {
         Self {
-            render: RenderBattlescapeEventHandler::new(take_full),
+            render: RenderBattlescapeEventHandler::new(take_full, client_id),
             take_hash: take_hash.then_some(0),
             ..Default::default()
         }

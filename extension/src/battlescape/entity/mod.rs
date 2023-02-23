@@ -8,6 +8,7 @@ use super::*;
 pub struct Entity {
     /// If this entity is a ship from a fleet.
     pub fleet_ship: Option<FleetShip>,
+    pub owner: Option<ClientId>,
     pub team: u32,
 
     pub entity_data_id: EntityDataId,
@@ -30,6 +31,7 @@ impl Entity {
     pub fn new(
         entity_data_id: EntityDataId,
         fleet_ship: Option<FleetShip>,
+        owner: Option<ClientId>,
         team: u32,
         rb: RigidBodyHandle,
         hull_collider: ColliderHandle,
@@ -44,6 +46,7 @@ impl Entity {
 
         Self {
             fleet_ship,
+            owner,
             team,
             entity_data_id,
             rb,

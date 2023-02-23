@@ -1,8 +1,8 @@
 extends Client
 
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		clear_data()
+#func _notification(what: int) -> void:
+#	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+#		clear_data()
 
 func load_data() -> void:
 	clear_data()

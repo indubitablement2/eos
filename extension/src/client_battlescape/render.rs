@@ -11,6 +11,9 @@ use godot::prelude::*;
 #[derive(Default)]
 pub struct RenderBattlescapeEventHandler {
     pub take_full: bool,
+    client_id: ClientId,
+
+    team: Option<Team>,
     entity_snapshots: AHashMap<EntityId, EntitySnapshot>,
     new_entities: Vec<(EntityId, InitEntityRender)>,
     removed_entities: Vec<EntityId>,
@@ -46,6 +49,14 @@ impl BattlescapeEventHandlerTrait for RenderBattlescapeEventHandler {
                     )
                 })
                 .collect();
+        }
+
+        // Try to get our team.
+        for fleet in bs.fleets.values() {
+            if fleet.owner.is_some_and(|owner| owner == self.client_id) {
+                self.team = Some(fleet.team);
+                break;
+            }
         }
     }
 
@@ -83,9 +94,10 @@ impl BattlescapeEventHandlerTrait for RenderBattlescapeEventHandler {
     fn battle_over(&mut self) {}
 }
 impl RenderBattlescapeEventHandler {
-    pub fn new(take_full: bool) -> Self {
+    pub fn new(take_full: bool, client_id: ClientId) -> Self {
         Self {
             take_full,
+            client_id,
             ..Default::default()
         }
     }
@@ -125,13 +137,17 @@ struct EntitySnapshot {
 }
 
 struct InitEntityRender {
-    pub position: Position,
-    pub entity_data_id: EntityDataId,
-    pub fleet_ship: Option<FleetShip>,
+    team: Team,
+    owner: Option<ClientId>,
+    position: Position,
+    entity_data_id: EntityDataId,
+    fleet_ship: Option<FleetShip>,
 }
 impl InitEntityRender {
     fn new(entity: &Entity, position: Position) -> Self {
         Self {
+            team: entity.team,
+            owner: entity.owner,
             position,
             entity_data_id: entity.entity_data_id,
             fleet_ship: entity.fleet_ship,
@@ -139,10 +155,20 @@ impl InitEntityRender {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EntityRelation {
+    Owned,
+    Friendly,
+    Neutral,
+    Enemy,
+}
+
 pub struct EntityRender {
-    /// The entity position with its sprite offset.
-    pub position: Position,
+    pub relation: EntityRelation,
+    pub team: Team,
+    pub owner: Option<ClientId>,
     sprite: Gd<Sprite2D>,
+    draw: Gd<EntityDraw>,
     pub entity_data_id: EntityDataId,
     pub fleet_ship: Option<FleetShip>,
 }
@@ -160,9 +186,19 @@ impl EntityRender {
 
         // TODO: Set hull shader.
 
+        let draw = EntityDraw::new(
+            &sprite,
+            init.entity_data_id,
+            Color::from_rgba(1.0, 0.0, 0.0, 0.1),
+            true,
+        );
+
         let mut s = EntityRender {
+            relation: EntityRelation::Neutral,
+            team: init.team,
+            owner: init.owner,
             sprite,
-            position: Default::default(),
+            draw,
             entity_data_id: init.entity_data_id,
             fleet_ship: init.fleet_ship,
         };
@@ -173,13 +209,39 @@ impl EntityRender {
     }
 
     fn set_position(&mut self, new_position: Position) {
-        self.position = new_position;
-
         self.sprite
             .set_position(new_position.pos + self.entity_data_id.render_data().position_offset);
         self.sprite.set_rotation(
             (new_position.rot + self.entity_data_id.render_data().rotation_offset) as f64,
         );
+    }
+
+    fn update_relation(&mut self, client_id: ClientId, team: Team) {
+        fn update_col(draw: &mut Gd<EntityDraw>, color: Color) {
+            let mut b = draw.bind_mut();
+            b.draw_color = color;
+            b.queue_redraw();
+        }
+
+        if let Some(owner) = self.owner {
+            if owner == client_id {
+                self.relation = EntityRelation::Owned;
+                update_col(&mut self.draw, Color::from_rgb(0.0, 1.0, 0.0));
+            } else if self.team == team {
+                self.relation = EntityRelation::Friendly;
+                update_col(&mut self.draw, Color::from_rgb(1.0, 0.5, 0.0));
+            } else {
+                self.relation = EntityRelation::Enemy;
+                update_col(&mut self.draw, Color::from_rgb(1.0, 0.0, 0.0));
+            }
+        } else {
+            self.relation = EntityRelation::Neutral;
+            update_col(&mut self.draw, Color::from_rgb(0.5, 0.5, 0.5));
+        }
+    }
+
+    pub fn position(&self) -> Vector2 {
+        self.draw.bind().get_global_position()
     }
 }
 impl Drop for EntityRender {
@@ -191,7 +253,8 @@ impl Drop for EntityRender {
 unsafe impl Send for EntityRender {}
 
 pub struct BattlescapeRender {
-    pub client_id: ClientId,
+    client_id: ClientId,
+    team: Option<Team>,
     node: Gd<Node2D>,
 
     pub entity_renders: AHashMap<EntityId, EntityRender>,
@@ -200,14 +263,25 @@ impl BattlescapeRender {
     pub fn new(client_id: ClientId, node: Gd<Node2D>) -> Self {
         Self {
             client_id,
+            team: None,
             node,
             entity_renders: Default::default(),
         }
     }
 
     pub fn handle_event(&mut self, event: &mut ClientBattlescapeEventHandler) {
+        if let Some(team) = event.render.team {
+            self.team = Some(team);
+            for entity in self.entity_renders.values_mut() {
+                entity.update_relation(self.client_id, team);
+            }
+        }
+
         for (entity_id, init) in event.render.new_entities.drain(..) {
-            let entity_render = EntityRender::new(init, &self.node);
+            let mut entity_render = EntityRender::new(init, &self.node);
+            if let Some(team) = self.team {
+                entity_render.update_relation(self.client_id, team);
+            }
             self.entity_renders.insert(entity_id, entity_render);
         }
 
@@ -234,6 +308,66 @@ impl BattlescapeRender {
                 let new_position = from.position.lerp(&to.position, weight);
                 render_entity.set_position(new_position);
             }
+        }
+    }
+}
+
+#[derive(GodotClass)]
+#[class(base=Node2D)]
+struct EntityDraw {
+    entity_data_id: EntityDataId,
+    draw_rect: bool,
+    draw_color: Color,
+    #[base]
+    base: Base<Node2D>,
+}
+impl EntityDraw {
+    fn new(
+        parent: &Gd<Sprite2D>,
+        entity_data_id: EntityDataId,
+        draw_color: Color,
+        draw_rect: bool,
+    ) -> Gd<Self> {
+        Gd::<Self>::with_base(|mut base| {
+            add_child(parent, &base);
+
+            base.set_rotation(-entity_data_id.render_data().rotation_offset as f64);
+            base.set_position(-entity_data_id.render_data().position_offset);
+
+            let obj = base.share();
+            base.connect(
+                "draw".into(),
+                Callable::from_object_method(obj, "__draw"),
+                0,
+            );
+
+            Self {
+                entity_data_id,
+                draw_rect,
+                draw_color,
+                base,
+            }
+        })
+    }
+}
+#[godot_api]
+impl EntityDraw {
+    // TODO: Remove when _draw() is implemented.
+    #[func]
+    fn __draw(&mut self) {
+        let r = self.entity_data_id.render_data().radius_aprox;
+
+        if self.draw_rect {
+            // self.base.draw_set_transform(
+            //     -self.entity_data_id.render_data().position_offset,
+            //     -self.entity_data_id.render_data().rotation_offset as f64,
+            //     Vector2::ONE,
+            // );
+
+            self.base
+                .draw_circle(Vector2::ZERO, r as f64, self.draw_color.with_alpha(0.1));
+            // let rect = Rect2{ opaque: todo!() }
+            // self.draw_rect(rect, self.color, false, 2.0);
         }
     }
 }

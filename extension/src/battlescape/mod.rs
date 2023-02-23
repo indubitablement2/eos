@@ -25,6 +25,7 @@ type Entities = IndexMap<EntityId, Entity, RandomState>;
 type Clients = IndexMap<ClientId, BattlescapeClient, RandomState>;
 pub type Fleets = IndexMap<FleetId, BattlescapeFleet, RandomState>;
 pub type FleetShip = (FleetId, usize);
+pub type Team = u32;
 
 pub const DT: f32 = 1.0 / 20.0;
 pub const DT_MS: u32 = 50;
@@ -49,7 +50,7 @@ pub struct Battlescape {
     #[serde(skip)]
     pub events: BattlescapeEventHandler,
 
-    pub team_num_active_ship: AHashMap<u32, u32>,
+    pub team_num_active_ship: AHashMap<Team, i32>,
     pub fleets: Fleets,
     pub clients: Clients,
 
@@ -220,19 +221,19 @@ impl Battlescape {
     }
 
     fn add_fleet_ship(&mut self, fleet_id: FleetId, ship_idx: usize, prefered_spawn_point: usize) {
-        let (condition, entity_data_id, team) = if let Some(fleet) = self.fleets.get_mut(&fleet_id)
-        {
-            if let Some((condition, entity_data_id)) = fleet.try_spawn(ship_idx) {
-                self.events
-                    .ship_state_changed(fleet_id, ship_idx, FleetShipState::Spawned);
+        let (condition, entity_data_id, owner, team) =
+            if let Some(fleet) = self.fleets.get_mut(&fleet_id) {
+                if let Some((condition, entity_data_id)) = fleet.try_spawn(ship_idx) {
+                    self.events
+                        .ship_state_changed(fleet_id, ship_idx, FleetShipState::Spawned);
 
-                (condition, entity_data_id, fleet.team)
+                    (condition, entity_data_id, fleet.owner, fleet.team)
+                } else {
+                    return;
+                }
             } else {
                 return;
-            }
-        } else {
-            return;
-        };
+            };
 
         *self.team_num_active_ship.entry(team).or_default() += 1;
 
@@ -242,6 +243,7 @@ impl Battlescape {
             translation,
             angle,
             Some((fleet_id, ship_idx)),
+            owner,
             team,
             condition,
         );
@@ -253,6 +255,7 @@ impl Battlescape {
         translation: na::Vector2<f32>,
         angle: f32,
         fleet_ship: Option<FleetShip>,
+        owner: Option<ClientId>,
         team: u32,
         condition: EntityCondition,
     ) -> EntityId {
@@ -277,6 +280,7 @@ impl Battlescape {
         let entity = Entity::new(
             entity_data_id,
             fleet_ship,
+            owner,
             team,
             rb,
             hull_collider,

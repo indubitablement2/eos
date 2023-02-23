@@ -1,9 +1,8 @@
-[gd_scene load_steps=7 format=3 uid="uid://xid2yes0tgcs"]
+[gd_scene load_steps=6 format=3 uid="uid://xid2yes0tgcs"]
 
 [ext_resource type="Texture2D" uid="uid://cbr87hdo4doso" path="res://texture DELETE/void_fleet_by_ravendarke_2.png" id="1_1y845"]
 [ext_resource type="Script" path="res://data/EntityData.gd" id="1_so5g7"]
 [ext_resource type="Script" path="res://data/ShipData.gd" id="2_3meux"]
-[ext_resource type="Texture2D" uid="uid://dith2o30oafda" path="res://textures/circle64.png" id="4_sfaug"]
 
 [sub_resource type="GDScript" id="GDScript_176tx"]
 script/source = "extends EntityScript
@@ -30,10 +29,5 @@ aproximate_radius = 235.0
 hide_aproximate_radius_preview = false
 
 [node name="CollisionShape2D" type="CollisionPolygon2D" parent="."]
+visible = false
 polygon = PackedVector2Array(-26, -204, -4, -194, -24, -180, 82, -192, 123, -182, 129, -161, 84, -171, 6, -147, -25, -113, -36, -74, -23, -40, 2, -25, 8, -47, 31, -60, 19, -28, 42, -26, 40, -48, 70, -19, 82, -49, 71, -78, 87, -107, 124, -39, 140, 22, 118, 54, 81, 81, 99, 117, 80, 188, 52, 203, 54, 171, 6, 171, 9, 204, -20, 187, -38, 112, -23, 79, -70, 45, -99, -39, -92, -117, -130, -89, -139, -95, -101, -142)
-
-[node name="Sprite2D" type="Sprite2D" parent="."]
-modulate = Color(1, 1, 1, 0.2)
-position = Vector2(33, 31)
-scale = Vector2(7.256, 7.256)
-texture = ExtResource("4_sfaug")

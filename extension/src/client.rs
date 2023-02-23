@@ -31,6 +31,10 @@ impl Client {
 
     #[func]
     fn clear_data(&mut self) {
+        for (_, mut bs) in self.bss.drain() {
+            bs.bind_mut().queue_free();
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
         Data::clear();
     }
 
