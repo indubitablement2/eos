@@ -104,16 +104,11 @@ impl Command for AddFleet {
 pub struct SvAddShip {
     pub fleet_id: FleetId,
     pub ship_idx: u32,
-    pub prefered_spawn_point: u32,
 }
 impl Command for SvAddShip {
     fn apply(&self, bs: &mut Battlescape) {
         log::debug!("Adding ship #{} from {:?}", self.ship_idx, self.fleet_id);
-        bs.add_fleet_ship(
-            self.fleet_id,
-            self.ship_idx as usize,
-            self.prefered_spawn_point as usize,
-        );
+        bs.add_fleet_ship(self.fleet_id, self.ship_idx as usize);
     }
 
     fn to_typed(self) -> TypedCmd {
@@ -193,6 +188,7 @@ impl Command for SetClientControl {
             return;
         };
 
+        // Handle if we should simply remove control.
         let entity_id = if let Some(entity_id) = self.entity_id {
             entity_id
         } else {
@@ -201,7 +197,8 @@ impl Command for SetClientControl {
             return;
         };
 
-        let entity = if let Some(entity) = bs.entities.get(&entity_id) {
+        // Get the entity.
+        let (entity_index, _, entity) = if let Some(entity) = bs.entities.get_full(&entity_id) {
             entity
         } else {
             log::debug!(
@@ -211,47 +208,31 @@ impl Command for SetClientControl {
             return;
         };
 
-        let fleet_id = if let Some((fleet_id, _)) = entity.fleet_ship {
-            fleet_id
-        } else {
-            log::debug!(
-                "Got SetClientControl cmd, but {:?} is not part of a fleet. Ignoring...",
-                entity_id
-            );
-            return;
-        };
-
-        let fleet = if let Some(fleet) = bs.fleets.get(&fleet_id) {
-            fleet
-        } else {
-            log::debug!(
-                "Got SetClientControl cmd, but {:?} not found. Ignoring...",
-                fleet_id
-            );
-            return;
-        };
-
-        let fleet_owner = if let Some(fleet_owner) = &fleet.owner {
-            fleet_owner
+        // Check that caller own that entity.
+        if let Some(owner) = entity.owner {
+            if owner != self.caller {
+                log::debug!(
+                    "Got SetClientControl cmd, but {:?} is not owned by {:?}. Ignoring...",
+                    entity_id,
+                    self.caller
+                );
+                return;
+            }
         } else {
             log::debug!(
                 "Got SetClientControl cmd, but {:?} is not owned by anyone. Ignoring...",
-                fleet_id
-            );
-            return;
-        };
-
-        if fleet_owner == &self.caller {
-            log::debug!("{:?} now control {:?}", self.caller, entity_id);
-            client.control = Some(entity_id);
-        } else {
-            log::debug!(
-                "Got SetClientControl cmd, but {:?} does not own {:?}. Removing control...",
-                self.caller,
                 entity_id
             );
-            client.control = None;
+            return;
         }
+
+        log::debug!("{:?} now control {:?}", self.caller, entity_id);
+        client.control = Some(entity_id);
+        bs.ais.entry(entity_id).or_default().change_ai(
+            EntityAiType::ShipControlled,
+            entity_index,
+            &mut bs.entities,
+        );
     }
 
     fn to_typed(self) -> TypedCmd {

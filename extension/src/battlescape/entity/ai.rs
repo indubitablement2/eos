@@ -21,20 +21,20 @@ pub enum EntityAiType {
     Ship,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EntityAi {
-    target: Option<EntityId>,
+    pub target: Option<EntityId>,
     ai: EntityAiType,
 }
 impl EntityAi {
     pub fn new(
         target: Option<EntityId>,
         ai: EntityAiType,
-        entity_index: usize,
+        entity_idx: usize,
         entities: &mut Entities,
     ) -> Self {
         let mut s = Self { target, ai };
-        s.ai_changed(entity_index, entities, Default::default());
+        s.ai_changed(entity_idx, entities, Default::default());
         s
     }
 
@@ -47,10 +47,14 @@ impl EntityAi {
         }
     }
 
-    /// Ruturn `true` if this ai should be removed.
+    pub fn change_ai(&mut self, new_ai: EntityAiType, entity_idx: usize, entities: &mut Entities) {
+        let previous_ai = std::mem::replace(&mut self.ai, new_ai);
+        self.ai_changed(entity_idx, entities, previous_ai);
+    }
+
     pub fn update(
         &mut self,
-        entity_index: usize,
+        entity_idx: usize,
         entities: &mut Entities,
         physics: &mut Physics,
         clients: &mut Clients,
@@ -75,7 +79,7 @@ impl EntityAi {
             EntityAiType::Seek => {
                 if let Some(target_index) = target_index {
                     let position = *physics.body(entities[target_index].rb).translation();
-                    entities[entity_index].wish_angvel = WishAngVel::Aim { position };
+                    entities[entity_idx].wish_angvel = WishAngVel::Aim { position };
                 } else {
                     new_ai = Some(EntityAiType::Forward);
                 }
@@ -86,15 +90,15 @@ impl EntityAi {
             EntityAiType::Drone => todo!(),
             EntityAiType::DroneStationaryOffset => todo!(),
             EntityAiType::ShipControlled => {
-                let e = &mut entities[entity_index];
-                if let Some(client) = e
-                    .fleet_ship
-                    .and_then(|(fleet_id, _)| fleets.get(&fleet_id))
-                    .and_then(|fleet| fleet.owner)
-                    .and_then(|client_id| clients.get(&client_id))
-                {
-                    e.wish_angvel = client.client_inputs.wish_angvel;
-                    e.wish_linvel = client.client_inputs.wish_linvel;
+                let (&mut entity_id, e) = entities.get_index_mut(entity_idx).unwrap();
+                if let Some(client) = e.owner.and_then(|owner| clients.get(&owner)) {
+                    if client.control == Some(entity_id) {
+                        e.wish_angvel = client.client_inputs.wish_angvel;
+                        e.wish_linvel = client.client_inputs.wish_linvel;
+                    } else {
+                        // Client not controlling this entity.
+                        new_ai = Some(EntityAiType::Ship);
+                    }
                 } else {
                     // Client not found.
                     new_ai = Some(EntityAiType::Ship);
@@ -120,38 +124,37 @@ impl EntityAi {
         }
 
         if let Some(new_ai) = new_ai {
-            let previous_ai = std::mem::replace(&mut self.ai, new_ai);
-            self.ai_changed(entity_index, entities, previous_ai);
+            self.change_ai(new_ai, entity_idx, entities);
         }
     }
 
     fn ai_changed(
         &mut self,
-        entity_index: usize,
+        entity_idx: usize,
         entities: &mut Entities,
         previous_ai: EntityAiType,
     ) {
         match self.ai {
             EntityAiType::None => {}
             EntityAiType::Seek => {
-                entities[entity_index].wish_linvel = WishLinVel::Forward { force: 1.0 };
+                entities[entity_idx].wish_linvel = WishLinVel::Forward { force: 1.0 };
             }
             EntityAiType::Forward => {
-                entities[entity_index].wish_linvel = WishLinVel::Forward { force: 1.0 };
-                entities[entity_index].wish_angvel = WishAngVel::Cancel;
+                entities[entity_idx].wish_linvel = WishLinVel::Forward { force: 1.0 };
+                entities[entity_idx].wish_angvel = WishAngVel::Cancel;
             }
             EntityAiType::Fighter => {
-                entities[entity_index].wish_linvel = WishLinVel::Forward { force: 1.0 };
+                entities[entity_idx].wish_linvel = WishLinVel::Forward { force: 1.0 };
             }
             EntityAiType::Bomber => {
-                entities[entity_index].wish_linvel = WishLinVel::Forward { force: 1.0 };
+                entities[entity_idx].wish_linvel = WishLinVel::Forward { force: 1.0 };
             }
             EntityAiType::Drone => {}
             EntityAiType::DroneStationaryOffset => {}
             EntityAiType::Ship => {}
             EntityAiType::ShipControlled => {}
             EntityAiType::ShipEntering => {
-                entities[entity_index].wish_linvel = WishLinVel::Forward { force: 1.0 };
+                entities[entity_idx].wish_linvel = WishLinVel::Forward { force: 1.0 };
                 // TODO: Face a point forward from spawn position.
             }
         }

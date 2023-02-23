@@ -130,7 +130,6 @@ impl ShipSelection {
             let add_ship = SvAddShip {
                 fleet_id: fleet_ship.0,
                 ship_idx: fleet_ship.1 as u32,
-                prefered_spawn_point: 0,
             };
 
             if bs.can_cheat() {

@@ -13,7 +13,7 @@ use rapier2d::prelude::*;
 
 use bs_client::BattlescapeClient;
 use bs_fleet::{BattlescapeFleet, FleetShipState};
-use entity::ai::EntityAi;
+use entity::ai::*;
 use entity::{Entity, EntityCondition, WishAngVel, WishLinVel};
 use events::*;
 use physics::*;
@@ -220,7 +220,7 @@ impl Battlescape {
         }
     }
 
-    fn add_fleet_ship(&mut self, fleet_id: FleetId, ship_idx: usize, prefered_spawn_point: usize) {
+    fn add_fleet_ship(&mut self, fleet_id: FleetId, ship_idx: usize) {
         let (condition, entity_data_id, owner, team) =
             if let Some(fleet) = self.fleets.get_mut(&fleet_id) {
                 if let Some((condition, entity_data_id)) = fleet.try_spawn(ship_idx) {
@@ -238,7 +238,7 @@ impl Battlescape {
         *self.team_num_active_ship.entry(team).or_default() += 1;
 
         let (translation, angle) = self.entity_spawn_point(team);
-        self.add_entity(
+        let (entity_idx, entity_id) = self.add_entity(
             entity_data_id,
             translation,
             angle,
@@ -246,6 +246,12 @@ impl Battlescape {
             owner,
             team,
             condition,
+        );
+
+        // Also add a ship ai.
+        self.ais.insert(
+            entity_id,
+            EntityAi::new(None, EntityAiType::Ship, entity_idx, &mut self.entities),
         );
     }
 
@@ -258,7 +264,7 @@ impl Battlescape {
         owner: Option<ClientId>,
         team: u32,
         condition: EntityCondition,
-    ) -> EntityId {
+    ) -> (usize, EntityId) {
         let entity_id = self.next_entity_id;
         self.next_entity_id.0 += 1;
 
@@ -295,7 +301,7 @@ impl Battlescape {
         self.events
             .entity_added(entity_id, &entity, translation, angle);
 
-        entity_id
+        (entity_idx, entity_id)
     }
 
     fn remove_entity(&mut self, entity_idx: usize) {
