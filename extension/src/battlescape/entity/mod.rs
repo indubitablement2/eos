@@ -142,7 +142,60 @@ impl Entity {
                 // TODO:
             }
             WishAngVel::Force { force } => {
-                // TODO:
+                let new_angvel = if rb.angvel() > self.mobility.max_angular_velocity {
+                    if ComplexField::signum(force) == ComplexField::signum(rb.angvel()) {
+                        // Trying to go in the same dir as current velocity while speed is over max.
+                        // Ignore force, slow down to max speed instead.
+                        RealField::max(
+                            rb.angvel() - self.mobility.angular_acceleration,
+                            self.mobility.max_angular_velocity,
+                        )
+                    } else {
+                        // Trying to go in the opposite dir as current velocity while speed is over max.
+                        let maybe = rb.angvel() + force * self.mobility.angular_acceleration;
+                        if maybe > self.mobility.max_angular_velocity {
+                            // Ignore force, slow down as much as possible to reach max speed instead.
+                            RealField::max(
+                                rb.angvel() - self.mobility.angular_acceleration,
+                                self.mobility.max_angular_velocity,
+                            )
+                        } else {
+                            // Force is enough to slow down to max speed.
+                            RealField::max(maybe, -self.mobility.max_angular_velocity)
+                        }
+                    }
+                } else if rb.angvel() < -self.mobility.max_angular_velocity {
+                    if ComplexField::signum(force) == ComplexField::signum(rb.angvel()) {
+                        // Trying to go in the same dir as current velocity while speed is over max.
+                        // Ignore force, slow down to max speed instead.
+                        RealField::min(
+                            rb.angvel() + self.mobility.angular_acceleration,
+                            -self.mobility.max_angular_velocity,
+                        )
+                    } else {
+                        // Trying to go in the opposite dir as current velocity while speed is over max.
+                        let maybe = rb.angvel() + force * self.mobility.angular_acceleration;
+                        if maybe > self.mobility.max_angular_velocity {
+                            // Ignore force, slow down as much as possible to reach max speed instead.
+                            RealField::min(
+                                rb.angvel() + self.mobility.angular_acceleration,
+                                -self.mobility.max_angular_velocity,
+                            )
+                        } else {
+                            // Force is enough to slow down to max speed.
+                            RealField::min(maybe, self.mobility.max_angular_velocity)
+                        }
+                    }
+                } else {
+                    // Speed is under max.
+                    RealField::clamp(
+                        rb.angvel() + force * self.mobility.angular_acceleration,
+                        -self.mobility.max_angular_velocity,
+                        self.mobility.max_angular_velocity,
+                    )
+                };
+                log::debug!("new_angvel: {}", new_angvel);
+                rb.set_angvel(new_angvel, true);
             }
         }
 

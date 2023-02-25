@@ -30,7 +30,6 @@ use std::f32::consts::{FRAC_PI_2, PI, TAU};
 /// 1 simulation unit = 128 godot unit.
 pub const GODOT_SCALE: f32 = 128.0;
 
-// // TODO: add_ship should also add an ai!
 // TODO: Remove body/colliders when removing entity.
 
 // TODO: Add client take control events. Use it on the render side to follow that entity. <---
@@ -41,8 +40,8 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Partition hull armor.
 // TODO: Get damage texture and add to hull sprite.
 // TODO: Add entity parent/child.
-// // TODO: Ai client control.
 // TODO: Force spawn ship if fleet can not retread and timer is over.
+// // TODO: Linvel/angvel
 
 // TODO: Shared connection to the server. Dispatch packets to apropriate node
 

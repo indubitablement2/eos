@@ -3,8 +3,8 @@ use super::*;
 const DEFAULT_FRICTION: f32 = 0.3;
 const DEFAULT_RESTITUTION: f32 = 0.2;
 const DEFAULT_CONTACT_FORCE_EVENT_THRESHOLD: f32 = 0.0;
-const DEFAULT_LINEAR_DAMPING: f32 = 0.02;
-const DEFAULT_ANGULAR_DAMPING: f32 = 0.02;
+const DEFAULT_LINEAR_DAMPING: f32 = 0.0;
+const DEFAULT_ANGULAR_DAMPING: f32 = 0.0;
 
 pub struct SimpleRigidBodyBuilder {
     pub builder: RigidBodyBuilder,
@@ -15,7 +15,8 @@ impl SimpleRigidBodyBuilder {
         Self {
             builder: RigidBodyBuilder::dynamic()
                 .linear_damping(DEFAULT_LINEAR_DAMPING)
-                .angular_damping(DEFAULT_ANGULAR_DAMPING),
+                .angular_damping(DEFAULT_ANGULAR_DAMPING)
+                .can_sleep(false),
             copy_group_ignore: None,
         }
     }

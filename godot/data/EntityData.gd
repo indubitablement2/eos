@@ -14,9 +14,12 @@ class_name EntityData extends Sprite2D
 
 @export_subgroup("Mobility")
 @export var linear_acceleration := 32.0
-@export var angular_acceleration := 16.0
+## How fast this can accelerate in radian/seconds.
+@export var angular_acceleration := 0.1
 @export var max_linear_velocity := 256.0
-@export var max_angular_velocity := 64.0
+## How fast this move in radian/seconds. 
+## Something pushing it may cause higher speed.
+@export var max_angular_velocity := 1.5
 
 @export_subgroup("Defence")
 ## Maximum hull hp for the whole entity.
