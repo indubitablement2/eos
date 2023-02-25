@@ -1,12 +1,14 @@
 use super::*;
 use crate::{
-    battlescape::entity::{script::EntityScriptData, *},
+    battlescape::{
+        entity::{script::EntityScriptData, *},
+        physics::SimpleColliderBuilder,
+    },
     client_battlescape::EntityRenderData,
     metascape::ship::ShipData,
     util::*,
 };
 use godot::{engine::Texture2D, prelude::*};
-use rapier2d::prelude::SharedShape;
 
 #[derive(GodotClass)]
 #[class(base=Resource)]
@@ -75,11 +77,6 @@ impl EntityDataBuilder {
     }
 
     #[func]
-    fn set_density(&mut self, density: f32) {
-        self.entity_data.density = density;
-    }
-
-    #[func]
     fn set_render_scene(
         &mut self,
         render_scene: Gd<PackedScene>,
@@ -97,18 +94,27 @@ impl EntityDataBuilder {
     }
 
     #[func]
-    fn set_shape_circle(&mut self, radius: f32) {
-        self.entity_data.shape = SharedShape::ball(radius / GODOT_SCALE);
+    fn set_shape_circle(&mut self, radius: f32, density: f32, entity_type: i64) {
+        let b = SimpleColliderBuilder::ball(radius / GODOT_SCALE, density);
+        self.entity_data.collider = match entity_type {
+            0 => b.build_ship(),
+            _ => unreachable!(),
+        };
     }
 
     #[func]
-    fn set_shape_cuboid(&mut self, half_size: Vector2) {
+    fn set_shape_cuboid(&mut self, half_size: Vector2, density: f32, entity_type: i64) {
         let half_size = half_size.to_na_descaled();
-        self.entity_data.shape = SharedShape::cuboid(half_size.x, half_size.y);
+
+        let b = SimpleColliderBuilder::cuboid(half_size.x, half_size.y, density);
+        self.entity_data.collider = match entity_type {
+            0 => b.build_ship(),
+            _ => unreachable!(),
+        };
     }
 
     #[func]
-    fn set_shape_polygon(&mut self, points: PackedVector2Array) {
+    fn set_shape_polygon(&mut self, points: PackedVector2Array, density: f32, entity_type: i64) {
         let vertices = points
             .to_vec()
             .into_iter()
@@ -118,16 +124,11 @@ impl EntityDataBuilder {
             })
             .collect::<Vec<_>>();
 
-        if vertices.len() < 3 {
-            log::warn!("Polygon must have at least 3 vertices");
-            return;
-        }
-
-        let indices = (0..vertices.len() as u32 - 1)
-            .map(|i| [i, i + 1])
-            .collect::<Vec<_>>();
-
-        self.entity_data.shape = SharedShape::convex_decomposition(&vertices, indices.as_slice());
+        let b = SimpleColliderBuilder::polygon(&vertices, density);
+        self.entity_data.collider = match entity_type {
+            0 => b.build_ship(),
+            _ => unreachable!(),
+        };
     }
 
     #[func]

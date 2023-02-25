@@ -4,6 +4,10 @@ extends Client
 #	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 #		clear_data()
 
+enum ENTITY_TYPE {
+	Ship
+}
+
 func load_data() -> void:
 	clear_data()
 	

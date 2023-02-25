@@ -7,13 +7,7 @@ pub trait BattlescapeEventHandlerTrait {
     fn fleet_added(&mut self, fleet_id: FleetId);
     fn ship_state_changed(&mut self, fleet_id: FleetId, ship_idx: usize, state: FleetShipState);
     fn entity_removed(&mut self, entity_id: EntityId, entity: Entity);
-    fn entity_added(
-        &mut self,
-        entity_id: EntityId,
-        entity: &Entity,
-        translation: na::Vector2<f32>,
-        angle: f32,
-    );
+    fn entity_added(&mut self, entity_id: EntityId, entity: &Entity, position: na::Isometry2<f32>);
     /// Calling step after this event is emitted will have no effect.
     fn battle_over(&mut self);
 }
@@ -71,20 +65,14 @@ impl BattlescapeEventHandlerTrait for BattlescapeEventHandler {
         }
     }
 
-    fn entity_added(
-        &mut self,
-        entity_id: EntityId,
-        entity: &Entity,
-        translation: na::Vector2<f32>,
-        angle: f32,
-    ) {
+    fn entity_added(&mut self, entity_id: EntityId, entity: &Entity, position: na::Isometry2<f32>) {
         match self {
             BattlescapeEventHandler::None => {}
             BattlescapeEventHandler::Client(events) => {
-                events.entity_added(entity_id, entity, translation, angle)
+                events.entity_added(entity_id, entity, position)
             }
             BattlescapeEventHandler::Server(events) => {
-                events.entity_added(entity_id, entity, translation, angle)
+                events.entity_added(entity_id, entity, position)
             }
         }
     }
@@ -108,8 +96,7 @@ impl BattlescapeEventHandlerTrait for () {
         &mut self,
         _entity_id: EntityId,
         _entity: &Entity,
-        _translation: na::Vector2<f32>,
-        _angle: f32,
+        _position: na::Isometry2<f32>,
     ) {
     }
     fn battle_over(&mut self) {}

@@ -328,8 +328,7 @@ pub struct EntityData {
     /// `EntityScript`
     pub script: EntityScriptData,
     pub defence: Defence,
-    pub shape: SharedShape,
-    pub density: f32,
+    pub collider: Collider,
     // TODO: weapon slot
     // TODO: built-in weapon (take a slot #)
     // TODO: A Shields
@@ -341,8 +340,7 @@ impl Default for EntityData {
             ai: Default::default(),
             script: Default::default(),
             defence: Default::default(),
-            shape: SharedShape::ball(0.5),
-            density: 1.0,
+            collider: SimpleColliderBuilder::ball(0.5, 1.0).build_ship(),
         }
     }
 }
@@ -353,8 +351,7 @@ impl std::fmt::Debug for EntityData {
             .field("ai", &self.ai)
             .field("script", &self.script)
             .field("defence", &self.defence)
-            .field("shape", &self.shape.shape_type())
-            .field("density", &self.density)
+            .field("shape", &self.collider.shape().shape_type())
             .finish()
     }
 }

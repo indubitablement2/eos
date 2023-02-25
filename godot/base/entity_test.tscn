@@ -14,7 +14,7 @@ func _on_destroyed(bind: String):
 	print(\"I'm destroyed (also callback works). bind is: \", bind)
 "
 
-[sub_resource type="Resource" id="Resource_eb6i4"]
+[sub_resource type="Resource" id="Resource_3rjih"]
 script = ExtResource("2_3meux")
 display_name = "Ship Test"
 
@@ -23,8 +23,7 @@ position = Vector2(-30, -36)
 texture = ExtResource("1_1y845")
 script = ExtResource("1_so5g7")
 simulation_script = SubResource("GDScript_176tx")
-ship_data = SubResource("Resource_eb6i4")
-max_angular_velocity = 1.0
+ship_data = SubResource("Resource_3rjih")
 collision_shape = NodePath("CollisionShape2D")
 aproximate_radius = 235.0
 hide_aproximate_radius_preview = false

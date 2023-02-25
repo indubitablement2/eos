@@ -80,13 +80,12 @@ impl BattlescapeEventHandlerTrait for RenderBattlescapeEventHandler {
         &mut self,
         entity_id: EntityId,
         entity: &entity::Entity,
-        translation: na::Vector2<f32>,
-        angle: f32,
+        position: na::Isometry2<f32>,
     ) {
         if !self.take_full {
             self.new_entities.push((
                 entity_id,
-                InitEntityRender::new(entity, Position::new2(translation, angle)),
+                InitEntityRender::new(entity, Position::new(position)),
             ));
         }
     }
@@ -112,15 +111,8 @@ impl Position {
     fn new(iso: na::Isometry2<f32>) -> Self {
         Self {
             pos: iso.translation.to_godot_scaled(),
-            // TODO: Use hardware acceleration.
+            // Use hardware acceleration.
             rot: iso.rotation.im.atan2(iso.rotation.re),
-        }
-    }
-
-    fn new2(translation: na::Vector2<f32>, angle: f32) -> Self {
-        Self {
-            pos: translation.to_godot_scaled(),
-            rot: angle,
         }
     }
 

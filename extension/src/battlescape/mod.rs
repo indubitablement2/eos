@@ -235,18 +235,31 @@ impl Battlescape {
                 return;
             };
 
-        *self.team_num_active_ship.entry(team).or_default() += 1;
+        let position = self.entity_spawn_point(team);
 
-        let (translation, angle) = self.entity_spawn_point(team);
-        let (entity_idx, entity_id) = self.add_entity(
+        self.add_ship(
             entity_data_id,
-            translation,
-            angle,
+            position,
             Some((fleet_id, ship_idx)),
             owner,
             team,
             condition,
         );
+    }
+
+    fn add_ship(
+        &mut self,
+        entity_data_id: EntityDataId,
+        position: na::Isometry2<f32>,
+        fleet_ship: Option<FleetShip>,
+        owner: Option<ClientId>,
+        team: u32,
+        condition: EntityCondition,
+    ) {
+        *self.team_num_active_ship.entry(team).or_default() += 1;
+
+        let (entity_idx, entity_id) =
+            self.add_entity(entity_data_id, position, fleet_ship, owner, team, condition);
 
         // Also add a ship ai.
         self.ais.insert(
@@ -256,10 +269,10 @@ impl Battlescape {
     }
 
     fn add_entity(
+        // TODO: Add ship/hull/drone...?
         &mut self,
         entity_data_id: EntityDataId,
-        translation: na::Vector2<f32>,
-        angle: f32,
+        position: na::Isometry2<f32>,
         fleet_ship: Option<FleetShip>,
         owner: Option<ClientId>,
         team: u32,
@@ -270,17 +283,11 @@ impl Battlescape {
 
         let entity_data = entity_data_id.data();
 
-        let rb = self.physics.add_body(
-            SimpleRigidBodyBuilder::dynamic()
-                .translation(translation)
-                .rotation(angle),
-            BodyGenericId::EntityId(entity_id),
-        );
-
-        let hull_collider = self.physics.add_collider(
-            SimpleColliderBuilder::new_ship(entity_data.shape.clone()).density(entity_data.density),
-            rb,
-            ColliderGenericId::Hull { entity_id },
+        let (rb, hull_collider) = self.physics.add_body(
+            GenericId::Hull(entity_id),
+            entity_data.collider.clone(),
+            None,
+            position,
         );
 
         let entity = Entity::new(
@@ -298,8 +305,7 @@ impl Battlescape {
         let entity = &mut self.entities[entity_idx];
         entity.start(bs_ptr, entity_idx);
 
-        self.events
-            .entity_added(entity_id, &entity, translation, angle);
+        self.events.entity_added(entity_id, &entity, position);
 
         (entity_idx, entity_id)
     }
@@ -338,9 +344,10 @@ impl Battlescape {
         }
     }
 
-    fn entity_spawn_point(&mut self, team: u32) -> (na::Vector2<f32>, f32) {
+    fn entity_spawn_point(&mut self, team: u32) -> na::Isometry2<f32> {
         // TODO: No overlapping.
-        self.spawn_point(team)
+        let (translation, angle) = self.spawn_point(team);
+        na::Isometry2::new(translation, angle)
     }
 
     pub fn entity_position(&self, entity_id: EntityId) -> Isometry<Real> {

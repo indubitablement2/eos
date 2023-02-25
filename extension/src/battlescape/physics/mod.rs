@@ -8,8 +8,29 @@ use event_handler::PhysicsEventCollector;
 pub use builder::*;
 pub use userdata::*;
 
+const DEFAULT_FRICTION: f32 = 0.6;
+const DEFAULT_RESTITUTION: f32 = 0.0;
+const DEFAULT_CONTACT_FORCE_EVENT_THRESHOLD: f32 = 0.0;
+const DEFAULT_LINEAR_DAMPING: f32 = 0.0;
+const DEFAULT_ANGULAR_DAMPING: f32 = 0.0;
+
+pub const GROUP_SHIP: Group = Group::GROUP_1;
+pub const GROUP_SHIELD: Group = Group::GROUP_2;
+pub const GROUP_DEBRIS: Group = Group::GROUP_3;
+pub const GROUP_MISSILE: Group = Group::GROUP_4;
+pub const GROUP_FIGHTER: Group = Group::GROUP_5;
+pub const GROUP_PROJECTILE: Group = Group::GROUP_6;
+pub const GROUP_ALL: Group = GROUP_SHIP
+    .union(GROUP_SHIELD)
+    .union(GROUP_DEBRIS)
+    .union(GROUP_MISSILE)
+    .union(GROUP_FIGHTER)
+    .union(GROUP_PROJECTILE);
+
+pub const GROUPS_SHIP: InteractionGroups = InteractionGroups::new(GROUP_SHIP, GROUP_ALL);
+
 /// Colliders ignore all collider with the same `GroupIgnore`.
-pub type GroupIgnore = u64;
+pub type GroupIgnore = u32;
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Physics {
@@ -17,7 +38,8 @@ pub struct Physics {
     #[serde(skip)]
     physics_pipeline: PhysicsPipeline,
     #[serde(skip)]
-    integration_parameters: CustomIntegrationParameters,
+    #[serde(default = "default_integration_parameters")]
+    integration_parameters: IntegrationParameters,
     islands: IslandManager,
     broad_phase: BroadPhase,
     narrow_phase: NarrowPhase,
@@ -29,6 +51,10 @@ pub struct Physics {
     #[serde(skip)]
     events: PhysicsEventCollector,
     next_group_ignore: GroupIgnore,
+    /// All entity use this rigid body.
+    #[serde(skip)]
+    #[serde(default = "default_rb")]
+    default_rb: RigidBody,
 }
 impl Physics {
     pub fn step(&mut self) {
@@ -36,7 +62,7 @@ impl Physics {
 
         self.physics_pipeline.step(
             &vector![0.0, 0.0],
-            &self.integration_parameters.0,
+            &self.integration_parameters,
             &mut self.islands,
             &mut self.broad_phase,
             &mut self.narrow_phase,
@@ -53,45 +79,36 @@ impl Physics {
 
     pub fn add_body(
         &mut self,
-        builder: SimpleRigidBodyBuilder,
-        id: BodyGenericId,
-    ) -> RigidBodyHandle {
-        let group_ignore = if let Some(rb) = builder
-            .copy_group_ignore
-            .and_then(|handle| self.bodies.get(handle))
-        {
-            rb.user_data.group_ignore()
-        } else {
-            self.new_group_ignore()
-        };
+        id: GenericId,
+        mut collider: Collider,
+        copy_group_ignore: Option<RigidBodyHandle>,
+        position: na::Isometry2<f32>,
+    ) -> (RigidBodyHandle, ColliderHandle) {
+        let group_ignore =
+            if let Some(rb) = copy_group_ignore.and_then(|handle| self.bodies.get(handle)) {
+                rb.user_data.group_ignore()
+            } else {
+                self.new_group_ignore()
+            };
 
-        let rb = builder
-            .builder
-            .user_data(UserData::pack_body(id, group_ignore))
-            .build();
+        let user_data = UserData::pack(id, group_ignore);
 
-        self.bodies.insert(rb)
+        let mut rb = self.default_rb.clone();
+        rb.user_data = user_data;
+        rb.set_position(position, false);
+        let rb = self.bodies.insert(rb);
+
+        collider.user_data = user_data;
+        let coll = self
+            .colliders
+            .insert_with_parent(collider, rb, &mut self.bodies);
+
+        (rb, coll)
     }
 
-    pub fn add_collider(
-        &mut self,
-        builder: SimpleColliderBuilder,
-        parent_handle: RigidBodyHandle,
-        id: ColliderGenericId,
-    ) -> ColliderHandle {
-        let group_ignore = if let Some(rb) = self.bodies.get(parent_handle) {
-            rb.user_data.group_ignore()
-        } else {
-            self.new_group_ignore()
-        };
-
-        let coll = builder
-            .builder
-            .user_data(UserData::pack_collider(id, group_ignore))
-            .build();
-
-        self.colliders
-            .insert_with_parent(coll, parent_handle, &mut self.bodies)
+    // TODO: Enable shield collider on the body.
+    pub fn enable_shield(&mut self, enabled: bool) {
+        todo!()
     }
 
     /// Remove the body and its colliders.
@@ -110,15 +127,7 @@ impl Physics {
             .unwrap()
     }
 
-    /// ## Panic:
-    /// Handle is invalid.
-    pub fn remove_collider(&mut self, handle: ColliderHandle) -> Collider {
-        self.colliders
-            .remove(handle, &mut self.islands, &mut self.bodies, false)
-            .unwrap()
-    }
-
-    pub fn intersection_any_with_shape(
+    pub fn intersection_with_shape(
         &self,
         shape_pos: &Isometry<Real>,
         shape: &dyn Shape,
@@ -148,17 +157,6 @@ impl Physics {
     }
 }
 
-struct CustomIntegrationParameters(IntegrationParameters);
-impl Default for CustomIntegrationParameters {
-    fn default() -> Self {
-        Self(IntegrationParameters {
-            dt: DT,
-            min_ccd_dt: DT / 100.0,
-            ..Default::default()
-        })
-    }
-}
-
 struct Hooks;
 impl PhysicsHooks for Hooks {
     fn filter_contact_pair(&self, context: &PairFilterContext) -> Option<SolverFlags> {
@@ -180,4 +178,20 @@ impl PhysicsHooks for Hooks {
     }
 
     fn modify_solver_contacts(&self, _context: &mut ContactModificationContext) {}
+}
+
+fn default_integration_parameters() -> IntegrationParameters {
+    IntegrationParameters {
+        dt: DT,
+        min_ccd_dt: DT / 100.0,
+        ..Default::default()
+    }
+}
+
+fn default_rb() -> RigidBody {
+    RigidBodyBuilder::dynamic()
+        .linear_damping(DEFAULT_LINEAR_DAMPING)
+        .angular_damping(DEFAULT_ANGULAR_DAMPING)
+        .can_sleep(false)
+        .build()
 }
