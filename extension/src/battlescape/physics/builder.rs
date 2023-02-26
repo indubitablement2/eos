@@ -31,29 +31,32 @@ pub fn cuboid_collider(
     build_collider(SharedShape::cuboid(hx, hy), density, groups, pos)
 }
 
-pub fn polygon_collider(
-    vertices: &[na::Point2<f32>],
+pub fn polygons_collider(
+    mut polygons: Vec<Vec<na::Point2<f32>>>,
     density: f32,
     groups: Groups,
     pos: na::Isometry2<f32>,
 ) -> Collider {
-    if vertices.len() < 3 {
-        log::warn!("Polygon must have at least 3 vertices. Using ball instead...");
+    let shape = if polygons.is_empty() {
+        log::warn!("Polygons must have at least 1 polygon. Using ball instead...");
         return ball_collider(0.5, density, groups, pos);
-    }
+    } else if polygons.len() == 1 {
+        SharedShape::convex_polyline(polygons.pop().unwrap()).unwrap()
+    } else {
+        SharedShape::compound(
+            polygons
+                .into_iter()
+                .map(|points| {
+                    (
+                        na::Isometry2::default(),
+                        SharedShape::convex_polyline(points).unwrap(),
+                    )
+                })
+                .collect(),
+        )
+    };
 
-    let mut indices = (0..vertices.len() as u32 - 1)
-        .map(|i| [i, i + 1])
-        .collect::<Vec<_>>();
-    indices.push([vertices.len() as u32 - 1, 0]);
-
-    SharedShape::convex_polyline(points)
-    build_collider(
-        SharedShape::convex_decomposition(&vertices, indices.as_slice()),
-        density,
-        groups,
-        pos,
-    )
+    build_collider(shape, density, groups, pos)
 }
 
 fn build_collider(

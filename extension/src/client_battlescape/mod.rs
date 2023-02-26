@@ -430,7 +430,7 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
                 };
 
                 let pos = collider.position();
-                
+
                 let b = 1.0;
 
                 colliders.push(DrawCollider {

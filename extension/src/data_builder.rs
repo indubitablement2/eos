@@ -128,24 +128,27 @@ impl EntityDataBuilder {
     }
 
     #[func]
-    fn set_shape_polygon(
+    fn set_shape_polygons(
         &mut self,
-        points: PackedVector2Array,
+        polygons: TypedArray<PackedVector2Array>,
         density: f32,
         entity_type: i64,
         translation: Vector2,
         angle: f32,
     ) {
-        let vertices = points
-            .to_vec()
-            .into_iter()
-            .map(|v| {
-                let v = v.to_na_descaled();
-                na::Point2::new(v.x, v.y)
+        let polygons = polygons
+            .iter_shared()
+            .map(|polygon| {
+                polygon
+                    .to_vec()
+                    .into_iter()
+                    .map(|point| na::Point2::new(point.x / GODOT_SCALE, point.y / GODOT_SCALE))
+                    .collect()
             })
-            .collect::<Vec<_>>();
-        self.entity_data.collider = polygon_collider(
-            &vertices,
+            .collect();
+
+        self.entity_data.collider = polygons_collider(
+            polygons,
             density,
             groups(entity_type),
             na::Isometry2::new(translation.to_na_descaled(), angle),

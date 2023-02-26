@@ -121,8 +121,10 @@ func _build_entity_data(path: String, e: EntityData) -> void:
 		c.free()
 	elif e.collision_shape is CollisionPolygon2D:
 		var c :CollisionPolygon2D = e.collision_shape
-		b.set_shape_polygon(
-				c.get_polygon(),
+		var p := Geometry2D.decompose_polygon_in_convex(c.get_polygon())
+		
+		b.set_shape_polygons(
+				p,
 				e.density,
 				e.entity_type,
 				c.position,
