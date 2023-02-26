@@ -3,14 +3,14 @@ use super::*;
 /// Possible id.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GenericId {
-    Hull(EntityId),
+    Entity(EntityId),
     Shield(EntityId),
     Projectile(u32), // TODO: Just a test id.
 }
 impl GenericId {
     pub fn pack(self) -> u128 {
         let (id_type, id) = match self {
-            GenericId::Hull(id) => (0, id.0 as u128),
+            GenericId::Entity(id) => (0, id.0 as u128),
             GenericId::Shield(id) => (1, id.0 as u128),
             GenericId::Projectile(id) => (2, id as u128),
         };
@@ -22,7 +22,7 @@ impl GenericId {
         let id_type = data as u32;
         let id = (data >> 32) as u32;
         match id_type {
-            0 => Self::Hull(EntityId(id)),
+            0 => Self::Entity(EntityId(id)),
             1 => Self::Shield(EntityId(id)),
             _ => Self::Projectile(id),
         }

@@ -237,39 +237,18 @@ impl Battlescape {
 
         let position = self.entity_spawn_point(team);
 
-        self.add_ship(
+        self.add_entity(
             entity_data_id,
             position,
             Some((fleet_id, ship_idx)),
             owner,
             team,
             condition,
-        );
-    }
-
-    fn add_ship(
-        &mut self,
-        entity_data_id: EntityDataId,
-        position: na::Isometry2<f32>,
-        fleet_ship: Option<FleetShip>,
-        owner: Option<ClientId>,
-        team: u32,
-        condition: EntityCondition,
-    ) {
-        *self.team_num_active_ship.entry(team).or_default() += 1;
-
-        let (entity_idx, entity_id) =
-            self.add_entity(entity_data_id, position, fleet_ship, owner, team, condition);
-
-        // Also add a ship ai.
-        self.ais.insert(
-            entity_id,
-            EntityAi::new(None, EntityAiType::Ship, entity_idx, &mut self.entities),
+            None,
         );
     }
 
     fn add_entity(
-        // TODO: Add ship/hull/drone...?
         &mut self,
         entity_data_id: EntityDataId,
         position: na::Isometry2<f32>,
@@ -277,16 +256,19 @@ impl Battlescape {
         owner: Option<ClientId>,
         team: u32,
         condition: EntityCondition,
+        copy_group_ignore: Option<EntityId>,
     ) -> (usize, EntityId) {
         let entity_id = self.next_entity_id;
         self.next_entity_id.0 += 1;
 
-        let entity_data = entity_data_id.data();
+        let copy_group_ignore = copy_group_ignore
+            .and_then(|entity_id| self.entities.get(&entity_id))
+            .map(|entity| entity.rb);
 
-        let (rb, hull_collider) = self.physics.add_body(
-            GenericId::Hull(entity_id),
-            entity_data.collider.clone(),
-            None,
+        let (rb, hull_collider) = self.physics.add_entity(
+            entity_id,
+            entity_data_id.data().collider.clone(),
+            copy_group_ignore,
             position,
         );
 
@@ -306,6 +288,27 @@ impl Battlescape {
         entity.start(bs_ptr, entity_idx);
 
         self.events.entity_added(entity_id, &entity, position);
+
+        let ai = if entity_data_id.data().is_ship {
+            *self.team_num_active_ship.entry(team).or_default() += 1;
+            // Ship always start with this ai.
+            Some(EntityAiType::ShipEntering)
+        } else {
+            let ai = entity_data_id.data().starting_ai;
+            if ai == EntityAiType::None {
+                None
+            } else {
+                Some(ai)
+            }
+        };
+
+        // Also add an ai.
+        if let Some(ai) = ai {
+            self.ais.insert(
+                entity_id,
+                EntityAi::new(None, ai, entity_idx, &mut self.entities),
+            );
+        }
 
         (entity_idx, entity_id)
     }

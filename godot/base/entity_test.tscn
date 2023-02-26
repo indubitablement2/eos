@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=3 uid="uid://xid2yes0tgcs"]
 
-[ext_resource type="Texture2D" uid="uid://cbr87hdo4doso" path="res://texture DELETE/void_fleet_by_ravendarke_2.png" id="1_1y845"]
+[ext_resource type="Texture2D" uid="uid://dy0de8bqdo0cn" path="res://texture DELETE/spaceship3.png" id="1_pq5kf"]
 [ext_resource type="Script" path="res://data/EntityData.gd" id="1_so5g7"]
 [ext_resource type="Script" path="res://data/ShipData.gd" id="2_3meux"]
 
@@ -19,8 +19,7 @@ script = ExtResource("2_3meux")
 display_name = "Ship Test"
 
 [node name="EntityData" type="Sprite2D" node_paths=PackedStringArray("collision_shape")]
-position = Vector2(-30, -36)
-texture = ExtResource("1_1y845")
+texture = ExtResource("1_pq5kf")
 script = ExtResource("1_so5g7")
 simulation_script = SubResource("GDScript_176tx")
 ship_data = SubResource("Resource_3rjih")
@@ -29,4 +28,4 @@ aproximate_radius = 235.0
 hide_aproximate_radius_preview = false
 
 [node name="CollisionShape2D" type="CollisionPolygon2D" parent="."]
-polygon = PackedVector2Array(-26, -204, -4, -194, -24, -180, 82, -192, 123, -182, 129, -161, 84, -171, 6, -147, -25, -113, -36, -74, -23, -40, 2, -25, 8, -47, 31, -60, 19, -28, 42, -26, 40, -48, 70, -19, 82, -49, 71, -78, 87, -107, 124, -39, 140, 22, 118, 54, 81, 81, 99, 117, 80, 188, 52, 203, 54, 171, 6, 171, 9, 204, -20, 187, -38, 112, -23, 79, -70, 45, -99, -39, -92, -117, -130, -89, -139, -95, -101, -142)
+polygon = PackedVector2Array(-18, -175, 21, -173, 45, -51, 52, -53, 46, -134, 60, -166, 84, -166, 135, -30, 118, -12, 141, 31, 101, 131, 69, 139, 71, 165, 52, 183, 38, 157, 0, 172, -39, 157, -49, 183, -69, 166, -70, 139, -104, 127, -138, 33, -122, -14, -135, -35, -80, -167, -56, -162, -47, -139, -52, -52, -45, -51)

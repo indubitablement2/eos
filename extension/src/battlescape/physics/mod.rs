@@ -27,8 +27,6 @@ pub const GROUP_ALL: Group = GROUP_SHIP
     .union(GROUP_FIGHTER)
     .union(GROUP_PROJECTILE);
 
-pub const GROUPS_SHIP: InteractionGroups = InteractionGroups::new(GROUP_SHIP, GROUP_ALL);
-
 /// Colliders ignore all collider with the same `GroupIgnore`.
 pub type GroupIgnore = u32;
 
@@ -77,9 +75,9 @@ impl Physics {
         );
     }
 
-    pub fn add_body(
+    pub fn add_entity(
         &mut self,
-        id: GenericId,
+        entity_id: EntityId,
         mut collider: Collider,
         copy_group_ignore: Option<RigidBodyHandle>,
         position: na::Isometry2<f32>,
@@ -91,7 +89,7 @@ impl Physics {
                 self.new_group_ignore()
             };
 
-        let user_data = UserData::pack(id, group_ignore);
+        let user_data = UserData::pack(GenericId::Entity(entity_id), group_ignore);
 
         let mut rb = self.default_rb.clone();
         rb.user_data = user_data;

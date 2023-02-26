@@ -202,7 +202,7 @@ impl EntityRender {
 
     fn set_position(&mut self, new_position: Position) {
         self.sprite
-            .set_position(new_position.pos + self.entity_data_id.render_data().position_offset);
+            .set_position(new_position.pos);
         self.sprite.set_rotation(
             (new_position.rot + self.entity_data_id.render_data().rotation_offset) as f64,
         );

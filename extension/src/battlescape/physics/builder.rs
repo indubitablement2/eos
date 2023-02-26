@@ -1,58 +1,57 @@
 use super::*;
 use std::ops::Deref;
 
-pub struct SimpleColliderBuilder {
-    shape: SharedShape,
-    density: f32,
+pub enum Groups {
+    Ship,
 }
-impl SimpleColliderBuilder {
-    pub fn ball(radius: f32, density: f32) -> Self {
-        Self {
-            shape: SharedShape::ball(radius),
-            density: 1.0,
+impl Groups {
+    fn groups(self) -> InteractionGroups {
+        match self {
+            Groups::Ship => InteractionGroups::new(GROUP_SHIP, GROUP_ALL),
         }
     }
+}
 
-    pub fn cuboid(hx: f32, hy: f32, density: f32) -> Self {
-        Self {
-            shape: SharedShape::cuboid(hx, hy),
-            density: 1.0,
-        }
+pub fn ball_collider(radius: f32, density: f32, groups: Groups) -> Collider {
+    build_collider(SharedShape::ball(radius), density, groups)
+}
+
+pub fn cuboid_collider(hx: f32, hy: f32, density: f32, groups: Groups) -> Collider {
+    build_collider(SharedShape::cuboid(hx, hy), density, groups)
+}
+
+pub fn polygon_collider(vertices: &[na::Point2<f32>], density: f32, groups: Groups) -> Collider {
+    if vertices.len() < 3 {
+        log::warn!("Polygon must have at least 3 vertices. Using ball instead...");
+        return ball_collider(0.5, density, groups);
     }
 
-    pub fn polygon(vertices: &[na::Point2<f32>], density: f32) -> Self {
-        if vertices.len() < 3 {
-            log::warn!("Polygon must have at least 3 vertices. Using ball instead...");
-            return Self::ball(0.5, density);
-        }
+    let indices = (0..vertices.len() as u32 - 1)
+        .map(|i| [i, i + 1])
+        .collect::<Vec<_>>();
 
-        let indices = (0..vertices.len() as u32 - 1)
-            .map(|i| [i, i + 1])
-            .collect::<Vec<_>>();
+    build_collider(
+        SharedShape::convex_decomposition(&vertices, indices.as_slice()),
+        density,
+        groups,
+    )
+}
 
-        Self {
-            shape: SharedShape::convex_decomposition(&vertices, indices.as_slice()),
-            density,
-        }
-    }
+fn build_collider(shape: SharedShape, density: f32, groups: Groups) -> Collider {
+    let mut mass_properties = ColliderMassProps::Density(density).mass_properties(shape.deref());
+    log::debug!("{:?}, mass_properties: {:?}", shape.shape_type(), mass_properties);
+    mass_properties.local_com = Default::default();
 
-    pub fn build_ship(self) -> Collider { // TODO: Unify all entity type. Add num_active_ship_dynamically
-        let mut mass_properties =
-            ColliderMassProps::Density(self.density).mass_properties(self.shape.deref());
-        log::debug!("mass_properties: {:?}", mass_properties);
-        mass_properties.local_com = Default::default();
-
-        ColliderBuilder::new(self.shape)
-            .collision_groups(GROUPS_SHIP)
-            // TODO: Need ActiveHooks::FILTER_INTERSECTION_PAIR ?
-            .active_hooks(ActiveHooks::FILTER_CONTACT_PAIRS)
-            .active_events(ActiveEvents::all())
-            .contact_force_event_threshold(DEFAULT_CONTACT_FORCE_EVENT_THRESHOLD)
-            .friction(DEFAULT_FRICTION)
-            .restitution(DEFAULT_RESTITUTION)
-            .mass_properties(mass_properties)
-            .build()
-    }
+    ColliderBuilder::new(shape)
+        .collision_groups(groups.groups())
+        // TODO: Need ActiveHooks::FILTER_INTERSECTION_PAIR ?
+        .active_hooks(ActiveHooks::FILTER_CONTACT_PAIRS)
+        .active_events(ActiveEvents::all())
+        .contact_force_event_threshold(DEFAULT_CONTACT_FORCE_EVENT_THRESHOLD)
+        .friction(DEFAULT_FRICTION)
+        .restitution(DEFAULT_RESTITUTION)
+        .mass_properties(mass_properties)
+        .build()
 }
 
 // pub struct SimpleRigidBodyBuilder {

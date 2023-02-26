@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     battlescape::{
         entity::{script::EntityScriptData, *},
-        physics::SimpleColliderBuilder,
+        physics::builder::*,
     },
     client_battlescape::EntityRenderData,
     metascape::ship::ShipData,
@@ -95,22 +95,14 @@ impl EntityDataBuilder {
 
     #[func]
     fn set_shape_circle(&mut self, radius: f32, density: f32, entity_type: i64) {
-        let b = SimpleColliderBuilder::ball(radius / GODOT_SCALE, density);
-        self.entity_data.collider = match entity_type {
-            0 => b.build_ship(),
-            _ => unreachable!(),
-        };
+        self.entity_data.collider = ball_collider(radius, density, groups(entity_type));
     }
 
     #[func]
     fn set_shape_cuboid(&mut self, half_size: Vector2, density: f32, entity_type: i64) {
         let half_size = half_size.to_na_descaled();
-
-        let b = SimpleColliderBuilder::cuboid(half_size.x, half_size.y, density);
-        self.entity_data.collider = match entity_type {
-            0 => b.build_ship(),
-            _ => unreachable!(),
-        };
+        self.entity_data.collider =
+            cuboid_collider(half_size.x, half_size.y, density, groups(entity_type));
     }
 
     #[func]
@@ -123,17 +115,13 @@ impl EntityDataBuilder {
                 na::Point2::new(v.x, v.y)
             })
             .collect::<Vec<_>>();
-
-        let b = SimpleColliderBuilder::polygon(&vertices, density);
-        self.entity_data.collider = match entity_type {
-            0 => b.build_ship(),
-            _ => unreachable!(),
-        };
+        self.entity_data.collider = polygon_collider(&vertices, density, groups(entity_type));
     }
 
     #[func]
     fn set_ship_display_name(&mut self, display_name: GodotString) {
         self.ship_data.get_or_insert_default().display_name = display_name.to_string();
+        self.entity_data.is_ship = true;
     }
 
     #[func]
@@ -151,5 +139,13 @@ impl GodotExt for EntityDataBuilder {
             ship_data: None,
             base,
         }
+    }
+}
+
+// TODO: Export enum.
+fn groups(entity_type: i64) -> Groups {
+    match entity_type {
+        0 => Groups::Ship,
+        _ => unreachable!(),
     }
 }

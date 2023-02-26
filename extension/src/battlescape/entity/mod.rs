@@ -324,11 +324,12 @@ pub enum WishAngVel {
 pub struct EntityData {
     pub mobility: Mobility,
     // TODO: ai
-    pub ai: Option<()>,
+    pub starting_ai: EntityAiType,
     /// `EntityScript`
     pub script: EntityScriptData,
     pub defence: Defence,
     pub collider: Collider,
+    pub is_ship: bool,
     // TODO: weapon slot
     // TODO: built-in weapon (take a slot #)
     // TODO: A Shields
@@ -337,10 +338,11 @@ impl Default for EntityData {
     fn default() -> Self {
         Self {
             mobility: Default::default(),
-            ai: Default::default(),
+            starting_ai: Default::default(),
             script: Default::default(),
             defence: Default::default(),
-            collider: SimpleColliderBuilder::ball(0.5, 1.0).build_ship(),
+            collider: ball_collider(0.5, 1.0, Groups::Ship),
+            is_ship: false,
         }
     }
 }
@@ -348,7 +350,7 @@ impl std::fmt::Debug for EntityData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EntityData")
             .field("mobility", &self.mobility)
-            .field("ai", &self.ai)
+            .field("ai", &self.starting_ai)
             .field("script", &self.script)
             .field("defence", &self.defence)
             .field("shape", &self.collider.shape().shape_type())

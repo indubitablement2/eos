@@ -71,34 +71,33 @@ func _build_entity_data(path: String, e: EntityData) -> void:
 	
 	b.set_hull(e.hull)
 	b.set_armor(e.armor)
-	b.set_density(e.density)
 	
 	b.set_aproximate_radius(e.aproximate_radius)
-	
-	# Set the shape
-	if e.collision_shape is CollisionShape2D:
-		var c :CollisionShape2D = e.collision_shape
-		if c.shape is CircleShape2D:
-			var s : CircleShape2D = c.shape
-			b.set_shape_circle(s.radius)
-		elif c.shape is RectangleShape2D:
-			var s : RectangleShape2D = c.shape
-			b.set_shape_cuboid(s.size * 0.5)
-		else:
-			push_warning("Shape not handled")
-		c.free()
-	elif e.collision_shape is CollisionPolygon2D:
-		var c :CollisionPolygon2D = e.collision_shape
-		b.set_shape_polygon(c.get_polygon())
-		c.free()
-	else:
-		push_warning("No shape")
 	
 	# Handle if this is a ship
 	if e.ship_data:
 		b.set_ship_display_name(e.ship_data.display_name)
 		if e.texture:
 			b.set_ship_texture(e.texture)
+	
+	# Set the shape
+	if e.collision_shape is CollisionShape2D:
+		var c :CollisionShape2D = e.collision_shape
+		if c.shape is CircleShape2D:
+			var s : CircleShape2D = c.shape
+			b.set_shape_circle(s.radius, e.density, e.entity_type)
+		elif c.shape is RectangleShape2D:
+			var s : RectangleShape2D = c.shape
+			b.set_shape_cuboid(s.size * 0.5, e.density, e.entity_type)
+		else:
+			push_warning("Shape not handled")
+		c.free()
+	elif e.collision_shape is CollisionPolygon2D:
+		var c :CollisionPolygon2D = e.collision_shape
+		b.set_shape_polygon(c.get_polygon(), e.density, e.entity_type)
+		c.free()
+	else:
+		push_warning("No shape")
 	
 	# Create the render scene
 	e.set_script(e.render_script)
