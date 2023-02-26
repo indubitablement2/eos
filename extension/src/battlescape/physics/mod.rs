@@ -30,7 +30,7 @@ pub const GROUP_ALL: Group = GROUP_SHIP
 /// Colliders ignore all collider with the same `GroupIgnore`.
 pub type GroupIgnore = u32;
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize)]
 pub struct Physics {
     query_pipeline: QueryPipeline,
     #[serde(skip)]
@@ -110,8 +110,6 @@ impl Physics {
     }
 
     /// Remove the body and its colliders.
-    /// ## Panic:
-    /// Handle is invalid.
     pub fn remove_body(&mut self, handle: RigidBodyHandle) -> RigidBody {
         self.bodies
             .remove(
@@ -176,6 +174,27 @@ impl PhysicsHooks for Hooks {
     }
 
     fn modify_solver_contacts(&self, _context: &mut ContactModificationContext) {}
+}
+
+impl Default for Physics {
+    fn default() -> Self {
+        Self {
+            query_pipeline: Default::default(),
+            physics_pipeline: Default::default(),
+            integration_parameters: default_integration_parameters(),
+            islands: Default::default(),
+            broad_phase: Default::default(),
+            narrow_phase: Default::default(),
+            bodies: Default::default(),
+            colliders: Default::default(),
+            impulse_joints: Default::default(),
+            multibody_joints: Default::default(),
+            ccd_solver: Default::default(),
+            events: Default::default(),
+            next_group_ignore: Default::default(),
+            default_rb: default_rb(),
+        }
+    }
 }
 
 fn default_integration_parameters() -> IntegrationParameters {

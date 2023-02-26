@@ -194,7 +194,6 @@ impl Entity {
                         self.mobility.max_angular_velocity,
                     )
                 };
-                log::debug!("new_angvel: {}", new_angvel);
                 rb.set_angvel(new_angvel, true);
             }
         }
@@ -362,6 +361,7 @@ impl std::fmt::Debug for EntityData {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct Mobility {
     pub linear_acceleration: f32,
+    /// In radian/tick.
     pub angular_acceleration: f32,
     pub max_linear_velocity: f32,
     pub max_angular_velocity: f32,

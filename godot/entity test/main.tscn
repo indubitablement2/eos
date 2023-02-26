@@ -5,7 +5,6 @@
 [ext_resource type="Texture2D" uid="uid://bqgwjxeoq1cv4" path="res://textures/error.png" id="3_og2y0"]
 
 [node name="Main" type="Node2D"]
-position = Vector2(0, 1)
 script = ExtResource("1_bu628")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
@@ -15,6 +14,11 @@ texture = ExtResource("3_og2y0")
 
 [node name="Sprite2D2" type="Sprite2D" parent="."]
 position = Vector2(512, -512)
+texture = ExtResource("3_og2y0")
+
+[node name="Sprite2D" type="Sprite2D" parent="Sprite2D2"]
+position = Vector2(0, -128)
+scale = Vector2(0.2, 3)
 texture = ExtResource("3_og2y0")
 
 [node name="Sprite2D3" type="Sprite2D" parent="."]
