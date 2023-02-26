@@ -18,8 +18,8 @@ func _on_destroyed(bind: String):
 script = ExtResource("2_jikdy")
 display_name = "Offset cuboid"
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_1f26a"]
-size = Vector2(315, 293)
+[sub_resource type="CircleShape2D" id="CircleShape2D_mssio"]
+radius = 166.364
 
 [node name="EntityData" type="Node2D" node_paths=PackedStringArray("collision_shape", "sprite")]
 script = ExtResource("1_q28jx")
@@ -35,4 +35,4 @@ texture = ExtResource("3_apiq7")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(1, -39)
-shape = SubResource("RectangleShape2D_1f26a")
+shape = SubResource("CircleShape2D_mssio")

@@ -1,7 +1,9 @@
+pub mod draw_shapes;
 mod render;
 mod runner;
 mod selection;
 
+use self::draw_shapes::*;
 use self::render::{BattlescapeRender, RenderBattlescapeEventHandler};
 use self::runner::RunnerHandle;
 use self::selection::ShipSelection;
@@ -51,7 +53,10 @@ pub struct ClientBattlescape {
     tick: u64,
     events: Vec<ClientBattlescapeEventHandler>,
     replay: Replay,
+
     hash_on_tick: u64,
+    dbg_draw_colliders: bool,
+    draw_colliders: Gd<DrawColliders>,
 
     #[base]
     base: Base<Node2D>,
@@ -85,13 +90,15 @@ impl ClientBattlescape {
                 client_type,
                 inputs: Default::default(),
                 last_cmds_send: 0.0,
-                base,
                 events: Default::default(),
                 catching_up: true,
                 cmd_tick: 0,
                 tick: 0,
                 fleets: Default::default(),
                 hash_on_tick: 0,
+                dbg_draw_colliders: false,
+                draw_colliders: DrawColliders::new_child(&base),
+                base,
             }
         })
     }
@@ -204,6 +211,11 @@ impl ClientBattlescape {
             }
         }
     }
+
+    #[func]
+    fn dbg_draw_colliders(&mut self, draw: bool) {
+        self.dbg_draw_colliders = draw;
+    }
 }
 #[godot_api]
 impl GodotExt for ClientBattlescape {
@@ -236,6 +248,7 @@ impl GodotExt for ClientBattlescape {
                         was_catching_up,
                         next_cmd_tick == self.hash_on_tick,
                         self.client_id,
+                        self.dbg_draw_colliders,
                     ),
                 );
                 self.cmd_tick = next_cmd_tick;
@@ -246,6 +259,7 @@ impl GodotExt for ClientBattlescape {
 
         // Handle events.
         let mut hashs = Vec::new();
+        let mut draw_colliders: Option<Vec<DrawCollider>> = None;
         let mut ship_selection = self.ship_selection.bind_mut();
         for event in self.events.iter_mut() {
             if !event.handled {
@@ -271,6 +285,8 @@ impl GodotExt for ClientBattlescape {
                 if let Some(hash) = event.take_hash {
                     hashs.push(hash);
                 }
+
+                draw_colliders = event.take_colliders.take();
             }
 
             if event.tick <= self.time_manager.tick && !event.render_handled {
@@ -282,6 +298,13 @@ impl GodotExt for ClientBattlescape {
         drop(ship_selection);
         for hash in hashs {
             self.emit_signal("hash_received".into(), &[hash.to_variant()]);
+        }
+        if let Some(draw_colliders) = draw_colliders {
+            self.draw_colliders
+                .bind_mut()
+                .enable_drawing(draw_colliders);
+        } else if !self.dbg_draw_colliders {
+            self.draw_colliders.bind_mut().disable_drawing();
         }
 
         // Remove previous events.
@@ -334,6 +357,8 @@ pub struct ClientBattlescapeEventHandler {
     /// When Some, take a hash of the bs.
     take_hash: Option<u32>,
 
+    take_colliders: Option<Vec<DrawCollider>>,
+
     tick: u64,
     battle_over: bool,
 
@@ -344,10 +369,11 @@ pub struct ClientBattlescapeEventHandler {
     render: RenderBattlescapeEventHandler,
 }
 impl ClientBattlescapeEventHandler {
-    fn new(take_full: bool, take_hash: bool, client_id: ClientId) -> Self {
+    fn new(take_full: bool, take_hash: bool, client_id: ClientId, take_colliders: bool) -> Self {
         Self {
             render: RenderBattlescapeEventHandler::new(take_full, client_id),
             take_hash: take_hash.then_some(0),
+            take_colliders: take_colliders.then_some(Vec::new()),
             ..Default::default()
         }
     }
@@ -365,6 +391,61 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
             }
         }
         self._new_fleet.clear();
+
+        if let Some(colliders) = &mut self.take_colliders {
+            for (_, collider) in bs.physics.colliders.iter_enabled() {
+                let collider_type = if let Some(ball) = collider.shape().as_ball() {
+                    DrawColliderType::Circle {
+                        radius: ball.radius * GODOT_SCALE,
+                    }
+                } else if let Some(cuboid) = collider.shape().as_cuboid() {
+                    DrawColliderType::Cuboid {
+                        half_size: cuboid.half_extents.to_godot_scaled(),
+                    }
+                } else if let Some(compound) = collider.shape().as_compound() {
+                    let polygons = compound
+                        .shapes()
+                        .iter()
+                        .map(|(pos, shape)| {
+                            shape
+                                .as_convex_polygon()
+                                .unwrap()
+                                .points()
+                                .iter()
+                                .map(|point| pos.transform_point(point).coords.to_godot_scaled())
+                                .collect::<Vec<_>>()
+                        })
+                        .collect::<Vec<_>>();
+                    DrawColliderType::CompoundPolygon { polygons }
+                } else if let Some(polygon) = collider.shape().as_convex_polygon() {
+                    DrawColliderType::Polygon {
+                        points: polygon
+                            .points()
+                            .iter()
+                            .map(|point| point.coords.to_godot_scaled())
+                            .collect(),
+                    }
+                } else {
+                    continue;
+                };
+
+                let pos = collider.position();
+                
+                let b = 1.0;
+
+                colliders.push(DrawCollider {
+                    collider_type,
+                    color: Color {
+                        r: 0.2,
+                        g: 0.2,
+                        b,
+                        a: 0.5,
+                    },
+                    position: pos.translation.to_godot_scaled(),
+                    rotation: pos.rotation.angle(), // TODO: Use hardward acceleration
+                });
+            }
+        }
 
         self.render.stepped(bs);
     }

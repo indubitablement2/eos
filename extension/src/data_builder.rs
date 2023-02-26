@@ -101,7 +101,7 @@ impl EntityDataBuilder {
         angle: f32,
     ) {
         self.entity_data.collider = ball_collider(
-            radius,
+            radius / GODOT_SCALE,
             density,
             groups(entity_type),
             na::Isometry2::new(translation.to_na_descaled(), angle),

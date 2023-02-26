@@ -30,5 +30,4 @@ aproximate_radius = 50.0
 texture = ExtResource("1_pq5kf")
 
 [node name="CollisionShape2D" type="CollisionPolygon2D" parent="."]
-visible = false
 polygon = PackedVector2Array(-18, -175, 21, -173, 45, -51, 52, -53, 46, -134, 60, -166, 84, -166, 135, -30, 118, -12, 141, 31, 101, 131, 69, 139, 71, 165, 52, 183, 38, 157, 0, 172, -39, 157, -49, 183, -69, 166, -70, 139, -104, 127, -138, 33, -122, -14, -135, -35, -80, -167, -56, -162, -47, -139, -52, -52, -45, -51)

@@ -42,10 +42,12 @@ pub fn polygon_collider(
         return ball_collider(0.5, density, groups, pos);
     }
 
-    let indices = (0..vertices.len() as u32 - 1)
+    let mut indices = (0..vertices.len() as u32 - 1)
         .map(|i| [i, i + 1])
         .collect::<Vec<_>>();
+    indices.push([vertices.len() as u32 - 1, 0]);
 
+    SharedShape::convex_polyline(points)
     build_collider(
         SharedShape::convex_decomposition(&vertices, indices.as_slice()),
         density,

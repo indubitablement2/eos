@@ -49,6 +49,9 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Add optional array of entity path to data which will be converted to EntityId and given to EntityScript.
 // TODO: Render call should call a function on the sim node with the render node as an argument.
 
+// TODO: Handle collider offset
+// // TODO: Display collider
+
 mod ext {
     use godot::prelude::*;
 
