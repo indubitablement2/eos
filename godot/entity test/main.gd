@@ -20,4 +20,3 @@ func _process(delta: float) -> void:
 
 func _on_hash_received(bs_hash: int, tick: int) -> void:
 	print("Got hash for tick ", tick, ": ", bs_hash)
-	bs.dbg_print_fleets()

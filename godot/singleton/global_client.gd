@@ -33,8 +33,6 @@ func load_data() -> void:
 	
 	for e in nodes:
 		_build_entity_data(e[0], e[1])
-	
-	dbg_print_data()
 
 func _try_load_path(path: String) -> EntityData:
 	var ext := path.get_extension()

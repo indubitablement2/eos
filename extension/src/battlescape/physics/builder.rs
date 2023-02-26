@@ -12,20 +12,11 @@ impl Groups {
     }
 }
 
-pub fn ball_collider(
-    radius: f32,
-    density: f32,
-    groups: Groups,
-) -> Collider {
+pub fn ball_collider(radius: f32, density: f32, groups: Groups) -> Collider {
     build_collider(SharedShape::ball(radius), density, groups)
 }
 
-pub fn cuboid_collider(
-    hx: f32,
-    hy: f32,
-    density: f32,
-    groups: Groups,
-) -> Collider {
+pub fn cuboid_collider(hx: f32, hy: f32, density: f32, groups: Groups) -> Collider {
     build_collider(SharedShape::cuboid(hx, hy), density, groups)
 }
 
@@ -56,17 +47,8 @@ pub fn polygons_collider(
     build_collider(shape, density, groups)
 }
 
-fn build_collider(
-    shape: SharedShape,
-    density: f32,
-    groups: Groups,
-) -> Collider {
+fn build_collider(shape: SharedShape, density: f32, groups: Groups) -> Collider {
     let mut mass_properties = ColliderMassProps::Density(density).mass_properties(shape.deref());
-    log::debug!(
-        "{:?}, mass_properties: {:?}",
-        shape.shape_type(),
-        mass_properties
-    );
     mass_properties.local_com = Default::default();
 
     ColliderBuilder::new(shape)

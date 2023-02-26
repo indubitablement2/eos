@@ -52,8 +52,6 @@ impl EntityScriptData {
         drop(bind);
         obj.free();
 
-        log::debug!("{:#?}", &s);
-
         s
     }
 }

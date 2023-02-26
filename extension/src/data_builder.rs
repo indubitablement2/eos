@@ -2,7 +2,8 @@ use super::*;
 use crate::{
     battlescape::{
         entity::{script::EntityScriptData, *},
-        physics::builder::*, DT,
+        physics::builder::*,
+        DT,
     },
     client_battlescape::EntityRenderData,
     metascape::ship::ShipData,
@@ -92,33 +93,16 @@ impl EntityDataBuilder {
     }
 
     #[func]
-    fn set_shape_circle(
-        &mut self,
-        radius: f32,
-        density: f32,
-        entity_type: i64,
-    ) {
-        self.entity_data.collider = ball_collider(
-            radius / GODOT_SCALE,
-            density,
-            groups(entity_type),
-        );
+    fn set_shape_circle(&mut self, radius: f32, density: f32, entity_type: i64) {
+        self.entity_data.collider =
+            ball_collider(radius / GODOT_SCALE, density, groups(entity_type));
     }
 
     #[func]
-    fn set_shape_cuboid(
-        &mut self,
-        half_size: Vector2,
-        density: f32,
-        entity_type: i64,
-    ) {
+    fn set_shape_cuboid(&mut self, half_size: Vector2, density: f32, entity_type: i64) {
         let half_size = half_size.to_na_descaled();
-        self.entity_data.collider = cuboid_collider(
-            half_size.x,
-            half_size.y,
-            density,
-            groups(entity_type),
-        );
+        self.entity_data.collider =
+            cuboid_collider(half_size.x, half_size.y, density, groups(entity_type));
     }
 
     #[func]
@@ -139,11 +123,7 @@ impl EntityDataBuilder {
             })
             .collect();
 
-        self.entity_data.collider = polygons_collider(
-            polygons,
-            density,
-            groups(entity_type),
-        );
+        self.entity_data.collider = polygons_collider(polygons, density, groups(entity_type));
     }
 
     #[func]
