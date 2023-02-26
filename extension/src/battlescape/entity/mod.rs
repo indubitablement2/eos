@@ -341,7 +341,7 @@ impl Default for EntityData {
             starting_ai: Default::default(),
             script: Default::default(),
             defence: Default::default(),
-            collider: ball_collider(0.5, 1.0, Groups::Ship),
+            collider: ball_collider(0.5, 1.0, Groups::Ship, Default::default()),
             is_ship: false,
         }
     }

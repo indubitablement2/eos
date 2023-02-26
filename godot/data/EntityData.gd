@@ -1,5 +1,5 @@
 @tool
-class_name EntityData extends Sprite2D
+class_name EntityData extends Node2D
 
 enum ENTITY_TYPE {
 	Ship,
@@ -35,17 +35,18 @@ enum ENTITY_TYPE {
 @export var armor := 100
 
 @export_subgroup("Physic")
-## Node will not exist in-game.
+## **Node will be deleted.**
 ##
 ## Only support CollisionPolygon2D(circle, rectangle)
 ## and CollisionShape2D(only used for the point array).
 ## 
-## This act as the entity center, so if the sprite needs to be offset, 
-## you change the position/rotation of this.
+## This can have a transform.
 @export var collision_shape: Node2D
 @export var density := 1.0
 
 @export_subgroup("Rendering")
+## Material will be overwritten to display damage.
+@export var sprite: Sprite2D
 ## An aproximate radius for this entity. 
 ## Used for rendering and selection.
 @export var aproximate_radius := 64.0 : set = set_aproximate_radius

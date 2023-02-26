@@ -414,8 +414,7 @@ impl BattlescapeEventHandlerTrait for ClientBattlescapeEventHandler {
 pub struct EntityRenderData {
     /// Sprite2D
     pub render_scene: Gd<PackedScene>,
-    pub position_offset: Vector2,
-    pub rotation_offset: f32,
+    pub child_sprite_idx: i64,
     /// In godot scale.
     pub radius_aprox: f32,
     // TODO: Engine placement.
@@ -424,8 +423,7 @@ impl Default for EntityRenderData {
     fn default() -> Self {
         Self {
             render_scene: load("res://fallback_entity_render.tscn"),
-            position_offset: Default::default(),
-            rotation_offset: 0.0,
+            child_sprite_idx: 0,
             radius_aprox: 0.5 * GODOT_SCALE,
         }
     }

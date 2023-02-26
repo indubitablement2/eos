@@ -159,6 +159,7 @@ pub struct EntityRender {
     pub relation: EntityRelation,
     pub team: Team,
     pub owner: Option<ClientId>,
+    base: Gd<Node2D>,
     sprite: Gd<Sprite2D>,
     draw: Gd<EntityDraw>,
     pub entity_data_id: EntityDataId,
@@ -166,20 +167,20 @@ pub struct EntityRender {
 }
 impl EntityRender {
     fn new(init: InitEntityRender, draw_node: &Gd<Node2D>) -> Self {
-        let sprite = init
+        let base = init
             .entity_data_id
             .render_data()
             .render_scene
             .instantiate(GenEditState::GEN_EDIT_STATE_DISABLED)
-            .map(|node| node.cast::<Sprite2D>())
-            .unwrap_or_else(|| Sprite2D::new_alloc());
+            .map(|node| node.cast::<Node2D>())
+            .unwrap();
 
-        add_child(draw_node, &sprite);
+        add_child(draw_node, &base);
 
         // TODO: Set hull shader.
 
         let draw = EntityDraw::new(
-            &sprite,
+            &base,
             init.entity_data_id,
             Color::from_rgba(1.0, 0.0, 0.0, 0.1),
             true,
@@ -189,7 +190,11 @@ impl EntityRender {
             relation: EntityRelation::Neutral,
             team: init.team,
             owner: init.owner,
-            sprite,
+            sprite: base
+                .get_child(init.entity_data_id.render_data().child_sprite_idx, false)
+                .unwrap()
+                .cast(),
+            base,
             draw,
             entity_data_id: init.entity_data_id,
             fleet_ship: init.fleet_ship,
@@ -201,11 +206,8 @@ impl EntityRender {
     }
 
     fn set_position(&mut self, new_position: Position) {
-        self.sprite
-            .set_position(new_position.pos);
-        self.sprite.set_rotation(
-            (new_position.rot + self.entity_data_id.render_data().rotation_offset) as f64,
-        );
+        self.base.set_position(new_position.pos);
+        self.base.set_rotation(new_position.rot as f64);
     }
 
     fn update_relation(&mut self, client_id: ClientId, team: Team) {
@@ -238,7 +240,7 @@ impl EntityRender {
 }
 impl Drop for EntityRender {
     fn drop(&mut self) {
-        self.sprite.queue_free()
+        self.base.queue_free()
     }
 }
 // Needed as it is contructed in events.
@@ -315,16 +317,13 @@ struct EntityDraw {
 }
 impl EntityDraw {
     fn new(
-        parent: &Gd<Sprite2D>,
+        parent: &Gd<Node2D>,
         entity_data_id: EntityDataId,
         draw_color: Color,
         draw_rect: bool,
     ) -> Gd<Self> {
         Gd::<Self>::with_base(|mut base| {
             add_child(parent, &base);
-
-            base.set_rotation(-entity_data_id.render_data().rotation_offset as f64);
-            base.set_position(-entity_data_id.render_data().position_offset);
 
             let obj = base.share();
             base.connect(

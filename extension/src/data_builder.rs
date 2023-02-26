@@ -77,15 +77,13 @@ impl EntityDataBuilder {
     }
 
     #[func]
-    fn set_render_scene(
-        &mut self,
-        render_scene: Gd<PackedScene>,
-        position_offset: Vector2,
-        rotation_offset: f32,
-    ) {
+    fn set_render_scene(&mut self, render_scene: Gd<PackedScene>) {
         self.entity_render_data.render_scene = render_scene;
-        self.entity_render_data.position_offset = position_offset;
-        self.entity_render_data.rotation_offset = rotation_offset;
+    }
+
+    #[func]
+    fn set_child_sprite_idx(&mut self, idx: i64) {
+        self.entity_render_data.child_sprite_idx = idx;
     }
 
     #[func]
@@ -94,19 +92,50 @@ impl EntityDataBuilder {
     }
 
     #[func]
-    fn set_shape_circle(&mut self, radius: f32, density: f32, entity_type: i64) {
-        self.entity_data.collider = ball_collider(radius, density, groups(entity_type));
+    fn set_shape_circle(
+        &mut self,
+        radius: f32,
+        density: f32,
+        entity_type: i64,
+        translation: Vector2,
+        angle: f32,
+    ) {
+        self.entity_data.collider = ball_collider(
+            radius,
+            density,
+            groups(entity_type),
+            na::Isometry2::new(translation.to_na_descaled(), angle),
+        );
     }
 
     #[func]
-    fn set_shape_cuboid(&mut self, half_size: Vector2, density: f32, entity_type: i64) {
+    fn set_shape_cuboid(
+        &mut self,
+        half_size: Vector2,
+        density: f32,
+        entity_type: i64,
+        translation: Vector2,
+        angle: f32,
+    ) {
         let half_size = half_size.to_na_descaled();
-        self.entity_data.collider =
-            cuboid_collider(half_size.x, half_size.y, density, groups(entity_type));
+        self.entity_data.collider = cuboid_collider(
+            half_size.x,
+            half_size.y,
+            density,
+            groups(entity_type),
+            na::Isometry2::new(translation.to_na_descaled(), angle),
+        );
     }
 
     #[func]
-    fn set_shape_polygon(&mut self, points: PackedVector2Array, density: f32, entity_type: i64) {
+    fn set_shape_polygon(
+        &mut self,
+        points: PackedVector2Array,
+        density: f32,
+        entity_type: i64,
+        translation: Vector2,
+        angle: f32,
+    ) {
         let vertices = points
             .to_vec()
             .into_iter()
@@ -115,7 +144,12 @@ impl EntityDataBuilder {
                 na::Point2::new(v.x, v.y)
             })
             .collect::<Vec<_>>();
-        self.entity_data.collider = polygon_collider(&vertices, density, groups(entity_type));
+        self.entity_data.collider = polygon_collider(
+            &vertices,
+            density,
+            groups(entity_type),
+            na::Isometry2::new(translation.to_na_descaled(), angle),
+        );
     }
 
     #[func]

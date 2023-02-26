@@ -74,40 +74,69 @@ func _build_entity_data(path: String, e: EntityData) -> void:
 	
 	b.set_aproximate_radius(e.aproximate_radius)
 	
+	# Make sure there is a sprite
+	if !e.sprite:
+		var sp := Sprite2D.new()
+		e.add_child(sp)
+		e.sprite = sp
+	
+	# Make sure the srpite has a texture
+	if !e.sprite.texture:
+		e.sprite.set_texture(preload("res://textures/error.png"))
+	
+	var child_sprite_idx := 0
+	while true:
+		if e.get_child(child_sprite_idx) == e.sprite:
+			break
+	b.set_child_sprite_idx(child_sprite_idx)
+	
 	# Handle if this is a ship
 	if e.ship_data:
 		b.set_ship_display_name(e.ship_data.display_name)
-		if e.texture:
-			b.set_ship_texture(e.texture)
+		b.set_ship_texture(e.sprite.texture)
 	
 	# Set the shape
 	if e.collision_shape is CollisionShape2D:
 		var c :CollisionShape2D = e.collision_shape
 		if c.shape is CircleShape2D:
 			var s : CircleShape2D = c.shape
-			b.set_shape_circle(s.radius, e.density, e.entity_type)
+			b.set_shape_circle(
+				s.radius,
+				e.density,
+				e.entity_type,
+				c.position,
+				c.rotation
+			)
 		elif c.shape is RectangleShape2D:
 			var s : RectangleShape2D = c.shape
-			b.set_shape_cuboid(s.size * 0.5, e.density, e.entity_type)
+			b.set_shape_cuboid(
+				s.size * 0.5,
+				e.density,
+				e.entity_type,
+				c.position,
+				c.rotation
+			)
 		else:
 			push_warning("Shape not handled")
 		c.free()
 	elif e.collision_shape is CollisionPolygon2D:
 		var c :CollisionPolygon2D = e.collision_shape
-		b.set_shape_polygon(c.get_polygon(), e.density, e.entity_type)
+		b.set_shape_polygon(
+				c.get_polygon(),
+				e.density,
+				e.entity_type,
+				c.position,
+				c.rotation
+			)
 		c.free()
 	else:
 		push_warning("No shape")
 	
 	# Create the render scene
 	e.set_script(e.render_script)
-	var position_offset := e.position
-	var rotation_offset := e.rotation
-	e.position = Vector2.ZERO
-	e.rotation = 0.0
 	var p := PackedScene.new()
 	p.pack(e)
-	b.set_render_scene(p, position_offset, rotation_offset)
+	b.set_render_scene(p)
 	
 	b.build()
 	e.free()

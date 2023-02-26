@@ -1,0 +1,38 @@
+[gd_scene load_steps=7 format=3 uid="uid://de14by54ib4a2"]
+
+[ext_resource type="Script" path="res://data/EntityData.gd" id="1_q28jx"]
+[ext_resource type="Script" path="res://data/ShipData.gd" id="2_jikdy"]
+[ext_resource type="Texture2D" uid="uid://dixrte5w1orqc" path="res://texture DELETE/void_fleet_by_ravendarke_1.png" id="3_apiq7"]
+
+[sub_resource type="GDScript" id="GDScript_176tx"]
+script/source = "extends EntityScript
+
+func start() -> void:
+	print(cb_on_destroyed(_on_destroyed.bind(\"hello\")))
+
+func _on_destroyed(bind: String):
+	print(\"I'm destroyed (also callback works). bind is: \", bind)
+"
+
+[sub_resource type="Resource" id="Resource_3rjih"]
+script = ExtResource("2_jikdy")
+display_name = "Offset cuboid"
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1f26a"]
+size = Vector2(315, 293)
+
+[node name="EntityData" type="Node2D" node_paths=PackedStringArray("collision_shape", "sprite")]
+script = ExtResource("1_q28jx")
+simulation_script = SubResource("GDScript_176tx")
+ship_data = SubResource("Resource_3rjih")
+collision_shape = NodePath("CollisionShape2D")
+sprite = NodePath("Sprite2D")
+aproximate_radius = 50.0
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(1, -42)
+texture = ExtResource("3_apiq7")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(1, -39)
+shape = SubResource("RectangleShape2D_1f26a")

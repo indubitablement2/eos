@@ -12,18 +12,34 @@ impl Groups {
     }
 }
 
-pub fn ball_collider(radius: f32, density: f32, groups: Groups) -> Collider {
-    build_collider(SharedShape::ball(radius), density, groups)
+pub fn ball_collider(
+    radius: f32,
+    density: f32,
+    groups: Groups,
+    pos: na::Isometry2<f32>,
+) -> Collider {
+    build_collider(SharedShape::ball(radius), density, groups, pos)
 }
 
-pub fn cuboid_collider(hx: f32, hy: f32, density: f32, groups: Groups) -> Collider {
-    build_collider(SharedShape::cuboid(hx, hy), density, groups)
+pub fn cuboid_collider(
+    hx: f32,
+    hy: f32,
+    density: f32,
+    groups: Groups,
+    pos: na::Isometry2<f32>,
+) -> Collider {
+    build_collider(SharedShape::cuboid(hx, hy), density, groups, pos)
 }
 
-pub fn polygon_collider(vertices: &[na::Point2<f32>], density: f32, groups: Groups) -> Collider {
+pub fn polygon_collider(
+    vertices: &[na::Point2<f32>],
+    density: f32,
+    groups: Groups,
+    pos: na::Isometry2<f32>,
+) -> Collider {
     if vertices.len() < 3 {
         log::warn!("Polygon must have at least 3 vertices. Using ball instead...");
-        return ball_collider(0.5, density, groups);
+        return ball_collider(0.5, density, groups, pos);
     }
 
     let indices = (0..vertices.len() as u32 - 1)
@@ -34,15 +50,26 @@ pub fn polygon_collider(vertices: &[na::Point2<f32>], density: f32, groups: Grou
         SharedShape::convex_decomposition(&vertices, indices.as_slice()),
         density,
         groups,
+        pos,
     )
 }
 
-fn build_collider(shape: SharedShape, density: f32, groups: Groups) -> Collider {
+fn build_collider(
+    shape: SharedShape,
+    density: f32,
+    groups: Groups,
+    pos: na::Isometry2<f32>,
+) -> Collider {
     let mut mass_properties = ColliderMassProps::Density(density).mass_properties(shape.deref());
-    log::debug!("{:?}, mass_properties: {:?}", shape.shape_type(), mass_properties);
+    log::debug!(
+        "{:?}, mass_properties: {:?}",
+        shape.shape_type(),
+        mass_properties
+    );
     mass_properties.local_com = Default::default();
 
     ColliderBuilder::new(shape)
+        .position(pos)
         .collision_groups(groups.groups())
         // TODO: Need ActiveHooks::FILTER_INTERSECTION_PAIR ?
         .active_hooks(ActiveHooks::FILTER_CONTACT_PAIRS)
