@@ -16,9 +16,8 @@ pub fn ball_collider(
     radius: f32,
     density: f32,
     groups: Groups,
-    pos: na::Isometry2<f32>,
 ) -> Collider {
-    build_collider(SharedShape::ball(radius), density, groups, pos)
+    build_collider(SharedShape::ball(radius), density, groups)
 }
 
 pub fn cuboid_collider(
@@ -26,20 +25,18 @@ pub fn cuboid_collider(
     hy: f32,
     density: f32,
     groups: Groups,
-    pos: na::Isometry2<f32>,
 ) -> Collider {
-    build_collider(SharedShape::cuboid(hx, hy), density, groups, pos)
+    build_collider(SharedShape::cuboid(hx, hy), density, groups)
 }
 
 pub fn polygons_collider(
     mut polygons: Vec<Vec<na::Point2<f32>>>,
     density: f32,
     groups: Groups,
-    pos: na::Isometry2<f32>,
 ) -> Collider {
     let shape = if polygons.is_empty() {
         log::warn!("Polygons must have at least 1 polygon. Using ball instead...");
-        return ball_collider(0.5, density, groups, pos);
+        return ball_collider(0.5, density, groups);
     } else if polygons.len() == 1 {
         SharedShape::convex_polyline(polygons.pop().unwrap()).unwrap()
     } else {
@@ -56,14 +53,13 @@ pub fn polygons_collider(
         )
     };
 
-    build_collider(shape, density, groups, pos)
+    build_collider(shape, density, groups)
 }
 
 fn build_collider(
     shape: SharedShape,
     density: f32,
     groups: Groups,
-    pos: na::Isometry2<f32>,
 ) -> Collider {
     let mut mass_properties = ColliderMassProps::Density(density).mass_properties(shape.deref());
     log::debug!(
@@ -74,7 +70,6 @@ fn build_collider(
     mass_properties.local_com = Default::default();
 
     ColliderBuilder::new(shape)
-        .position(pos)
         .collision_groups(groups.groups())
         // TODO: Need ActiveHooks::FILTER_INTERSECTION_PAIR ?
         .active_hooks(ActiveHooks::FILTER_CONTACT_PAIRS)

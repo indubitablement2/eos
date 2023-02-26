@@ -5,7 +5,6 @@ var bs : ClientBattlescape
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("target"):
 		var eid := bs.get_owned_entity_at(get_global_mouse_position())
-		print(eid)
 		bs.cmd_control_ship(eid)
 
 func _ready() -> void:

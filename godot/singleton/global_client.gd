@@ -104,8 +104,6 @@ func _build_entity_data(path: String, e: EntityData) -> void:
 				s.radius,
 				e.density,
 				e.entity_type,
-				c.position,
-				c.rotation
 			)
 		elif c.shape is RectangleShape2D:
 			var s : RectangleShape2D = c.shape
@@ -113,8 +111,6 @@ func _build_entity_data(path: String, e: EntityData) -> void:
 				s.size * 0.5,
 				e.density,
 				e.entity_type,
-				c.position,
-				c.rotation
 			)
 		else:
 			push_warning("Shape not handled")
@@ -122,13 +118,10 @@ func _build_entity_data(path: String, e: EntityData) -> void:
 	elif e.collision_shape is CollisionPolygon2D:
 		var c :CollisionPolygon2D = e.collision_shape
 		var p := Geometry2D.decompose_polygon_in_convex(c.get_polygon())
-		
 		b.set_shape_polygons(
 				p,
 				e.density,
 				e.entity_type,
-				c.position,
-				c.rotation
 			)
 		c.free()
 	else:

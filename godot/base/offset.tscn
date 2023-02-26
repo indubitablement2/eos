@@ -8,7 +8,7 @@
 script/source = "extends EntityScript
 
 func start() -> void:
-	print(cb_on_destroyed(_on_destroyed.bind(\"hello\")))
+	cb_on_destroyed(_on_destroyed.bind(\"hello\"))
 
 func _on_destroyed(bind: String):
 	print(\"I'm destroyed (also callback works). bind is: \", bind)
@@ -24,7 +24,7 @@ simulation_script = SubResource("GDScript_176tx")
 ship_data = SubResource("Resource_3rjih")
 collision_shape = NodePath("CollisionShape2D")
 sprite = NodePath("Sprite2D")
-aproximate_radius = 50.0
+aproximate_radius = 236.154
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 position = Vector2(-30, -24)

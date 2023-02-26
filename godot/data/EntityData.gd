@@ -18,10 +18,14 @@ enum ENTITY_TYPE {
 @export var ship_data: ShipData : set = set_ship_data
 
 @export_subgroup("Mobility")
-@export var linear_acceleration := 32.0
+## How fast this can accelerate in unit/seconds.
+## One unit is 128 pixel.
+@export var linear_acceleration := 2.0
 ## How fast this can accelerate in radian/seconds.
-@export var angular_acceleration := 0.1
-@export var max_linear_velocity := 256.0
+@export var angular_acceleration := 1.0
+## How fast this can move in unit/seconds.
+## One unit is 128 pixel.
+@export var max_linear_velocity := 2.0
 ## How fast this move in radian/seconds. 
 ## Something pushing it may cause higher speed.
 @export var max_angular_velocity := 1.0
@@ -40,8 +44,11 @@ enum ENTITY_TYPE {
 ## Only support CollisionPolygon2D(circle, rectangle)
 ## and CollisionShape2D(only used for the point array).
 ## 
-## This can have a transform.
+## This Should not have a transform.
 @export var collision_shape: Node2D
+## This * collider volume = mass. 
+## High mass will push smaller mass entity.
+## Does not affect movement.
 @export var density := 1.0
 
 @export_subgroup("Rendering")
@@ -49,8 +56,8 @@ enum ENTITY_TYPE {
 @export var sprite: Sprite2D
 ## An aproximate radius for this entity. 
 ## Used for rendering and selection.
-@export var aproximate_radius := 64.0 : set = set_aproximate_radius
-@export var hide_aproximate_radius_preview := true : set = set_hide_aproximate_radius_preview
+@export_range(10.0, 1000.0) var aproximate_radius := 64.0 : set = set_aproximate_radius
+@export var hide_aproximate_radius_preview := false : set = set_hide_aproximate_radius_preview
 @export var hide_target_preview := false : set = set_hide_target_preview
 
 func _draw() -> void:

@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     battlescape::{
         entity::{script::EntityScriptData, *},
-        physics::builder::*,
+        physics::builder::*, DT,
     },
     client_battlescape::EntityRenderData,
     metascape::ship::ShipData,
@@ -43,12 +43,12 @@ impl EntityDataBuilder {
 
     #[func]
     fn set_linear_acceleration(&mut self, linear_acceleration: f32) {
-        self.entity_data.mobility.linear_acceleration = linear_acceleration;
+        self.entity_data.mobility.linear_acceleration = linear_acceleration * DT;
     }
 
     #[func]
     fn set_angular_acceleration(&mut self, angular_acceleration: f32) {
-        self.entity_data.mobility.angular_acceleration = angular_acceleration;
+        self.entity_data.mobility.angular_acceleration = angular_acceleration * DT;
     }
 
     #[func]
@@ -97,14 +97,11 @@ impl EntityDataBuilder {
         radius: f32,
         density: f32,
         entity_type: i64,
-        translation: Vector2,
-        angle: f32,
     ) {
         self.entity_data.collider = ball_collider(
             radius / GODOT_SCALE,
             density,
             groups(entity_type),
-            na::Isometry2::new(translation.to_na_descaled(), angle),
         );
     }
 
@@ -114,8 +111,6 @@ impl EntityDataBuilder {
         half_size: Vector2,
         density: f32,
         entity_type: i64,
-        translation: Vector2,
-        angle: f32,
     ) {
         let half_size = half_size.to_na_descaled();
         self.entity_data.collider = cuboid_collider(
@@ -123,7 +118,6 @@ impl EntityDataBuilder {
             half_size.y,
             density,
             groups(entity_type),
-            na::Isometry2::new(translation.to_na_descaled(), angle),
         );
     }
 
@@ -133,8 +127,6 @@ impl EntityDataBuilder {
         polygons: TypedArray<PackedVector2Array>,
         density: f32,
         entity_type: i64,
-        translation: Vector2,
-        angle: f32,
     ) {
         let polygons = polygons
             .iter_shared()
@@ -151,7 +143,6 @@ impl EntityDataBuilder {
             polygons,
             density,
             groups(entity_type),
-            na::Isometry2::new(translation.to_na_descaled(), angle),
         );
     }
 

@@ -340,7 +340,7 @@ impl Default for EntityData {
             starting_ai: Default::default(),
             script: Default::default(),
             defence: Default::default(),
-            collider: ball_collider(0.5, 1.0, Groups::Ship, Default::default()),
+            collider: ball_collider(0.5, 1.0, Groups::Ship),
             is_ship: false,
         }
     }
@@ -360,10 +360,13 @@ impl std::fmt::Debug for EntityData {
 /// In unit/seconds.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct Mobility {
+    /// In unit/tick.
     pub linear_acceleration: f32,
     /// In radian/tick.
     pub angular_acceleration: f32,
+    /// In unit/seconds.
     pub max_linear_velocity: f32,
+    /// In radian/seconds.
     pub max_angular_velocity: f32,
 }
 impl Default for Mobility {

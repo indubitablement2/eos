@@ -8,7 +8,7 @@
 script/source = "extends EntityScript
 
 func start() -> void:
-	print(cb_on_destroyed(_on_destroyed.bind(\"hello\")))
+	cb_on_destroyed(_on_destroyed.bind(\"hello\"))
 
 func _on_destroyed(bind: String):
 	print(\"I'm destroyed (also callback works). bind is: \", bind)
@@ -22,15 +22,13 @@ display_name = "Ship Test"
 script = ExtResource("1_so5g7")
 simulation_script = SubResource("GDScript_176tx")
 ship_data = SubResource("Resource_3rjih")
-angular_acceleration = 9999.0
-max_angular_velocity = 20.0
 collision_shape = NodePath("CollisionShape2D")
-density = 0.01
 sprite = NodePath("Sprite2D")
-aproximate_radius = 50.0
+aproximate_radius = 195.0
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("1_pq5kf")
 
 [node name="CollisionShape2D" type="CollisionPolygon2D" parent="."]
+visible = false
 polygon = PackedVector2Array(-18, -175, 21, -173, 45, -51, 52, -53, 46, -134, 60, -166, 84, -166, 135, -30, 118, -12, 141, 31, 101, 131, 69, 139, 71, 165, 52, 183, 38, 157, 0, 172, -39, 157, -49, 183, -69, 166, -70, 139, -104, 127, -138, 33, -122, -14, -135, -35, -80, -167, -56, -162, -47, -139, -52, -52, -45, -51)

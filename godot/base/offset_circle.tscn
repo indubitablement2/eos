@@ -8,7 +8,7 @@
 script/source = "extends EntityScript
 
 func start() -> void:
-	print(cb_on_destroyed(_on_destroyed.bind(\"hello\")))
+	cb_on_destroyed(_on_destroyed.bind(\"hello\"))
 
 func _on_destroyed(bind: String):
 	print(\"I'm destroyed (also callback works). bind is: \", bind)
@@ -19,17 +19,15 @@ script = ExtResource("2_jikdy")
 display_name = "Offset cuboid"
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_mssio"]
-radius = 630.35
+radius = 165.0
 
 [node name="EntityData" type="Node2D" node_paths=PackedStringArray("collision_shape", "sprite")]
 script = ExtResource("1_q28jx")
 simulation_script = SubResource("GDScript_176tx")
 ship_data = SubResource("Resource_3rjih")
-angular_acceleration = 11111.0
-max_angular_velocity = 6.283
 collision_shape = NodePath("CollisionShape2D")
 sprite = NodePath("Sprite2D")
-aproximate_radius = 50.0
+aproximate_radius = 165.0
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("3_apiq7")
