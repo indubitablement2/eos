@@ -155,7 +155,9 @@ impl Entity {
 
         // Linvel
         match self.wish_linvel {
-            WishLinVel::Keep => todo!(),
+            WishLinVel::Keep => {
+
+            }
             WishLinVel::Cancel => {
                 if rb.linvel().magnitude_squared() < 0.001  {
                     rb.set_linvel(na::Vector2::zeros(), false);
@@ -164,11 +166,21 @@ impl Entity {
                     rb.set_linvel(linvel, false);
                 }
             }
-            WishLinVel::Forward { force } => todo!(),
+            WishLinVel::Forward { force } => {
+                let wish_vel = rb.rotation().transform_vector(&na::Vector2::new(0.0, -force));
+                let vel_change = (wish_vel - rb.linvel()).cap_magnitude(self.mobility.linear_acceleration);
+                rb.set_linvel(rb.linvel() + vel_change, true);
+            }
             WishLinVel::Position { position } => todo!(),
             WishLinVel::PositionOvershot { position } => todo!(),
-            WishLinVel::Absolute { force } => todo!(),
-            WishLinVel::Relative { force } => todo!(),
+            WishLinVel::Absolute { force } => {
+
+            }
+            WishLinVel::Relative { force } => {
+                let wish_vel = rb.rotation().transform_vector(&force) * self.mobility.max_linear_velocity;
+                let vel_change = (wish_vel - rb.linvel()).cap_magnitude(self.mobility.linear_acceleration);
+                rb.set_linvel(rb.linvel() + vel_change, true);
+            }
         }
 
         //     fn apply_wish_linvel(
@@ -256,7 +268,7 @@ pub enum WishLinVel {
     /// Try to reach 0 linvel.
     Cancel,
     /// Always try to go forward (or backward with negative force)
-    /// at percent of max acceleration [-1..1].
+    /// at percent of max acceleration `[-1, 1]`.
     Forward {
         force: f32,
     },
@@ -345,9 +357,9 @@ impl Default for Mobility {
     fn default() -> Self {
         Self {
             linear_acceleration: 1.0,
-            angular_acceleration: 0.5,
-            max_linear_velocity: 7.0,
-            max_angular_velocity: 3.0,
+            angular_acceleration: 1.0,
+            max_linear_velocity: 2.0,
+            max_angular_velocity: 2.0,
         }
     }
 }
