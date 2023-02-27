@@ -1,8 +1,10 @@
 pub mod ai;
 pub mod script;
+mod wishvel;
 
 use self::script::*;
 use super::*;
+use self::wishvel::*;
 
 #[derive(Serialize, Deserialize)]
 pub struct Entity {
@@ -110,17 +112,24 @@ impl Entity {
 
         // Angvel
         match self.wish_angvel {
-            WishAngVel::Keep => {}
-            WishAngVel::Cancel => {
-                if ComplexField::abs(rb.angvel()) > 0.0001 {
-                    let new_angvel = rb.angvel()
-                        - RealField::clamp(
-                            rb.angvel(),
-                            -self.mobility.angular_acceleration,
-                            self.mobility.angular_acceleration,
-                        );
-                    rb.set_angvel(new_angvel, false);
+            WishAngVel::Keep => {
+                if rb.angvel() > self.mobility.max_angular_velocity {
+                    let angvel = RealField::max(
+                        angvel_stop(rb.angvel(), self.mobility.angular_acceleration),
+                        self.mobility.max_angular_velocity
+                    );
+                    rb.set_angvel(angvel, true);
+                } else if rb.angvel() < -self.mobility.max_angular_velocity {
+                    let angvel = RealField::min(
+                        angvel_stop(rb.angvel(), self.mobility.angular_acceleration),
+                        -self.mobility.max_angular_velocity
+                    );
+                    rb.set_angvel(angvel, true);
                 }
+            }
+            WishAngVel::Cancel => {
+                let angvel = angvel_stop(rb.angvel(), self.mobility.angular_acceleration);
+                rb.set_angvel(angvel, false);
             }
             WishAngVel::Aim { position } => {
                 let target = position - *rb.translation();
@@ -129,113 +138,18 @@ impl Entity {
                     .transform_vector(&na::Vector2::new(0.0, -1.0))
                     .angle_to(target);
 
-
-
-                // If we are going in the same direction as wish_rot_offset
-                let angvel_change =
-                    if ComplexField::abs(wish_rot_offset) < 0.01 {
-                        -rb.angvel() // TODO: Cap me
-                    } else if ComplexField::signum(wish_rot_offset) == ComplexField::signum(rb.angvel()) {
-                        // Calculate the time to reach 0 angvel.
-                        let time_to_stop =
-                            ComplexField::abs(rb.angvel() * DT) / (self.mobility.angular_acceleration);
-
-                        // Calculate the time to reach the target.
-                        let time_to_target = ComplexField::abs(wish_rot_offset / rb.angvel());
-
-                        if time_to_target < time_to_stop {
-                            log::debug!("tts: {:?}, ttt: {:?}, same dir: slowing down", time_to_stop, time_to_target);
-                            ComplexField::signum(wish_rot_offset) * -self.mobility.angular_acceleration
-                            // RealField::clamp(
-                            //     -wish_rot_offset,
-                            //     -self.mobility.angular_acceleration,
-                            //     self.mobility.angular_acceleration,
-                            // )
-                        } else {
-                            log::debug!("tts: {:?}, ttt: {:?}, same dir: full speed", time_to_stop, time_to_target);
-                            RealField::clamp(
-                                wish_rot_offset,
-                                -self.mobility.angular_acceleration,
-                                self.mobility.angular_acceleration,
-                            )
-                        }
-                    } else {
-                        log::debug!("opposite dir: full speed");
-                        RealField::clamp(
-                            wish_rot_offset,
-                            -self.mobility.angular_acceleration,
-                            self.mobility.angular_acceleration,
-                        )
-                    };
-
-                // let angvel_change = RealField::clamp(
-                //     wish_rot_offset,
-                //     -self.mobility.angular_acceleration,
-                //     self.mobility.angular_acceleration,
-                // );
-
-                // TODO: Angvel cap.
-                let wish_new_angvel = rb.angvel() + angvel_change;
-
-                rb.set_angvel(wish_new_angvel, true);
+                let angvel = angvel_target(rb.angvel(), wish_rot_offset, self.mobility.angular_acceleration, self.mobility.max_angular_velocity);
+                rb.set_angvel(angvel, true);
             }
             WishAngVel::Rotation(_) => {
-                // TODO:
+                // TODO: Is rotation wish angvel useful?
+                log::warn!("WishAngVel::Rotation not implemented yet.");
+                let angvel = angvel_stop(rb.angvel(), self.mobility.angular_acceleration);
+                rb.set_angvel(angvel, false);
             }
             WishAngVel::Force { force } => {
-                let new_angvel = if rb.angvel() > self.mobility.max_angular_velocity {
-                    if ComplexField::signum(force) == ComplexField::signum(rb.angvel()) {
-                        // Trying to go in the same dir as current velocity while speed is over max.
-                        // Ignore force, slow down to max speed instead.
-                        RealField::max(
-                            rb.angvel() - self.mobility.angular_acceleration,
-                            self.mobility.max_angular_velocity,
-                        )
-                    } else {
-                        // Trying to go in the opposite dir as current velocity while speed is over max.
-                        let maybe = rb.angvel() + force * self.mobility.angular_acceleration;
-                        if maybe > self.mobility.max_angular_velocity {
-                            // Ignore force, slow down as much as possible to reach max speed instead.
-                            RealField::max(
-                                rb.angvel() - self.mobility.angular_acceleration,
-                                self.mobility.max_angular_velocity,
-                            )
-                        } else {
-                            // Force is enough to slow down to max speed.
-                            RealField::max(maybe, -self.mobility.max_angular_velocity)
-                        }
-                    }
-                } else if rb.angvel() < -self.mobility.max_angular_velocity {
-                    if ComplexField::signum(force) == ComplexField::signum(rb.angvel()) {
-                        // Trying to go in the same dir as current velocity while speed is over max.
-                        // Ignore force, slow down to max speed instead.
-                        RealField::min(
-                            rb.angvel() + self.mobility.angular_acceleration,
-                            -self.mobility.max_angular_velocity,
-                        )
-                    } else {
-                        // Trying to go in the opposite dir as current velocity while speed is over max.
-                        let maybe = rb.angvel() + force * self.mobility.angular_acceleration;
-                        if maybe > self.mobility.max_angular_velocity {
-                            // Ignore force, slow down as much as possible to reach max speed instead.
-                            RealField::min(
-                                rb.angvel() + self.mobility.angular_acceleration,
-                                -self.mobility.max_angular_velocity,
-                            )
-                        } else {
-                            // Force is enough to slow down to max speed.
-                            RealField::min(maybe, self.mobility.max_angular_velocity)
-                        }
-                    }
-                } else {
-                    // Speed is under max.
-                    RealField::clamp(
-                        rb.angvel() + force * self.mobility.angular_acceleration,
-                        -self.mobility.max_angular_velocity,
-                        self.mobility.max_angular_velocity,
-                    )
-                };
-                rb.set_angvel(new_angvel, true);
+                let angvel = angvel_force(rb.angvel(), force, self.mobility.angular_acceleration, self.mobility.max_angular_velocity);
+                rb.set_angvel(angvel, true);
             }
         }
 
