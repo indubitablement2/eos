@@ -24,7 +24,6 @@ simulation_script = SubResource("GDScript_176tx")
 ship_data = SubResource("Resource_3rjih")
 linear_acceleration = 10.0
 angular_acceleration = 10.0
-max_linear_velocity = 10.0
 collision_shape = NodePath("CollisionShape2D")
 sprite = NodePath("Sprite2D")
 aproximate_radius = 195.0
