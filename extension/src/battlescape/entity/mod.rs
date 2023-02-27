@@ -153,6 +153,24 @@ impl Entity {
             }
         }
 
+        // Linvel
+        match self.wish_linvel {
+            WishLinVel::Keep => todo!(),
+            WishLinVel::Cancel => {
+                if rb.linvel().magnitude_squared() < 0.001  {
+                    rb.set_linvel(na::Vector2::zeros(), false);
+                } else {
+                    let linvel = rb.linvel() - rb.linvel().cap_magnitude(self.mobility.linear_acceleration);
+                    rb.set_linvel(linvel, false);
+                }
+            }
+            WishLinVel::Forward { force } => todo!(),
+            WishLinVel::Position { position } => todo!(),
+            WishLinVel::PositionOvershot { position } => todo!(),
+            WishLinVel::Absolute { force } => todo!(),
+            WishLinVel::Relative { force } => todo!(),
+        }
+
         //     fn apply_wish_linvel(
         //         wish_vel: Vector2,
         //         rb: &mut RigidBody,
