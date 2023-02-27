@@ -21,6 +21,11 @@ pub enum EntityAiType {
     Ship,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum EntityAiB {
+
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EntityAi {
     pub target: Option<EntityId>,

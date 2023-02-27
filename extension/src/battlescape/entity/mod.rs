@@ -175,8 +175,16 @@ impl Entity {
                     rb.set_linvel(linvel, false);
                 }
             }
-            WishLinVel::Position { position } => todo!(),
-            WishLinVel::PositionOvershot { position } => todo!(),
+            WishLinVel::Position { position } => {
+                let target = position - rb.translation();
+                let wish_vel = target.normalize().scale(self.mobility.max_linear_velocity);
+                let vel_change =
+                    (wish_vel - rb.linvel()).cap_magnitude(self.mobility.linear_acceleration);
+                rb.set_linvel(rb.linvel() + vel_change, true);
+            }
+            WishLinVel::PositionOvershot { position } => {
+
+            }
             WishLinVel::Absolute { force } => {
                 let wish_vel = force * self.mobility.max_linear_velocity;
                 let vel_change =
