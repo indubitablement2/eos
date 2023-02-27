@@ -228,11 +228,6 @@ impl Command for SetClientControl {
 
         log::debug!("{:?} now control {:?}", self.caller, entity_id);
         client.control = Some(entity_id);
-        bs.ais.entry(entity_id).or_default().change_ai(
-            EntityAiType::ShipControlled,
-            entity_index,
-            &mut bs.entities,
-        );
     }
 
     fn to_typed(self) -> TypedCmd {

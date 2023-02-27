@@ -182,9 +182,7 @@ impl Entity {
                     (wish_vel - rb.linvel()).cap_magnitude(self.mobility.linear_acceleration);
                 rb.set_linvel(rb.linvel() + vel_change, true);
             }
-            WishLinVel::PositionOvershot { position } => {
-
-            }
+            WishLinVel::PositionOvershot { position } => {}
             WishLinVel::Absolute { force } => {
                 let wish_vel = force * self.mobility.max_linear_velocity;
                 let vel_change =
@@ -254,11 +252,11 @@ pub enum WishAngVel {
 
 pub struct EntityData {
     pub mobility: Mobility,
-    pub starting_ai: EntityAiType,
     /// `EntityScript`
     pub script: EntityScriptData,
     pub defence: Defence,
     pub collider: Collider,
+    // TODO: Expand to other type like drone, station, etc.
     pub is_ship: bool,
     // TODO: weapon slot
     // TODO: built-in weapon (take a slot #)
@@ -268,7 +266,6 @@ impl Default for EntityData {
     fn default() -> Self {
         Self {
             mobility: Default::default(),
-            starting_ai: Default::default(),
             script: Default::default(),
             defence: Default::default(),
             collider: ball_collider(0.5, 1.0, Groups::Ship),
@@ -280,7 +277,6 @@ impl std::fmt::Debug for EntityData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EntityData")
             .field("mobility", &self.mobility)
-            .field("ai", &self.starting_ai)
             .field("script", &self.script)
             .field("defence", &self.defence)
             .field("shape", &self.collider.shape().shape_type())

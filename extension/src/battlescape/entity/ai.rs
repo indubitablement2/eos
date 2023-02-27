@@ -1,60 +1,102 @@
 use super::*;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
-pub enum EntityAiType {
-    /// Whole ai will be removed next update.
-    #[default]
-    None,
-    /// Will try to face target and go forward at max speed.
-    /// If target can not be found, will change ai to `Forward`.
-    Seek,
-    /// Go forward at max speed.
-    Forward,
-    Fighter,
-    Bomber,
-    Drone,
-    DroneStationaryOffset,
-    /// Controlled by a client, by copying its inputs.
-    /// Revert to `Ship` if client is not found.
-    ShipControlled,
-    ShipEntering,
-    Ship,
+// #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+// pub enum EntityAiType {
+//     /// Whole ai will be removed next update.
+//     #[default]
+//     None,
+//     /// Will try to face target and go forward at max speed.
+//     /// If target can not be found, will remove ai.
+//     Seek,
+//     Fighter,
+//     Bomber,
+//     Drone,
+//     Ship,
+// }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ShipAi {
+    target: Option<EntityId>,
+    entering: bool,
+    tick: u32,
+}
+impl ShipAi {
+    fn update(
+        &mut self,
+        entity_idx: usize,
+        entities: &mut Entities,
+        physics: &mut Physics,
+        clients: &mut Clients,
+        fleets: &mut Fleets,
+        new_ai: &mut Option<EntityAi>,
+    ) {
+        // Remove target if it does not exist.
+        let target_index = if let Some(target_id) = self.target {
+            if let Some(i) = entities.get_index_of(&target_id) {
+                Some(i)
+            } else {
+                self.target = None;
+                None
+            }
+        } else {
+            None
+        };
+
+        // TODO: Check if controlled
+
+        // TODO: Make ai use position wish vel to test if it work.
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum EntityAiB {
+pub struct SeekAi {
+    pub target: EntityId,
+}
+impl SeekAi {
+    fn update(
+        &mut self,
+        entity_idx: usize,
+        entities: &mut Entities,
+        physics: &mut Physics,
+        new_ai: &mut Option<EntityAi>,
+    ) {
+        entities[entity_idx].wish_linvel = WishLinVel::Relative {
+            force: na::Vector2::new(0.0, 1.0),
+        };
 
+        let target = if let Some(target) = entities.get(&self.target) {
+            *physics.body_mut(target.rb).translation()
+        } else {
+            *new_ai = Some(EntityAi::None);
+            return;
+        };
+
+        entities[entity_idx].wish_angvel = WishAngVel::Aim { position: target };
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct EntityAi {
-    pub target: Option<EntityId>,
-    ai: EntityAiType,
+pub enum EntityAi {
+    #[default]
+    None,
+    Seek(SeekAi),
+    Ship(ShipAi),
 }
 impl EntityAi {
-    pub fn new(
-        target: Option<EntityId>,
-        ai: EntityAiType,
-        entity_idx: usize,
-        entities: &mut Entities,
-    ) -> Self {
-        let mut s = Self { target, ai };
-        s.ai_changed(entity_idx, entities, Default::default());
-        s
+    pub fn new_ship() -> Self {
+        Self::Ship(ShipAi::default())
+    }
+
+    pub fn new_seek(target: EntityId) -> Self {
+        Self::Seek(SeekAi { target })
     }
 
     /// If this ai can be removed.
-    pub fn remove(&self) -> bool {
-        if let EntityAiType::None = self.ai {
-            true
-        } else {
-            false
+    pub fn can_remove(&self) -> bool {
+        match self {
+            EntityAi::None => true,
+            _ => false,
         }
-    }
-
-    pub fn change_ai(&mut self, new_ai: EntityAiType, entity_idx: usize, entities: &mut Entities) {
-        let previous_ai = std::mem::replace(&mut self.ai, new_ai);
-        self.ai_changed(entity_idx, entities, previous_ai);
     }
 
     pub fn update(
@@ -65,113 +107,20 @@ impl EntityAi {
         clients: &mut Clients,
         fleets: &mut Fleets,
     ) {
-        // Remove target if it does not exist.
-        let target_index = if let Some(target_id) = self.target {
-            if let Some((i, _, _)) = entities.get_full(&target_id) {
-                Some(i)
-            } else {
-                self.target = None;
-                None
-            }
-        } else {
-            None
-        };
+        let mut new_ai: Option<EntityAi> = None;
 
-        let mut new_ai: Option<EntityAiType> = None;
-
-        match self.ai {
-            EntityAiType::None => {}
-            EntityAiType::Seek => {
-                if let Some(target_index) = target_index {
-                    let position = *physics.body(entities[target_index].rb).translation();
-                    entities[entity_idx].wish_angvel = WishAngVel::Aim { position };
-                } else {
-                    new_ai = Some(EntityAiType::Forward);
-                }
+        match self {
+            EntityAi::None => {}
+            EntityAi::Seek(ai) => {
+                ai.update(entity_idx, entities, physics, &mut new_ai);
             }
-            EntityAiType::Forward => {}
-            EntityAiType::Fighter => todo!(),
-            EntityAiType::Bomber => todo!(),
-            EntityAiType::Drone => todo!(),
-            EntityAiType::DroneStationaryOffset => todo!(),
-            EntityAiType::ShipControlled => {
-                let (&mut entity_id, e) = entities.get_index_mut(entity_idx).unwrap();
-                if let Some(client) = e.owner.and_then(|owner| clients.get(&owner)) {
-                    if client.control == Some(entity_id) {
-                        e.wish_angvel = client.client_inputs.wish_angvel;
-                        e.wish_linvel = client.client_inputs.wish_linvel;
-                    } else {
-                        // Client not controlling this entity.
-                        new_ai = Some(EntityAiType::Ship);
-                    }
-                } else {
-                    // Client not found.
-                    new_ai = Some(EntityAiType::Ship);
-                }
-            }
-            EntityAiType::ShipEntering => {
-                // TODO:
-                // *counter_since_entering += 1;
-
-                // let e = entities.get_mut(&entity_id).unwrap();
-
-                // // TODO: If entered
-                // if false {
-                //     change = Some(Some(EntityAi::Ship));
-                // } else if *counter_since_entering > 600 {
-                //     physics.body_mut(e.rb).set_translation(Vector2::zeros(), true);
-                //     change = Some(Some(EntityAi::Ship));
-                // }
-            }
-            EntityAiType::Ship => {
-                // TODO:
+            EntityAi::Ship(ai) => {
+                ai.update(entity_idx, entities, physics, clients, fleets, &mut new_ai);
             }
         }
 
         if let Some(new_ai) = new_ai {
-            self.change_ai(new_ai, entity_idx, entities);
-        }
-    }
-
-    fn ai_changed(
-        &mut self,
-        entity_idx: usize,
-        entities: &mut Entities,
-        previous_ai: EntityAiType,
-    ) {
-        match self.ai {
-            EntityAiType::None => {}
-            EntityAiType::Seek => {
-                entities[entity_idx].wish_linvel = WishLinVel::Relative {
-                    force: na::vector![0.0, 1.0],
-                };
-            }
-            EntityAiType::Forward => {
-                entities[entity_idx].wish_linvel = WishLinVel::Relative {
-                    force: na::vector![0.0, 1.0],
-                };
-                entities[entity_idx].wish_angvel = WishAngVel::Cancel;
-            }
-            EntityAiType::Fighter => {
-                entities[entity_idx].wish_linvel = WishLinVel::Relative {
-                    force: na::vector![0.0, 1.0],
-                };
-            }
-            EntityAiType::Bomber => {
-                entities[entity_idx].wish_linvel = WishLinVel::Relative {
-                    force: na::vector![0.0, 1.0],
-                };
-            }
-            EntityAiType::Drone => {}
-            EntityAiType::DroneStationaryOffset => {}
-            EntityAiType::Ship => {}
-            EntityAiType::ShipControlled => {}
-            EntityAiType::ShipEntering => {
-                entities[entity_idx].wish_linvel = WishLinVel::Relative {
-                    force: na::vector![0.0, 1.0],
-                };
-                // TODO: Face a point forward from spawn position.
-            }
+            *self = new_ai;
         }
     }
 }

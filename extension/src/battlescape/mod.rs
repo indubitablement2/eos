@@ -172,7 +172,7 @@ impl Battlescape {
         let mut remove: Vec<EntityId> = Vec::new();
 
         for (entity_id, ai) in self.ais.iter_mut() {
-            if ai.remove() {
+            if ai.can_remove() {
                 remove.push(*entity_id);
             } else if let Some((entity_index, _, _)) = self.entities.get_full(entity_id) {
                 ai.update(
@@ -289,25 +289,10 @@ impl Battlescape {
 
         self.events.entity_added(entity_id, &entity, position);
 
-        let ai = if entity_data_id.data().is_ship {
+        if entity_data_id.data().is_ship {
             *self.team_num_active_ship.entry(team).or_default() += 1;
-            // Ship always start with this ai.
-            Some(EntityAiType::ShipEntering)
-        } else {
-            let ai = entity_data_id.data().starting_ai;
-            if ai == EntityAiType::None {
-                None
-            } else {
-                Some(ai)
-            }
-        };
-
-        // Also add an ai.
-        if let Some(ai) = ai {
-            self.ais.insert(
-                entity_id,
-                EntityAi::new(None, ai, entity_idx, &mut self.entities),
-            );
+            // Also add an ai.
+            self.ais.insert(entity_id, EntityAi::new_ship());
         }
 
         (entity_idx, entity_id)
