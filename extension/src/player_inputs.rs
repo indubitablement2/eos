@@ -13,6 +13,7 @@ pub struct PlayerInputs {
     face_cursor: bool,
     /// Try to cancel both angvel and linvel if not applying any force.
     cancel_vel: bool,
+    /// In game units.
     mouse_pos: glam::Vec2,
     wish_dir: glam::Vec2,
     strafe: f32,
@@ -46,49 +47,105 @@ impl PlayerInputs {
     pub fn to_client_inputs(&mut self, node: &Node2D) -> ClientInputs {
         self.update(node);
 
-        let wish_linvel = if !self.wish_dir.aprox_zero() {
-            if self.face_cursor {
-                if self.relative_linvel {
-                    WishLinVel::Relative {
-                        force: self.wish_dir.clamp_length_max(1.0).to_na(),
-                    }
+        if self.face_cursor {
+            // Cursor controls.
+
+            let wish_linvel = if self.wish_dir.aprox_zero() && self.strafe.aprox_zero() {
+                if self.cancel_vel {
+                    WishLinVel::Cancel
                 } else {
-                    WishLinVel::Absolute {
-                        force: self.wish_dir.clamp_length_max(1.0).to_na(),
-                    }
+                    WishLinVel::Keep
                 }
             } else {
                 if self.relative_linvel {
                     WishLinVel::Relative {
-                        force: na::Vector2::new(self.strafe, self.wish_dir.y),
+                        force: glam::vec2(
+                            (self.wish_dir.x + self.strafe).clamp(-1.0, 1.0),
+                            -self.wish_dir.y,
+                        )
+                        .clamp_length_max(1.0)
+                        .to_na(),
                     }
                 } else {
                     WishLinVel::Absolute {
-                        force: na::Vector2::new(self.strafe, self.wish_dir.y),
+                        force: glam::vec2(
+                            (self.wish_dir.x + self.strafe).clamp(-1.0, 1.0),
+                            self.wish_dir.y,
+                        )
+                        .clamp_length_max(1.0)
+                        .to_na(),
                     }
                 }
-            }
-        } else if self.cancel_vel {
-            WishLinVel::Cancel
-        } else {
-            WishLinVel::Keep
-        };
+            };
 
-        let wish_angvel = if self.face_cursor {
-            WishAngVel::Aim {
+            let wish_angvel = WishAngVel::Aim {
                 position: self.mouse_pos.to_na(),
-            }
-        } else if !self.wish_dir.x.aprox_zero() {
-            WishAngVel::Force {
-                force: self.wish_dir.x,
+            };
+
+            ClientInputs {
+                wish_linvel,
+                wish_angvel,
             }
         } else {
-            WishAngVel::Keep
-        };
+            // Tank controls.
 
-        ClientInputs {
-            wish_linvel,
-            wish_angvel,
+            let wish_linvel = if self.wish_dir.y.aprox_zero() {
+                if self.cancel_vel {
+                    WishLinVel::Cancel
+                } else {
+                    WishLinVel::Keep
+                }
+            } else {
+                WishLinVel::Relative {
+                    force: na::Vector2::new(self.strafe, -self.wish_dir.y),
+                }
+            };
+
+            let wish_angvel = if self.wish_dir.x.aprox_zero() {
+                WishAngVel::Cancel
+            } else {
+                WishAngVel::Force {
+                    force: self.wish_dir.x,
+                }
+            };
+
+            ClientInputs {
+                wish_linvel,
+                wish_angvel,
+            }
         }
+
+        // let wish_linvel = if !self.wish_dir.aprox_zero() {
+        //     if self.face_cursor {
+        //         if self.relative_linvel {
+        //             WishLinVel::Relative {
+        //                 force: self.wish_dir.clamp_length_max(1.0).to_na(),
+        //             }
+        //         } else {
+        //             WishLinVel::Absolute {
+        //                 force: self.wish_dir.clamp_length_max(1.0).to_na(),
+        //             }
+        //         }
+        //     } else {
+        //         if self.relative_linvel {
+        //             WishLinVel::Relative {
+        //                 force: na::Vector2::new(self.strafe, self.wish_dir.y),
+        //             }
+        //         } else {
+        //             WishLinVel::Absolute {
+        //                 force: na::Vector2::new(self.strafe, self.wish_dir.y),
+        //             }
+        //         }
+        //     }
+        // } else if self.cancel_vel {
+        //     WishLinVel::Cancel
+        // } else {
+        //     WishLinVel::Keep
+        // };
+
+        // ClientInputs {
+        //     wish_linvel,
+        //     wish_angvel,
+        // }
     }
 }

@@ -26,7 +26,7 @@ impl AproxZero for f32 {
 }
 impl AproxZero for glam::Vec2 {
     fn aprox_zero(self) -> bool {
-        self.x.abs() < 0.001 && self.y.abs() < 0.001
+        self.x.abs() + self.y.abs() < 0.001
     }
 }
 

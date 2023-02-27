@@ -16,19 +16,13 @@ pub fn angvel_force(angvel: f32, force: f32, angacc: f32, max_angvel: f32) -> f3
         if ComplexField::signum(force) == ComplexField::signum(angvel) {
             // Trying to go in the same dir as current velocity while speed is over max.
             // Ignore force, slow down to max speed instead.
-            RealField::max(
-                angvel - angacc,
-                max_angvel,
-            )
+            RealField::max(angvel - angacc, max_angvel)
         } else {
             // Trying to go in the opposite dir as current velocity while speed is over max.
             let maybe = angvel + force * angacc;
             if maybe > max_angvel {
                 // Ignore force, slow down as much as possible to reach max speed instead.
-                RealField::max(
-                    angvel - angacc,
-                    max_angvel,
-                )
+                RealField::max(angvel - angacc, max_angvel)
             } else {
                 // Force is enough to slow down to max speed.
                 RealField::max(maybe, -max_angvel)
@@ -38,19 +32,13 @@ pub fn angvel_force(angvel: f32, force: f32, angacc: f32, max_angvel: f32) -> f3
         if ComplexField::signum(force) == ComplexField::signum(angvel) {
             // Trying to go in the same dir as current velocity while speed is over max.
             // Ignore force, slow down to max speed instead.
-            RealField::min(
-                angvel + angacc,
-                -max_angvel,
-            )
+            RealField::min(angvel + angacc, -max_angvel)
         } else {
             // Trying to go in the opposite dir as current velocity while speed is over max.
             let maybe = angvel + force * angacc;
             if maybe > max_angvel {
                 // Ignore force, slow down as much as possible to reach max speed instead.
-                RealField::min(
-                    angvel + angacc,
-                    -max_angvel,
-                )
+                RealField::min(angvel + angacc, -max_angvel)
             } else {
                 // Force is enough to slow down to max speed.
                 RealField::min(maybe, max_angvel)
@@ -58,11 +46,7 @@ pub fn angvel_force(angvel: f32, force: f32, angacc: f32, max_angvel: f32) -> f3
         }
     } else {
         // Speed is under max.
-        RealField::clamp(
-            angvel + force * angacc,
-            -max_angvel,
-            max_angvel,
-        )
+        RealField::clamp(angvel + force * angacc, -max_angvel, max_angvel)
     }
 }
 

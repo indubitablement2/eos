@@ -3,8 +3,8 @@ pub mod script;
 mod wishvel;
 
 use self::script::*;
-use super::*;
 use self::wishvel::*;
+use super::*;
 
 #[derive(Serialize, Deserialize)]
 pub struct Entity {
@@ -116,13 +116,13 @@ impl Entity {
                 if rb.angvel() > self.mobility.max_angular_velocity {
                     let angvel = RealField::max(
                         angvel_stop(rb.angvel(), self.mobility.angular_acceleration),
-                        self.mobility.max_angular_velocity
+                        self.mobility.max_angular_velocity,
                     );
                     rb.set_angvel(angvel, true);
                 } else if rb.angvel() < -self.mobility.max_angular_velocity {
                     let angvel = RealField::min(
                         angvel_stop(rb.angvel(), self.mobility.angular_acceleration),
-                        -self.mobility.max_angular_velocity
+                        -self.mobility.max_angular_velocity,
                     );
                     rb.set_angvel(angvel, true);
                 }
@@ -135,10 +135,15 @@ impl Entity {
                 let target = position - *rb.translation();
                 let wish_rot_offset = rb
                     .rotation()
-                    .transform_vector(&na::Vector2::new(0.0, -1.0))
+                    .transform_vector(&na::Vector2::new(0.0, 1.0))
                     .angle_to(target);
 
-                let angvel = angvel_target(rb.angvel(), wish_rot_offset, self.mobility.angular_acceleration, self.mobility.max_angular_velocity);
+                let angvel = angvel_target(
+                    rb.angvel(),
+                    wish_rot_offset,
+                    self.mobility.angular_acceleration,
+                    self.mobility.max_angular_velocity,
+                );
                 rb.set_angvel(angvel, true);
             }
             WishAngVel::Rotation(_) => {
@@ -148,37 +153,41 @@ impl Entity {
                 rb.set_angvel(angvel, false);
             }
             WishAngVel::Force { force } => {
-                let angvel = angvel_force(rb.angvel(), force, self.mobility.angular_acceleration, self.mobility.max_angular_velocity);
+                let angvel = angvel_force(
+                    rb.angvel(),
+                    force,
+                    self.mobility.angular_acceleration,
+                    self.mobility.max_angular_velocity,
+                );
                 rb.set_angvel(angvel, true);
             }
         }
 
         // Linvel
         match self.wish_linvel {
-            WishLinVel::Keep => {
-
-            }
+            WishLinVel::Keep => {}
             WishLinVel::Cancel => {
-                if rb.linvel().magnitude_squared() < 0.001  {
+                if rb.linvel().magnitude_squared() < 0.001 {
                     rb.set_linvel(na::Vector2::zeros(), false);
                 } else {
-                    let linvel = rb.linvel() - rb.linvel().cap_magnitude(self.mobility.linear_acceleration);
+                    let linvel =
+                        rb.linvel() - rb.linvel().cap_magnitude(self.mobility.linear_acceleration);
                     rb.set_linvel(linvel, false);
                 }
-            }
-            WishLinVel::Forward { force } => {
-                let wish_vel = rb.rotation().transform_vector(&na::Vector2::new(0.0, -force));
-                let vel_change = (wish_vel - rb.linvel()).cap_magnitude(self.mobility.linear_acceleration);
-                rb.set_linvel(rb.linvel() + vel_change, true);
             }
             WishLinVel::Position { position } => todo!(),
             WishLinVel::PositionOvershot { position } => todo!(),
             WishLinVel::Absolute { force } => {
-
+                let wish_vel = force * self.mobility.max_linear_velocity;
+                let vel_change =
+                    (wish_vel - rb.linvel()).cap_magnitude(self.mobility.linear_acceleration);
+                rb.set_linvel(rb.linvel() + vel_change, true);
             }
             WishLinVel::Relative { force } => {
-                let wish_vel = rb.rotation().transform_vector(&force) * self.mobility.max_linear_velocity;
-                let vel_change = (wish_vel - rb.linvel()).cap_magnitude(self.mobility.linear_acceleration);
+                let wish_vel =
+                    rb.rotation().transform_vector(&force) * self.mobility.max_linear_velocity;
+                let vel_change =
+                    (wish_vel - rb.linvel()).cap_magnitude(self.mobility.linear_acceleration);
                 rb.set_linvel(rb.linvel() + vel_change, true);
             }
         }
@@ -267,25 +276,20 @@ pub enum WishLinVel {
     Keep,
     /// Try to reach 0 linvel.
     Cancel,
-    /// Always try to go forward (or backward with negative force)
-    /// at percent of max acceleration `[-1, 1]`.
-    Forward {
-        force: f32,
-    },
     /// Cancel our current velocity to reach position as fast as possible.
     /// Does not overshot.
-    Position {
-        position: na::Vector2<f32>,
-    },
+    Position { position: na::Vector2<f32> },
     /// Same as position, but always try to go at max velocity.
-    PositionOvershot {
-        position: na::Vector2<f32>,
-    },
+    PositionOvershot { position: na::Vector2<f32> },
+    /// `-y` is up.
     Absolute {
+        /// Magnitude 0 to 1
         force: na::Vector2<f32>,
     },
     /// Relative to current rotation.
+    /// `+y` is forward.
     Relative {
+        /// Magnitude 0 to 1
         force: na::Vector2<f32>,
     },
 }
