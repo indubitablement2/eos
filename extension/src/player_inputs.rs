@@ -89,7 +89,7 @@ impl PlayerInputs {
         } else {
             // Tank controls.
 
-            let wish_linvel = if self.wish_dir.y.aprox_zero() {
+            let wish_linvel = if self.wish_dir.y.aprox_zero() && self.strafe.aprox_zero() {
                 if self.cancel_vel {
                     WishLinVel::Cancel
                 } else {

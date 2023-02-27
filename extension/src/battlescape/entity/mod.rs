@@ -185,8 +185,10 @@ impl Entity {
             }
             WishLinVel::Relative { force } => {
                 // ? why is x is inverted?
-                let wish_vel =
-                    rb.rotation().transform_vector(&na::Vector2::new(-force.x, force.y)) * self.mobility.max_linear_velocity;
+                let wish_vel = rb
+                    .rotation()
+                    .transform_vector(&na::Vector2::new(-force.x, force.y))
+                    * self.mobility.max_linear_velocity;
                 let vel_change =
                     (wish_vel - rb.linvel()).cap_magnitude(self.mobility.linear_acceleration);
                 rb.set_linvel(rb.linvel() + vel_change, true);
