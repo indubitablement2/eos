@@ -163,7 +163,7 @@ impl EntityAi {
             EntityAiType::ShipControlled => {}
             EntityAiType::ShipEntering => {
                 entities[entity_idx].wish_linvel = WishLinVel::Relative {
-                    force: na::vector![1.0, 0.0],
+                    force: na::vector![0.0, 1.0],
                 };
                 // TODO: Face a point forward from spawn position.
             }

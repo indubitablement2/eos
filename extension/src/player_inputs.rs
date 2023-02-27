@@ -114,38 +114,5 @@ impl PlayerInputs {
                 wish_angvel,
             }
         }
-
-        // let wish_linvel = if !self.wish_dir.aprox_zero() {
-        //     if self.face_cursor {
-        //         if self.relative_linvel {
-        //             WishLinVel::Relative {
-        //                 force: self.wish_dir.clamp_length_max(1.0).to_na(),
-        //             }
-        //         } else {
-        //             WishLinVel::Absolute {
-        //                 force: self.wish_dir.clamp_length_max(1.0).to_na(),
-        //             }
-        //         }
-        //     } else {
-        //         if self.relative_linvel {
-        //             WishLinVel::Relative {
-        //                 force: na::Vector2::new(self.strafe, self.wish_dir.y),
-        //             }
-        //         } else {
-        //             WishLinVel::Absolute {
-        //                 force: na::Vector2::new(self.strafe, self.wish_dir.y),
-        //             }
-        //         }
-        //     }
-        // } else if self.cancel_vel {
-        //     WishLinVel::Cancel
-        // } else {
-        //     WishLinVel::Keep
-        // };
-
-        // ClientInputs {
-        //     wish_linvel,
-        //     wish_angvel,
-        // }
     }
 }
