@@ -124,14 +124,55 @@ impl Entity {
             }
             WishAngVel::Aim { position } => {
                 let target = position - *rb.translation();
-                let target_angle = target.angle_x();
-                let wish_rot_offset = target_angle - rb.rotation().angle();
+                let wish_rot_offset = rb
+                    .rotation()
+                    .transform_vector(&na::Vector2::new(0.0, -1.0))
+                    .angle_to(target);
 
-                let angvel_change = RealField::clamp(
-                    wish_rot_offset,
-                    -self.mobility.angular_acceleration,
-                    self.mobility.angular_acceleration,
-                );
+
+
+                // If we are going in the same direction as wish_rot_offset
+                let angvel_change =
+                    if ComplexField::abs(wish_rot_offset) < 0.01 {
+                        -rb.angvel() // TODO: Cap me
+                    } else if ComplexField::signum(wish_rot_offset) == ComplexField::signum(rb.angvel()) {
+                        // Calculate the time to reach 0 angvel.
+                        let time_to_stop =
+                            ComplexField::abs(rb.angvel() * DT) / (self.mobility.angular_acceleration);
+
+                        // Calculate the time to reach the target.
+                        let time_to_target = ComplexField::abs(wish_rot_offset / rb.angvel());
+
+                        if time_to_target < time_to_stop {
+                            log::debug!("tts: {:?}, ttt: {:?}, same dir: slowing down", time_to_stop, time_to_target);
+                            ComplexField::signum(wish_rot_offset) * -self.mobility.angular_acceleration
+                            // RealField::clamp(
+                            //     -wish_rot_offset,
+                            //     -self.mobility.angular_acceleration,
+                            //     self.mobility.angular_acceleration,
+                            // )
+                        } else {
+                            log::debug!("tts: {:?}, ttt: {:?}, same dir: full speed", time_to_stop, time_to_target);
+                            RealField::clamp(
+                                wish_rot_offset,
+                                -self.mobility.angular_acceleration,
+                                self.mobility.angular_acceleration,
+                            )
+                        }
+                    } else {
+                        log::debug!("opposite dir: full speed");
+                        RealField::clamp(
+                            wish_rot_offset,
+                            -self.mobility.angular_acceleration,
+                            self.mobility.angular_acceleration,
+                        )
+                    };
+
+                // let angvel_change = RealField::clamp(
+                //     wish_rot_offset,
+                //     -self.mobility.angular_acceleration,
+                //     self.mobility.angular_acceleration,
+                // );
 
                 // TODO: Angvel cap.
                 let wish_new_angvel = rb.angvel() + angvel_change;
@@ -322,7 +363,6 @@ pub enum WishAngVel {
 
 pub struct EntityData {
     pub mobility: Mobility,
-    // TODO: ai
     pub starting_ai: EntityAiType,
     /// `EntityScript`
     pub script: EntityScriptData,

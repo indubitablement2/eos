@@ -22,6 +22,7 @@ display_name = "Ship Test"
 script = ExtResource("1_so5g7")
 simulation_script = SubResource("GDScript_176tx")
 ship_data = SubResource("Resource_3rjih")
+angular_acceleration = 40.0
 collision_shape = NodePath("CollisionShape2D")
 sprite = NodePath("Sprite2D")
 aproximate_radius = 195.0

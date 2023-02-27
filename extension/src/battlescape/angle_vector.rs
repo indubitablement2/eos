@@ -17,6 +17,7 @@ impl VectorAngle for na::Vector2<f32> {
     fn angle_to(self, to: Self) -> f32 {
         // to.angle_x() - self.angle_x()
         // Avoid one call to atan2 and angle is within ]-pi, pi[.
+        // atan2(cross, dot)
         na::RealField::atan2(self.x * to.y - self.y * to.x, self.x * to.x + self.y * to.y)
     }
 

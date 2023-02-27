@@ -45,9 +45,11 @@ pub const GODOT_SCALE: f32 = 128.0;
 
 // TODO: Shared connection to the server. Dispatch packets to apropriate node
 
-// TODO: When serializing/deserializing, check if anything is an EntityScript then convert it to its id.
+// TODO: When serializing/deserializing, check if anything is an EntityScript then convert it to/from an id.
 // TODO: Add optional array of entity path to data which will be converted to EntityId and given to EntityScript.
 // TODO: Render call should call a function on the sim node with the render node as an argument.
+
+// TODO: data builder should be hable to add starting ai.
 
 mod ext {
     use godot::prelude::*;
