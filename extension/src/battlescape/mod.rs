@@ -168,28 +168,25 @@ impl Battlescape {
     }
 
     fn ai(&mut self) {
-        // Ais that want to be removed.
-        let mut remove: Vec<EntityId> = Vec::new();
+        let mut ai_idx = 0usize;
+        while ai_idx < self.ais.len() {
+            let (entity_id, ai) = self.ais.get_index_mut(ai_idx).unwrap();
 
-        for (entity_id, ai) in self.ais.iter_mut() {
             if ai.can_remove() {
-                remove.push(*entity_id);
-            } else if let Some((entity_index, _, _)) = self.entities.get_full(entity_id) {
-                ai.update(
-                    entity_index,
-                    &mut self.entities,
-                    &mut self.physics,
-                    &mut self.clients,
-                    &mut self.fleets,
-                );
-            } else {
                 // No matching entity.
-                remove.push(*entity_id);
+                self.ais.swap_remove_index(ai_idx);
+                continue;
             }
-        }
 
-        for entity_id in remove {
-            self.ais.swap_remove(&entity_id);
+            let entity_idx = if let Some(entity_idx) = self.entities.get_index_of(entity_id) {
+                entity_idx
+            } else {
+                self.ais.swap_remove_index(ai_idx);
+                continue;
+            };
+
+            ai.update(entity_idx, &mut self.entities, &mut self.physics, &mut self.clients, &mut self.fleets);
+            ai_idx += 1;
         }
     }
 

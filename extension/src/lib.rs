@@ -49,7 +49,14 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Add optional array of entity path to data which will be converted to EntityId and given to EntityScript.
 // TODO: Render call should call a function on the sim node with the render node as an argument.
 
-// TODO: data builder should be hable to add starting ai.
+// TODO: ShipAi
+// TODO: weapon + ai/script
+// TODO: fighter/drone/bomber ai
+// TODO: projectile + script
+// TODO: lazer
+// TODO: explosion
+// TODO: shield
+// TODO: entity debris
 
 mod ext {
     use godot::prelude::*;
