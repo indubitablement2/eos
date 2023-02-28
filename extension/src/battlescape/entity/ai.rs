@@ -57,7 +57,7 @@ impl ShipAi {
             return;
         }
 
-        // TODO: Make ai use position wish vel to test if it work.
+        // TODO: Replace this with actual ship ai
         if self.tick % 100 == 0 {
             let position = na::Vector2::new(rng.gen_range(-10.0..10.0), rng.gen_range(-10.0..10.0));
             let wish_linvel = if rng.gen_bool(0.5) {

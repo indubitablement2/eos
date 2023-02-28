@@ -165,7 +165,16 @@ impl Entity {
 
         // Linvel
         match self.wish_linvel {
-            WishLinVel::Keep => {}
+            WishLinVel::Keep => {
+                // Slow down to max velocity.
+                if rb.linvel().magnitude_squared() > self.mobility.max_linear_velocity * 1.02 {
+                    let mut linvel = linvel_stop(*rb.linvel(), self.mobility.linear_acceleration);
+                    if linvel.magnitude_squared() < self.mobility.max_linear_velocity {
+                        linvel.set_magnitude(self.mobility.max_linear_velocity);
+                    }
+                    rb.set_linvel(linvel, true);
+                }
+            }
             WishLinVel::Cancel => {
                 let linvel = linvel_stop(*rb.linvel(), self.mobility.linear_acceleration);
                 rb.set_linvel(linvel, false);

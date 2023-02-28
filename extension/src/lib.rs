@@ -41,7 +41,6 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: Get damage texture and add to hull sprite.
 // TODO: Add entity parent/child.
 // TODO: Force spawn ship if fleet can not retread and timer is over.
-// // TODO: Linvel/angvel
 
 // TODO: Shared connection to the server. Dispatch packets to apropriate node
 
