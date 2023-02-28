@@ -58,6 +58,10 @@ pub const GODOT_SCALE: f32 = 128.0;
 // TODO: shield
 // TODO: entity debris
 
+// TODO: Store target on entity.
+// TODO: Store disable ai on entity.
+// TODO: Reimpl starting ai. Use target on entity.
+
 mod ext {
     use godot::prelude::*;
 

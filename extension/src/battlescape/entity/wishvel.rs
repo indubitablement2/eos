@@ -71,3 +71,20 @@ pub fn angvel_target(angvel: f32, wish_rot_offset: f32, angacc: f32, max_angvel:
         angvel_force(angvel, wish_rot_offset, angacc, max_angvel)
     }
 }
+
+pub fn linvel_wish_linvel(
+    linvel: na::Vector2<f32>,
+    wish_vel: na::Vector2<f32>,
+    linacc: f32,
+) -> na::Vector2<f32> {
+    let vel_change = (wish_vel - linvel).cap_magnitude(linacc);
+    linvel + vel_change
+}
+
+pub fn linvel_stop(linvel: na::Vector2<f32>, linacc: f32) -> na::Vector2<f32> {
+    if linvel.magnitude_squared() < 0.001 {
+        na::zero()
+    } else {
+        linvel - linvel.cap_magnitude(linacc * STOP_ACC_MULTIPLIER)
+    }
+}

@@ -167,37 +167,49 @@ impl Entity {
         match self.wish_linvel {
             WishLinVel::Keep => {}
             WishLinVel::Cancel => {
-                if rb.linvel().magnitude_squared() < 0.001 {
-                    rb.set_linvel(na::Vector2::zeros(), false);
-                } else {
-                    let linvel =
-                        rb.linvel() - rb.linvel().cap_magnitude(self.mobility.linear_acceleration);
-                    rb.set_linvel(linvel, false);
-                }
+                let linvel = linvel_stop(*rb.linvel(), self.mobility.linear_acceleration);
+                rb.set_linvel(linvel, false);
             }
             WishLinVel::Position { position } => {
                 let target = position - rb.translation();
-                let wish_vel = target.normalize().scale(self.mobility.max_linear_velocity);
-                let vel_change =
-                    (wish_vel - rb.linvel()).cap_magnitude(self.mobility.linear_acceleration);
-                rb.set_linvel(rb.linvel() + vel_change, true);
+                if target.magnitude_squared() < 0.01 {
+                    let linvel = linvel_stop(*rb.linvel(), self.mobility.linear_acceleration);
+                    rb.set_linvel(linvel, false);
+                } else {
+                    let wish_vel = target.cap_magnitude(self.mobility.max_linear_velocity);
+                    let linvel = linvel_wish_linvel(
+                        *rb.linvel(),
+                        wish_vel,
+                        self.mobility.linear_acceleration,
+                    );
+                    rb.set_linvel(linvel, true);
+                }
             }
-            WishLinVel::PositionOvershot { position } => {}
+            WishLinVel::PositionOvershot { position } => {
+                let target = position - rb.translation();
+                let wish_vel = if target.magnitude_squared() < 0.001 {
+                    na::Vector2::new(0.0, self.mobility.max_linear_velocity)
+                } else {
+                    target.normalize().scale(self.mobility.max_linear_velocity)
+                };
+                let linvel =
+                    linvel_wish_linvel(*rb.linvel(), wish_vel, self.mobility.linear_acceleration);
+                rb.set_linvel(linvel, true);
+            }
             WishLinVel::Absolute { force } => {
                 let wish_vel = force * self.mobility.max_linear_velocity;
-                let vel_change =
-                    (wish_vel - rb.linvel()).cap_magnitude(self.mobility.linear_acceleration);
-                rb.set_linvel(rb.linvel() + vel_change, true);
+                let linvel =
+                    linvel_wish_linvel(*rb.linvel(), wish_vel, self.mobility.linear_acceleration);
+                rb.set_linvel(linvel, true);
             }
             WishLinVel::Relative { force } => {
-                // ? why is x is inverted?
                 let wish_vel = rb
                     .rotation()
                     .transform_vector(&na::Vector2::new(-force.x, force.y))
                     * self.mobility.max_linear_velocity;
-                let vel_change =
-                    (wish_vel - rb.linvel()).cap_magnitude(self.mobility.linear_acceleration);
-                rb.set_linvel(rb.linvel() + vel_change, true);
+                let linvel =
+                    linvel_wish_linvel(*rb.linvel(), wish_vel, self.mobility.linear_acceleration);
+                rb.set_linvel(linvel, true);
             }
         }
 

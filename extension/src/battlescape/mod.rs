@@ -171,22 +171,20 @@ impl Battlescape {
         let mut ai_idx = 0usize;
         while ai_idx < self.ais.len() {
             let (entity_id, ai) = self.ais.get_index_mut(ai_idx).unwrap();
-
             if ai.can_remove() {
                 // No matching entity.
                 self.ais.swap_remove_index(ai_idx);
-                continue;
-            }
-
-            let entity_idx = if let Some(entity_idx) = self.entities.get_index_of(entity_id) {
-                entity_idx
             } else {
-                self.ais.swap_remove_index(ai_idx);
-                continue;
-            };
-
-            ai.update(entity_idx, &mut self.entities, &mut self.physics, &mut self.clients, &mut self.fleets);
-            ai_idx += 1;
+                ai.update(
+                    *entity_id,
+                    &mut self.entities,
+                    &mut self.physics,
+                    &mut self.clients,
+                    &mut self.fleets,
+                    &mut self.rng,
+                );
+                ai_idx += 1;
+            }
         }
     }
 

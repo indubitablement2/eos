@@ -23,12 +23,13 @@ pub struct ShipAi {
 impl ShipAi {
     fn update(
         &mut self,
-        entity_idx: usize,
+        entity_id: EntityId,
         entities: &mut Entities,
         physics: &mut Physics,
         clients: &mut Clients,
         fleets: &mut Fleets,
         new_ai: &mut Option<EntityAi>,
+        rng: &mut SimRng,
     ) {
         // Remove target if it does not exist.
         let target_index = if let Some(target_id) = self.target {
@@ -42,9 +43,31 @@ impl ShipAi {
             None
         };
 
-        // TODO: Check if controlled
+        let i = entities.get_index_of(&entity_id).unwrap();
+
+        // Check if controlled
+        if let Some(client) = entities[i]
+            .owner
+            .and_then(|owner| clients.get(&owner))
+            .and_then(|client| client.control.map(|control| (client, control)))
+            .and_then(|(client, control)| (control == entity_id).then_some(client))
+        {
+            entities[i].wish_linvel = client.client_inputs.wish_linvel;
+            entities[i].wish_angvel = client.client_inputs.wish_angvel;
+            return;
+        }
 
         // TODO: Make ai use position wish vel to test if it work.
+        if self.tick % 100 == 0 {
+            let position = na::Vector2::new(rng.gen_range(-10.0..10.0), rng.gen_range(-10.0..10.0));
+            let wish_linvel = if rng.gen_bool(0.5) {
+                WishLinVel::PositionOvershot { position }
+            } else {
+                WishLinVel::Position { position }
+            };
+            entities[i].wish_linvel = wish_linvel;
+        }
+        self.tick += 1;
     }
 }
 
@@ -55,12 +78,14 @@ pub struct SeekAi {
 impl SeekAi {
     fn update(
         &mut self,
-        entity_idx: usize,
+        entity_id: EntityId,
         entities: &mut Entities,
         physics: &mut Physics,
         new_ai: &mut Option<EntityAi>,
     ) {
-        entities[entity_idx].wish_linvel = WishLinVel::Relative {
+        let i = entities.get_index_of(&entity_id).unwrap();
+
+        entities[i].wish_linvel = WishLinVel::Relative {
             force: na::Vector2::new(0.0, 1.0),
         };
 
@@ -71,7 +96,7 @@ impl SeekAi {
             return;
         };
 
-        entities[entity_idx].wish_angvel = WishAngVel::Aim { position: target };
+        entities[i].wish_angvel = WishAngVel::Aim { position: target };
     }
 }
 
@@ -101,21 +126,36 @@ impl EntityAi {
 
     pub fn update(
         &mut self,
-        entity_idx: usize,
+        entity_id: EntityId,
         entities: &mut Entities,
         physics: &mut Physics,
         clients: &mut Clients,
         fleets: &mut Fleets,
+        rng: &mut SimRng,
     ) {
+        // Check that the entity still exists.
+        if !entities.contains_key(&entity_id) {
+            *self = EntityAi::None;
+            return;
+        }
+
         let mut new_ai: Option<EntityAi> = None;
 
         match self {
             EntityAi::None => {}
             EntityAi::Seek(ai) => {
-                ai.update(entity_idx, entities, physics, &mut new_ai);
+                ai.update(entity_id, entities, physics, &mut new_ai);
             }
             EntityAi::Ship(ai) => {
-                ai.update(entity_idx, entities, physics, clients, fleets, &mut new_ai);
+                ai.update(
+                    entity_id,
+                    entities,
+                    physics,
+                    clients,
+                    fleets,
+                    &mut new_ai,
+                    rng,
+                );
             }
         }
 

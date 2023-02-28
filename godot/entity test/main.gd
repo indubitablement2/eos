@@ -12,7 +12,7 @@ func _ready() -> void:
 	bs = GlobalClient.new_test_battlescape()
 	bs.show()
 	bs.hash_on_tick(40)
-	bs.dbg_draw_colliders(true)
+#	bs.dbg_draw_colliders(true)
 	bs.hash_received.connect(_on_hash_received.bind(40), 1)
 
 func _process(delta: float) -> void:
