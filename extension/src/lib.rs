@@ -59,6 +59,8 @@ pub const GODOT_SCALE: f32 = 128.0;
 
 // TODO: Store target on entity.
 // TODO: Store disable ai on entity.
+
+// Maybe
 // TODO: Reimpl starting ai. Use target on entity.
 
 mod ext {

@@ -86,6 +86,7 @@ func _build_entity_data(path: String, e: EntityData) -> void:
 	while true:
 		if e.get_child(child_sprite_idx) == e.sprite:
 			break
+		child_sprite_idx += 1
 	b.set_child_sprite_idx(child_sprite_idx)
 	
 	# Handle if this is a ship

@@ -31,6 +31,7 @@ aproximate_radius = 165.0
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("3_apiq7")
+flip_v = true
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_mssio")

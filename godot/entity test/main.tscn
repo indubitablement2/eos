@@ -1,6 +1,7 @@
-[gd_scene load_steps=4 format=3 uid="uid://c0y5t7adgi5lr"]
+[gd_scene load_steps=5 format=3 uid="uid://c0y5t7adgi5lr"]
 
 [ext_resource type="Script" path="res://entity test/main.gd" id="1_bu628"]
+[ext_resource type="Texture2D" uid="uid://d3emwc0evxekb" path="res://textures/blur_square.png" id="2_acxl2"]
 [ext_resource type="PackedScene" uid="uid://5ojtd4d004ve" path="res://cameras/free_camera.tscn" id="2_pa5lu"]
 [ext_resource type="Texture2D" uid="uid://bqgwjxeoq1cv4" path="res://textures/error.png" id="3_og2y0"]
 
@@ -8,9 +9,11 @@
 script = ExtResource("1_bu628")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-modulate = Color(0, 0, 0, 0.117647)
+visible = false
+modulate = Color(1, 1, 1, 0.0745098)
+z_index = -2
 scale = Vector2(40, 40)
-texture = ExtResource("3_og2y0")
+texture = ExtResource("2_acxl2")
 
 [node name="Sprite2D2" type="Sprite2D" parent="."]
 position = Vector2(512, -512)
@@ -29,4 +32,5 @@ texture = ExtResource("3_og2y0")
 texture = ExtResource("3_og2y0")
 
 [node name="FreeCamera" parent="." instance=ExtResource("2_pa5lu")]
+visible = false
 position_smoothing_enabled = false

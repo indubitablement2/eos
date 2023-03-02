@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://xid2yes0tgcs"]
+[gd_scene load_steps=7 format=3 uid="uid://xid2yes0tgcs"]
 
 [ext_resource type="Texture2D" uid="uid://dy0de8bqdo0cn" path="res://texture DELETE/spaceship3.png" id="1_pq5kf"]
 [ext_resource type="Script" path="res://data/EntityData.gd" id="1_so5g7"]
@@ -18,6 +18,17 @@ func _on_destroyed(bind: String):
 script = ExtResource("2_3meux")
 display_name = "Ship Test"
 
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_j2ubx"]
+lifetime_randomness = 0.36
+particle_flag_disable_z = true
+gravity = Vector3(0, 0, 0)
+initial_velocity_min = 40.0
+initial_velocity_max = 60.0
+orbit_velocity_min = 0.0
+orbit_velocity_max = 0.0
+scale_min = 4.0
+scale_max = 4.0
+
 [node name="EntityData" type="Node2D" node_paths=PackedStringArray("collision_shape", "sprite")]
 script = ExtResource("1_so5g7")
 simulation_script = SubResource("GDScript_176tx")
@@ -28,9 +39,15 @@ collision_shape = NodePath("CollisionShape2D")
 sprite = NodePath("Sprite2D")
 aproximate_radius = 195.0
 
+[node name="GPUParticles2D" type="GPUParticles2D" parent="."]
+position = Vector2(0, -158)
+rotation = -1.6729
+amount = 16
+process_material = SubResource("ParticleProcessMaterial_j2ubx")
+
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("1_pq5kf")
 flip_v = true
 
 [node name="CollisionShape2D" type="CollisionPolygon2D" parent="."]
-polygon = PackedVector2Array(-117, -138, 109, -134, -1, 165)
+polygon = PackedVector2Array(-59, -178, 57, -179, 133, -51, 89, 171, -79, 171, -138, -36)
