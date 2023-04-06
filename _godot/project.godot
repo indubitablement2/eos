@@ -10,16 +10,15 @@ config_version=5
 
 [application]
 
-config/name="Pixitale"
-run/main_scene="res://core/scene/Main.tscn"
+config/name="eos"
 config/features=PackedStringArray("4.0", "GL Compatibility")
 boot_splash/bg_color=Color(0.141176, 0.141176, 0.141176, 1)
 config/icon="res://icon.svg"
 
 [autoload]
 
-Init="res://core/singleton/init.gd"
-CellMaterials="*res://core/singleton/cell_materials.gd"
+Init="res://singleton/init.gd"
+GlobalClient="*res://singleton/global_client.gd"
 
 [editor_plugins]
 
@@ -90,5 +89,5 @@ target={
 
 [rendering]
 
-textures/canvas_textures/default_texture_filter=0
 environment/defaults/default_clear_color=Color(0, 0, 0, 1)
+textures/canvas_textures/default_texture_filter=3

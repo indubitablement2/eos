@@ -1,0 +1,23 @@
+[gd_scene load_steps=5 format=3 uid="uid://b8mc2scghcdp5"]
+
+[ext_resource type="Script" path="res://core/scene/game.gd" id="1_evhtg"]
+[ext_resource type="Script" path="res://core/camera/game_camera.gd" id="2_edovp"]
+[ext_resource type="Script" path="res://core/scene/game/grid_sprite.gd" id="4_y6yaj"]
+
+[sub_resource type="ImageTexture" id="ImageTexture_nggh7"]
+
+[node name="Game" type="Node2D"]
+script = ExtResource("1_evhtg")
+
+[node name="Camera" type="Camera2D" parent="."]
+process_priority = 10
+zoom = Vector2(4, 4)
+position_smoothing_enabled = true
+position_smoothing_speed = 15.0
+script = ExtResource("2_edovp")
+
+[node name="GridSprite" type="Sprite2D" parent="."]
+process_priority = 10
+texture = SubResource("ImageTexture_nggh7")
+centered = false
+script = ExtResource("4_y6yaj")

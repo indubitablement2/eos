@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CellMaterialData" load_steps=2 format=3 uid="uid://b3d08bn8a1yn0"]
+
+[ext_resource type="Script" path="res://core/data/cell_material_data.gd" id="1_r5djh"]
+
+[resource]
+script = ExtResource("1_r5djh")
+display_name = &"rock"
+id = "rock"
+tags = PackedStringArray()
+color = Color(1, 1, 1, 0)
+movement_type = 0
+density = 10
+durability = 0
+collision_type = 1
+friction = 1.0
+use_fire_preset = false
+ignite_chance = 0.1
+ignite_temperature_needed = 0
+ignite_into_preset = ""
+ignite_into_custom = ""
+on_destroyed = false

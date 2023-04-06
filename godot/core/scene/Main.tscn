@@ -1,0 +1,95 @@
+[gd_scene load_steps=4 format=3 uid="uid://ca1ifxu63elb6"]
+
+[ext_resource type="Script" path="res://core/scene/Main.gd" id="1_c4ry3"]
+[ext_resource type="Script" path="res://base/test collider/test_collider.gd" id="3_op8v7"]
+[ext_resource type="Texture2D" uid="uid://ck73ei3ddic5k" path="res://core/texture/util/pixel.png" id="3_vq0ne"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_c4ry3")
+
+[node name="CellName" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -81.0
+offset_top = -26.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "asdasdasa"
+
+[node name="Tick" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -80.0
+offset_top = -53.0
+offset_right = 1.0
+offset_bottom = -27.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "asdasdasa"
+
+[node name="ChunkActive" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -80.0
+offset_top = -82.0
+offset_right = 1.0
+offset_bottom = -56.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "asdasdasa"
+
+[node name="GridPosition" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -79.0
+offset_top = -109.0
+offset_right = 2.0
+offset_bottom = -83.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "asdasdasa"
+
+[node name="render" type="Node2D" parent="."]
+
+[node name="GridBody" type="GridCharacterBody" parent="render"]
+z_index = 3000
+position = Vector2(111, 99)
+script = ExtResource("3_op8v7")
+
+[node name="Sprite2D" type="Sprite2D" parent="render/GridBody"]
+scale = Vector2(10, 10)
+texture = ExtResource("3_vq0ne")
+
+[node name="Camera2D" type="Camera2D" parent="render/GridBody"]
+zoom = Vector2(4, 4)
+position_smoothing_enabled = true
+position_smoothing_speed = 10.0
+
+[node name="velocity" type="Label" parent="render/GridBody"]
+offset_left = -21.0
+offset_top = -28.0
+offset_right = 19.0
+offset_bottom = -5.0
+text = "asdasd"
