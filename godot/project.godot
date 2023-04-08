@@ -10,16 +10,15 @@ config_version=5
 
 [application]
 
-config/name="Pixitale"
+config/name="Eos"
 run/main_scene="res://core/scene/Main.tscn"
-config/features=PackedStringArray("4.0", "GL Compatibility")
+config/features=PackedStringArray("4.0", "C#", "GL Compatibility")
 boot_splash/bg_color=Color(0.141176, 0.141176, 0.141176, 1)
 config/icon="res://icon.svg"
 
-[autoload]
+[dotnet]
 
-Init="res://core/singleton/init.gd"
-CellMaterials="*res://core/singleton/cell_materials.gd"
+project/assembly_name="Eos"
 
 [editor_plugins]
 
@@ -88,7 +87,12 @@ target={
 ]
 }
 
+[physics]
+
+2d/default_gravity=40.0
+2d/default_linear_damp=-1.0
+2d/default_angular_damp=-1.0
+
 [rendering]
 
-textures/canvas_textures/default_texture_filter=0
 environment/defaults/default_clear_color=Color(0, 0, 0, 1)
