@@ -1,8 +1,6 @@
-[gd_scene load_steps=3 format=3 uid="uid://ca1ifxu63elb6"]
+[gd_scene load_steps=2 format=3 uid="uid://ca1ifxu63elb6"]
 
-[ext_resource type="Script" path="res://core/component/Entity.cs" id="2_r4q1b"]
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_1wrdf"]
+[ext_resource type="Script" path="res://core/scene/Main.cs" id="1_aoklh"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -11,11 +9,28 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("1_aoklh")
 
-[node name="Entity" type="RigidBody2D" parent="."]
-center_of_mass_mode = 1
-can_sleep = false
-script = ExtResource("2_r4q1b")
+[node name="FocussedBattlescapeRender" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Entity"]
-shape = SubResource("RectangleShape2D_1wrdf")
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -8.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+
+[node name="UnfocussedBattlescapeRenderContainer" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EntityData" load_steps=2 format=3 uid="uid://clgeeckl7u0fp"]
+
+[ext_resource type="Script" path="res://core/data/EntityData.gd" id="1_oabge"]
+
+[resource]
+script = ExtResource("1_oabge")
+Id = ""
+LinearAceleration = 0.0
+AngularAcceleration = 0.0
+MaxLinearVelocity = 0.0
+MaxAngularVelocity = 0.0
+Readiness = 0.0
+HullHp = 0.0
+ArmorHp = 0.0

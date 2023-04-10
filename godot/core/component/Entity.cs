@@ -1,9 +1,9 @@
 using Godot;
 using System;
 
-public partial class Entity : RigidBody2D 
+public partial class Entity : RigidBody2D
 {
-    enum WishLinearVelocity 
+    enum WishLinearVelocity
     {
         KEEP,
         CANCEL,
@@ -22,13 +22,12 @@ public partial class Entity : RigidBody2D
     public void SetWishLinearVelocityKeep()
     {
         _wishLinearVelocityType = WishLinearVelocity.KEEP;
-        Entity entity = this;
     }
 
     /// <summary>
     /// Try to reach 0 linear velocity.
     /// </summary>
-    public void SetWishLinearVelocityCancel() 
+    public void SetWishLinearVelocityCancel()
     {
         _wishLinearVelocityType = WishLinearVelocity.CANCEL;
     }
@@ -79,92 +78,92 @@ public partial class Entity : RigidBody2D
         switch (_wishLinearVelocityType)
         {
             case WishLinearVelocity.KEEP:
-            {
-                float maxLinearVelocitySquared = MaxLinearVelocity * MaxLinearVelocity;
-                if (linearVelocity.LengthSquared() > maxLinearVelocitySquared)
                 {
-                    // Slow down to max velocity.
-                    Vector2 maybe = LinearVelocityIntegration.Stop(linearVelocity, LinearAceleration);
-                    if (maybe.LengthSquared() < maxLinearVelocitySquared)
+                    float maxLinearVelocitySquared = Stats.MaxLinearVelocity * Stats.MaxLinearVelocity;
+                    if (linearVelocity.LengthSquared() > maxLinearVelocitySquared)
                     {
-                        // Slowed down too much, set to max velocity instead.
-                        return linearVelocity.Normalized() * MaxLinearVelocity;
+                        // Slow down to max velocity.
+                        Vector2 maybe = LinearVelocityIntegration.Stop(linearVelocity, Stats.LinearAceleration);
+                        if (maybe.LengthSquared() < maxLinearVelocitySquared)
+                        {
+                            // Slowed down too much, set to max velocity instead.
+                            return linearVelocity.Normalized() * Stats.MaxLinearVelocity;
+                        }
+                        return maybe;
                     }
-                    return maybe;
+                    else
+                    {
+                        return linearVelocity;
+                    }
                 }
-                else
-                {
-                    return linearVelocity;
-                }
-            }
             case WishLinearVelocity.CANCEL:
-            {
-                if (linearVelocity.LengthSquared() < 1.0f)
                 {
-                    return Vector2.Zero;
-                }
-                else
-                {
-                    return LinearVelocityIntegration.Stop(linearVelocity, LinearAceleration);
-                }
-            }
-            case WishLinearVelocity.POSITION:
-            {
-                Vector2 target = _wishLinearVelocity - Position;
-                if (target.LengthSquared() < 10.0f)
-                {
-                    // We are alreay on target.
                     if (linearVelocity.LengthSquared() < 1.0f)
                     {
                         return Vector2.Zero;
                     }
                     else
                     {
-                        return LinearVelocityIntegration.Stop(linearVelocity, LinearAceleration);
+                        return LinearVelocityIntegration.Stop(linearVelocity, Stats.LinearAceleration);
                     }
                 }
-                else
+            case WishLinearVelocity.POSITION:
                 {
+                    Vector2 target = _wishLinearVelocity - Position;
+                    if (target.LengthSquared() < 10.0f)
+                    {
+                        // We are alreay on target.
+                        if (linearVelocity.LengthSquared() < 1.0f)
+                        {
+                            return Vector2.Zero;
+                        }
+                        else
+                        {
+                            return LinearVelocityIntegration.Stop(linearVelocity, Stats.LinearAceleration);
+                        }
+                    }
+                    else
+                    {
+                        return LinearVelocityIntegration.Wish(
+                            target.LimitLength(Stats.MaxLinearVelocity),
+                            linearVelocity,
+                            Stats.LinearAceleration
+                        );
+                    }
+                }
+            case WishLinearVelocity.POSITION_OVERSHOT:
+                {
+                    Vector2 target = _wishLinearVelocity - Position;
                     return LinearVelocityIntegration.Wish(
-                        target.LimitLength(MaxLinearVelocity),
+                        target.Normalized() * Stats.MaxLinearVelocity,
                         linearVelocity,
-                        LinearAceleration
+                        Stats.LinearAceleration
                     );
                 }
-            }
-            case WishLinearVelocity.POSITION_OVERSHOT:
-            {
-                Vector2 target = _wishLinearVelocity - Position;
-                return LinearVelocityIntegration.Wish(
-                    target.Normalized() * MaxLinearVelocity,
-                    linearVelocity,
-                    LinearAceleration
-                );
-            }
             case WishLinearVelocity.ABSOLUTE:
-            {
-                return LinearVelocityIntegration.Wish(
-                    _wishLinearVelocity * MaxLinearVelocity,
-                    linearVelocity,
-                    LinearAceleration
-                );
-            }
+                {
+                    return LinearVelocityIntegration.Wish(
+                        _wishLinearVelocity * Stats.MaxLinearVelocity,
+                        linearVelocity,
+                        Stats.LinearAceleration
+                    );
+                }
             case WishLinearVelocity.RELATIVE:
-            {
-                return LinearVelocityIntegration.Wish(
-                    _wishLinearVelocity.Rotated(Rotation) * MaxLinearVelocity,
-                    linearVelocity,
-                    LinearAceleration
-                );
-            }
+                {
+                    return LinearVelocityIntegration.Wish(
+                        _wishLinearVelocity.Rotated(Rotation) * Stats.MaxLinearVelocity,
+                        linearVelocity,
+                        Stats.LinearAceleration
+                    );
+                }
             default:
-            {
-                return linearVelocity;
-            }
+                {
+                    return linearVelocity;
+                }
         }
     }
 
-    enum WishAngularVelocity 
+    enum WishAngularVelocity
     {
         KEEP,
         CANCEL,
@@ -186,7 +185,7 @@ public partial class Entity : RigidBody2D
     /// <summary>
     /// Try to reach 0 angular velocity.
     /// </summary>
-    public void SetWishAngularVelocityCancel() 
+    public void SetWishAngularVelocityCancel()
     {
         _wishAngularVelocityType = WishAngularVelocity.CANCEL;
     }
@@ -215,18 +214,18 @@ public partial class Entity : RigidBody2D
         switch (_wishAngularVelocityType)
         {
             case WishAngularVelocity.KEEP:
-                if (angularVelocity > MaxAngularVelocity)
+                if (angularVelocity > Stats.MaxAngularVelocity)
                 {
                     return Math.Max(
-                        AngularVelocityIntegration.Stop(angularVelocity, AngularAcceleration),
-                        MaxAngularVelocity
+                        AngularVelocityIntegration.Stop(angularVelocity, Stats.AngularAcceleration),
+                        Stats.MaxAngularVelocity
                     );
                 }
-                else if (angularVelocity < -MaxAngularVelocity) 
+                else if (angularVelocity < -Stats.MaxAngularVelocity)
                 {
                     return Math.Min(
-                        AngularVelocityIntegration.Stop(angularVelocity, AngularAcceleration),
-                        MaxAngularVelocity
+                        AngularVelocityIntegration.Stop(angularVelocity, Stats.AngularAcceleration),
+                        Stats.MaxAngularVelocity
                     );
                 }
                 else
@@ -236,104 +235,34 @@ public partial class Entity : RigidBody2D
             case WishAngularVelocity.CANCEL:
                 return AngularVelocityIntegration.Stop(
                     angularVelocity,
-                    AngularAcceleration
+                    Stats.AngularAcceleration
                 );
             case WishAngularVelocity.AIM:
                 return AngularVelocityIntegration.Offset(
                     GetAngleTo(_wishAngularVelocity),
                     angularVelocity,
-                    AngularAcceleration,
-                    MaxAngularVelocity
+                    Stats.AngularAcceleration,
+                    Stats.MaxAngularVelocity
                 );
             case WishAngularVelocity.FORCE:
                 return AngularVelocityIntegration.Force(
                     _wishAngularVelocity.X,
                     angularVelocity,
-                    AngularAcceleration,
-                    MaxAngularVelocity
+                    Stats.AngularAcceleration,
+                    Stats.MaxAngularVelocity
                 );
             default:
                 return angularVelocity;
         }
     }
 
-    /// <summary>
-    /// -1 for no fleet.
-    /// </summary>
-    public Int64 FleetId = -1;
-    public int FleetShipIdx = -1; 
+    public EntityData Data;
+    public EntityStats Stats;
 
-    /// <summary>
-    /// -1 for no owner.
-    /// </summary>
-    public Int64 OwnerClientId = -1;
-    public int Team = -1;
-
-    [ExportCategory("Movement")]
-    [Export]
-    public float BaseLinearAceleration = 500.0f;
-    [Export]
-    public float BaseAngularAcceleration = 4.0f;
-    [Export]
-    public float BaseMaxLinearVelocity = 1000.0f;
-    [Export]
-    public float BaseMaxAngularVelocity = 8.0f;
-
-    public float LinearAceleration;
-    public float AngularAcceleration;
-    public float MaxLinearVelocity;
-    public float MaxAngularVelocity;
-
-    [ExportCategory("Defence")]
-    [Export]
-    public float BaseReadiness = 500.0f;
-    [Export]
-    public float BaseHullHp = 1000.0f;
-    [Export]
-    public float BaseArmorHp = 500.0f;
-
-    public float Readiness;
-    public float HullHp;
-    public float ArmorHp;
-
-    Entity()
+    public Entity(EntityStats stats, EntityData data)
     {
-        init();
-    }
-
-    Entity
-    (
-        int team = -1,
-        Int64 fleetId = -1,
-        int fleetShipIdx = -1,
-        Int64 ownerClientId = -1
-    )
-    {
-        Team = team;
-        FleetId = fleetId;
-        FleetShipIdx = fleetShipIdx;
-        OwnerClientId = ownerClientId;
-
-        init();
-    }
-
-    void init()
-    {
-        // TODO: Create a new team. 
-
-        LinearAceleration = BaseLinearAceleration;
-        AngularAcceleration = BaseAngularAcceleration;
-        MaxLinearVelocity = BaseMaxLinearVelocity;
-        MaxAngularVelocity = BaseMaxAngularVelocity;
-
-        Readiness = BaseReadiness;
-        HullHp = BaseHullHp;
-        ArmorHp = BaseArmorHp;
-    }
-
-    public override void _PhysicsProcess(double delta)
-    {
-        
+        Data = data;
+        Stats = stats;
     }
 
     public override void _IntegrateForces(PhysicsDirectBodyState2D state)
