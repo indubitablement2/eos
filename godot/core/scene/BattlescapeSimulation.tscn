@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://bxvofud16cul6"]
+
+[ext_resource type="Script" path="res://core/scene/BattlescapeSimulation.cs" id="1_o4bsy"]
+
+[node name="BattlescapeSimulation" type="SubViewport"]
+canvas_item_default_texture_filter = 2
+audio_listener_enable_2d = true
+script = ExtResource("1_o4bsy")
