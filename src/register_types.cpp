@@ -1,8 +1,3 @@
-/* godot-cpp integration testing project.
- *
- * This is free and unencumbered software released into the public domain.
- */
-
 #include "register_types.h"
 
 #include <gdextension_interface.h>
@@ -11,8 +6,7 @@
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
 
-#include "grid.h"
-#include "grid_character_body.h"
+#include "eos_entity.h"
 
 using namespace godot;
 
@@ -21,8 +15,7 @@ void initialize_gdext_module(ModuleInitializationLevel p_level) {
 		return;
 	}
 
-	ClassDB::register_class<Grid>();
-	ClassDB::register_class<GridCharacterBody>();
+	ClassDB::register_class<EosEntity>();
 }
 
 void uninitialize_gdext_module(ModuleInitializationLevel p_level) {
