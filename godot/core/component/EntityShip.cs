@@ -10,14 +10,22 @@ public partial class EntityShip : Entity
     /// </summary>
     public Int64 LeaveTick;
 
-    public EntityShip(Ship ship) : base(ship.Stats, ship.Data)
+    public void Initialize(Ship ship, BattlescapeSimulation battlescapeSimulation)
     {
         Ship = ship;
+        Initialize(
+            Ship.Readiness,
+            Ship.HullHp,
+            Ship.ArmorHp,
+            Ship.ShipData.EntityData,
+            battlescapeSimulation
+        );
     }
 
     // ~EntityShip()
     // {
-    //     // TODO: Check if destroyed.
+    // TODO: Check if destroyed.
+    // TODO: Update ship readiness, hull hp, armor hp.
     //     Ship.State = Ship.ShipState.Ready;
     // }
 

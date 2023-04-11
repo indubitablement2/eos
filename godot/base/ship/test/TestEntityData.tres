@@ -4,8 +4,8 @@
 
 [resource]
 script = ExtResource("1_oabge")
-Id = ""
-LinearAceleration = 0.0
+EntityScenePath = "res://base/ship/test/Test.tscn"
+LinearAcceleration = 0.0
 AngularAcceleration = 0.0
 MaxLinearVelocity = 0.0
 MaxAngularVelocity = 0.0

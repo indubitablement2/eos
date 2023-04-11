@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ShipData" load_steps=2 format=3 uid="uid://ck0xmvs2wujpv"]
+
+[ext_resource type="Script" path="res://core/data/ShipData.gd" id="1_ybm1k"]
+
+[resource]
+script = ExtResource("1_ybm1k")
+EntityDataPath = "res://base/ship/test/TestEntityData.tres"
+DisplayName = "A Test"

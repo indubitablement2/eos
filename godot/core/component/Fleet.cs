@@ -26,6 +26,16 @@ public class Fleet
         Battlescape = null;
     }
 
+    public void AddShip(Ship ship)
+    {
+        Ships.Add(ship);
+    }
+
+    public void AddShip(ShipData shipData, float readiness, float hullHp, float armorHp)
+    {
+        Ships.Add(new Ship(shipData, this, readiness, hullHp, armorHp));
+    }
+
     public bool TryEnterBattlescape(Battlescape battlescape)
     {
         if (Battlescape != null)
@@ -34,7 +44,7 @@ public class Fleet
         }
 
         Battlescape = battlescape;
-        Battlescape.AddFleet(this);
+        Battlescape.FleetAdded(this);
         return true;
     }
 
@@ -45,7 +55,7 @@ public class Fleet
             return false;
         }
 
-        Battlescape.RemoveFleet(this);
+        Battlescape.FleetRemoved(this);
         Battlescape = null;
         return true;
     }

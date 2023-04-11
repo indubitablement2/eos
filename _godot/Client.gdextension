@@ -1,7 +1,0 @@
-[configuration]
-entry_symbol = "gdextension_rust_init"
-
-[libraries]
-linux.64 = "res://libs/libclient.so"
-windows.64 = "res://libs/{my_ext}.dll"
-macos.64 = "res://libs/{my_ext}.dylib"

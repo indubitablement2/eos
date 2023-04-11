@@ -79,15 +79,15 @@ public partial class Entity : RigidBody2D
         {
             case WishLinearVelocity.KEEP:
                 {
-                    float maxLinearVelocitySquared = Stats.MaxLinearVelocity * Stats.MaxLinearVelocity;
+                    float maxLinearVelocitySquared = MaxLinearVelocity * MaxLinearVelocity;
                     if (linearVelocity.LengthSquared() > maxLinearVelocitySquared)
                     {
                         // Slow down to max velocity.
-                        Vector2 maybe = LinearVelocityIntegration.Stop(linearVelocity, Stats.LinearAceleration);
+                        Vector2 maybe = LinearVelocityIntegration.Stop(linearVelocity, LinearAcceleration);
                         if (maybe.LengthSquared() < maxLinearVelocitySquared)
                         {
                             // Slowed down too much, set to max velocity instead.
-                            return linearVelocity.Normalized() * Stats.MaxLinearVelocity;
+                            return linearVelocity.Normalized() * MaxLinearVelocity;
                         }
                         return maybe;
                     }
@@ -104,7 +104,7 @@ public partial class Entity : RigidBody2D
                     }
                     else
                     {
-                        return LinearVelocityIntegration.Stop(linearVelocity, Stats.LinearAceleration);
+                        return LinearVelocityIntegration.Stop(linearVelocity, LinearAcceleration);
                     }
                 }
             case WishLinearVelocity.POSITION:
@@ -119,15 +119,15 @@ public partial class Entity : RigidBody2D
                         }
                         else
                         {
-                            return LinearVelocityIntegration.Stop(linearVelocity, Stats.LinearAceleration);
+                            return LinearVelocityIntegration.Stop(linearVelocity, LinearAcceleration);
                         }
                     }
                     else
                     {
                         return LinearVelocityIntegration.Wish(
-                            target.LimitLength(Stats.MaxLinearVelocity),
+                            target.LimitLength(MaxLinearVelocity),
                             linearVelocity,
-                            Stats.LinearAceleration
+                            LinearAcceleration
                         );
                     }
                 }
@@ -135,25 +135,25 @@ public partial class Entity : RigidBody2D
                 {
                     Vector2 target = _wishLinearVelocity - Position;
                     return LinearVelocityIntegration.Wish(
-                        target.Normalized() * Stats.MaxLinearVelocity,
+                        target.Normalized() * MaxLinearVelocity,
                         linearVelocity,
-                        Stats.LinearAceleration
+                        LinearAcceleration
                     );
                 }
             case WishLinearVelocity.ABSOLUTE:
                 {
                     return LinearVelocityIntegration.Wish(
-                        _wishLinearVelocity * Stats.MaxLinearVelocity,
+                        _wishLinearVelocity * MaxLinearVelocity,
                         linearVelocity,
-                        Stats.LinearAceleration
+                        LinearAcceleration
                     );
                 }
             case WishLinearVelocity.RELATIVE:
                 {
                     return LinearVelocityIntegration.Wish(
-                        _wishLinearVelocity.Rotated(Rotation) * Stats.MaxLinearVelocity,
+                        _wishLinearVelocity.Rotated(Rotation) * MaxLinearVelocity,
                         linearVelocity,
-                        Stats.LinearAceleration
+                        LinearAcceleration
                     );
                 }
             default:
@@ -214,18 +214,18 @@ public partial class Entity : RigidBody2D
         switch (_wishAngularVelocityType)
         {
             case WishAngularVelocity.KEEP:
-                if (angularVelocity > Stats.MaxAngularVelocity)
+                if (angularVelocity > MaxAngularVelocity)
                 {
                     return Math.Max(
-                        AngularVelocityIntegration.Stop(angularVelocity, Stats.AngularAcceleration),
-                        Stats.MaxAngularVelocity
+                        AngularVelocityIntegration.Stop(angularVelocity, AngularAcceleration),
+                        MaxAngularVelocity
                     );
                 }
-                else if (angularVelocity < -Stats.MaxAngularVelocity)
+                else if (angularVelocity < -MaxAngularVelocity)
                 {
                     return Math.Min(
-                        AngularVelocityIntegration.Stop(angularVelocity, Stats.AngularAcceleration),
-                        Stats.MaxAngularVelocity
+                        AngularVelocityIntegration.Stop(angularVelocity, AngularAcceleration),
+                        MaxAngularVelocity
                     );
                 }
                 else
@@ -235,34 +235,69 @@ public partial class Entity : RigidBody2D
             case WishAngularVelocity.CANCEL:
                 return AngularVelocityIntegration.Stop(
                     angularVelocity,
-                    Stats.AngularAcceleration
+                    AngularAcceleration
                 );
             case WishAngularVelocity.AIM:
                 return AngularVelocityIntegration.Offset(
                     GetAngleTo(_wishAngularVelocity),
                     angularVelocity,
-                    Stats.AngularAcceleration,
-                    Stats.MaxAngularVelocity
+                    AngularAcceleration,
+                    MaxAngularVelocity
                 );
             case WishAngularVelocity.FORCE:
                 return AngularVelocityIntegration.Force(
                     _wishAngularVelocity.X,
                     angularVelocity,
-                    Stats.AngularAcceleration,
-                    Stats.MaxAngularVelocity
+                    AngularAcceleration,
+                    MaxAngularVelocity
                 );
             default:
                 return angularVelocity;
         }
     }
 
-    public EntityData Data;
-    public EntityStats Stats;
+    public BattlescapeSimulation BattlescapeSimulation;
 
-    public Entity(EntityStats stats, EntityData data)
+    public EntityData EntityData;
+
+    public float LinearAcceleration;
+    public float AngularAcceleration;
+    public float MaxLinearVelocity;
+    public float MaxAngularVelocity;
+
+    public float Readiness;
+    public float HullHp;
+    public float ArmorHp;
+
+    public void Initialize(
+        float readiness,
+        float hullHp,
+        float armorHp,
+        EntityData entityData,
+        BattlescapeSimulation battlescapeSimulation
+    )
     {
-        Data = data;
-        Stats = stats;
+        BattlescapeSimulation = battlescapeSimulation;
+
+        EntityData = entityData;
+
+        Readiness = readiness;
+        HullHp = hullHp;
+        ArmorHp = armorHp;
+
+        ComputeStats();
+    }
+
+    void ComputeStats()
+    {
+        // TODO: Use modifiers.
+
+        float readinessModifier = Readiness / EntityData.Readiness;
+
+        LinearAcceleration = EntityData.LinearAcceleration * readinessModifier;
+        AngularAcceleration = EntityData.AngularAcceleration * readinessModifier;
+        MaxLinearVelocity = EntityData.MaxLinearVelocity * readinessModifier;
+        MaxAngularVelocity = EntityData.MaxAngularVelocity * readinessModifier;
     }
 
     public override void _IntegrateForces(PhysicsDirectBodyState2D state)

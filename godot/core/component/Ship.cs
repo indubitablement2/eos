@@ -12,24 +12,38 @@ public class Ship
 
     public Fleet Fleet;
 
-    public EntityData Data;
-    public EntityStats Stats;
+    public ShipData ShipData;
 
-    Ship(Fleet fleet)
+    public float Readiness;
+    public float HullHp;
+    public float ArmorHp;
+
+    public Ship(ShipData shipData, Fleet fleet, float readiness, float hullHp, float armorHp)
     {
+        ShipData = shipData;
         Fleet = fleet;
-        Fleet.Ships.Add(this);
+
+        Readiness = readiness;
+        HullHp = hullHp;
+        ArmorHp = armorHp;
     }
 
     /// <summary>
     /// Return null if the ship is not ready.
     /// </summary>
-    public EntityShip TrySpawnEntity()
+    public EntityShip TrySpawnEntity(BattlescapeSimulation battlescapeSimulation)
     {
         if (State != ShipState.Ready)
+        {
             return null;
+        }
 
         State = ShipState.Battlescape;
-        return new EntityShip(this);
+
+        EntityShip scene = ShipData.EntityData.EntityScene.Instantiate<EntityShip>();
+        battlescapeSimulation.AddChild(scene);
+        scene.Initialize(this, battlescapeSimulation);
+
+        return scene;
     }
 }

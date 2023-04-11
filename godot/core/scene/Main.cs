@@ -27,10 +27,20 @@ public partial class Main : Control
 
         Fleet fleet = Metascape.CreateFleet(localClient);
 
+        ShipData shipData = Data.ShipDatas["res://base/ship/test/TestShipData.tres"];
+        fleet.AddShip(
+            shipData,
+            shipData.EntityData.Readiness,
+            shipData.EntityData.HullHp,
+            shipData.EntityData.ArmorHp
+        );
+
         Battlescape battlescape = Metascape.CreateBattlescape();
 
         fleet.TryEnterBattlescape(battlescape);
         battlescape.StartSimulation(localClient);
+
+        fleet.Ships[0].TrySpawnEntity(battlescape.Simulation);
 
         Metascape.SetPaused(false);
     }

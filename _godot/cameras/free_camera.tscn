@@ -1,8 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://5ojtd4d004ve"]
-
-[ext_resource type="Script" path="res://cameras/free_camera.gd" id="1_3di8u"]
-
-[node name="FreeCamera" type="Camera2D"]
-position_smoothing_enabled = true
-position_smoothing_speed = 20.0
-script = ExtResource("1_3di8u")

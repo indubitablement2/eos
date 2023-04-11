@@ -59,12 +59,12 @@ public class Battlescape
         Metascape.Root.AddChild(Simulation);
     }
 
-    public void AddFleet(Fleet fleet)
+    public void FleetAdded(Fleet fleet)
     {
         Fleets.Add(fleet);
     }
 
-    public void RemoveFleet(Fleet fleet)
+    public void FleetRemoved(Fleet fleet)
     {
         Fleets.Remove(fleet);
     }

@@ -1,10 +1,10 @@
 extends Resource
 class_name EntityData
 
-@export var Id = ""
+@export_file("*.tscn", "*.scn") var EntityScenePath
 
 @export_category("Movement")
-@export var LinearAceleration = 0.0
+@export var LinearAcceleration = 0.0
 @export var AngularAcceleration = 0.0
 @export var MaxLinearVelocity = 0.0
 @export var MaxAngularVelocity = 0.0

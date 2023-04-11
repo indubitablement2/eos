@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=3 uid="uid://dngmcj6wltpqs"]
+
+[ext_resource type="Script" path="res://base/ship/test/EntityShipTest.cs" id="1_8ppo1"]
+[ext_resource type="Texture2D" uid="uid://clwdqmw5fa0bw" path="res://base/ship/test/spaceship gen.png" id="1_50iu1"]
+
+[node name="Test" type="RigidBody2D"]
+script = ExtResource("1_8ppo1")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("1_50iu1")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="."]
+polygon = PackedVector2Array(0, -43, 55, 21, 0, 22)

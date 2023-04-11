@@ -3,22 +3,43 @@ using System;
 
 public class EntityData
 {
-    public string Id;
+    public PackedScene EntityScene;
+    public Texture2D Icon;
 
-    public EntityStats BaseStats;
+    public float LinearAcceleration;
+    public float AngularAcceleration;
+    public float MaxLinearVelocity;
+    public float MaxAngularVelocity;
+
+    public float Readiness;
+    public float HullHp;
+    public float ArmorHp;
 
     public EntityData(Resource entityDataResource)
     {
-        BaseStats = new EntityStats();
+        EntityScene = (PackedScene)entityDataResource.Get("EntityScenePath");
 
-        Id = (string)entityDataResource.Get("id");
+        RigidBody2D entityScene = EntityScene.Instantiate<RigidBody2D>();
 
-        BaseStats.LinearAceleration = (float)entityDataResource.Get("LinearAceleration");
-        BaseStats.AngularAcceleration = (float)entityDataResource.Get("AngularAcceleration");
-        BaseStats.MaxLinearVelocity = (float)entityDataResource.Get("MaxLinearVelocity");
-        BaseStats.MaxAngularVelocity = (float)entityDataResource.Get("MaxAngularVelocity");
-        BaseStats.Readiness = (float)entityDataResource.Get("Readiness");
-        BaseStats.HullHp = (float)entityDataResource.Get("HullHp");
-        BaseStats.ArmorHp = (float)entityDataResource.Get("ArmorHp");
+        // RigidBody setup.
+        entityScene.CenterOfMassMode = RigidBody2D.CenterOfMassModeEnum.Custom;
+        entityScene.CanSleep = false;
+
+        // Get the icon.
+        Sprite2D sprite = entityScene.GetNode<Sprite2D>("Sprite2D");
+        Icon = sprite.Texture;
+
+        // TODO: Set sprite material.
+
+        EntityScene.Pack(entityScene);
+        entityScene.Free();
+
+        LinearAcceleration = (float)entityDataResource.Get("LinearAcceleration");
+        AngularAcceleration = (float)entityDataResource.Get("AngularAcceleration");
+        MaxLinearVelocity = (float)entityDataResource.Get("MaxLinearVelocity");
+        MaxAngularVelocity = (float)entityDataResource.Get("MaxAngularVelocity");
+        Readiness = (float)entityDataResource.Get("Readiness");
+        HullHp = (float)entityDataResource.Get("HullHp");
+        ArmorHp = (float)entityDataResource.Get("ArmorHp");
     }
 }
