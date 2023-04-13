@@ -63,7 +63,7 @@ public partial class Entity : RigidBody2D
     }
 
     /// <summary>
-    /// Force toward a direction relative to current rotation. +y is forward. 
+    /// Force toward a direction relative to current rotation. +x is forward. 
     /// Magnitude bellow 1 can be used to accelerate slower.
     /// Magnitude clamped to 1.
     /// </summary>
@@ -266,11 +266,11 @@ public partial class Entity : RigidBody2D
     [Export]
     public float LinearAcceleration = 500.0f;
     [Export]
-    public float AngularAcceleration = 6.0f;
+    public float AngularAcceleration = 5.0f;
     [Export]
-    public float MaxLinearVelocity = 500.0f;
+    public float MaxLinearVelocity = 300.0f;
     [Export]
-    public float MaxAngularVelocity = 6.0f;
+    public float MaxAngularVelocity = 3.0f;
 
     public event Action OnDestroyed;
 

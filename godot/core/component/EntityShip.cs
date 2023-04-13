@@ -23,8 +23,9 @@ public partial class EntityShip : Entity
         {
             // Cursor controls.
             Vector2 wishDirection = new Vector2(
-                Input.GetActionStrength(Actions.Right) - Input.GetActionStrength(Actions.Left) + Input.GetActionStrength(Actions.StrafeRight) - Input.GetActionStrength(Actions.StrafeLeft),
-                Input.GetActionStrength(Actions.Down) - Input.GetActionStrength(Actions.Up)
+                Input.GetActionStrength(Actions.Up) - Input.GetActionStrength(Actions.Down),
+                Input.GetActionStrength(Actions.Right) - Input.GetActionStrength(Actions.Left) + Input.GetActionStrength(Actions.StrafeRight) - Input.GetActionStrength(Actions.StrafeLeft)
+
             );
 
             if (wishDirection.IsZeroApprox())
@@ -49,8 +50,9 @@ public partial class EntityShip : Entity
         {
             // Tank controls.
             Vector2 wishDirection = new Vector2(
-                Input.GetActionStrength(Actions.StrafeRight) - Input.GetActionStrength(Actions.StrafeLeft),
-                Input.GetActionStrength(Actions.Down) - Input.GetActionStrength(Actions.Up)
+                Input.GetActionStrength(Actions.Up) - Input.GetActionStrength(Actions.Down),
+                Input.GetActionStrength(Actions.StrafeRight) - Input.GetActionStrength(Actions.StrafeLeft)
+
             );
 
             if (wishDirection.IsZeroApprox())

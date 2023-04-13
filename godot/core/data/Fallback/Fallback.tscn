@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3 uid="uid://0dpe6cfe83ae"]
 
-[ext_resource type="Texture2D" uid="uid://bqgwjxeoq1cv4" path="res://core/texture/util/error.png" id="1_aboq2"]
 [ext_resource type="Script" path="res://core/component/EntityShip.cs" id="1_opirb"]
+[ext_resource type="Texture2D" uid="uid://clwdqmw5fa0bw" path="res://base/ship/test/spaceship gen.png" id="2_lq3rg"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_7im3p"]
 size = Vector2(64, 64)
@@ -13,7 +13,8 @@ can_sleep = false
 script = ExtResource("1_opirb")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-texture = ExtResource("1_aboq2")
+rotation = 1.5708
+texture = ExtResource("2_lq3rg")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_7im3p")
