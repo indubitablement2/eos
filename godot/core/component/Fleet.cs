@@ -11,52 +11,32 @@ public class Fleet
     /// </summary>
     public Client OwnerClient;
 
-    public List<Ship> Ships;
+    public List<Ship> Ships = new List<Ship>();
 
-    /// <summary>
-    /// null if the fleet is not in a battlescape.
-    /// </summary>
-    public Battlescape Battlescape;
+    public bool InBattle;
 
-    public Fleet(Int64 fleetId, List<Ship> ships, Client ownerClient = null)
+    public Fleet(Int64 fleetId, Client ownerClient = null)
     {
         FleetId = fleetId;
         OwnerClient = ownerClient;
-        Ships = ships;
-        Battlescape = null;
     }
 
-    public void AddShip(Ship ship)
+    public Ship CreateShip(ShipData shipData)
     {
+        Ship ship = new Ship(shipData, this);
         Ships.Add(ship);
+        return ship;
     }
 
-    public void AddShip(ShipData shipData, float readiness, float hullHp, float armorHp)
+    public Ship CreateShip(ShipData shipData, float readiness, float hullHp, float armorHp)
     {
-        Ships.Add(new Ship(shipData, this, readiness, hullHp, armorHp));
+        Ship ship = new Ship(shipData, this, readiness, hullHp, armorHp);
+        Ships.Add(ship);
+        return ship;
     }
 
-    public bool TryEnterBattlescape(Battlescape battlescape)
+    public void SetInBattle(bool inBattle)
     {
-        if (Battlescape != null)
-        {
-            return false;
-        }
-
-        Battlescape = battlescape;
-        Battlescape.FleetAdded(this);
-        return true;
-    }
-
-    public bool TryExitBattlescape()
-    {
-        if (Battlescape == null)
-        {
-            return false;
-        }
-
-        Battlescape.FleetRemoved(this);
-        Battlescape = null;
-        return true;
+        InBattle = inBattle;
     }
 }

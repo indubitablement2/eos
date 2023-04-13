@@ -4,10 +4,13 @@
 [ext_resource type="Texture2D" uid="uid://clwdqmw5fa0bw" path="res://base/ship/test/spaceship gen.png" id="1_50iu1"]
 
 [node name="Test" type="RigidBody2D"]
+center_of_mass_mode = 1
+custom_integrator = true
+can_sleep = false
 script = ExtResource("1_8ppo1")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("1_50iu1")
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="."]
-polygon = PackedVector2Array(0, -43, 55, 21, 0, 22)
+polygon = PackedVector2Array(6, -40, 16, -20, 52, 18, 37, 35, -34, 35, -50, 17, -15, -21, -7, -40)

@@ -1,6 +1,7 @@
 using Godot;
 using System;
 
+// TODO: Wrapper around steamworks
 public class Client
 {
     public Int64 ClientId;
@@ -12,6 +13,6 @@ public class Client
 
     public bool IsLocal()
     {
-        return ClientId == Metascape.LocalClientId;
+        return true;
     }
 }

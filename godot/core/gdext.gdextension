@@ -1,8 +1,0 @@
-[configuration]
-
-entry_symbol = "gdext_library_init"
-
-[libraries]
-windows = "res://core/lib/libgdext.dll"
-linux = "res://core/lib/libgdext.so"
-macos = "res://core/lib/libgdext.framework"

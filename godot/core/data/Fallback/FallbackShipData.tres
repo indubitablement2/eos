@@ -1,0 +1,11 @@
+[gd_resource type="Resource" load_steps=4 format=3 uid="uid://bn5t1xr43crb4"]
+
+[ext_resource type="Script" path="res://core/data/ShipData.cs" id="1_cpos7"]
+[ext_resource type="PackedScene" uid="uid://0dpe6cfe83ae" path="res://core/data/Fallback/Fallback.tscn" id="1_ithea"]
+[ext_resource type="Texture2D" uid="uid://bqgwjxeoq1cv4" path="res://core/texture/util/error.png" id="2_kol03"]
+
+[resource]
+script = ExtResource("1_cpos7")
+EntityShipScene = ExtResource("1_ithea")
+DisplayName = "Fallback Ship"
+Icon = ExtResource("2_kol03")

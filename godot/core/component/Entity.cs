@@ -256,48 +256,49 @@ public partial class Entity : RigidBody2D
         }
     }
 
-    public BattlescapeSimulation BattlescapeSimulation;
+    [Export]
+    public float Readiness = 500.0f;
+    [Export]
+    public float HullHp = 1000.0f;
+    [Export]
+    public float ArmorHp = 500.0f;
 
-    public EntityData EntityData;
+    [Export]
+    public float LinearAcceleration = 500.0f;
+    [Export]
+    public float AngularAcceleration = 6.0f;
+    [Export]
+    public float MaxLinearVelocity = 500.0f;
+    [Export]
+    public float MaxAngularVelocity = 6.0f;
 
-    public float LinearAcceleration;
-    public float AngularAcceleration;
-    public float MaxLinearVelocity;
-    public float MaxAngularVelocity;
+    public event Action OnDestroyed;
 
-    public float Readiness;
-    public float HullHp;
-    public float ArmorHp;
-
-    public void Initialize(
-        float readiness,
-        float hullHp,
-        float armorHp,
-        EntityData entityData,
-        BattlescapeSimulation battlescapeSimulation
-    )
+    public Entity()
     {
-        BattlescapeSimulation = battlescapeSimulation;
-
-        EntityData = entityData;
-
-        Readiness = readiness;
-        HullHp = hullHp;
-        ArmorHp = armorHp;
-
-        ComputeStats();
+        SetArmorHp(ArmorHp);
     }
 
-    void ComputeStats()
+    public void SetArmorHp(float armorHp)
     {
-        // TODO: Use modifiers.
+        // TODO: Armor grid.
+    }
 
-        float readinessModifier = Readiness / EntityData.Readiness;
+    public float GetAverageArmorHp()
+    {
+        return ArmorHp;
+    }
 
-        LinearAcceleration = EntityData.LinearAcceleration * readinessModifier;
-        AngularAcceleration = EntityData.AngularAcceleration * readinessModifier;
-        MaxLinearVelocity = EntityData.MaxLinearVelocity * readinessModifier;
-        MaxAngularVelocity = EntityData.MaxAngularVelocity * readinessModifier;
+    public override void _PhysicsProcess(double delta)
+    {
+        Readiness -= Constants.Delta;
+
+        if (HullHp < 0.0f)
+        {
+            QueueFree();
+            GD.Print("Destroyed");
+            OnDestroyed?.Invoke();
+        }
     }
 
     public override void _IntegrateForces(PhysicsDirectBodyState2D state)

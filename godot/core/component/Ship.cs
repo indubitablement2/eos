@@ -1,22 +1,31 @@
 using Godot;
 using System;
+using System.Diagnostics;
 
 public class Ship
 {
-    public enum ShipState
+    Fleet Fleet;
+
+    ShipData ShipData;
+
+    float Readiness;
+    float HullHp;
+    float ArmorHp;
+
+    // <summary>
+    // null if the ship is not spawned in battle.
+    // </summary>
+    EntityShip Entity;
+
+    public Ship(ShipData shipData, Fleet fleet)
     {
-        Ready,
-        Battlescape,
+        ShipData = shipData;
+        Fleet = fleet;
+
+        Readiness = shipData.Readiness;
+        HullHp = shipData.HullHp;
+        ArmorHp = shipData.ArmorHp;
     }
-    public ShipState State;
-
-    public Fleet Fleet;
-
-    public ShipData ShipData;
-
-    public float Readiness;
-    public float HullHp;
-    public float ArmorHp;
 
     public Ship(ShipData shipData, Fleet fleet, float readiness, float hullHp, float armorHp)
     {
@@ -31,19 +40,32 @@ public class Ship
     /// <summary>
     /// Return null if the ship is not ready.
     /// </summary>
-    public EntityShip TrySpawnEntity(BattlescapeSimulation battlescapeSimulation)
+    public EntityShip SpawnEntity()
     {
-        if (State != ShipState.Ready)
+        if (Entity != null)
         {
+            GD.PushWarning("Ship is not ready to be spawned.");
             return null;
         }
 
-        State = ShipState.Battlescape;
+        Entity = ShipData.InstantiateEntity();
 
-        EntityShip scene = ShipData.EntityData.EntityScene.Instantiate<EntityShip>();
-        battlescapeSimulation.AddChild(scene);
-        scene.Initialize(this, battlescapeSimulation);
+        Entity.OwnerClientId = Fleet.OwnerClient.ClientId;
+        Entity.Readiness = Readiness;
+        Entity.HullHp = HullHp;
+        Entity.TreeExiting += OnEntityExiting;
 
-        return scene;
+        return Entity;
+    }
+
+    void OnEntityExiting()
+    {
+        // TODO: Check if the ship is destroyed.
+
+        Readiness = Math.Min(Entity.Readiness, Readiness * 0.8f);
+        HullHp = Math.Min(Entity.HullHp, HullHp);
+        ArmorHp = Math.Min(Entity.GetAverageArmorHp(), ArmorHp);
+
+        Entity = null;
     }
 }

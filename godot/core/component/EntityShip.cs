@@ -3,24 +3,12 @@ using System;
 
 public partial class EntityShip : Entity
 {
-    public Ship Ship;
+    public Int64 OwnerClientId = -1;
 
     /// <summary>
     /// Tick beyond which the ship is allowed to leave the battlescape.
     /// </summary>
     public Int64 LeaveTick;
-
-    public void Initialize(Ship ship, BattlescapeSimulation battlescapeSimulation)
-    {
-        Ship = ship;
-        Initialize(
-            Ship.Readiness,
-            Ship.HullHp,
-            Ship.ArmorHp,
-            Ship.ShipData.EntityData,
-            battlescapeSimulation
-        );
-    }
 
     // ~EntityShip()
     // {
@@ -94,20 +82,16 @@ public partial class EntityShip : Entity
 
     public override void _PhysicsProcess(double delta)
     {
-        if (Ship.Fleet.OwnerClient != null)
-        {
-            if (Ship.Fleet.OwnerClient.ClientId == Metascape.LocalClientId)
-            {
-                Controlled();
-            }
-            else
-            {
-                Ai();
-            }
-        }
-        else
-        {
-            Ai();
-        }
+        base._PhysicsProcess(delta);
+        Controlled();
+
+        // if (OwnerClientId == Metascape.LocalClientId)
+        // {
+
+        // }
+        // else
+        // {
+        //     Ai();
+        // }
     }
 }

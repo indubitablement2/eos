@@ -16,10 +16,6 @@ config/features=PackedStringArray("4.0", "C#", "GL Compatibility")
 boot_splash/bg_color=Color(0.141176, 0.141176, 0.141176, 1)
 config/icon="res://icon.svg"
 
-[autoload]
-
-Metascape="*res://core/singleton/Metascape.cs"
-
 [dotnet]
 
 project/assembly_name="Eos"
@@ -95,8 +91,8 @@ target={
 
 2d/run_on_separate_thread=true
 2d/default_gravity=0.0
-2d/default_linear_damp=-1.0
-2d/default_angular_damp=-1.0
+2d/default_linear_damp=0.0
+2d/default_angular_damp=0.0
 
 [rendering]
 

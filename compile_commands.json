@@ -1,19 +1,13 @@
 [
     {
-        "command": "g++ -o src/grid.os -c -std=c++17 -std=c++20 -fPIC -Wwrite-strings -m64 -march=x86-64 -O2 -fPIC -DDEBUG_ENABLED -DDEBUG_METHODS_ENABLED -Igodot-cpp/gdextension -Igodot-cpp/include -Igodot-cpp/gen/include -Isrc src/grid.cpp",
-        "directory": "/home/username/Dev/Pixitale/gdext",
-        "file": "src/grid.cpp",
-        "output": "src/grid.os"
+        "command": "g++ -o src/eos_entity.os -c -std=c++17 -fPIC -Wwrite-strings -m64 -march=x86-64 -O2 -fPIC -DDEBUG_ENABLED -DDEBUG_METHODS_ENABLED -Igodot-cpp/gdextension -Igodot-cpp/include -Igodot-cpp/gen/include -Isrc src/eos_entity.cpp",
+        "directory": "/home/username/Dev/eos",
+        "file": "src/eos_entity.cpp",
+        "output": "src/eos_entity.os"
     },
     {
-        "command": "g++ -o src/grid_character_body.os -c -std=c++17 -std=c++20 -fPIC -Wwrite-strings -m64 -march=x86-64 -O2 -fPIC -DDEBUG_ENABLED -DDEBUG_METHODS_ENABLED -Igodot-cpp/gdextension -Igodot-cpp/include -Igodot-cpp/gen/include -Isrc src/grid_character_body.cpp",
-        "directory": "/home/username/Dev/Pixitale/gdext",
-        "file": "src/grid_character_body.cpp",
-        "output": "src/grid_character_body.os"
-    },
-    {
-        "command": "g++ -o src/register_types.os -c -std=c++17 -std=c++20 -fPIC -Wwrite-strings -m64 -march=x86-64 -O2 -fPIC -DDEBUG_ENABLED -DDEBUG_METHODS_ENABLED -Igodot-cpp/gdextension -Igodot-cpp/include -Igodot-cpp/gen/include -Isrc src/register_types.cpp",
-        "directory": "/home/username/Dev/Pixitale/gdext",
+        "command": "g++ -o src/register_types.os -c -std=c++17 -fPIC -Wwrite-strings -m64 -march=x86-64 -O2 -fPIC -DDEBUG_ENABLED -DDEBUG_METHODS_ENABLED -Igodot-cpp/gdextension -Igodot-cpp/include -Igodot-cpp/gen/include -Isrc src/register_types.cpp",
+        "directory": "/home/username/Dev/eos",
         "file": "src/register_types.cpp",
         "output": "src/register_types.os"
     }
