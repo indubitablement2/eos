@@ -24,8 +24,8 @@ public partial class EntityShip : Entity
             // Cursor controls.
             Vector2 wishDirection = new Vector2(
                 Input.GetActionStrength(Actions.Up) - Input.GetActionStrength(Actions.Down),
-                Input.GetActionStrength(Actions.Right) - Input.GetActionStrength(Actions.Left) + Input.GetActionStrength(Actions.StrafeRight) - Input.GetActionStrength(Actions.StrafeLeft)
-
+                Input.GetActionStrength(Actions.Right) - Input.GetActionStrength(Actions.Left)
+                + Input.GetActionStrength(Actions.StrafeRight) - Input.GetActionStrength(Actions.StrafeLeft)
             );
 
             if (wishDirection.IsZeroApprox())
@@ -52,7 +52,6 @@ public partial class EntityShip : Entity
             Vector2 wishDirection = new Vector2(
                 Input.GetActionStrength(Actions.Up) - Input.GetActionStrength(Actions.Down),
                 Input.GetActionStrength(Actions.StrafeRight) - Input.GetActionStrength(Actions.StrafeLeft)
-
             );
 
             if (wishDirection.IsZeroApprox())
@@ -71,7 +70,7 @@ public partial class EntityShip : Entity
                 SetWishLinearVelocityRelative(wishDirection);
             }
 
-            SetWishAngularVelocityForce(
+            SetWishAngularVelocityWish(
                 Input.GetActionStrength(Actions.Right) - Input.GetActionStrength(Actions.Left)
             );
         }

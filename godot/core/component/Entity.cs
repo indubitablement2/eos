@@ -168,7 +168,7 @@ public partial class Entity : RigidBody2D
         KEEP,
         CANCEL,
         AIM,
-        FORCE,
+        WISH,
     };
 
     WishAngularVelocity _wishAngularVelocityType = WishAngularVelocity.KEEP;
@@ -201,12 +201,13 @@ public partial class Entity : RigidBody2D
 
     /// <summary>
     /// Rotate left or right [-1..1].
-    /// Force will be clamped.
+    /// Will try to reach direction * MaxAngularVelocity angular velocity.
+    /// direction will be clamped.
     /// </summary>
-    public void SetWishAngularVelocityForce(float force)
+    public void SetWishAngularVelocityWish(float direction)
     {
-        _wishAngularVelocityType = WishAngularVelocity.FORCE;
-        _wishAngularVelocity.X = Math.Clamp(force, -1.0f, 1.0f);
+        _wishAngularVelocityType = WishAngularVelocity.WISH;
+        _wishAngularVelocity.X = Math.Clamp(direction, -1.0f, 1.0f);
     }
 
     float IntegrateAngularVelocity(float angularVelocity)
@@ -244,12 +245,11 @@ public partial class Entity : RigidBody2D
                     AngularAcceleration,
                     MaxAngularVelocity
                 );
-            case WishAngularVelocity.FORCE:
-                return AngularVelocityIntegration.Force(
-                    _wishAngularVelocity.X,
+            case WishAngularVelocity.WISH:
+                return AngularVelocityIntegration.Wish(
+                    _wishAngularVelocity.X * MaxAngularVelocity,
                     angularVelocity,
-                    AngularAcceleration,
-                    MaxAngularVelocity
+                    AngularAcceleration
                 );
             default:
                 return angularVelocity;
