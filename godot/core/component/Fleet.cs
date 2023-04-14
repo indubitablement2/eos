@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 public class Fleet
 {
@@ -13,7 +14,7 @@ public class Fleet
 
     public List<Ship> Ships = new List<Ship>();
 
-    public bool InBattle;
+    bool InBattle;
 
     public Fleet(Int64 fleetId, Client ownerClient = null)
     {
@@ -37,6 +38,13 @@ public class Fleet
 
     public void SetInBattle(bool inBattle)
     {
+        Debug.Assert(InBattle != inBattle);
         InBattle = inBattle;
+    }
+
+    public void JoinBattlescape()
+    {
+        SetInBattle(true);
+        Battlescape.FleetAdded(this);
     }
 }

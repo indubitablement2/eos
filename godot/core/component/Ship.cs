@@ -55,6 +55,8 @@ public class Ship
         Entity.HullHp = HullHp;
         Entity.TreeExiting += OnEntityExiting;
 
+        Battlescape.ShipAdded(Entity);
+
         return Entity;
     }
 

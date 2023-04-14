@@ -15,4 +15,9 @@ public class Client
     {
         return true;
     }
+
+    public static Client Default()
+    {
+        return new Client(-1);
+    }
 }
