@@ -18,14 +18,14 @@ public partial class Battlescape : Node2D
 
     static Client Host;
 
-    static float BoundRadius;
-    public static float GetBoundRadius()
-    {
-        return BoundRadius;
-    }
+    public static float BoundRadius;
+    public static float BoundRadiusSquared;
+    public static float SafeBoundRadiusSquared;
     public static void SetBoundRadius(float radius)
     {
         BoundRadius = radius;
+        BoundRadiusSquared = radius * radius;
+        SafeBoundRadiusSquared = (radius - 500.0f) * (radius - 500.0f);
         OnBoundRadiusChanged?.Invoke();
     }
 

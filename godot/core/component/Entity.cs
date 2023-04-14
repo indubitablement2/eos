@@ -289,6 +289,11 @@ public partial class Entity : RigidBody2D
         return ArmorHp;
     }
 
+    public void QueueDestroy()
+    {
+        HullHp = -1.0f;
+    }
+
     public void Destroy()
     {
         GD.Print("Destroyed");
@@ -296,9 +301,19 @@ public partial class Entity : RigidBody2D
         OnDestroyed?.Invoke();
     }
 
+    public virtual void HandleOutOfBound()
+    {
+        if (Position.LengthSquared() > Battlescape.BoundRadiusSquared)
+        {
+            QueueDestroy();
+        }
+    }
+
     public override void _PhysicsProcess(double delta)
     {
         Readiness -= Constants.Delta;
+
+        HandleOutOfBound();
 
         if (HullHp < 0.0f)
         {

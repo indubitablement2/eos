@@ -78,18 +78,30 @@ public partial class EntityShip : Entity
 
     }
 
+    public override void HandleOutOfBound()
+    {
+        float distanceSquared = Position.LengthSquared();
+
+        if (distanceSquared > Battlescape.SafeBoundRadiusSquared)
+        {
+            if (distanceSquared > Battlescape.BoundRadiusSquared)
+            {
+                QueueDestroy();
+            }
+
+            SetWishLinearVelocityPosition(Vector2.Zero);
+        }
+    }
+
     public override void _PhysicsProcess(double delta)
     {
-        base._PhysicsProcess(delta);
         Controlled();
 
-        // if (OwnerClientId == Metascape.LocalClientId)
-        // {
+        base._PhysicsProcess(delta);
+    }
 
-        // }
-        // else
-        // {
-        //     Ai();
-        // }
+    public override void _IntegrateForces(PhysicsDirectBodyState2D state)
+    {
+        base._IntegrateForces(state);
     }
 }
