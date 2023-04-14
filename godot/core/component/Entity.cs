@@ -289,15 +289,20 @@ public partial class Entity : RigidBody2D
         return ArmorHp;
     }
 
+    public void Destroy()
+    {
+        GD.Print("Destroyed");
+        QueueFree();
+        OnDestroyed?.Invoke();
+    }
+
     public override void _PhysicsProcess(double delta)
     {
         Readiness -= Constants.Delta;
 
         if (HullHp < 0.0f)
         {
-            QueueFree();
-            GD.Print("Destroyed");
-            OnDestroyed?.Invoke();
+            Destroy();
         }
     }
 

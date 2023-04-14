@@ -52,8 +52,8 @@ public partial class Battlescape : Node2D
     //     }
     // }
 
-    // public override void _PhysicsProcess(double delta)
-    // {
+    public override void _PhysicsProcess(double delta)
+    {
 
-    // }
+    }
 }
