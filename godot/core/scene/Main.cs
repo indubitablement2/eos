@@ -69,15 +69,21 @@ public partial class Main : Node
         AddMetascape(Metascape.CreateLocal());
 
         Fleet fleet = Metascape.CreateFleet(LocalClient);
-        fleet.CreateShip(Data.ShipDatas["res://core/data/Fallback/FallbackShipData.tres"]);
+        for (int i = 0; i < 4; i++)
+        {
+            fleet.CreateShip(Data.ShipDatas["res://core/data/Fallback/FallbackShipData.tres"]);
+        }
 
         AddBattlescape(Battlescape.CreateLocal());
         ShowBattlescape();
 
         Battlescape.AddFleet(fleet);
 
-        EntityShip entity = fleet.Ships[0].SpawnEntity();
-        Battlescape.AddShip(entity);
+        for (int i = 0; i < 4; i++)
+        {
+            EntityShip entity = fleet.Ships[i].SpawnEntity();
+            Battlescape.AddShip(entity);
+        }
 
         Metascape.SetPaused(false);
     }

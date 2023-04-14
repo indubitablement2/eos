@@ -19,18 +19,17 @@ public partial class EntityShip : Entity
 
     void Controlled()
     {
-        if (Input.IsActionPressed(Actions.FaceCursor))
+        if (ActionInputs.FaceCursor)
         {
             // Cursor controls.
             Vector2 wishDirection = new Vector2(
-                Input.GetActionStrength(Actions.Up) - Input.GetActionStrength(Actions.Down),
-                Input.GetActionStrength(Actions.Right) - Input.GetActionStrength(Actions.Left)
-                + Input.GetActionStrength(Actions.StrafeRight) - Input.GetActionStrength(Actions.StrafeLeft)
+                ActionInputs.GetCachedVecticalDirection(),
+                ActionInputs.GetCachedHorizontalDirection() + ActionInputs.GetCachedStrafeDirection()
             );
 
             if (wishDirection.IsZeroApprox())
             {
-                if (Input.IsActionPressed(Actions.CancelLinearVelocity))
+                if (ActionInputs.CancelLinearVelocity)
                 {
                     SetWishLinearVelocityCancel();
                 }
@@ -44,19 +43,19 @@ public partial class EntityShip : Entity
                 SetWishLinearVelocityRelative(wishDirection);
             }
 
-            SetWishAngularVelocityAim(GetGlobalMousePosition());
+            SetWishAngularVelocityAim(ActionInputs.GetCachedGlobalMousePosition());
         }
         else
         {
             // Tank controls.
             Vector2 wishDirection = new Vector2(
-                Input.GetActionStrength(Actions.Up) - Input.GetActionStrength(Actions.Down),
-                Input.GetActionStrength(Actions.StrafeRight) - Input.GetActionStrength(Actions.StrafeLeft)
+                ActionInputs.GetCachedVecticalDirection(),
+                ActionInputs.GetCachedStrafeDirection()
             );
 
             if (wishDirection.IsZeroApprox())
             {
-                if (Input.IsActionPressed(Actions.CancelLinearVelocity))
+                if (ActionInputs.CancelLinearVelocity)
                 {
                     SetWishLinearVelocityCancel();
                 }
@@ -70,9 +69,7 @@ public partial class EntityShip : Entity
                 SetWishLinearVelocityRelative(wishDirection);
             }
 
-            SetWishAngularVelocityWish(
-                Input.GetActionStrength(Actions.Right) - Input.GetActionStrength(Actions.Left)
-            );
+            SetWishAngularVelocityWish(ActionInputs.GetCachedHorizontalDirection());
         }
     }
 

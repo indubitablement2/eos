@@ -16,6 +16,10 @@ config/features=PackedStringArray("4.0", "C#", "GL Compatibility")
 boot_splash/bg_color=Color(0.141176, 0.141176, 0.141176, 1)
 config/icon="res://icon.svg"
 
+[autoload]
+
+ActionInputs="res://core/singleton/ActionInputs.cs"
+
 [dotnet]
 
 project/assembly_name="Eos"
@@ -90,6 +94,7 @@ target={
 [physics]
 
 2d/run_on_separate_thread=true
+3d/run_on_separate_thread=true
 2d/default_gravity=0.0
 2d/default_linear_damp=0.0
 2d/default_angular_damp=0.0
