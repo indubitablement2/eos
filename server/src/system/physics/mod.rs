@@ -70,8 +70,8 @@ impl Physics {
             id,
             ignore_group,
             team,
-            is_tiny: entity_data.is_tiny,
-            wish_ignore_tiny: entity_data.wish_ignore_tiny,
+            wish_ignore_same_team: entity_data.wish_ignore_same_team,
+            force_ignore_same_team: entity_data.force_ignore_same_team,
         }
         .pack();
 
@@ -86,7 +86,7 @@ impl Physics {
         let collider_handles = entity_data
             .hulls
             .iter()
-            .map(|&hull_data| {
+            .map(|hull_data| {
                 let mut collider = hull_data.collider.clone();
 
                 collider.user_data = UserData::set_user_data_id(user_data, hull_data.idx) as u128;

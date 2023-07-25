@@ -26,6 +26,8 @@ pub const DT: f32 = DELTA.as_secs_f32();
 fn main() {
     logger::Logger::init();
 
+    data::Data::initialize();
+
     let mut server = server::Server::load().expect("server should load");
 
     let mut buf = String::new();

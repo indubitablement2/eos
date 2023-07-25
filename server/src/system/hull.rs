@@ -18,17 +18,21 @@ impl Hull {
 
 impl serde::Serialize for &'static HullData {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_u16(self.idx)
+        let u = self.entity_idx as u32 | ((self.idx as u32) << 16);
+        serializer.serialize_u32(u)
     }
 }
 impl<'de> serde::Deserialize<'de> for &'static HullData {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let idx = u16::deserialize(deserializer)?;
-        Ok(&Data::data().hulls[idx as usize])
+        let u = u32::deserialize(deserializer)?;
+        let entity_idx = (u & 0xffff) as usize;
+        let idx = (u >> 16) as usize;
+        Ok(&Data::data().entities[entity_idx].hulls[idx])
     }
 }
 
 pub struct HullData {
+    pub entity_idx: u16,
     pub idx: u16,
 
     pub collider: Collider,

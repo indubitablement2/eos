@@ -1,0 +1,22 @@
+[gd_scene load_steps=5 format=3 uid="uid://dgfu1m0dmw5co"]
+
+[ext_resource type="Script" path="res://core/main.gd" id="1_pbpvg"]
+[ext_resource type="Script" path="res://core/entity.gd" id="2_grvly"]
+[ext_resource type="Script" path="res://core/hull.gd" id="3_qu7am"]
+[ext_resource type="Texture2D" uid="uid://vjqlmx63ccvj" path="res://void_fleet_by_ravendarke_1.png" id="4_7oq8i"]
+
+[node name="Main" type="Node"]
+script = ExtResource("1_pbpvg")
+
+[node name="Entities" type="Node" parent="."]
+
+[node name="void_fleet_1" type="Node2D" parent="Entities"]
+script = ExtResource("2_grvly")
+estimated_radius = 175.0
+
+[node name="HullData" type="CollisionPolygon2D" parent="Entities/void_fleet_1"]
+polygon = PackedVector2Array(-96, -139, -24, -141, -34, -59, 34, -56, 23, -143, 103, -142, 85, 18, 153, 29, 157, 81, 77, 95, 87, 145, -81, 144, -72, 89, -160, 87, -148, 23, -87, 17)
+script = ExtResource("3_qu7am")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/void_fleet_1/HullData"]
+texture = ExtResource("4_7oq8i")

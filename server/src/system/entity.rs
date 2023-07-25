@@ -63,10 +63,10 @@ pub struct EntityData {
 
     pub body: RigidBody,
     /// missile, fighter, projectile
-    pub is_tiny: bool,
-    pub wish_ignore_tiny: bool,
+    pub wish_ignore_same_team: bool,
+    pub force_ignore_same_team: bool,
 
-    pub hulls: Box<[&'static HullData]>,
+    pub hulls: Box<[HullData]>,
     pub mobility: Mobility,
 }
 

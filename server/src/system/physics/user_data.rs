@@ -3,23 +3,20 @@ use super::*;
 const IGNORE_GROUP_OFFSET: u32 = 16;
 const TEAM_OFFSET: u32 = 32;
 
-const IS_TINY_OFFSET: u32 = 48;
-const IS_TINY_FLAG: u64 = 1 << IS_TINY_OFFSET;
-const WISH_IGNORE_TINY_OFFSET: u32 = 49;
-const WISH_IGNORE_TINY_FLAG: u64 = 1 << WISH_IGNORE_TINY_OFFSET;
+const WISH_IGNORE_SAME_TEAM_OFFSET: u32 = 48;
+const WISH_IGNORE_SAME_TEAM_FLAG: u64 = 1 << WISH_IGNORE_SAME_TEAM_OFFSET;
+const FORCE_IGNORE_SAME_TEAM_OFFSET: u32 = 49;
+const FORCE_IGNORE_SAME_TEAM_FLAG: u64 = 1 << FORCE_IGNORE_SAME_TEAM_OFFSET;
 
 /// - 16: entity id / collider idx
 /// - 16: group
 /// - 16: team
-/// - 1: is_tiny
-/// - 1: wish_ignore_tiny
+/// - 1: wish_ignore_same_team
+/// - 1: force_ignore_same_team
 ///
 /// ignoring scheme:
 /// - allied fighter/missile/projectile always ignored:
-/// `(is_tiny & self.team == other.team)`
-///
-/// - can ignore enemy fighter/missile/projectile:
-/// `(is_tiny & self.ignore_tiny | other.ignore_tiny)`
+/// `(self.wish_ignore_same_team && other.wish_ignore_same_team && self.team == other.team)`
 ///
 /// - ignore an entity group:
 /// `(self.group == other.group)`
@@ -28,25 +25,24 @@ pub struct UserData {
     pub id: u16,
     pub ignore_group: LocalEntityId,
     pub team: PhysicsTeam,
-    /// tiny == fighter | missile | projectile
-    pub is_tiny: bool,
-    /// Both needs needs to be tiny and wish to ignore tiny.
-    pub wish_ignore_tiny: bool,
+    pub wish_ignore_same_team: bool,
+    pub force_ignore_same_team: bool,
 }
 impl UserData {
     pub fn test(self, other: Self) -> bool {
         self.ignore_group != other.ignore_group
-            && !(self.is_tiny
-                && other.is_tiny
-                && (other.team == self.team || (self.wish_ignore_tiny && other.wish_ignore_tiny)))
+            && !(self.team == other.team
+                && ((self.wish_ignore_same_team && other.wish_ignore_same_team)
+                    || self.force_ignore_same_team
+                    || other.force_ignore_same_team))
     }
 
     pub fn pack(self) -> u64 {
         (self.id as u64
             | (self.ignore_group as u64) << IGNORE_GROUP_OFFSET
             | (self.team as u64) << TEAM_OFFSET
-            | (self.is_tiny as u64) << IS_TINY_OFFSET
-            | (self.wish_ignore_tiny as u64) << WISH_IGNORE_TINY_OFFSET) as u64
+            | (self.wish_ignore_same_team as u64) << WISH_IGNORE_SAME_TEAM_OFFSET
+            | (self.force_ignore_same_team as u64) << FORCE_IGNORE_SAME_TEAM_OFFSET) as u64
     }
 
     pub fn unpack(user_data: u64) -> Self {
@@ -54,8 +50,8 @@ impl UserData {
             id: user_data as u16,
             ignore_group: (user_data >> IGNORE_GROUP_OFFSET) as u16,
             team: (user_data >> TEAM_OFFSET) as u16,
-            is_tiny: (user_data & IS_TINY_FLAG) != 0,
-            wish_ignore_tiny: (user_data & WISH_IGNORE_TINY_FLAG) != 0,
+            wish_ignore_same_team: (user_data & WISH_IGNORE_SAME_TEAM_FLAG) != 0,
+            force_ignore_same_team: (user_data & FORCE_IGNORE_SAME_TEAM_FLAG) != 0,
         }
     }
 
