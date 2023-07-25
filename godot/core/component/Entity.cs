@@ -272,6 +272,29 @@ public partial class Entity : RigidBody2D
     [Export]
     public float MaxAngularVelocity = 3.0f;
 
+    Entity _target;
+    /// <summary>
+    /// May be null.
+    /// </summary>
+    public Entity Target
+    {
+        get { return _target; }
+        set
+        {
+            if (_target != null)
+            {
+                _target.OnDestroyed -= () => Target = null;
+            }
+
+            _target = value;
+
+            if (_target != null)
+            {
+                _target.OnDestroyed += () => Target = null;
+            }
+        }
+    }
+
     public event Action OnDestroyed;
 
     public Entity()

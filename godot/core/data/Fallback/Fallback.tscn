@@ -1,7 +1,8 @@
-[gd_scene load_steps=4 format=3 uid="uid://0dpe6cfe83ae"]
+[gd_scene load_steps=5 format=3 uid="uid://0dpe6cfe83ae"]
 
 [ext_resource type="Script" path="res://core/component/EntityShip.cs" id="1_opirb"]
 [ext_resource type="Texture2D" uid="uid://clwdqmw5fa0bw" path="res://base/ship/test/spaceship gen.png" id="2_lq3rg"]
+[ext_resource type="Script" path="res://core/component/Turret.cs" id="3_aaub5"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_7im3p"]
 size = Vector2(64, 64)
@@ -17,4 +18,17 @@ rotation = 1.5708
 texture = ExtResource("2_lq3rg")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+visible = false
 shape = SubResource("RectangleShape2D_7im3p")
+
+[node name="Turret" type="Sprite2D" parent="."]
+position = Vector2(0, -21)
+rotation = -1.5708
+script = ExtResource("3_aaub5")
+FiringArc = 1.0
+Range = 500.0
+
+[node name="Area2D" type="Area2D" parent="Turret"]
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Turret/Area2D"]
+polygon = PackedVector2Array(0, 0, 438.001, -239.998, 495, -68.9982, 495, 79.0018, 437.999, 241.002)
