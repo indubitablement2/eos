@@ -8,7 +8,7 @@ const WISH_IGNORE_SAME_TEAM_FLAG: u64 = 1 << WISH_IGNORE_SAME_TEAM_OFFSET;
 const FORCE_IGNORE_SAME_TEAM_OFFSET: u32 = 49;
 const FORCE_IGNORE_SAME_TEAM_FLAG: u64 = 1 << FORCE_IGNORE_SAME_TEAM_OFFSET;
 
-/// - 16: entity id / collider idx
+/// - 16: entity id
 /// - 16: group
 /// - 16: team
 /// - 1: wish_ignore_same_team
@@ -22,7 +22,7 @@ const FORCE_IGNORE_SAME_TEAM_FLAG: u64 = 1 << FORCE_IGNORE_SAME_TEAM_OFFSET;
 /// `(self.group == other.group)`
 #[derive(Debug, Clone, Copy)]
 pub struct UserData {
-    pub id: u16,
+    pub id: LocalEntityId,
     pub ignore_group: LocalEntityId,
     pub team: PhysicsTeam,
     pub wish_ignore_same_team: bool,

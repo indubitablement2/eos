@@ -1,5 +1,5 @@
 @tool
-extends Node2D
+extends Sprite2D
 class_name Entity
 
 enum EntityType {
@@ -9,7 +9,6 @@ enum EntityType {
 	Projectile = 3,
 }
 
-@export var density := 1.0
 @export var draw_estimated_radius := true : set = set_draw_estimated_radius
 @export var draw_marker := true : set = set_draw_marker
 @export var estimated_radius := 100.0 : set = set_estimated_radius
@@ -18,8 +17,6 @@ enum EntityType {
 ## used mostly for missile/fighter/projectile
 @export var wish_ignore_same_team := false
 @export var force_ignore_same_team := false
-
-#@export var hulls : Array[HullData] = []
 
 @export_category("Mobility")
 ## In unit/seconds.
@@ -31,18 +28,14 @@ enum EntityType {
 ## In radian/seconds.
 @export var max_angular_velocity := 1.0
 
-func to_json(idx: int) -> Dictionary:
-	var hulls := []
-	var hull_idx := 0
+func to_json(entity_data_idx: int) -> Dictionary:
+	var hulls = null
 	for child in get_children():
 		if child is Hull:
-			hulls.push_back(child.to_json(hull_idx))
-			hull_idx += 1
+			hulls = child.to_json()
 	
 	return {
-		"idx": idx,
-		"density": density,
-		"estimated_radius": Global.sim_scale(estimated_radius),
+		"entity_data_idx": entity_data_idx,
 		"wish_ignore_same_team": wish_ignore_same_team,
 		"force_ignore_same_team": force_ignore_same_team,
 		"mobility" : {

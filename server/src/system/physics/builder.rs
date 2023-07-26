@@ -11,15 +11,13 @@ const DEFAULT_CONTACT_FORCE_EVENT_THRESHOLD: f32 = 1.0;
 const GROUP_SHIP: Group = Group::GROUP_1;
 const GROUP_SHIELD: Group = Group::GROUP_2;
 const GROUP_DEBRIS: Group = Group::GROUP_3;
-const GROUP_MISSILE: Group = Group::GROUP_4;
+const GROUP_PROJECTILE: Group = Group::GROUP_4;
 const GROUP_FIGHTER: Group = Group::GROUP_5;
-const GROUP_PROJECTILE: Group = Group::GROUP_6;
 const GROUP_ALL: Group = Group::ALL;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum EntityType {
     Ship,
-    Missile,
     Fighter,
     Projectile,
 }
@@ -27,8 +25,7 @@ impl EntityType {
     pub fn from_idx(idx: i32) -> Self {
         match idx {
             0 => EntityType::Ship,
-            1 => EntityType::Missile,
-            2 => EntityType::Fighter,
+            1 => EntityType::Fighter,
             _ => EntityType::Projectile,
         }
     }
@@ -36,25 +33,16 @@ impl EntityType {
     pub fn interaction_groups(self) -> InteractionGroups {
         match self {
             EntityType::Ship => InteractionGroups::new(GROUP_SHIP, GROUP_ALL),
-            EntityType::Missile => InteractionGroups::new(GROUP_MISSILE, GROUP_ALL),
-            EntityType::Fighter => {
-                InteractionGroups::new(GROUP_FIGHTER, GROUP_MISSILE | GROUP_PROJECTILE)
-            }
-            EntityType::Projectile => InteractionGroups::new(
-                GROUP_PROJECTILE,
-                GROUP_SHIP | GROUP_SHIELD | GROUP_DEBRIS | GROUP_MISSILE | GROUP_FIGHTER,
-            ),
+            EntityType::Projectile => InteractionGroups::new(GROUP_PROJECTILE, GROUP_ALL),
+            EntityType::Fighter => InteractionGroups::new(GROUP_FIGHTER, GROUP_PROJECTILE),
         }
     }
 }
 
-pub fn make_rigid_body(density: f32, estimated_radius: f32) -> RigidBody {
-    let mprops = MassProperties::from_ball(density, estimated_radius);
-
+pub fn make_rigid_body() -> RigidBody {
     RigidBodyBuilder::dynamic()
         .linear_damping(DEFAULT_LINEAR_DAMPING)
         .angular_damping(DEFAULT_ANGULAR_DAMPING)
-        .additional_mass_properties(mprops)
         .build()
 }
 
@@ -91,18 +79,22 @@ impl ShapeRawData {
 }
 
 pub fn make_collider(
-    initial_position: Isometry2<f32>,
     shape_raw_data: ShapeRawData,
     interaction_groups: InteractionGroups,
+    density: f32,
 ) -> Collider {
-    ColliderBuilder::new(shape_raw_data.shape())
+    let shape = shape_raw_data.shape();
+
+    let mut mprops = shape.mass_properties(density);
+    mprops.local_com = Point2::origin();
+
+    ColliderBuilder::new(shape)
         .collision_groups(interaction_groups)
         .active_hooks(ActiveHooks::FILTER_INTERSECTION_PAIR)
         .active_events(ActiveEvents::CONTACT_FORCE_EVENTS)
         .contact_force_event_threshold(DEFAULT_CONTACT_FORCE_EVENT_THRESHOLD)
         .friction(DEFAULT_FRICTION)
         .restitution(DEFAULT_RESTITUTION)
-        .position(initial_position)
-        .density(0.0)
+        .mass_properties(mprops)
         .build()
 }

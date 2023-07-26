@@ -60,12 +60,13 @@ impl Physics {
         position: Isometry2<f32>,
         linvel: Vector2<f32>,
         angvel: f32,
-    ) -> (RigidBodyHandle, Vec<ColliderHandle>) {
+    ) -> (RigidBodyHandle, Option<ColliderHandle>) {
         let ignore_group = if let Some(ignore_group) = ignore_group {
             ignore_group
         } else {
             id
         };
+
         let user_data = UserData {
             id,
             ignore_group,
@@ -73,29 +74,24 @@ impl Physics {
             wish_ignore_same_team: entity_data.wish_ignore_same_team,
             force_ignore_same_team: entity_data.force_ignore_same_team,
         }
-        .pack();
+        .pack() as u128;
 
         let mut body = entity_data.body.clone();
-        body.user_data = user_data as u128;
+        body.user_data = user_data;
         body.set_position(position, false);
         body.set_linvel(linvel, false);
         body.set_angvel(angvel, false);
 
         let handle = self.bodies.insert(body);
 
-        let collider_handles = entity_data
-            .hulls
-            .iter()
-            .map(|hull_data| {
-                let mut collider = hull_data.collider.clone();
+        let collider_handles = entity_data.hull.as_ref().map(|hull_data| {
+            let mut collider = hull_data.collider.clone();
 
-                collider.user_data = UserData::set_user_data_id(user_data, hull_data.idx) as u128;
-                collider.set_position(hull_data.initial_position);
+            collider.user_data = user_data;
 
-                self.colliders
-                    .insert_with_parent(collider, handle, &mut self.bodies)
-            })
-            .collect();
+            self.colliders
+                .insert_with_parent(collider, handle, &mut self.bodies)
+        });
 
         (handle, collider_handles)
     }

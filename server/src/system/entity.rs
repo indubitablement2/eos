@@ -48,25 +48,24 @@ impl Entity {
 
 impl serde::Serialize for &'static EntityData {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_u16(self.idx)
+        serializer.serialize_u16(self.entity_data_idx)
     }
 }
 impl<'de> serde::Deserialize<'de> for &'static EntityData {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let idx = u16::deserialize(deserializer)?;
-        Ok(&Data::data().entities[idx as usize])
+        let entity_data_idx = u16::deserialize(deserializer)?;
+        Ok(&Data::data().entities[entity_data_idx as usize])
     }
 }
 
 pub struct EntityData {
-    pub idx: u16,
+    pub entity_data_idx: u16,
 
     pub body: RigidBody,
-    /// missile, fighter, projectile
     pub wish_ignore_same_team: bool,
     pub force_ignore_same_team: bool,
 
-    pub hulls: Box<[HullData]>,
+    pub hull: Option<HullData>,
     pub mobility: Mobility,
 }
 

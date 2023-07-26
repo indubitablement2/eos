@@ -10,13 +10,11 @@ script = ExtResource("1_pbpvg")
 
 [node name="Entities" type="Node" parent="."]
 
-[node name="void_fleet_1" type="Node2D" parent="Entities"]
+[node name="void_fleet_1" type="Sprite2D" parent="Entities"]
+texture = ExtResource("4_7oq8i")
 script = ExtResource("2_grvly")
 estimated_radius = 175.0
 
 [node name="HullData" type="CollisionPolygon2D" parent="Entities/void_fleet_1"]
 polygon = PackedVector2Array(-96, -139, -24, -141, -34, -59, 34, -56, 23, -143, 103, -142, 85, 18, 153, 29, 157, 81, 77, 95, 87, 145, -81, 144, -72, 89, -160, 87, -148, 23, -87, 17)
 script = ExtResource("3_qu7am")
-
-[node name="Sprite2D" type="Sprite2D" parent="Entities/void_fleet_1/HullData"]
-texture = ExtResource("4_7oq8i")

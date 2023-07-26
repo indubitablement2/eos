@@ -3,6 +3,8 @@ extends Node
 @export var export_path := "res://server_data.json"
 
 func _ready() -> void:
+	print(JSON.stringify([Global.vec2arr(Vector2(1.1, 0.3007812567)), Vector2(3.456, 4.0)]))
+	
 	var entities := []
 	var entity_idx := 0
 	for entity in $Entities.get_children():

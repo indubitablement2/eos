@@ -4,46 +4,52 @@ class_name Hull
 ## Can either be of type:
 ## - CollisionPolygon2D
 ## - CollisionShape2D(circle/rectangle)
+##
+## Hull transform is ignored.
+
+@export var density := 1.0
+## Set this if you want the hull to be a circle/rectangle instead.
+@export var is_basic_shape : CollisionShape2D = null
 
 @export_category("Defence")
 @export var hull := 100
 @export var armor := 100
 
-func to_json(idx: int) -> Dictionary:
+func to_json() -> Dictionary:
 	return {
-		"idx": idx,
-		"initial_translation_x": Global.sim_scale(position.x),
-		"initial_translation_y": Global.sim_scale(position.y),
-		"initial_angle": rotation,
+		"shape": _shape_to_json(),
+		"density": density,
 		"defence": {
 			"hull": hull,
 			"armor": armor,
 		},
-		"shape": _shape_to_json(),
 	}
 
 func _shape_to_json() -> Dictionary:
-	var convex := Geometry2D.decompose_polygon_in_convex(polygon)
-	assert(!convex.is_empty(), "convex shape has no point")
+	if is_basic_shape:
+		if is_basic_shape.shape is CircleShape2D:
+			return {
+				"ball": {
+					"radius": Global.scale2sim(is_basic_shape.shape.radius)
+				}
+			}
+		else:
+			return {
+				"cuboid": {
+					"hx": Global.scale2sim(is_basic_shape.shape.size.x),
+					"hy": Global.scale2sim(is_basic_shape.shape.size.y)
+				}
+			}
+	else:
+		var convex := Geometry2D.decompose_polygon_in_convex(polygon)
+		assert(!convex.is_empty(), "convex shape has no point")
+		
+		var compound := convex.map(Global.packedvec2arr)
+		
+		return {
+			"compound": compound
+		}
 	
-	var convex_hulls := []
-	for points in convex:
-		var points_x := []
-		var points_y := []
-		for point in points:
-			points_x.push_back(Global.sim_scale(point.x))
-			points_y.push_back(Global.sim_scale(point.y))
-		convex_hulls.push_back({
-			"points_x": points_x,
-			"points_y": points_y
-		})
-	
-	return {
-		"translation_x": Global.sim_scale(position.x),
-		"translation_y": Global.sim_scale(position.y),
-		"angle": rotation,
-		"compound": convex_hulls
-	}
 
 
 
