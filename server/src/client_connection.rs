@@ -21,7 +21,7 @@ pub struct ClientConnection {
 impl ClientConnection {
     pub fn send(&mut self, packet: ToClientPacket) {
         let reliable = packet.reliable();
-        let buf = rmp_serde::to_vec(&packet).expect("packet should serialize");
+        let buf = packet.serialize();
         let result = if reliable || buf.len() > 1024 {
             self.to_client_reliable_sender.send(buf)
         } else {
@@ -35,7 +35,7 @@ impl ClientConnection {
 
     pub fn receive(&mut self) -> Option<FromClientPacket> {
         match self.from_client_receiver.try_recv() {
-            Ok(bytes) => match serde_json::from_slice(bytes.as_slice()) {
+            Ok(bytes) => match FromClientPacket::deserialize(bytes.as_slice()) {
                 Ok(packet) => Some(packet),
                 Err(err) => {
                     log::debug!("failed to deserialize packet from client: {:?}", err);
@@ -64,6 +64,13 @@ impl ToClientPacket {
             ToClientPacket::Update => false,
         }
     }
+
+    pub fn serialize(self) -> Vec<u8> {
+        match self {
+            ToClientPacket::SayHello => vec![0],
+            ToClientPacket::Update => todo!(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -71,11 +78,17 @@ impl ToClientPacket {
 pub enum FromClientPacket {
     //
 }
+impl FromClientPacket {
+    pub fn deserialize(bytes: &[u8]) -> Result<Self> {
+        serde_json::from_slice(bytes).map_err(Into::into)
+    }
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 struct FromClientFirstPacket {
-    wish_udp: bool,
+    /// 0 if client doesn't want udp.
+    wish_udp: u16,
 }
 
 #[derive(Debug, Serialize, Default)]
@@ -85,10 +98,12 @@ struct ToClientFirstPacket {
     server_udp_port: u16,
 }
 
-pub async fn init_client_connection(stream: TcpStream) -> Result<ClientConnection> {
+pub async fn init_client_connection(
+    stream: TcpStream,
+    addr: SocketAddr,
+) -> Result<ClientConnection> {
     stream.set_nodelay(false)?;
 
-    let addr = stream.peer_addr()?;
     debug!("New tcp connection established with: {}", addr);
 
     let stream = tokio_tungstenite::accept_async(stream).await?;
@@ -110,9 +125,14 @@ pub async fn init_client_connection(stream: TcpStream) -> Result<ClientConnectio
     let (to_client_reliable_sender, to_client_reliable_receiver) =
         tokio::sync::mpsc::unbounded_channel();
 
-    let to_client_unreliable_sender = if first.wish_udp {
-        let udp = Arc::new(tokio::net::UdpSocket::bind("::").await?);
-        udp.connect(addr).await?;
+    let to_client_unreliable_sender = if first.wish_udp != 0 {
+        let mut udp_addr = addr.clone();
+        udp_addr.set_port(first.wish_udp);
+
+        let udp = Arc::new(tokio::net::UdpSocket::bind("[::]:0").await?);
+        debug!("Udp socket binded to: {}", udp.local_addr()?);
+        udp.connect(udp_addr).await?;
+        debug!("Udp socket connected to: {}", udp.peer_addr()?);
 
         let server_addr = udp.local_addr()?;
         to_client_first_packet.server_udp_port = server_addr.port();
@@ -204,33 +224,4 @@ async fn from_client_unreliable(
     }
 
     Ok(())
-}
-
-#[test]
-fn asd() {
-    #[derive(Debug, Serialize, Deserialize)]
-    struct Test {
-        a: u8,
-        b: u16,
-        s: String,
-        vec: Vec<u8>,
-        vec2: Vector2<f32>,
-    }
-
-    let test = Test {
-        a: 250,
-        b: 50000,
-        s: "asd".to_string(),
-        vec: vec![1, 2, 3, 255],
-        vec2: Vector2::new(1.0, 2.0),
-    };
-
-    let buf = rmp_serde::to_vec(&test).unwrap();
-    println!("{:?}", buf);
-    let buf = rmp_serde::to_vec(&Vector2::new(1.0f32, 2.0)).unwrap();
-    println!("{:?}", buf);
-    let buf = rmp_serde::to_vec(&1.0f32).unwrap();
-    println!("{:?}", buf);
-    let buf = rmp_serde::to_vec(&50000u16).unwrap();
-    println!("{:?}", buf);
 }

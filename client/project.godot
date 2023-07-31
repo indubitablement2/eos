@@ -15,6 +15,10 @@ run/main_scene="res://control.tscn"
 config/features=PackedStringArray("4.1", "GL Compatibility")
 config/icon="res://icon.svg"
 
+[autoload]
+
+ServerConnection="*res://singleton/server_connection.gd"
+
 [filesystem]
 
 import/blender/enabled=false
