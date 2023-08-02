@@ -35,10 +35,10 @@ protected:
 	void compute_stats();
 
 public:
-	ADD_SETGET_MODIFIERS(f32, linacc, 800.0f)
-	ADD_SETGET_MODIFIERS(f32, max_linvel, 400.0f)
-	ADD_SETGET_MODIFIERS(f32, angacc, 8.0f)
-	ADD_SETGET_MODIFIERS(f32, max_angvel, 4.0f)
+	ADD_SETGET_MODIFIERS(f32, linear_acceleration, 800.0f)
+	ADD_SETGET_MODIFIERS(f32, max_linear_velocity, 400.0f)
+	ADD_SETGET_MODIFIERS(f32, angular_acceleration, 8.0f)
+	ADD_SETGET_MODIFIERS(f32, max_angular_velocity, 4.0f)
 
 	ADD_SETGET_MODIFIERS(f32, max_hull_hp, 100.0f)
 	ADD_SETGET_MODIFIERS(f32, max_armor_hp, 0.0f)

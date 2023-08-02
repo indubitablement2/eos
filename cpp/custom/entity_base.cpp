@@ -4,19 +4,19 @@
 #include "preludes.h"
 #include "velocity_integration.hpp"
 
-ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, linacc)
-ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, max_linvel)
-ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, angacc)
-ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, max_angvel)
+ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, linear_acceleration)
+ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, max_linear_velocity)
+ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, angular_acceleration)
+ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, max_angular_velocity)
 
 ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, max_hull_hp)
 ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, max_armor_hp)
 
 void EntityBase::_bind_methods() {
-	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, linacc)
-	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, max_linvel)
-	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, angacc)
-	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, max_angvel)
+	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, linear_acceleration)
+	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, max_linear_velocity)
+	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, angular_acceleration)
+	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, max_angular_velocity)
 
 	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, max_hull_hp)
 	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, max_armor_hp)
@@ -92,8 +92,8 @@ void EntityBase::_base_integrate_forces(PhysicsDirectBodyState2D *state) {
 
 	// Angular velocity
 	f32 angvel = (f32)state->get_angular_velocity();
-	f32 angacc = this->get_angacc();
-	f32 max_angvel = this->get_max_angvel();
+	f32 angacc = this->get_angular_acceleration();
+	f32 max_angvel = this->get_max_angular_velocity();
 	switch (wish_angvel_type) {
 		case ANGVEL_KEEP:
 			if (abs(angvel) > max_angvel) {
@@ -155,8 +155,8 @@ void EntityBase::_base_integrate_forces(PhysicsDirectBodyState2D *state) {
 
 	// Linear velocity
 	Vector2 linvel = state->get_linear_velocity();
-	f32 linacc = this->get_linacc();
-	f32 max_linvel = this->get_max_linvel();
+	f32 linacc = this->get_linear_acceleration();
+	f32 max_linvel = this->get_max_linear_velocity();
 	switch (wish_linvel_type) {
 		case LINVEL_KEEP: {
 			float max_linvel_squared = max_linvel * max_linvel;
