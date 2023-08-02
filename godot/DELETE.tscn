@@ -1,0 +1,3 @@
+[gd_scene format=3 uid="uid://b7f8oy4y1f4kd"]
+
+[node name="EntityBase" type="EntityBase"]
