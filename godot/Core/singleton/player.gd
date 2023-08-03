@@ -25,11 +25,11 @@ func _physics_process(_delta: float) -> void:
 		if aim_at_cursor:
 			# Drone control
 			controlled.wish_angvel_aim(mouse_pos)
-			controlled.wish_linvel_relative_force(wish_dir)
+			controlled.wish_linvel_absolute(wish_dir)
 		else:
 			# Tank control
 			controlled.wish_angvel_force(wish_dir.x)
-			controlled.wish_linvel_relative_force(Vector2(0.0, wish_dir.y))
+			controlled.wish_linvel_relative(Vector2(0.0, wish_dir.y))
 
 
 func set_controlled(value: Entity) -> void:

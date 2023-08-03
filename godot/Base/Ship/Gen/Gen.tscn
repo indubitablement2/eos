@@ -12,7 +12,7 @@ diffuse_texture = ExtResource("1_atgi7")
 normal_texture = ExtResource("2_hb5wi")
 specular_texture = ExtResource("3_f5g12")
 
-[node name="Entity" type="RigidBody2D" node_paths=PackedStringArray("hull_srpite", "turrets")]
+[node name="Entity" type="EntityBase" node_paths=PackedStringArray("hull_srpite", "turrets")]
 collision_mask = 50529027
 center_of_mass_mode = 1
 custom_integrator = true

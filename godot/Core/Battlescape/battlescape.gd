@@ -8,9 +8,10 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	$Label.text = str(
 		$Entity.angular_velocity,
-		"\n",
-		$Entity.wish_angvel,
+#		"\n",
+#		$Entity.wish_angvel,
 		"\n",
 		$Entity.linear_velocity,
-		"\n",
-		$Entity.wish_linvel)
+#		"\n",
+#		$Entity.wish_linvel)
+	)
