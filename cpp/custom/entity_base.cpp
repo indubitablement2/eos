@@ -1,5 +1,6 @@
 #include "entity_base.h"
 #include "core/object/object.h"
+#include "core/string/print_string.h"
 #include "core/variant/variant.h"
 #include "preludes.h"
 #include "velocity_integration.hpp"
@@ -114,6 +115,11 @@ void EntityBase::_base_integrate_forces(PhysicsDirectBodyState2D *state) {
 			break;
 		case ANGVEL_AIM: {
 			f32 wish_angle_change = get_angle_to(wish_angvel);
+			wish_angle_change += HALF_PI;
+			if (wish_angle_change > PI) {
+				wish_angle_change -= TAU;
+			}
+
 			f32 wish_dir = SIGN(wish_angle_change);
 
 			f32 close_smooth = MIN(ABS(wish_angle_change), 0.2f) / 0.2f;

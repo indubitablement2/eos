@@ -35,6 +35,10 @@ const i32 MAX_I32 = INT32_MAX;
 const i64 MIN_I64 = INT64_MIN;
 const i64 MAX_I64 = INT64_MAX;
 
+const f32 TAU = 6.28318530718f;
+const f32 PI = 3.14159265359f;
+const f32 HALF_PI = 1.57079632679f;
+
 #define ADD_SETGET(type, name, init) \
 	type name = init;                \
 	void set_##name(type value);     \
