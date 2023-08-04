@@ -5,22 +5,22 @@
 #include "preludes.h"
 #include "velocity_integration.hpp"
 
-ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, linear_acceleration)
-ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, max_linear_velocity)
-ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, angular_acceleration)
-ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, max_angular_velocity)
+ADD_SETGET_IMPL(EntityBase, f32, linear_acceleration)
+ADD_SETGET_IMPL(EntityBase, f32, max_linear_velocity)
+ADD_SETGET_IMPL(EntityBase, f32, angular_acceleration)
+ADD_SETGET_IMPL(EntityBase, f32, max_angular_velocity)
 
-ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, max_hull_hp)
-ADD_SETGET_MODIFIERS_IMPL(EntityBase, f32, max_armor_hp)
+ADD_SETGET_IMPL(EntityBase, f32, max_hull_hp)
+ADD_SETGET_IMPL(EntityBase, f32, max_armor_hp)
 
 void EntityBase::_bind_methods() {
-	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, linear_acceleration)
-	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, max_linear_velocity)
-	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, angular_acceleration)
-	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, max_angular_velocity)
+	ADD_SETGET_PROPERTY(EntityBase, Variant::FLOAT, linear_acceleration)
+	ADD_SETGET_PROPERTY(EntityBase, Variant::FLOAT, max_linear_velocity)
+	ADD_SETGET_PROPERTY(EntityBase, Variant::FLOAT, angular_acceleration)
+	ADD_SETGET_PROPERTY(EntityBase, Variant::FLOAT, max_angular_velocity)
 
-	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, max_hull_hp)
-	ADD_SETGET_MODIFIERS_PROPERTY(EntityBase, max_armor_hp)
+	ADD_SETGET_PROPERTY(EntityBase, Variant::FLOAT, max_hull_hp)
+	ADD_SETGET_PROPERTY(EntityBase, Variant::FLOAT, max_armor_hp)
 
 	ClassDB::bind_method(D_METHOD("wish_linvel_keep"), &EntityBase::wish_linvel_keep);
 	ClassDB::bind_method(D_METHOD("wish_linvel_cancel"), &EntityBase::wish_linvel_stop);

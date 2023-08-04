@@ -9,10 +9,6 @@ void initialize_custom_module(ModuleInitializationLevel p_level) {
 	}
 
 	ClassDB::register_class<EntityBase>();
-	//ClassDB::register_abstract_class<Generation>();
-
-	//ClassDB::register_class<GridCharacterBody>();
-	//ClassDB::register_class<GridBiomeScanner>();
 }
 
 void uninitialize_custom_module(ModuleInitializationLevel p_level) {

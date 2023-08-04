@@ -39,6 +39,11 @@ const f32 TAU = 6.28318530718f;
 const f32 PI = 3.14159265359f;
 const f32 HALF_PI = 1.57079632679f;
 
+#define ADD_SETGET_NO_INIT(type, name) \
+	type name;                         \
+	void set_##name(type value);       \
+	type get_##name() const;
+
 #define ADD_SETGET(type, name, init) \
 	type name = init;                \
 	void set_##name(type value);     \

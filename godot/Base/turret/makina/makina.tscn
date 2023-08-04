@@ -1,0 +1,30 @@
+[gd_scene load_steps=6 format=3 uid="uid://dlkwtmcvw4cks"]
+
+[ext_resource type="Script" path="res://Base/turret/makina/makina.gd" id="1_0lj0n"]
+[ext_resource type="Texture2D" uid="uid://tjg31cceffsd" path="res://Base/turret/makina/makina_gung2_base.png" id="1_gp0r0"]
+[ext_resource type="Texture2D" uid="uid://choa85rhg7lxb" path="res://Base/turret/makina/makina_missile1.png" id="3_dahfd"]
+[ext_resource type="Script" path="res://Core/Battlescape/turret_data.gd" id="3_m28a4"]
+
+[sub_resource type="Resource" id="Resource_a0sk8"]
+script = ExtResource("3_m28a4")
+effective_range = 1000.0
+rotation_speed = 8.0
+fire_delay = 0.1
+auto_fire = true
+max_ammo = 4.0
+ammo_replenish_rate = 1.0
+
+[node name="Makina" type="Sprite2D"]
+texture = ExtResource("1_gp0r0")
+script = ExtResource("1_0lj0n")
+data = SubResource("Resource_a0sk8")
+
+[node name="MakinaMissile1" type="Sprite2D" parent="."]
+show_behind_parent = true
+position = Vector2(6, -20)
+texture = ExtResource("3_dahfd")
+
+[node name="MakinaMissile2" type="Sprite2D" parent="."]
+show_behind_parent = true
+position = Vector2(-6, -20)
+texture = ExtResource("3_dahfd")

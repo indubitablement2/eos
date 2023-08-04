@@ -1,0 +1,20 @@
+[gd_scene load_steps=5 format=3 uid="uid://rsfukmbivqgw"]
+
+[ext_resource type="Script" path="res://Core/Battlescape/entity.gd" id="1_h8lq5"]
+[ext_resource type="Texture2D" uid="uid://choa85rhg7lxb" path="res://Base/turret/makina/makina_missile1.png" id="2_naar4"]
+[ext_resource type="Script" path="res://Core/Battlescape/hull_sprite.gd" id="3_evv6v"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hbfjl"]
+size = Vector2(6, 16)
+
+[node name="MakinaMissile" type="EntityBase" node_paths=PackedStringArray("hull_srpite")]
+script = ExtResource("1_h8lq5")
+hull_srpite = NodePath("HullSprite")
+entity_collision_type = 7
+
+[node name="HullSprite" type="Sprite2D" parent="."]
+texture = ExtResource("2_naar4")
+script = ExtResource("3_evv6v")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_hbfjl")

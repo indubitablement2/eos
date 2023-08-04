@@ -1,14 +1,6 @@
-[gd_scene load_steps=3 format=3 uid="uid://6y8slc1myw3o"]
+[gd_scene load_steps=2 format=3 uid="uid://6y8slc1myw3o"]
 
 [ext_resource type="Script" path="res://Core/Battlescape/battlescape.gd" id="1_hwg8l"]
-[ext_resource type="PackedScene" uid="uid://6v4m2y0xhypg" path="res://Base/Ship/Gen/Gen.tscn" id="1_qe0na"]
 
 [node name="Battlescape" type="Node2D"]
 script = ExtResource("1_hwg8l")
-
-[node name="Entity" parent="." instance=ExtResource("1_qe0na")]
-position = Vector2(487, 291)
-
-[node name="Label" type="Label" parent="."]
-offset_right = 40.0
-offset_bottom = 23.0
