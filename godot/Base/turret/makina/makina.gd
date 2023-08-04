@@ -9,5 +9,7 @@ const missile := preload("res://Base/turret/makina/makina_missile.tscn")
 
 
 func fire() -> void:
-	var m := missile.instantiate()
-	add_child(m)
+	var m : Entity = missile.instantiate()
+	m.add_collision_exception_with(entity)
+	m.global_transform = get_global_transform()
+	Battlescape.add_child(m)

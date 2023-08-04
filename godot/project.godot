@@ -11,13 +11,14 @@ config_version=5
 [application]
 
 config/name="Eos2"
-run/main_scene="res://Core/Battlescape/battlescape.tscn"
+run/main_scene="res://Core/main.tscn"
 config/features=PackedStringArray("4.1", "Forward Plus")
 config/icon="res://Core/icon.svg"
 
 [autoload]
 
 Player="*res://Core/singleton/player.gd"
+Battlescape="*res://Core/singleton/battlescape.gd"
 
 [dotnet]
 
