@@ -241,6 +241,10 @@ void EntityBase::_base_integrate_forces(PhysicsDirectBodyState2D *state) {
 			break;
 	}
 
-	state->set_angular_velocity(angvel);
-	state->set_linear_velocity(linvel);
+	if (angvel != state->get_angular_velocity()) {
+		state->set_angular_velocity(angvel);
+	}
+	if (linvel != state->get_linear_velocity()) {
+		state->set_linear_velocity(linvel);
+	}
 }
