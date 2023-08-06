@@ -36,4 +36,5 @@ script = ExtResource("6_qyt2c")
 max_weight = 2
 firing_arc = 1.122
 
-[node name="Makina" parent="TurretSlot" instance=ExtResource("7_jlajq")]
+[node name="Makina" parent="TurretSlot" node_paths=PackedStringArray("dummies") instance=ExtResource("7_jlajq")]
+dummies = [null, null]

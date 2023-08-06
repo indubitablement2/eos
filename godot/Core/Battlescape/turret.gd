@@ -4,10 +4,12 @@ class_name Turret
 
 @export var data : TurretData
 
-var ammo := 0.0
+var ammo := 0
+var ammo_replenish_cooldown := 0.0
 var fire_cooldown := 0.0
 
 var target : Entity = null : set = set_target
+var target_pos := Vector2.ZERO
 
 var turret_slot : TurretSlot
 var entity: Entity
@@ -18,6 +20,7 @@ func _enter_tree() -> void:
 	turret_slot = get_parent()
 	entity = turret_slot.get_parent()
 	
+	ammo_replenish_cooldown = get_ammo_replenish_delay()
 	ammo = get_max_ammo()
 
 
@@ -52,34 +55,47 @@ func _physics_process(delta: float) -> void:
 	else:
 		rotation += clampf(wish_angle_change, -rot_speed, rot_speed)
 	
-	ammo = minf(ammo + get_ammo_replenish_rate() * delta, get_max_ammo())
+	var max_ammo := get_max_ammo()
+	if ammo < max_ammo:
+		ammo_replenish_cooldown -= delta
+		if ammo_replenish_cooldown < 0.0:
+			ammo_replenish_cooldown = get_ammo_replenish_delay()
+			ammo = mini(ammo + get_ammo_replenish_amount(), max_ammo)
 	
-	fire_cooldown = maxf(fire_cooldown - delta, 0.0)
+	var fire_group := int(turret_slot.turret_group)
+	if data.auto_fire:
+		fire_group <<= 14
+	var wish_fire := fire_group & entity.actions != 0
+	if fire_group == 0:
+		if target:
+			wish_fire = (wish_fire 
+				|| absf(get_angle_to(target_pos))
+				< data.auto_fire_angle_threshold)
 	
-	if ammo >= 1.0 && fire_cooldown == 0.0:
-		var fire_group := int(turret_slot.turret_group)
-		if data.auto_fire:
-			fire_group <<= 14
+	fire_cooldown -= delta
+	
+	if wish_fire:
+		# TODO: If player controlled, make a sound when out of ammo
+		# and trying to fire.
 		
-		if turret_slot.turret_group == 0:
-			# TODO: fire if aiming at target
-			pass
-		elif fire_group & entity.actions != 0:
+		while ammo > 0 && fire_cooldown <= 0.0:
 			fire()
-
-
-func post_successful_fire() -> void:
-	ammo -= 1
-	fire_cooldown += get_fire_delay()
+			ammo -= 1
+			fire_cooldown += get_fire_delay()
+	
+	fire_cooldown = maxf(fire_cooldown, 0.0)
 
 
 func get_rotation_speed() -> float:
 	return data.rotation_speed
 
-func get_ammo_replenish_rate() -> float:
-	return data.ammo_replenish_rate
+func get_ammo_replenish_delay() -> float:
+	return data.ammo_replenish_delay
 
-func get_max_ammo() -> float:
+func get_ammo_replenish_amount() -> int:
+	return data.ammo_replenish_amount
+
+func get_max_ammo() -> int:
 	return data.max_ammo
 
 func get_fire_delay() -> float:

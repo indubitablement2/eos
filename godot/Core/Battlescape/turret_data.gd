@@ -14,7 +14,12 @@ class_name TurretData
 @export var auto_fire := true
 
 
-@export var max_ammo := INF
-## How many ammo refilled per seconds.
-@export var ammo_replenish_rate := 0.0
+@export var max_ammo := 1000000
+## How long to refille one ammo.
+@export var ammo_replenish_delay := INF
+@export var ammo_replenish_amount := 1
+
+
+## How on target does this turret need to be to consider firing.
+@export var auto_fire_angle_threshold := 0.05
 

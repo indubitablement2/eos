@@ -1,30 +1,39 @@
-[gd_scene load_steps=6 format=3 uid="uid://dlkwtmcvw4cks"]
+[gd_scene load_steps=8 format=3 uid="uid://dlkwtmcvw4cks"]
 
 [ext_resource type="Script" path="res://Base/turret/makina/makina.gd" id="1_0lj0n"]
 [ext_resource type="Texture2D" uid="uid://tjg31cceffsd" path="res://Base/turret/makina/makina_gung2_base.png" id="1_gp0r0"]
 [ext_resource type="Texture2D" uid="uid://choa85rhg7lxb" path="res://Base/turret/makina/makina_missile1.png" id="3_dahfd"]
 [ext_resource type="Script" path="res://Core/Battlescape/turret_data.gd" id="3_m28a4"]
+[ext_resource type="Script" path="res://Core/Battlescape/dummy_projectile_template.gd" id="5_7klwt"]
+[ext_resource type="PackedScene" uid="uid://rsfukmbivqgw" path="res://Base/turret/makina/makina_missile.tscn" id="6_6wpsk"]
 
 [sub_resource type="Resource" id="Resource_a0sk8"]
 script = ExtResource("3_m28a4")
 effective_range = 1000.0
 rotation_speed = 8.0
 fire_delay = 0.1
-auto_fire = true
-max_ammo = 4.0
-ammo_replenish_rate = 1.0
+auto_fire = false
+max_ammo = 4
+ammo_replenish_delay = inf
+ammo_replenish_amount = 1
+auto_fire_angle_threshold = 0.05
 
-[node name="Makina" type="Sprite2D"]
+[node name="Makina" type="Sprite2D" node_paths=PackedStringArray("dummies")]
 texture = ExtResource("1_gp0r0")
 script = ExtResource("1_0lj0n")
+dummies = [NodePath("MakinaMissile1"), NodePath("MakinaMissile2")]
 data = SubResource("Resource_a0sk8")
 
 [node name="MakinaMissile1" type="Sprite2D" parent="."]
 show_behind_parent = true
 position = Vector2(6, -20)
 texture = ExtResource("3_dahfd")
+script = ExtResource("5_7klwt")
+projectile_scene = ExtResource("6_6wpsk")
 
 [node name="MakinaMissile2" type="Sprite2D" parent="."]
 show_behind_parent = true
 position = Vector2(-6, -20)
 texture = ExtResource("3_dahfd")
+script = ExtResource("5_7klwt")
+projectile_scene = ExtResource("6_6wpsk")

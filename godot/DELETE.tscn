@@ -1,3 +1,7 @@
-[gd_scene format=3 uid="uid://b7f8oy4y1f4kd"]
+[gd_scene load_steps=2 format=3 uid="uid://b7f8oy4y1f4kd"]
 
-[node name="EntityBase" type="EntityBase"]
+[ext_resource type="Script" path="res://DELETE.gd" id="1_2yalk"]
+
+[node name="Node2D" type="Node2D" node_paths=PackedStringArray("e")]
+script = ExtResource("1_2yalk")
+e = [NodePath(""), NodePath("")]
