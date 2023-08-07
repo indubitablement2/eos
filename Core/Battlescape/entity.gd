@@ -1,5 +1,4 @@
 extends EntityBase
-class_name Entity
 
 
 enum EntityCollisionType {
