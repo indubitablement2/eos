@@ -1,7 +1,10 @@
-[gd_scene load_steps=2 format=3 uid="uid://b7f8oy4y1f4kd"]
+[gd_scene load_steps=3 format=3 uid="uid://b7f8oy4y1f4kd"]
 
 [ext_resource type="Script" path="res://DELETE.gd" id="1_2yalk"]
+[ext_resource type="Script" path="res://Core/Script/Entity.cs" id="2_v7rmo"]
 
-[node name="Node2D" type="Node2D" node_paths=PackedStringArray("e")]
+[node name="Node2D" type="Node2D"]
 script = ExtResource("1_2yalk")
-e = [NodePath(""), NodePath("")]
+
+[node name="Entity" type="RigidBody2D" parent="."]
+script = ExtResource("2_v7rmo")

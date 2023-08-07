@@ -1,6 +1,6 @@
 # EOS (working title)
 ![Project Logo](logo.jpg)
-<Nullable>enable</Nullable>
+
 ## Build
 Lazy command from `cpp` folder: `scons -C godot custom_modules=../custom && ./godot/bin/godot.linuxbsd.editor.x86_64 --editor --path ../godot`. Change `godot.linuxbsd.editor.x86_64` to your Godot editor executable if not on linux. 
 
