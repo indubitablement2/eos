@@ -26,7 +26,7 @@ const ARMOR_CELL_EFFECT := [
 ]
 const ARMOR_CELL_EFFECT_TOTAL := 15.4
 
-const ARMOR_SCALE := 4.0
+const ARMOR_SCALE := 8.0
 
 
 enum EntityCollisionType {
@@ -39,7 +39,6 @@ enum EntityCollisionType {
 @export var sprite_offset := Vector2.ZERO
 
 
-@export var hull_srpite : HullSprite
 @export var turret_slots : Array[TurretSlot] = []
 @export var entity_collision_type := EntityCollisionType.SHIP
 
@@ -61,9 +60,14 @@ var actions := 0
 @export var hull_hp := 1000.0
 @export var armor_max := 100.0
 
+## Maximum armor for each armor cell.
+## Should not be modified at run time. Shared between instances.
 @export var armor_max_relative : Image
+## Should not be modified at run time. Shared between instances.
 @export var armor_max_relative_texture : ImageTexture
 
+## How much armor for each cell.
+## 1.0 == armor_max * ARMOR_CELL_EFFECT_TOTAL
 var armor_relative : Image
 var armor_relative_texture : ImageTexture
 
@@ -74,32 +78,57 @@ var recent_damage_texture : ImageTexture
 
 
 func _ready() -> void:
-	var armor_data := PackedByteArray()
-	armor_data.resize(32*32)
-	armor_data.fill(255)
-	armor_relative = Image.create_from_data(32, 32, false,Image.FORMAT_R8, armor_data)
+	var armor_textures_size := Vector2i(sprite.get_size() / ARMOR_SCALE)
+	
+	# TODO: Remove this
+	var armor_relative_max_data := PackedByteArray()
+	armor_relative_max_data.resize(
+		armor_textures_size.x * armor_textures_size.y)
+	armor_relative_max_data.fill(255)
+	armor_max_relative = Image.create_from_data(
+		armor_textures_size.x,
+		armor_textures_size.y,
+		false,
+		Image.FORMAT_R8,
+		armor_relative_max_data)
+	armor_max_relative_texture = ImageTexture.create_from_image(
+		armor_max_relative)
+	# TODO: Remove this
+	
+	armor_relative = armor_max_relative.duplicate()
 	armor_relative_texture = ImageTexture.create_from_image(armor_relative)
 	
-	recent_damage = Image.create(32, 32, false, Image.FORMAT_R8)
+	recent_damage = Image.create(
+		armor_textures_size.x,
+		armor_textures_size.y,
+		false,
+		Image.FORMAT_R8)
 	recent_damage_texture = ImageTexture.create_from_image(recent_damage)
 	
-	print("--------")
-	var r := []
-	var sum := 0.0
-	for y in range(-2, 3):
-		for x in range(-2, 3):
-			var vec := Vector2i(x, y)
-			var dist := Vector2(vec).length()
-			var eff := minf(2.82842707633972 - dist, 1.0)
-			if eff > 0.0:
-				r.push_back([vec, eff])
-				print("[Vector2i", vec, ", ", eff, "],")
-				sum += eff
-	print(sum)
-	sum = 0.0
-	for i in ARMOR_CELL_EFFECT:
-		sum += i[1]
-	print(sum)
+	material.set_shader_parameter(
+		&"armor_max_texture", armor_max_relative_texture)
+	material.set_shader_parameter(&"armor_texture", armor_relative_texture)
+	material.set_shader_parameter(
+		&"recent_damage_texture", recent_damage_texture)
+	
+	
+#	print("--------")
+#	var r := []
+#	var sum := 0.0
+#	for y in range(-2, 3):
+#		for x in range(-2, 3):
+#			var vec := Vector2i(x, y)
+#			var dist := Vector2(vec).length()
+#			var eff := minf(2.82842707633972 - dist, 1.0)
+#			if eff > 0.0:
+#				r.push_back([vec, eff])
+#				print("[Vector2i", vec, ", ", eff, "],")
+#				sum += eff
+#	print(sum)
+#	sum = 0.0
+#	for i in ARMOR_CELL_EFFECT:
+#		sum += i[1]
+#	print(sum)
 
 
 func _process(delta: float) -> void:
@@ -156,9 +185,10 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 
 
 func _draw() -> void:
-#	draw_texture(sprite, -sprite.get_size() * 0.5 + sprite_offset)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2(ARMOR_SCALE, ARMOR_SCALE))
-	draw_texture(recent_damage_texture, -armor_relative_texture.get_size() * 0.5)
+	draw_texture(sprite, -sprite.get_size() * 0.5 + sprite_offset)
+#	draw_set_transform(Vector2.ZERO, 0.0, Vector2(ARMOR_SCALE, ARMOR_SCALE))
+#	draw_texture(
+#		recent_damage_texture, -armor_relative_texture.get_size() * 0.5)
 
 
 func take_dmg(amount: float, location: Vector2) -> void:
@@ -171,7 +201,8 @@ func take_dmg(amount: float, location: Vector2) -> void:
 	
 	var pixel := Vector2i(location)
 	pixel += armor_relative.get_size() / 2
-	pixel = pixel.clamp(Vector2i(2, 2), armor_relative.get_size() - Vector2i(3, 3))
+	pixel = pixel.clamp(
+		Vector2i(2, 2), armor_relative.get_size() - Vector2i(3, 3))
 	
 	var a := 0.0
 	for v in ARMOR_CELL_EFFECT:
