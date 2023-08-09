@@ -64,7 +64,7 @@ var actions := 0
 ## Should not be modified at run time. Shared between instances.
 @export var armor_max_relative : Image
 ## Should not be modified at run time. Shared between instances.
-@export var armor_max_relative_texture : ImageTexture
+@export var armor_max_relative_texture : Texture2D
 
 ## How much armor for each cell.
 ## 1.0 == armor_max * ARMOR_CELL_EFFECT_TOTAL
@@ -81,18 +81,8 @@ func _ready() -> void:
 	var armor_textures_size := Vector2i(sprite.get_size() / ARMOR_SCALE)
 	
 	# TODO: Remove this
-	var armor_relative_max_data := PackedByteArray()
-	armor_relative_max_data.resize(
-		armor_textures_size.x * armor_textures_size.y)
-	armor_relative_max_data.fill(255)
-	armor_max_relative = Image.create_from_data(
-		armor_textures_size.x,
-		armor_textures_size.y,
-		false,
-		Image.FORMAT_R8,
-		armor_relative_max_data)
-	armor_max_relative_texture = ImageTexture.create_from_image(
-		armor_max_relative)
+	armor_max_relative = armor_max_relative_texture.get_image()
+	armor_max_relative.convert(Image.FORMAT_R8)
 	# TODO: Remove this
 	
 	armor_relative = armor_max_relative.duplicate()
@@ -186,9 +176,6 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 
 func _draw() -> void:
 	draw_texture(sprite, -sprite.get_size() * 0.5 + sprite_offset)
-#	draw_set_transform(Vector2.ZERO, 0.0, Vector2(ARMOR_SCALE, ARMOR_SCALE))
-#	draw_texture(
-#		recent_damage_texture, -armor_relative_texture.get_size() * 0.5)
 
 
 func take_dmg(amount: float, location: Vector2) -> void:

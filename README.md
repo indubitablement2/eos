@@ -2,7 +2,7 @@
 ![Project Logo](logo.jpg)
 
 ## Build
-Lazy command from `cpp` folder: `scons -C godot custom_modules=../custom && ./godot/bin/godot.linuxbsd.editor.x86_64 --editor --path ../godot`. Change `godot.linuxbsd.editor.x86_64` to your Godot editor executable if not on linux. 
+Lazy command from root folder: `scons -C cpp/godot custom_modules=../custom && ./cpp/godot/bin/godot.linuxbsd.editor.x86_64 --editor --path godot`. Change `godot.linuxbsd.editor.x86_64` to your Godot editor executable if not on linux. 
 
 ### Building the editor
 Run `scons custom_modules=../custom` from `cpp/godot` folder. After building, Godot editor will be in `cpp/godot/bin`. Add `target=release` for better performance at the cost of getting worst error message.
