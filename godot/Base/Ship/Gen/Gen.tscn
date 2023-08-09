@@ -20,11 +20,15 @@ custom_integrator = true
 max_contacts_reported = 4
 contact_monitor = true
 can_sleep = false
+linear_acceleration = 1600.0
+max_linear_velocity = 800.0
 script = ExtResource("1_w85lr")
+sprite = ExtResource("1_atgi7")
 hull_srpite = NodePath("HullSprite")
 turret_slots = [NodePath("TurretSlot")]
 
 [node name="HullSprite" type="Sprite2D" parent="."]
+visible = false
 texture = SubResource("CanvasTexture_pl7is")
 script = ExtResource("5_2jeiy")
 

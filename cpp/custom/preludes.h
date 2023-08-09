@@ -84,14 +84,14 @@ const f32 HALF_PI = 1.57079632679f;
 #define TEST_ASSERT(m_cond, m_msg) ((void)0)
 #endif
 
-// template <typename T>
-// inline T swap_remove(std::vector<T> &vec, const u32 i) {
-// 	TEST_ASSERT(i < vec.size(), "Index out of bounds");
+template <typename T>
+inline T swap_remove(std::vector<T> &vec, const u32 i) {
+	TEST_ASSERT(i < vec.size(), "Index out of bounds");
 
-// 	auto removed = vec[i];
-// 	auto swap = vec.pop_back();
-// 	vec[i] = swap;
-// 	return removed;
-// }
+	auto removed = vec[i];
+	auto swap = vec.pop_back();
+	vec[i] = swap;
+	return removed;
+}
 
 #endif // PRELUDES_HPP
