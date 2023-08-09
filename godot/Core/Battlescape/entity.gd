@@ -1,3 +1,4 @@
+@tool
 extends EntityBase
 class_name Entity
 
@@ -25,8 +26,9 @@ const ARMOR_CELL_EFFECT := [
 	[Vector2i(1, 2), 0.5],
 ]
 const ARMOR_CELL_EFFECT_TOTAL := 15.4
-
 const ARMOR_SCALE := 8.0
+
+const HULL_SHADER_PATH := "res://Core/shader/hull.gdshader"
 
 
 enum EntityCollisionType {
@@ -35,8 +37,8 @@ enum EntityCollisionType {
 }
 
 
-@export var sprite : Texture2D
-@export var sprite_offset := Vector2.ZERO
+@export var sprite : Texture2D : set = set_sprite
+@export var sprite_offset := Vector2.ZERO : set = set_sprite_offset
 
 
 @export var turret_slots : Array[TurretSlot] = []
@@ -60,11 +62,15 @@ var actions := 0
 @export var hull_hp := 1000.0
 @export var armor_max := 100.0
 
+@export_group("Hidden")
 ## Maximum armor for each armor cell.
-## Should not be modified at run time. Shared between instances.
+## Computed automaticaly.
+## Should not be modified. Shared between instances.
 @export var armor_max_relative : Image
+@export_group("")
 ## Should not be modified at run time. Shared between instances.
 @export var armor_max_relative_texture : Texture2D
+
 
 ## How much armor for each cell.
 ## 1.0 == armor_max * ARMOR_CELL_EFFECT_TOTAL
@@ -78,19 +84,16 @@ var recent_damage_texture : ImageTexture
 
 
 func _ready() -> void:
-	var armor_textures_size := Vector2i(sprite.get_size() / ARMOR_SCALE)
-	
-	# TODO: Remove this
-	armor_max_relative = armor_max_relative_texture.get_image()
-	armor_max_relative.convert(Image.FORMAT_R8)
-	# TODO: Remove this
+	if Engine.is_editor_hint():
+		_verify()
+		return
 	
 	armor_relative = armor_max_relative.duplicate()
 	armor_relative_texture = ImageTexture.create_from_image(armor_relative)
 	
 	recent_damage = Image.create(
-		armor_textures_size.x,
-		armor_textures_size.y,
+		armor_relative.get_width(),
+		armor_relative.get_height(),
 		false,
 		Image.FORMAT_R8)
 	recent_damage_texture = ImageTexture.create_from_image(recent_damage)
@@ -213,6 +216,42 @@ func take_dmg(amount: float, location: Vector2) -> void:
 	just_took_damage = true
 
 
+func set_sprite(value: Texture2D) -> void:
+	sprite = value
+	queue_redraw()
+	_verify()
+
+func set_sprite_offset(value: Vector2) -> void:
+	sprite_offset = value
+	queue_redraw()
+
+
+func _verify() -> void:
+	if !Engine.is_editor_hint():
+		return
+	
+	custom_integrator = true
+	max_contacts_reported = 4
+	contact_monitor = true
+	can_sleep = false
+	
+
+	if !armor_max_relative_texture:
+		armor_max_relative_texture = preload(
+			"res://Core/texture/pixel.png")
+	
+	armor_max_relative = armor_max_relative_texture.get_image()
+	armor_max_relative.convert(Image.FORMAT_R8)
+	var s := Vector2i((sprite.get_size() / ARMOR_SCALE).ceil())
+	armor_max_relative.resize(
+		s.x,
+		s.y,
+		Image.INTERPOLATE_BILINEAR)
+	
+	material = ShaderMaterial.new()
+	material.set_shader(preload(HULL_SHADER_PATH))
+	
+	material.resource_local_to_scene = true
 
 
 

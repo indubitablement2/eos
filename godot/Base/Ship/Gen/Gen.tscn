@@ -3,32 +3,36 @@
 [ext_resource type="Texture2D" uid="uid://ds6tfeqlyuvby" path="res://Base/Ship/Gen/Gen.png" id="1_atgi7"]
 [ext_resource type="Shader" path="res://Core/shader/hull.gdshader" id="1_ggy22"]
 [ext_resource type="Script" path="res://Core/Battlescape/entity.gd" id="1_w85lr"]
-[ext_resource type="Texture2D" uid="uid://cnkde754u1fbk" path="res://Base/Ship/Gen/gen_armor.png" id="4_0e6d6"]
-[ext_resource type="Script" path="res://Core/tool/entity_tool.gd" id="4_owors"]
+[ext_resource type="Texture2D" uid="uid://bbbgjwykii03h" path="res://Core/texture/pixel.png" id="4_rrrbv"]
 [ext_resource type="Script" path="res://Core/Battlescape/turret_slot.gd" id="6_qyt2c"]
 [ext_resource type="PackedScene" uid="uid://dlkwtmcvw4cks" path="res://Base/turret/makina/makina.tscn" id="7_jlajq"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_t36pt"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_owi6v"]
 resource_local_to_scene = true
 shader = ExtResource("1_ggy22")
 
+[sub_resource type="Image" id="Image_8r0ee"]
+data = {
+"data": PackedByteArray(255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255),
+"format": "Red8",
+"height": 12,
+"mipmaps": false,
+"width": 20
+}
+
 [node name="Entity" type="EntityBase" node_paths=PackedStringArray("turret_slots")]
-material = SubResource("ShaderMaterial_t36pt")
+material = SubResource("ShaderMaterial_owi6v")
 collision_mask = 50529027
 center_of_mass_mode = 1
 custom_integrator = true
 max_contacts_reported = 4
 contact_monitor = true
 can_sleep = false
-linear_acceleration = 1600.0
-max_linear_velocity = 800.0
 script = ExtResource("1_w85lr")
 sprite = ExtResource("1_atgi7")
 turret_slots = [NodePath("TurretSlot")]
-armor_max_relative_texture = ExtResource("4_0e6d6")
-
-[node name="EntityTool" type="Node" parent="."]
-script = ExtResource("4_owors")
+armor_max_relative = SubResource("Image_8r0ee")
+armor_max_relative_texture = ExtResource("4_rrrbv")
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="."]
 polygon = PackedVector2Array(-6, -40, -17, -16, -46, 16, -21, 33, 23, 33, 48, 17, 15, -16, 7, -40)
