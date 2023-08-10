@@ -62,6 +62,10 @@ var actions := 0
 @export var hull_hp := 1000.0
 @export var armor_max := 100.0
 
+## Removes: recent damage, forced hull shader, armor texture.
+## Used for projectiles.
+@export var simple_armor := true : set = set_simple_armor
+
 @export_group("Hidden")
 ## Maximum armor for each armor cell.
 ## Computed automaticaly.
@@ -69,18 +73,22 @@ var actions := 0
 @export var armor_max_relative : Image
 @export_group("")
 ## Should not be modified at run time. Shared between instances.
-@export var armor_max_relative_texture : Texture2D
+@export var armor_max_relative_texture : Texture2D :
+	set = set_armor_max_relative_texture
 
 
 ## How much armor for each cell.
 ## 1.0 == armor_max * ARMOR_CELL_EFFECT_TOTAL
 var armor_relative : Image
-var armor_relative_texture : ImageTexture
+## null if simple_armor
+var armor_relative_texture : ImageTexture = null
 
 var just_took_damage := false
 var has_recent_damage := false
-var recent_damage : Image
-var recent_damage_texture : ImageTexture
+## null if simple_armor
+var recent_damage : Image = null
+## null if simple_armor
+var recent_damage_texture : ImageTexture = null
 
 
 func _ready() -> void:
@@ -89,42 +97,27 @@ func _ready() -> void:
 		return
 	
 	armor_relative = armor_max_relative.duplicate()
-	armor_relative_texture = ImageTexture.create_from_image(armor_relative)
+	if !simple_armor:
+		armor_relative_texture = ImageTexture.create_from_image(armor_relative)
 	
-	recent_damage = Image.create(
-		armor_relative.get_width(),
-		armor_relative.get_height(),
-		false,
-		Image.FORMAT_R8)
-	recent_damage_texture = ImageTexture.create_from_image(recent_damage)
+		recent_damage = Image.create(
+			armor_relative.get_width(),
+			armor_relative.get_height(),
+			false,
+			Image.FORMAT_R8)
+		recent_damage_texture = ImageTexture.create_from_image(recent_damage)
 	
-	material.set_shader_parameter(
-		&"armor_max_texture", armor_max_relative_texture)
-	material.set_shader_parameter(&"armor_texture", armor_relative_texture)
-	material.set_shader_parameter(
-		&"recent_damage_texture", recent_damage_texture)
-	
-	
-#	print("--------")
-#	var r := []
-#	var sum := 0.0
-#	for y in range(-2, 3):
-#		for x in range(-2, 3):
-#			var vec := Vector2i(x, y)
-#			var dist := Vector2(vec).length()
-#			var eff := minf(2.82842707633972 - dist, 1.0)
-#			if eff > 0.0:
-#				r.push_back([vec, eff])
-#				print("[Vector2i", vec, ", ", eff, "],")
-#				sum += eff
-#	print(sum)
-#	sum = 0.0
-#	for i in ARMOR_CELL_EFFECT:
-#		sum += i[1]
-#	print(sum)
+		material.set_shader_parameter(
+			&"armor_max_texture", armor_max_relative_texture)
+		material.set_shader_parameter(&"armor_texture", armor_relative_texture)
+		material.set_shader_parameter(
+			&"recent_damage_texture", recent_damage_texture)
 
 
 func _process(delta: float) -> void:
+	if simple_armor:
+		return
+	
 	if just_took_damage:
 		armor_relative_texture.update(armor_relative)
 		has_recent_damage = true
@@ -133,21 +126,16 @@ func _process(delta: float) -> void:
 	if has_recent_damage:
 		has_recent_damage = false
 		
-		var recent_damage_data := recent_damage.get_data()
-		var sub := maxi(int((delta * 0.25) * 255.0), 1)
-		for i in recent_damage_data.size():
-			if recent_damage_data[i] > sub:
-				recent_damage_data[i] = recent_damage_data[i] - sub
-				has_recent_damage = true
-			else:
-				recent_damage_data[i] = 0
-		
-		recent_damage.set_data(
-			recent_damage.get_width(),
-			recent_damage.get_height(),
-			false,
-			Image.FORMAT_R8,
-			recent_damage_data)
+		var sub := maxf(delta * 0.25, 1.0 / 254.0)
+		for y in recent_damage.get_height():
+			for x in recent_damage.get_width():
+				var v := recent_damage.get_pixel(x, y).r
+				if v > sub:
+					v -= sub
+					has_recent_damage = true
+				else:
+					v = 0.0
+				recent_damage.set_pixel(x, y, Color(v, v, v))
 		
 		recent_damage_texture.update(recent_damage)
 		
@@ -185,36 +173,53 @@ func take_dmg(amount: float, location: Vector2) -> void:
 	const min_armor := 0.1
 	
 	# Find nearest pixel.
-	location /= ARMOR_SCALE
-	location -= Vector2(0.5, 0.5)
-	location = location.round()
-	
-	var pixel := Vector2i(location)
-	pixel += armor_relative.get_size() / 2
-	pixel = pixel.clamp(
-		Vector2i(2, 2), armor_relative.get_size() - Vector2i(3, 3))
+	var pixel : Vector2i
+	var offsets : Array
+	var armor_effect_total : float
+	if armor_relative.get_width() < 3:
+		pixel = Vector2.ZERO
+		offsets = [[Vector2i.ZERO, 1.0]]
+		armor_effect_total = 1.0
+	else:
+		location /= ARMOR_SCALE
+		location -= Vector2(0.5, 0.5)
+		location = location.round()
+		
+		pixel = Vector2i(location)
+		pixel += armor_relative.get_size() / 2
+		pixel = pixel.clamp(
+			Vector2i(2, 2), armor_relative.get_size() - Vector2i(3, 3))
+		
+		offsets = ARMOR_CELL_EFFECT
+		armor_effect_total = ARMOR_CELL_EFFECT_TOTAL
 	
 	var a := 0.0
-	for v in ARMOR_CELL_EFFECT:
+	for v in offsets:
 		a += armor_relative.get_pixelv(pixel + v[0]).r * v[1]
-	a /= ARMOR_CELL_EFFECT_TOTAL
+	a /= armor_effect_total
 	a = maxf(a, min_armor)
 	
 	var dmg_reduction := amount / (amount + a * armor_max)
 	var dmg := amount * dmg_reduction
-	var armor_dmg := (dmg / armor_max) / ARMOR_CELL_EFFECT_TOTAL
+	var armor_dmg := (dmg / armor_max) / armor_effect_total
 	
-	for v in ARMOR_CELL_EFFECT:
+	for v in offsets:
 		a = armor_relative.get_pixelv(pixel + v[0]).r * v[1] - armor_dmg * v[1]
 		armor_relative.set_pixelv(pixel + v[0], Color(a, 1.0, 1.0))
+	
+	if !simple_armor:
+		for v in offsets:
+			a = recent_damage.get_pixelv(pixel + v[0]).r + armor_dmg * v[1]
+			recent_damage.set_pixelv(pixel + v[0], Color(a, 1.0, 1.0))
 		
-		a = recent_damage.get_pixelv(pixel + v[0]).r + armor_dmg * v[1]
-		recent_damage.set_pixelv(pixel + v[0], Color(a, 1.0, 1.0))
+		just_took_damage = true
 	
 	hull_hp -= dmg
-	
-	just_took_damage = true
 
+
+func set_simple_armor(value: bool) -> void:
+	simple_armor = value
+	_verify()
 
 func set_sprite(value: Texture2D) -> void:
 	sprite = value
@@ -224,6 +229,10 @@ func set_sprite(value: Texture2D) -> void:
 func set_sprite_offset(value: Vector2) -> void:
 	sprite_offset = value
 	queue_redraw()
+
+func set_armor_max_relative_texture(value: Texture2D) -> void:
+	armor_max_relative_texture = value
+	_verify()
 
 
 func _verify() -> void:
@@ -235,7 +244,6 @@ func _verify() -> void:
 	contact_monitor = true
 	can_sleep = false
 	
-
 	if !armor_max_relative_texture:
 		armor_max_relative_texture = preload(
 			"res://Core/texture/pixel.png")
@@ -248,10 +256,15 @@ func _verify() -> void:
 		s.y,
 		Image.INTERPOLATE_BILINEAR)
 	
-	material = ShaderMaterial.new()
-	material.set_shader(preload(HULL_SHADER_PATH))
-	
-	material.resource_local_to_scene = true
+	if simple_armor:
+		if material is ShaderMaterial:
+			if material.shader.resource_path == HULL_SHADER_PATH:
+				material = null
+	else:
+		material = ShaderMaterial.new()
+		material.set_shader(preload(HULL_SHADER_PATH))
+		
+		material.resource_local_to_scene = true
 
 
 
