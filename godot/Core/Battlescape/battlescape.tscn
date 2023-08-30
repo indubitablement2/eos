@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://dcn4i4cyb6jfv"]
-
-[ext_resource type="Script" path="res://Core/singleton/battlescape.gd" id="1_uqarh"]
-
-[node name="Battlescape" type="Node2D"]
-script = ExtResource("1_uqarh")

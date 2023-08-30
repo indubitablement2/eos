@@ -1,0 +1,24 @@
+[gd_scene load_steps=6 format=3 uid="uid://dxylb0slpucns"]
+
+[ext_resource type="Texture2D" uid="uid://cqwa3jnp05p2k" path="res://base/turret/dual/dual.png" id="1_hqw4d"]
+[ext_resource type="Script" path="res://base/turret/dual/dual.gd" id="2_rgys0"]
+[ext_resource type="Script" path="res://core/battlescape/turret_data.gd" id="3_aatmx"]
+
+[sub_resource type="CanvasTexture" id="CanvasTexture_sqagb"]
+diffuse_texture = ExtResource("1_hqw4d")
+texture_filter = 3
+
+[sub_resource type="Resource" id="Resource_qodwq"]
+script = ExtResource("3_aatmx")
+effective_angle = 0.01
+
+[node name="Dual" type="Sprite2D"]
+texture = SubResource("CanvasTexture_sqagb")
+script = ExtResource("2_rgys0")
+fire_delay = 0.1
+ammo_max = 20
+ammo_replenish_delay = 4.0
+ammo_replenish_amount = 10
+data = SubResource("Resource_qodwq")
+ammo = 20
+player_action_group = 1

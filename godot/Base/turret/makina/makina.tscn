@@ -18,10 +18,9 @@ ammo_replenish_delay = inf
 ammo_replenish_amount = 1
 auto_fire_angle_threshold = 0.05
 
-[node name="Makina" type="Sprite2D" node_paths=PackedStringArray("dummies")]
+[node name="Makina" type="Sprite2D"]
 texture = ExtResource("1_gp0r0")
 script = ExtResource("1_0lj0n")
-dummies = [NodePath("MakinaMissile1"), NodePath("MakinaMissile2")]
 data = SubResource("Resource_a0sk8")
 
 [node name="MakinaMissile1" type="Sprite2D" parent="."]

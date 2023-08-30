@@ -3,11 +3,14 @@ class_name TurretDummyProjectile
 
 
 ## Needs at least one dummy.
-@export var dummies : Array[DummyProjectile] = []
+var dummies : Array[DummyProjectile]
+var despawned : Array[DummyProjectile]
 
 
-@export_group("Save")
-@export var despawned : Array[DummyProjectile] = []
+func _enter_tree() -> void:
+	super._enter_tree()
+	dummies = []
+	despawned = []
 
 
 func _physics_process(delta: float) -> void:
@@ -17,12 +20,17 @@ func _physics_process(delta: float) -> void:
 	while i < despawned.size():
 		despawned[i].cooldown_remaining -= delta
 		if despawned[i].cooldown_remaining < 0.0 && ammo > dummies.size():
-			dummies.push_back(swap_remove(despawned, i))
+			var dummy := swap_remove(despawned, i)
+			dummies.push_back(dummy)
+			dummy.reload()
 		else:
 			i += 1
 	
 	while ammo < dummies.size() && !dummies.is_empty():
-		despawned.push_back([-0.0, dummies.pop_front()])
+		var dummy : DummyProjectile = dummies.pop_front()
+		if dummy:
+			dummy.remove()
+			despawned.push_back(dummy)
 
 
 func fire() -> void:
@@ -32,7 +40,7 @@ func fire() -> void:
 			push_error(
 				"TurretDummyProjectile needs at least one DummyProjectile")
 			return
-		swap_remove(despawned, _lowest_dummy_cooldown())
+		dummy = swap_remove(despawned, _lowest_dummy_cooldown())
 
 	dummy.fire(self)
 	

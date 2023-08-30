@@ -2,12 +2,19 @@
 
 [ext_resource type="Script" path="res://Base/turret/makina/makina_missile.gd" id="1_5eyx3"]
 [ext_resource type="Texture2D" uid="uid://choa85rhg7lxb" path="res://Base/turret/makina/makina_missile1.png" id="2_naar4"]
-[ext_resource type="Script" path="res://Core/Battlescape/hull_sprite.gd" id="3_evv6v"]
+[ext_resource type="Texture2D" uid="uid://bbbgjwykii03h" path="res://core/Texture/Pixel.png" id="2_u57bu"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_hbfjl"]
 size = Vector2(6, 16)
 
-[node name="MakinaMissile" type="EntityBase" node_paths=PackedStringArray("hull_srpite")]
+[node name="MakinaMissile" type="EntityBase"]
+_import_path = NodePath("")
+unique_name_in_owner = false
+process_mode = 0
+process_priority = 0
+process_physics_priority = 0
+process_thread_group = 0
+editor_description = ""
 collision_layer = 8
 collision_mask = 3
 custom_integrator = true
@@ -15,15 +22,13 @@ max_contacts_reported = 4
 contact_monitor = true
 can_sleep = false
 max_linear_velocity = 600.0
-script = ExtResource("1_5eyx3")
-hull_srpite = NodePath("HullSprite")
+sprite = ExtResource("2_naar4")
 entity_collision_type = 7
-
-[node name="HullSprite" type="Sprite2D" parent="."]
-texture = ExtResource("2_naar4")
-script = ExtResource("3_evv6v")
+armor_max_relative_texture = ExtResource("2_u57bu")
+script = ExtResource("1_5eyx3")
+sprite = ExtResource("2_naar4")
+entity_collision_type = 7
+armor_max_relative_texture = ExtResource("2_u57bu")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_hbfjl")
-
-[connection signal="body_entered" from="." to="." method="_on_body_entered"]
