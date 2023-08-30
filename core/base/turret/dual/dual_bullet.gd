@@ -1,9 +1,6 @@
 extends Bullet
 
 
-var damage := 50.0
-
-
 func _process(delta: float) -> void:
 	super._process(delta)
 	rotation = velocity.angle() + PI * 0.5

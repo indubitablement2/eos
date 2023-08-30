@@ -8,7 +8,7 @@
 [ext_resource type="Script" path="res://core/battlescape/turret_slot.gd" id="6_wo7ag"]
 [ext_resource type="PackedScene" uid="uid://dxylb0slpucns" path="res://base/turret/dual/dual.tscn" id="7_2n23a"]
 
-[sub_resource type="Image" id="Image_ge33h"]
+[sub_resource type="Image" id="Image_0whix"]
 data = {
 "data": PackedByteArray(0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60),
 "format": "RHalf",
@@ -17,11 +17,11 @@ data = {
 "width": 9
 }
 
-[sub_resource type="ImageTexture" id="ImageTexture_7buso"]
+[sub_resource type="ImageTexture" id="ImageTexture_tm2ju"]
 resource_local_to_scene = true
-image = SubResource("Image_ge33h")
+image = SubResource("Image_0whix")
 
-[sub_resource type="Image" id="Image_dpb2q"]
+[sub_resource type="Image" id="Image_5iet4"]
 data = {
 "data": PackedByteArray(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
 "format": "RHalf",
@@ -30,16 +30,16 @@ data = {
 "width": 9
 }
 
-[sub_resource type="ImageTexture" id="ImageTexture_18an4"]
+[sub_resource type="ImageTexture" id="ImageTexture_vr4w1"]
 resource_local_to_scene = true
-image = SubResource("Image_dpb2q")
+image = SubResource("Image_5iet4")
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_132h6"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_3s5a7"]
 resource_local_to_scene = true
 shader = ExtResource("1_1epjw")
 shader_parameter/armor_max_relative_texture = ExtResource("2_oh5jc")
-shader_parameter/armor_relative_texture = SubResource("ImageTexture_7buso")
-shader_parameter/recent_damage_texture = SubResource("ImageTexture_18an4")
+shader_parameter/armor_relative_texture = SubResource("ImageTexture_tm2ju")
+shader_parameter/recent_damage_texture = SubResource("ImageTexture_vr4w1")
 
 [sub_resource type="Image" id="Image_4308l"]
 data = {
@@ -72,7 +72,7 @@ armor_relative_texture = ExtResource("2_oh5jc")
 simplified_hull = false
 armor_relative_image = SubResource("Image_4308l")
 
-[sub_resource type="Image" id="Image_slgo2"]
+[sub_resource type="Image" id="Image_14oex"]
 resource_local_to_scene = true
 data = {
 "data": PackedByteArray(0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60, 0, 60),
@@ -82,7 +82,7 @@ data = {
 "width": 9
 }
 
-[sub_resource type="Image" id="Image_iajke"]
+[sub_resource type="Image" id="Image_luafy"]
 resource_local_to_scene = true
 data = {
 "data": PackedByteArray(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
@@ -93,7 +93,7 @@ data = {
 }
 
 [node name="Janitor" type="RigidBody2D"]
-material = SubResource("ShaderMaterial_132h6")
+material = SubResource("ShaderMaterial_3s5a7")
 collision_mask = 270549121
 center_of_mass_mode = 1
 custom_integrator = true
@@ -103,10 +103,10 @@ can_sleep = false
 script = ExtResource("3_04df5")
 data = SubResource("Resource_xkbsg")
 armor_hp_max = 100.0
-armor_relative_image = SubResource("Image_slgo2")
-armor_relative_texture = SubResource("ImageTexture_7buso")
-recent_damage_image = SubResource("Image_iajke")
-recent_damage_texture = SubResource("ImageTexture_18an4")
+armor_relative_image = SubResource("Image_14oex")
+armor_relative_texture = SubResource("ImageTexture_tm2ju")
+recent_damage_image = SubResource("Image_luafy")
+recent_damage_texture = SubResource("ImageTexture_vr4w1")
 wish_angular_velocity_type = 2
 wish_angular_velocity = Vector2(1, 0)
 wish_linear_velocity_type = 3
@@ -121,6 +121,3 @@ script = ExtResource("6_wo7ag")
 firing_arc = 2.77
 
 [node name="dual" parent="TurretSlot" instance=ExtResource("7_2n23a")]
-ammo_max = 1000000
-ammo_replenish_delay = inf
-ammo_replenish_amount = 1

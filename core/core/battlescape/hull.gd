@@ -202,12 +202,17 @@ var team := 0:
 	set = set_team
 func set_team(value: int) -> void:
 	team = value
+	
 	if data.hull_class == HullData.HullClass.MISSILE:
 		collision_layer = Layers.HULL_MISSILE << Layers.TEAM_OFFSET * team
 	elif data.hull_class == HullData.HullClass.FIGHTER:
 		collision_layer = Layers.HULL_FIGHTER << Layers.TEAM_OFFSET * team
 	else:
 		collision_layer = Layers.HULL_SHIP << Layers.TEAM_OFFSET * team
+	
+	# Invalid when not added to tree.
+	if detector.is_valid():
+		PhysicsServer2D.area_set_collision_layer(detector, collision_layer)
 	
 	team_changed.emit()
 signal team_changed()
@@ -291,8 +296,7 @@ func _enter_tree() -> void:
 	if Engine.is_editor_hint():
 		set_tool(Tool.VERIFY)
 		return
-	
-	detector = Battlescape.hull_area_create(data.sprite.get_size().y * 0.5)
+	detector = Battlescape.hull_area_create(self)
 
 
 func _exit_tree() -> void:

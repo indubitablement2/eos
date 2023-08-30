@@ -43,25 +43,22 @@ func delete() -> void:
 		child.queue_free()
 
 
-func hull_area_create(radius: float) -> RID:
+func hull_area_create(hull: Hull) -> RID:
 	var circle := PhysicsServer2D.circle_shape_create()
-	PhysicsServer2D.shape_set_data(circle, radius)
+	PhysicsServer2D.shape_set_data(circle, hull.data.radius)
 	
 	var area := PhysicsServer2D.area_create()
 	PhysicsServer2D.area_add_shape(area, circle)
 	PhysicsServer2D.area_set_space(area, detector_space)
+	PhysicsServer2D.area_set_collision_layer(area, hull.collision_layer)
+	PhysicsServer2D.area_attach_object_instance_id(area, hull.get_instance_id())
 	
 	return area
 
-func hull_area_set_team(area: RID, team: int, ship: bool) -> void:
-	var layer := Layers.DETECTOR_SMALL
-	if ship:
-		layer = Layers.DETECTOR_LARGE
-	PhysicsServer2D.area_set_collision_layer(area, layer << team * Layers.TEAM_OFFSET)
 
 func hull_area_query(position: Vector2, radius: float, mask: int) -> Array[Dictionary]:
 	detector_query_circle.radius = radius
 	detector_query.collision_mask = mask
 	detector_query.transform = Transform2D(Vector2.RIGHT, Vector2.DOWN, position)
-	var state := PhysicsServer2D.space_get_direct_state(detector_space)
-	return state.intersect_shape(detector_query)
+	return PhysicsServer2D.space_get_direct_state(
+		detector_space).intersect_shape(detector_query)

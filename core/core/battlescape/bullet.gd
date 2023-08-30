@@ -7,6 +7,8 @@ class_name Bullet
 var velocity := Vector2.ZERO
 @export
 var ttl := 1.0
+@export
+var damage := 100.0
 
 
 func _process(delta: float) -> void:
@@ -17,4 +19,5 @@ func _process(delta: float) -> void:
 
 
 func set_team(team: int) -> void:
-	collision_mask = Layers.ALL_HULL & ~(Layers.ALL_TEAM << Layers.TEAM_OFFSET * team)
+	# Collide with all hull minus our team.
+	collision_mask = Layers.ALL_HULL & ~(Layers.TEAM << Layers.TEAM_OFFSET * team)

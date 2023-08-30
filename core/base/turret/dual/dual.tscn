@@ -10,7 +10,9 @@ texture_filter = 3
 
 [sub_resource type="Resource" id="Resource_qodwq"]
 script = ExtResource("3_aatmx")
-effective_angle = 0.01
+effective_angle = 0.1
+effective_range = 500.0
+target_ship = true
 
 [node name="Dual" type="Sprite2D"]
 texture = SubResource("CanvasTexture_sqagb")
