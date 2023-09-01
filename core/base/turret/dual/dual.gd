@@ -17,9 +17,7 @@ func fire() -> void:
 	b.damage = DAMAGE * hull.projectile_damage
 	b.velocity = Vector2(0.0, VELOCITY * hull.projectile_speed).rotated(global_rotation)
 	
-	position = Vector2(x, Y)
-	b.position = global_position
-	position = Vector2.ZERO
+	b.position = to_global(Vector2(x, Y))
 	x *= -1.0
 	
 	Battlescape.add_child(b)

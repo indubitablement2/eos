@@ -125,4 +125,3 @@ script = ExtResource("6_wo7ag")
 firing_arc = 2.77
 
 [node name="dual" parent="TurretSlot" instance=ExtResource("7_2n23a")]
-rotation_speed = null

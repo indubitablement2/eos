@@ -23,11 +23,6 @@ target_ship = true
 [node name="Dual" type="Sprite2D"]
 texture = SubResource("CanvasTexture_sqagb")
 script = ExtResource("2_rgys0")
-rotation_speed = null
-fire_delay = 0.1
-ammo_max = 20
-ammo_replenish_delay = 4.0
-ammo_replenish_amount = 10
 data = SubResource("Resource_qodwq")
 ammo = 20
 player_action_group = 1
