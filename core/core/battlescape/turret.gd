@@ -41,8 +41,8 @@ var hull : Hull
 # target -> ships
 # public bool PointDefence;
 
-const TARGET_QUERY_COOLDOWN := 0.2
-var last_target_query := 0.0
+const TARGET_QUERY_COOLDOWN := 0.4
+var query_cooldown := 0.0
 
 
 func _enter_tree() -> void:
@@ -59,6 +59,8 @@ func _exit_tree() -> void:
 
 func _process(delta: float) -> void:
 	var scaled_delta := delta * hull.time_scale
+	
+	query_cooldown -=  scaled_delta
 	
 	var is_player_controlled := hull.player_controlled && player_action_group != 0
 	
@@ -150,9 +152,8 @@ func can_look_at(other: Hull) -> bool:
 
 
 func _find_target() -> void:
-	if (Battlescape.time - last_target_query) < TARGET_QUERY_COOLDOWN:
+	if query_cooldown > 0.0:
 		return 
-	last_target_query = Battlescape.time
 	
 	var mask := Layers.ALL_HULL_SMALL
 	if data.target_ship:
@@ -164,5 +165,8 @@ func _find_target() -> void:
 		if can_look_at(other):
 			set_target(other)
 			return
+	
+	# Only add cooldown when failing to find target.
+	query_cooldown = TARGET_QUERY_COOLDOWN
 
 
