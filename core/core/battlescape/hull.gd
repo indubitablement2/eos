@@ -218,11 +218,22 @@ func set_team(value: int) -> void:
 signal team_changed()
 
 
+@export_category("Turrets modifier")
 @export
 var projectile_range := 1.0
+@export
 var projectile_damage := 1.0
+@export
 var projectile_speed := 1.0
-
+@export
+var ammo_replenish_delay := 1.0
+@export
+var rotation_speed := 1.0
+@export
+var fire_delay := 1.0
+## ammo, missile, laser
+@export
+var ammo_max := Vector3.ONE
 
 @export_group("")
 

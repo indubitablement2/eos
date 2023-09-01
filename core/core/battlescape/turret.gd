@@ -2,20 +2,6 @@ extends Sprite2D
 class_name Turret
 
 
-@export_range(0.0, 20.0, 0.1, "or_greater")
-var rotation_speed := 4.0
-
-@export_range(0.0, 10.0, 0.01, "or_greater")
-var fire_delay := 0.5
-
-@export_range(1, 200, 1, "or_greater")
-var ammo_max := 1000000
-@export_range(0.1, 10.0, 0.1, "or_greater")
-var ammo_replenish_delay := INF
-@export_range(1, 10, 1, "or_greater")
-var ammo_replenish_amount := 1
-
-
 @export
 var data : TurretData
 
@@ -64,7 +50,7 @@ func _enter_tree() -> void:
 	turret_slot = get_parent()
 	hull = turret_slot.get_parent()
 	
-	ammo_replenish_delay_remaining = ammo_replenish_delay
+	ammo_replenish_delay_remaining = data.ammo_replenish_delay * hull.ammo_replenish_delay
 
 
 func _exit_tree() -> void:
@@ -107,7 +93,7 @@ func _process(delta: float) -> void:
 		wish_angle_change = angle_to_target
 		if !is_player_controlled:
 			wish_fire = absf(angle_to_target) <= data.effective_angle
-	var rotation_speed_delta := rotation_speed * scaled_delta
+	var rotation_speed_delta := data.rotation_speed * hull.rotation_speed * scaled_delta
 	if turret_slot.firing_arc < PI:
 		if absf(rotation + wish_angle_change) > PI:
 			wish_angle_change -= signf(wish_angle_change) * TAU
@@ -120,11 +106,13 @@ func _process(delta: float) -> void:
 			wish_angle_change, -rotation_speed_delta, rotation_speed_delta)
 	
 	# Replenish ammo.
+	var ammo_max := int(float(data.ammo_max) * hull.ammo_max[data.turret_type])
+	var ammo_replenish_delay := data.ammo_replenish_delay * hull.ammo_replenish_delay
 	if ammo < ammo_max:
 		ammo_replenish_delay_remaining -= scaled_delta
 		if ammo_replenish_delay_remaining < 0.0:
 			ammo_replenish_delay_remaining += ammo_replenish_delay
-			ammo = mini(ammo + ammo_replenish_amount, ammo_max)
+			ammo = mini(ammo + data.ammo_replenish_amount , ammo_max)
 	else:
 		ammo_replenish_delay_remaining = ammo_replenish_delay
 	
@@ -135,7 +123,7 @@ func _process(delta: float) -> void:
 		while ammo > 0 && fire_delay_remaining <= 0.0:
 			fire()
 			ammo -= 1
-			fire_delay_remaining += fire_delay
+			fire_delay_remaining += data.fire_delay * hull.fire_delay
 	fire_delay_remaining = maxf(fire_delay_remaining, 0.0)
 
 
@@ -176,11 +164,5 @@ func _find_target() -> void:
 		if can_look_at(other):
 			set_target(other)
 			return
-
-
-func _verify() -> void:
-	ammo = ammo_max
-
-
 
 
