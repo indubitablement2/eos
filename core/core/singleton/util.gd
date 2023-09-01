@@ -21,10 +21,11 @@ static func predict_position(
 	target_velocity: Vector2,
 	speed: float,
 	iteration: int) -> Vector2:
+	var new_target := target
 	for i in iteration:
-		var time_to_target := target.length() / speed
-		target += target_velocity * time_to_target 
-	return target
+		var time_to_target := new_target.length() / speed
+		new_target = target + target_velocity * time_to_target
+	return new_target
 
 
 ## See `predict_position`
@@ -35,8 +36,5 @@ static func predict_position_global(
 	target_velocity: Vector2,
 	speed: float,
 	iteration: int) -> Vector2:
-	var target = global_target - from
-	for i in iteration:
-		var time_to_target := target.length() / speed
-		target += target_velocity * time_to_target 
-	return target + from
+	return predict_position(
+		global_target - from, target_velocity, speed, iteration) + from

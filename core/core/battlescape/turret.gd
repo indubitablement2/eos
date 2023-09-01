@@ -74,7 +74,16 @@ func _process(delta: float) -> void:
 		if target:
 			# Check that target is still in range.
 			if can_target(target):
-				aim_at = target.position
+				# Predict position.
+				if data.projectile_speed != INF:
+					aim_at = Util.predict_position_global(
+						hull.position,
+						target.position,
+						target.linear_velocity,
+						500.0,
+						mini(data.prediction_iter + hull.prediction_iter, 3))
+				else:
+					aim_at = target.position
 			else:
 				set_target(null)
 		elif ammo > 0:

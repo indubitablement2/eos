@@ -24,6 +24,14 @@ var ammo_replenish_amount := 1
 
 
 @export_category("Ai")
+## Higher value give more accurate target movement prediction.
+@export_range(0, 3, 1)
+var prediction_iter := 0
+
+## Used for target position prediction.
+@export_range(10, 1000.0, 1.0, "or_greater")
+var projectile_speed := INF
+
 ## How much off target can this turret be to consider firing.
 @export_range(0.001, PI, 0.001)
 var effective_angle := 0.1
