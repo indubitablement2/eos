@@ -3,10 +3,15 @@ class_name TurretData
 
 
 enum TurretType {
-	Projectile,
-	Missile}
+	PROJECTILE,
+	MISSILE,
+	LASER}
 @export
-var turret_type := TurretType.Projectile
+var turret_type := TurretType.PROJECTILE
+
+
+@export
+var weight := TurretSlot.TurretWeight.LIGHT
 
 
 @export_range(0.0, 20.0, 0.1, "or_greater")

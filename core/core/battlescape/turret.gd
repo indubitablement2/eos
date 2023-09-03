@@ -50,11 +50,14 @@ func _enter_tree() -> void:
 	turret_slot = get_parent()
 	hull = turret_slot.get_parent()
 	
+	hull.turrets.push_back(self)
+	
 	ammo_replenish_delay_remaining = data.ammo_replenish_delay * hull.ammo_replenish_delay
 
 
 func _exit_tree() -> void:
 	set_target(null)
+	hull.turrets.erase(self)
 
 
 func _process(delta: float) -> void:
@@ -141,15 +144,15 @@ func _process(delta: float) -> void:
 func fire() -> void:
 	push_error("fire should be overwritten")
 
-## Meant to be overwritten to account for hull multiplier.
+
 func effective_range() -> float:
-	return data.effective_range
+	return data.effective_range * hull.turret_range[data.turret_type]
 
 
 ## Return if other is in range and this turret can rotate toward other.
 func can_target(other: Hull) -> bool:
-	var r := effective_range() + target.data.radius
-	if global_position.distance_squared_to(target.position) < r * r:
+	var r := effective_range() + other.data.radius
+	if global_position.distance_squared_to(other.position) < r * r:
 		return can_look_at(other)
 	else:
 		return false

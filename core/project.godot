@@ -84,12 +84,12 @@ shield={
 
 [layer_names]
 
-2d_physics/layer_1="Hull ship"
-2d_physics/layer_2="Hull missile"
-2d_physics/layer_3="Hull fighter"
-2d_physics/layer_4="Projectile"
-2d_physics/layer_5="Detector large (used to query ship)"
-2d_physics/layer_6="Detector small (used to query missile and  fighter)"
+2d_physics/layer_1="Hull ship / Hull ship / Danger"
+2d_physics/layer_2="Hull missile / Hull missile / Unused"
+2d_physics/layer_3="Hull fighter / Hull fighter / Unused"
+2d_physics/layer_4="Projectile / Unused / Unused"
+2d_physics/layer_5="!!! Unused"
+2d_physics/layer_6="!!! Unused"
 2d_physics/layer_7="!!! Unused"
 2d_physics/layer_8="team 2"
 2d_physics/layer_9="team 2"

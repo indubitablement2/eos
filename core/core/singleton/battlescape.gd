@@ -11,6 +11,9 @@ var detector_query : PhysicsShapeQueryParameters2D
 var time := 0.0
 
 
+#var spawned_ship : Array[Hull] = []
+
+
 func _ready() -> void:
 	detector_query_circle = CircleShape2D.new()
 	detector_query = PhysicsShapeQueryParameters2D.new()

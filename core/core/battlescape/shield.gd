@@ -108,10 +108,10 @@ func is_point_in_arc(point: Vector2) -> bool:
 
 func _on_hull_team_changed() -> void:
 	var team_offset := hull.team * Layers.TEAM_OFFSET
-	if hull.data.hull_class >= HullData.HullClass.FRIGATE:
-		collision_layer = Layers.DETECTOR_LARGE << team_offset
-	else:
-		collision_layer = Layers.DETECTOR_SMALL << team_offset
+#	if hull.data.hull_class >= HullData.HullClass.FRIGATE:
+#		collision_layer = Layers.DETECTOR_LARGE << team_offset
+#	else:
+#		collision_layer = Layers.DETECTOR_SMALL << team_offset
 
 
 func _on_body_entered(body: Hull) -> void:

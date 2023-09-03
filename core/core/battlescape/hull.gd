@@ -219,12 +219,12 @@ signal team_changed()
 
 
 @export_group("Turrets modifier")
+## projectile, missile, laser
+## What this does is left to be interpreted by the turret.
 @export
-var projectile_range := 1.0
+var turret_range := Vector3.ONE
 @export
 var projectile_damage := 1.0
-@export
-var projectile_speed := 1.0
 @export
 var ammo_replenish_delay := 1.0
 @export
@@ -298,8 +298,12 @@ func set_target(value: Hull) -> void:
 		target.tree_exiting.connect(_on_target_tree_exiting, CONNECT_ONE_SHOT)
 func _on_target_tree_exiting() -> void:
 	target = null
+
 var auto_turret_disabled := false
 var player_controlled := false
+
+
+var turrets : Array[Turret] = []
 
 
 var detector : RID

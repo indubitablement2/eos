@@ -13,11 +13,12 @@ func fire() -> void:
 	var b : Bullet = BULLET.instantiate()
 	b.set_team(hull.team)
 	
-	b.ttl *= hull.projectile_range
+	b.ttl *= hull.turret_range[0]
 	b.damage = DAMAGE * hull.projectile_damage
-	b.velocity = Vector2(0.0, VELOCITY * hull.projectile_speed).rotated(global_rotation)
+	b.velocity = Vector2(0.0, -data.projectile_speed).rotated(global_rotation)
 	
 	b.position = to_global(Vector2(x, Y))
 	x *= -1.0
 	
 	Battlescape.add_child(b)
+
