@@ -36,6 +36,13 @@ inline u32 gen_range_u32(u64 &rng, u32 min, u32 max) {
 	return (gen_u32(rng) % (max - min)) + min;
 }
 
+inline f32 gen_range_f32(u64 &rng, f32 min, f32 max) {
+	TEST_ASSERT(min < max, "min must be less than max");
+	TEST_ASSERT(max > 0, "max must be greater than 0");
+	f32 dif = max - min;
+	return (gen_f32(rng) * dif + min);
+}
+
 // probability > 1 always return true.
 // probability < 0 always return false.
 inline bool gen_probability(u64 &rng, f32 probability) {

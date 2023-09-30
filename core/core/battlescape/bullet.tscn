@@ -1,6 +1,0 @@
-[gd_scene format=3 uid="uid://b1niavb31dtif"]
-
-[node name="Bullet" type="Area2D"]
-collision_layer = 8
-collision_mask = 7
-input_pickable = false

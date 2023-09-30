@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c2tevyaejkjtr"
-path="res://.godot/imported/gRGcHuo.png-c6d8e49ec6bed1e056ad25d843ae98e7.ctex"
+uid="uid://bbbgjwykii03h"
+path="res://.godot/imported/Pixel.png-f2032de88a233b3d862231b23c4a0248.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://DELETE/texture/gRGcHuo.png"
-dest_files=["res://.godot/imported/gRGcHuo.png-c6d8e49ec6bed1e056ad25d843ae98e7.ctex"]
+source_file="res://core/texture/Pixel.png"
+dest_files=["res://.godot/imported/Pixel.png-f2032de88a233b3d862231b23c4a0248.ctex"]
 
 [params]
 
