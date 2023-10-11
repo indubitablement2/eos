@@ -1,7 +1,0 @@
-[submodule "cpp/godot"]
-	path = cpp/godot
-	url = https://github.com/godotengine/godot.git
-	branch = 4.1
-[submodule "cpp/entt"]
-	path = cpp/entt
-	url = https://github.com/skypjack/entt.git
