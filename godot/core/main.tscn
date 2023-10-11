@@ -1,13 +1,15 @@
-[gd_scene load_steps=2 format=3 uid="uid://dcfsla70jtx4c"]
+[gd_scene load_steps=3 format=3 uid="uid://dcfsla70jtx4c"]
 
-[ext_resource type="Texture2D" uid="uid://hosptpyjwr2t" path="res://core/icon.svg" id="1_6gj06"]
+[ext_resource type="Texture2D" uid="uid://hosptpyjwr2t" path="res://core/icon.svg" id="1_2e3w2"]
+[ext_resource type="Script" path="res://core/pawn.gd" id="1_djlrx"]
 
 [node name="Main" type="Node2D"]
 
-[node name="EntityBase" type="EntityBase" parent="."]
-position = Vector2(256, 166)
+[node name="Grid" type="Grid" parent="."]
+rng = 880
 
-[node name="Icon" type="Sprite2D" parent="EntityBase"]
-texture = ExtResource("1_6gj06")
+[node name="Pawn" type="Pawn" parent="Grid"]
+script = ExtResource("1_djlrx")
 
-[node name="Node" type="Node" parent="EntityBase"]
+[node name="Sprite2D" type="Sprite2D" parent="Grid/Pawn"]
+texture = ExtResource("1_2e3w2")

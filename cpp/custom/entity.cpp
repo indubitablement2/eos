@@ -1,4 +1,5 @@
 #include "entity.h"
+#include "entt/src/entt/entity/fwd.hpp"
 #include "preludes.h"
 
 ADD_SETGET_IMPL(Entity, bool, am_i_test)
