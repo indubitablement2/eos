@@ -2,12 +2,16 @@ use super::*;
 
 type Fleets = IndexMap<FleetId, Fleet, RandomState>;
 type Factions = IndexMap<FactionId, Faction, RandomState>;
+type Clients = IndexMap<ClientId, Client, RandomState>;
+type Connections = IndexMap<ClientId, Connection, RandomState>;
 
 pub struct Metascape {
     time_total: f64,
 
     fleets: Fleets,
     factions: Factions,
+    clients: Clients,
+    connections: Connections,
 }
 impl Metascape {
     pub fn new() -> Self {
@@ -21,6 +25,17 @@ impl Metascape {
             fleet.update(delta);
         }
     }
+}
+
+struct Connection {
+    // TODO
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct ClientId(pub u64);
+
+struct Client {
+    fleets: AHashSet<FleetId>,
 }
 
 /// Highest bit used to indicate standing with neutral.
