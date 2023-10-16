@@ -6,6 +6,7 @@ const DEFAULT_CONTACT_FORCE_EVENT_THRESHOLD: f32 = 0.0;
 const DEFAULT_LINEAR_DAMPING: f32 = 0.02;
 const DEFAULT_ANGULAR_DAMPING: f32 = 0.02;
 
+// TODO: Rework this
 pub struct SimpleRigidBodyBuilder {
     pub builder: RigidBodyBuilder,
     pub copy_group_ignore: Option<RigidBodyHandle>,

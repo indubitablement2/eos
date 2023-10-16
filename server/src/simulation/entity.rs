@@ -20,15 +20,14 @@ impl Entity {
         entity_data_id: EntityDataId,
         entity_id: EntityId,
         physics: &mut Physics,
-        translation: na::Vector2<f32>,
-        angle: f32,
+        position: na::Isometry2<f32>,
     ) -> Entity {
         let entity_data = entity_data_id.data();
 
         let rb = physics.add_body(
             SimpleRigidBodyBuilder::dynamic()
-                .translation(translation)
-                .rotation(angle),
+                .translation(position.translation.vector)
+                .rotation(position.rotation.angle()),
             BodyGenericId::EntityId(entity_id),
         );
 
@@ -167,20 +166,20 @@ pub enum WishLinVel {
     /// A force in world space. -y is up.
     /// **Force magnitude should be clamped to 1**
     ForceAbsolute(Vector2<f32>),
-    /// A force in local space. -y is forward.
+    /// A force in local space. -y is left, +x is forward.
     /// **Force magnitude should be clamped to 1**
     ForceRelative(Vector2<f32>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct EntityDataId(u32);
+pub struct EntityDataId(pub u32);
 impl EntityDataId {
     pub fn data(self) -> &'static EntityData {
         unsafe { &ENTITY_DATA[self.0 as usize] }
     }
 }
 
-static ENTITY_DATA: Vec<EntityData> = Vec::new();
+static mut ENTITY_DATA: Vec<EntityData> = Vec::new();
 
 pub struct EntityData {
     pub defence: Defence,
@@ -191,9 +190,20 @@ pub struct EntityData {
     // TODO: built-in weapon (take a slot #)
     // TODO: Engine placement
     // TODO: Shields
-    mobility: Mobility,
-    // TODO: ai
-    ai: Option<()>,
+    pub mobility: Mobility,
+
+    pub ai: Option<EntityAi>,
+}
+impl EntityData {
+    pub fn set_data(data: Vec<Self>) {
+        unsafe {
+            ENTITY_DATA = data;
+        }
+    }
+
+    pub fn get_data() -> &'static [Self] {
+        unsafe { &ENTITY_DATA }
+    }
 }
 impl Default for EntityData {
     fn default() -> Self {

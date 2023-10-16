@@ -5,20 +5,57 @@ use serde::{Deserialize, Serialize};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 use tokio::time;
 
+use simulation::entity::{EntityData, EntityDataId};
+
 mod simulation;
 
 #[tokio::main]
 async fn main() {
-    let mut interval = time::interval(time::Duration::from_millis(50));
+    EntityData::set_data(vec![EntityData::default()]);
 
-    // let mut simulation = simulation::Simulation::new();
+    let mut interval = time::interval(time::Duration::from_millis(simulation::DT_MS));
 
-    // // tokio_tungstenite::accept_async(stream)
+    let mut simulation = simulation::Simulation::new();
+    simulation.spawn_entity(EntityDataId(0), Default::default());
 
-    // loop {
-    //     interval.tick().await;
+    // let mut listener = TcpListener::
+    // tokio_tungstenite::accept_async(stream)
 
-    //     simulation.update(0.05);
-    //     let packet = serde_json::to_string(&simulation.get_packet()).unwrap();
-    // }
+    loop {
+        interval.tick().await;
+
+        simulation.step();
+
+        let Packet = serde_json::to_string(&Packet {
+            time: simulation.tick,
+            entities: simulation
+                .entities
+                .iter()
+                .map(|(entity_id, entity)| {
+                    let position = simulation.physics.bodies[entity.rb].position();
+                    EntityPacket {
+                        entity_id: entity_id.0,
+                        entity_data_id: entity.entity_data_id.0,
+                        translation: position.translation.vector.into(),
+                        angle: position.rotation.angle(),
+                    }
+                })
+                .collect(),
+        })
+        .unwrap();
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Packet {
+    time: u64,
+    entities: Vec<EntityPacket>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct EntityPacket {
+    entity_id: u64,
+    entity_data_id: u32,
+    translation: [f32; 2],
+    angle: f32,
 }

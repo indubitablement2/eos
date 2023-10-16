@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub enum EntityAi {
     /// Whole ai will be removed next update.
     #[default]
@@ -96,14 +96,14 @@ impl EntityAi {
             self.changed(entity_idx, entities, previous_ai);
         }
 
-        false
+        *self == Self::None
     }
 
     pub fn changed(&mut self, entity_idx: usize, entities: &mut Entities, previous_ai: Self) {
         match self {
             Self::None => {}
             Self::Seek => {
-                entities[entity_idx].wish_linvel = WishLinVel::ForceRelative(vector![0.0, -1.0]);
+                entities[entity_idx].wish_linvel = WishLinVel::ForceRelative(vector![1.0, 0.0]);
             }
             Self::Forward => {}
             Self::Fighter => {}
