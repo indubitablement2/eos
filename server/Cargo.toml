@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# broccoli = "6.3"
+broccoli = "6.3"
 rapier2d = { version = "0.17", features = ["serde-serialize"] }
 # glam = { version = "0.24", features = ["serde", "approx"] }
 approx = "0.5"

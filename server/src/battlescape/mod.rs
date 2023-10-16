@@ -6,7 +6,6 @@ use super::*;
 use entity::*;
 use entity_ai::EntityAi;
 use physics::*;
-use rapier2d::na::{self, Vector2};
 use rapier2d::prelude::*;
 
 type SimRng = rand_xoshiro::Xoshiro128StarStar;
