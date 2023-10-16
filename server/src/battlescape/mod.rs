@@ -19,7 +19,7 @@ pub const DT_MS: u64 = 100;
 pub struct EntityId(pub u64);
 
 #[derive(Serialize, Deserialize)]
-pub struct Simulation {
+pub struct Battlescape {
     pub tick: u64,
     pub half_size: f32,
     rng: SimRng,
@@ -29,7 +29,7 @@ pub struct Simulation {
     pub entities: Entities,
     pub ais: IndexMap<EntityId, EntityAi, RandomState>,
 }
-impl Simulation {
+impl Battlescape {
     pub fn new() -> Self {
         Self {
             rng: SimRng::from_entropy(),

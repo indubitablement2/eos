@@ -5,17 +5,20 @@ use serde::{Deserialize, Serialize};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 use tokio::time;
 
-use simulation::entity::{EntityData, EntityDataId};
+use battlescape::entity::{EntityData, EntityDataId};
 
-mod simulation;
+mod battlescape;
+
+// metascape server
+// battlescape servers
 
 #[tokio::main]
 async fn main() {
     EntityData::set_data(vec![EntityData::default()]);
 
-    let mut interval = time::interval(time::Duration::from_millis(simulation::DT_MS));
+    let mut interval = time::interval(time::Duration::from_millis(battlescape::DT_MS));
 
-    let mut simulation = simulation::Simulation::new();
+    let mut simulation = battlescape::Battlescape::new();
     simulation.spawn_entity(EntityDataId(0), Default::default());
 
     // let mut listener = TcpListener::
