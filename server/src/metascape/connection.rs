@@ -205,8 +205,8 @@ pub async fn start_server_loop() -> std::sync::mpsc::Receiver<Connection> {
 
 #[derive(Debug, Deserialize)]
 struct LoginPacket {
-    username: String,
-    password: String,
+    username: Option<String>,
+    password: Option<String>,
 }
 impl LoginPacket {
     fn parse(buf: String) -> Option<Self> {
