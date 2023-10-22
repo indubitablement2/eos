@@ -1,19 +1,19 @@
 use ahash::{AHashMap, AHashSet, RandomState};
+use battlescape::entity::{EntityData, EntityDataId};
 use indexmap::IndexMap;
 use rand::prelude::*;
 use rapier2d::na::{self, Vector2};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
-use std::num::NonZeroU64;
-use tokio::time;
-
-use battlescape::entity::{EntityData, EntityDataId};
 
 mod battlescape;
+mod logger;
 mod metascape;
 
 #[tokio::main]
 async fn main() {
+    logger::Logger::init();
+
     EntityData::set_data(vec![EntityData::default()]);
 
     metascape::Metascape::start().await;

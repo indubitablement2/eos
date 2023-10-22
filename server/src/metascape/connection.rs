@@ -4,6 +4,9 @@ use futures_util::{SinkExt, StreamExt};
 use std::sync::mpsc::TryRecvError;
 use tokio_tungstenite::tungstenite::Message;
 
+const ADDR: std::net::SocketAddrV6 =
+    std::net::SocketAddrV6::new(std::net::Ipv6Addr::LOCALHOST, 8461, 0, 0);
+
 pub struct Connection {
     pub client_id: ClientId,
     pub disconnected: bool,
@@ -106,14 +109,7 @@ impl ClientPacket {
 }
 
 pub async fn start_server_loop() -> std::sync::mpsc::Receiver<Connection> {
-    let listener = tokio::net::TcpListener::bind(std::net::SocketAddrV6::new(
-        std::net::Ipv6Addr::UNSPECIFIED,
-        8461,
-        0,
-        0,
-    ))
-    .await
-    .unwrap();
+    let listener = tokio::net::TcpListener::bind(ADDR).await.unwrap();
     log::info!("Server bound to {}", listener.local_addr().unwrap());
 
     let (connection_sender, connection_receiver) = std::sync::mpsc::channel();
@@ -161,12 +157,23 @@ pub async fn start_server_loop() -> std::sync::mpsc::Receiver<Connection> {
                 let (to_client_sender, mut to_client_receiver) =
                     tokio::sync::mpsc::unbounded_channel();
                 let (from_client_sender, from_client_receiver) = std::sync::mpsc::channel();
+
+                let response = LoginResponse {
+                    success: true,
+                    reason: None,
+                };
+                log::debug!("Sending login response: {:?}", response);
+                to_client_sender
+                    .send(Message::Text(serde_json::to_string(&response).unwrap()))
+                    .unwrap();
+
                 let connection = Connection {
                     client_id: ClientId(1),
                     disconnected: false,
                     from_client_receiver,
                     to_client_sender,
                 };
+
                 connection_sender.send(connection).unwrap();
 
                 let (mut write, mut read) = socket.split();
@@ -202,4 +209,10 @@ impl LoginPacket {
     fn parse(buf: Vec<u8>) -> Option<Self> {
         serde_json::from_slice(&buf).ok()
     }
+}
+
+#[derive(Debug, Serialize)]
+struct LoginResponse {
+    success: bool,
+    reason: Option<String>,
 }
