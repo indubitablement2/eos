@@ -129,7 +129,7 @@ pub async fn start_server_loop() -> std::sync::mpsc::Receiver<Connection> {
 
                 let login_packet = match socket.next().await {
                     Some(Ok(msg)) => {
-                        if let Message::Binary(buf) = msg {
+                        if let Message::Text(buf) = msg {
                             if let Some(packet) = LoginPacket::parse(buf) {
                                 packet
                             } else {
@@ -186,11 +186,14 @@ pub async fn start_server_loop() -> std::sync::mpsc::Receiver<Connection> {
                     }
                 });
                 while let Some(msg) = read.next().await {
-                    if let Ok(msg) = msg {
-                        from_client_sender.send(msg).unwrap();
-                    } else {
-                        log::debug!("Failed to receive message from client");
-                        return;
+                    match msg {
+                        Ok(msg) => {
+                            from_client_sender.send(msg).unwrap();
+                        }
+                        Err(err) => {
+                            log::debug!("Failed to receive message from client: {}", err);
+                            return;
+                        }
                     }
                 }
             });
@@ -206,8 +209,14 @@ struct LoginPacket {
     password: String,
 }
 impl LoginPacket {
-    fn parse(buf: Vec<u8>) -> Option<Self> {
-        serde_json::from_slice(&buf).ok()
+    fn parse(buf: String) -> Option<Self> {
+        match serde_json::from_str(&buf) {
+            Ok(packet) => Some(packet),
+            Err(err) => {
+                log::debug!("Failed to parse login packet from '{}': {}", buf, err);
+                None
+            }
+        }
     }
 }
 

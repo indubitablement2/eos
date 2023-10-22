@@ -83,7 +83,9 @@ impl Metascape {
                 }
             }
 
+            // Remove disconnected clients.
             if connection.disconnected {
+                log::debug!("{:?} disconnected", connection.client_id);
                 self.connections.swap_remove_index(i);
             } else {
                 i += 1;
@@ -94,7 +96,7 @@ impl Metascape {
             fleet.update(delta);
         }
 
-        // Remove disconnected clients.
+        // Send server packets.
         for connection in self.connections.values_mut() {
             connection.send(ServerPacket::Fleets {
                 time: self.time_total,

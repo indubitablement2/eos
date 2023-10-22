@@ -5,7 +5,6 @@ impl Logger {
     pub fn init() {
         log::set_logger(&LOGGER).unwrap();
         log::set_max_level(log::LevelFilter::Trace);
-        log::trace!("Logger initialized");
     }
 }
 impl log::Log for Logger {

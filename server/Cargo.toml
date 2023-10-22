@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 log = { version = "0.4", features = [
-    "max_level_trace",
+    "max_level_debug",
     "release_max_level_info",
 ] }
 
