@@ -25,6 +25,7 @@ pub struct Battlescape {
     pub physics: Physics,
 
     next_entity_id: EntityId,
+
     pub entities: Entities,
     pub ais: IndexMap<EntityId, EntityAi, RandomState>,
 }

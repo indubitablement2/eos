@@ -1,4 +1,7 @@
+mod connection;
+
 use super::*;
+use connection::*;
 
 type Fleets = IndexMap<FleetId, Fleet, RandomState>;
 type Factions = IndexMap<FactionId, Faction, RandomState>;
@@ -8,27 +11,101 @@ type Connections = IndexMap<ClientId, Connection, RandomState>;
 pub struct Metascape {
     time_total: f64,
 
+    next_fleet_id: FleetId,
+    next_faction_id: FactionId,
+    next_client_id: ClientId,
+
     fleets: Fleets,
     factions: Factions,
     clients: Clients,
     connections: Connections,
+
+    connection_receiver: std::sync::mpsc::Receiver<Connection>,
 }
 impl Metascape {
-    pub fn new() -> Self {
-        todo!()
+    pub async fn start() {
+        let connection_receiver = connection::start_server_loop().await;
+
+        Self {
+            time_total: 0.0,
+
+            next_fleet_id: FleetId(0),
+            next_faction_id: FactionId(0),
+            next_client_id: ClientId(0),
+
+            fleets: Default::default(),
+            factions: Default::default(),
+            clients: Default::default(),
+            connections: Default::default(),
+
+            connection_receiver,
+        }
+        .run();
+    }
+
+    fn run(mut self) {
+        std::thread::spawn(move || {
+            let mut now = std::time::Instant::now();
+            loop {
+                self.step(now.elapsed().as_secs_f32());
+                now = std::time::Instant::now();
+                // TODO: Use a better sleep method.
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        });
     }
 
     pub fn step(&mut self, delta: f32) {
         self.time_total += delta as f64;
 
+        // Handle new connection.
+        for new_connection in self.connection_receiver.try_iter() {
+            self.connections
+                .insert(new_connection.client_id, new_connection);
+        }
+
+        // Handle client packets.
+        let mut i = 0usize;
+        while i < self.connections.len() {
+            let connection = &mut self.connections[i];
+
+            while let Some(packet) = connection.recv() {
+                match packet {
+                    ClientPacket::MoveFleet {
+                        fleet_id,
+                        wish_position,
+                    } => {
+                        // TODO: Check for NaN/infinity
+                        if let Some(fleet) = self.fleets.get_mut(&fleet_id) {
+                            fleet.wish_movement = Some(wish_position);
+                        }
+                    }
+                }
+            }
+
+            if connection.disconnected {
+                self.connections.swap_remove_index(i);
+            } else {
+                i += 1;
+            }
+        }
+
         for fleet in self.fleets.values_mut() {
             fleet.update(delta);
         }
-    }
-}
 
-struct Connection {
-    // TODO
+        // Remove disconnected clients.
+        for connection in self.connections.values_mut() {
+            connection.send(ServerPacket::Fleets {
+                time: self.time_total,
+                positions: self
+                    .fleets
+                    .iter()
+                    .map(|(id, fleet)| (*id, fleet.position))
+                    .collect(),
+            });
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

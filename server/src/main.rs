@@ -10,42 +10,38 @@ use tokio::time;
 use battlescape::entity::{EntityData, EntityDataId};
 
 mod battlescape;
-pub mod matascape;
+mod matascape;
 
 #[tokio::main]
 async fn main() {
     EntityData::set_data(vec![EntityData::default()]);
 
-    let mut interval = time::interval(time::Duration::from_millis(battlescape::DT_MS));
+    matascape::Metascape::start().await;
 
     let mut simulation = battlescape::Battlescape::new();
     simulation.spawn_entity(EntityDataId(0), Default::default());
 
-    // let mut listener = TcpListener::
-    // tokio_tungstenite::accept_async(stream)
-
     loop {
-        interval.tick().await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-        simulation.step();
-
-        let Packet = serde_json::to_string(&Packet {
-            time: simulation.tick,
-            entities: simulation
-                .entities
-                .iter()
-                .map(|(entity_id, entity)| {
-                    let position = simulation.physics.bodies[entity.rb].position();
-                    EntityPacket {
-                        entity_id: entity_id.0,
-                        entity_data_id: entity.entity_data_id.0,
-                        translation: position.translation.vector.into(),
-                        angle: position.rotation.angle(),
-                    }
-                })
-                .collect(),
-        })
-        .unwrap();
+        // simulation.step();
+        // let Packet = serde_json::to_string(&Packet {
+        //     time: simulation.tick,
+        //     entities: simulation
+        //         .entities
+        //         .iter()
+        //         .map(|(entity_id, entity)| {
+        //             let position = simulation.physics.bodies[entity.rb].position();
+        //             EntityPacket {
+        //                 entity_id: entity_id.0,
+        //                 entity_data_id: entity.entity_data_id.0,
+        //                 translation: position.translation.vector.into(),
+        //                 angle: position.rotation.angle(),
+        //             }
+        //         })
+        //         .collect(),
+        // })
+        // .unwrap();
     }
 }
 
