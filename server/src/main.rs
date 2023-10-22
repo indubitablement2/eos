@@ -10,13 +10,13 @@ use tokio::time;
 use battlescape::entity::{EntityData, EntityDataId};
 
 mod battlescape;
-mod matascape;
+mod metascape;
 
 #[tokio::main]
 async fn main() {
     EntityData::set_data(vec![EntityData::default()]);
 
-    matascape::Metascape::start().await;
+    metascape::Metascape::start().await;
 
     let mut simulation = battlescape::Battlescape::new();
     simulation.spawn_entity(EntityDataId(0), Default::default());
