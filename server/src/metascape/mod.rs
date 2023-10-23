@@ -44,6 +44,18 @@ impl Metascape {
     }
 
     fn run(mut self) {
+        self.fleets.insert(
+            FleetId(123),
+            Fleet {
+                faction_id: FactionId(0),
+                position: Vector2::new(0.0, 0.0),
+                velocity: Vector2::new(0.0, 0.0),
+                acceleration: 0.0,
+                max_velocity: 1.0,
+                wish_movement: None,
+            },
+        );
+
         std::thread::spawn(move || {
             let mut now = std::time::Instant::now();
             loop {
@@ -98,13 +110,19 @@ impl Metascape {
 
         // Send server packets.
         for connection in self.connections.values_mut() {
-            connection.send(ServerPacket::Fleets {
+            let remove_fleets = Vec::new();
+            let add_fleets = Vec::new();
+            let positions = self
+                .fleets
+                .iter()
+                .map(|(id, fleet)| (*id, fleet.position))
+                .collect();
+
+            connection.send(ServerPacket::State {
                 time: self.time_total,
-                positions: self
-                    .fleets
-                    .iter()
-                    .map(|(id, fleet)| (*id, fleet.position))
-                    .collect(),
+                positions,
+                add_fleets,
+                remove_fleets,
             });
         }
     }

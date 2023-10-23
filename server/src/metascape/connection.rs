@@ -36,24 +36,51 @@ impl Connection {
 
 #[derive(Debug)]
 pub enum ServerPacket {
-    Fleets {
+    State {
         time: f64,
+        add_fleets: Vec<FleetId>,
         positions: Vec<(FleetId, Vector2<f32>)>,
+        remove_fleets: Vec<FleetId>,
     },
 }
 impl ServerPacket {
     fn serialize(self) -> Message {
         let buffer = match self {
-            ServerPacket::Fleets { time, positions } => {
-                let mut buf = Vec::with_capacity(4 + 8 + 4 + positions.len() * (8 + 4 + 4));
+            ServerPacket::State {
+                time,
+                add_fleets,
+                positions,
+                remove_fleets,
+            } => {
+                let mut buf = Vec::with_capacity(
+                    4 + 8
+                        + 4
+                        + 4
+                        + 4
+                        + add_fleets.len() * 8
+                        + positions.len() * (8 + 4 + 4)
+                        + remove_fleets.len() * 8,
+                );
 
                 buf.put_u32_le(0);
                 buf.put_f64_le(time);
+
+                buf.put_u32_le(add_fleets.len() as u32);
                 buf.put_u32_le(positions.len() as u32);
+                buf.put_u32_le(remove_fleets.len() as u32);
+
+                for id in add_fleets {
+                    buf.put_u64_le(id.0);
+                }
+
                 for (id, position) in positions {
                     buf.put_u64_le(id.0);
                     buf.put_f32_le(position.x);
                     buf.put_f32_le(position.y);
+                }
+
+                for id in remove_fleets {
+                    buf.put_u64_le(id.0);
                 }
 
                 buf
