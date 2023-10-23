@@ -7,13 +7,42 @@ use tokio_tungstenite::tungstenite::Message;
 const ADDR: std::net::SocketAddrV6 =
     std::net::SocketAddrV6::new(std::net::Ipv6Addr::LOCALHOST, 8461, 0, 0);
 
+pub struct KnownFleet {
+    pub full_info: bool,
+}
+
 pub struct Connection {
     pub client_id: ClientId,
     pub disconnected: bool,
     from_client_receiver: std::sync::mpsc::Receiver<Message>,
     to_client_sender: tokio::sync::mpsc::UnboundedSender<Message>,
+
+    pub knows_fleets: AHashMap<FleetId, KnownFleet>,
 }
 impl Connection {
+    fn new(
+        client_id: ClientId,
+    ) -> (
+        Self,
+        tokio::sync::mpsc::UnboundedReceiver<Message>,
+        std::sync::mpsc::Sender<Message>,
+    ) {
+        let (to_client_sender, to_client_receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (from_client_sender, from_client_receiver) = std::sync::mpsc::channel();
+
+        (
+            Self {
+                client_id,
+                disconnected: false,
+                from_client_receiver,
+                to_client_sender,
+                knows_fleets: Default::default(),
+            },
+            to_client_receiver,
+            from_client_sender,
+        )
+    }
+
     pub fn send(&mut self, packet: ServerPacket) {
         self.disconnected |= self.to_client_sender.send(packet.serialize()).is_err();
     }
@@ -38,7 +67,8 @@ impl Connection {
 pub enum ServerPacket {
     State {
         time: f64,
-        add_fleets: Vec<FleetId>,
+        partial_fleets_info: Vec<(FleetId, u32)>,
+        full_fleets_info: Vec<(FleetId, u32)>,
         positions: Vec<(FleetId, Vector2<f32>)>,
         remove_fleets: Vec<FleetId>,
     },
@@ -48,7 +78,8 @@ impl ServerPacket {
         let buffer = match self {
             ServerPacket::State {
                 time,
-                add_fleets,
+                partial_fleets_info,
+                full_fleets_info,
                 positions,
                 remove_fleets,
             } => {
@@ -57,7 +88,9 @@ impl ServerPacket {
                         + 4
                         + 4
                         + 4
-                        + add_fleets.len() * 8
+                        + 4
+                        + partial_fleets_info.len() * (8 + 4)
+                        + full_fleets_info.len() * (8 + 4)
                         + positions.len() * (8 + 4 + 4)
                         + remove_fleets.len() * 8,
                 );
@@ -65,12 +98,19 @@ impl ServerPacket {
                 buf.put_u32_le(0);
                 buf.put_f64_le(time);
 
-                buf.put_u32_le(add_fleets.len() as u32);
+                buf.put_u32_le(partial_fleets_info.len() as u32);
+                buf.put_u32_le(full_fleets_info.len() as u32);
                 buf.put_u32_le(positions.len() as u32);
                 buf.put_u32_le(remove_fleets.len() as u32);
 
-                for id in add_fleets {
+                for (id, num_ship) in partial_fleets_info {
                     buf.put_u64_le(id.0);
+                    buf.put_u32_le(num_ship);
+                }
+
+                for (id, num_ship) in full_fleets_info {
+                    buf.put_u64_le(id.0);
+                    buf.put_u32_le(num_ship);
                 }
 
                 for (id, position) in positions {
@@ -181,25 +221,18 @@ pub async fn start_server_loop() -> std::sync::mpsc::Receiver<Connection> {
 
                 // TODO: Identify client
 
-                let (to_client_sender, mut to_client_receiver) =
-                    tokio::sync::mpsc::unbounded_channel();
-                let (from_client_sender, from_client_receiver) = std::sync::mpsc::channel();
+                let (connection, mut to_client_receiver, from_client_sender) =
+                    Connection::new(ClientId(1));
 
                 let response = LoginResponse {
                     success: true,
                     reason: None,
                 };
                 log::debug!("Sending login response: {:?}", response);
-                to_client_sender
+                connection
+                    .to_client_sender
                     .send(Message::Text(serde_json::to_string(&response).unwrap()))
                     .unwrap();
-
-                let connection = Connection {
-                    client_id: ClientId(1),
-                    disconnected: false,
-                    from_client_receiver,
-                    to_client_sender,
-                };
 
                 connection_sender.send(connection).unwrap();
 

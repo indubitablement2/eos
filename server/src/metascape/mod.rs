@@ -111,17 +111,23 @@ impl Metascape {
         // Send server packets.
         for connection in self.connections.values_mut() {
             let remove_fleets = Vec::new();
-            let add_fleets = Vec::new();
-            let positions = self
-                .fleets
-                .iter()
-                .map(|(id, fleet)| (*id, fleet.position))
-                .collect();
+            let mut partial_fleets_info = Vec::new();
+            let full_fleets_info = Vec::new();
+            let mut positions = Vec::new();
+            for (&fleet_id, fleet) in self.fleets.iter() {
+                positions.push((fleet_id, fleet.position));
+
+                let known_fleet = connection.knows_fleets.entry(fleet_id).or_insert_with(|| {
+                    partial_fleets_info.push((fleet_id, 1));
+                    KnownFleet { full_info: false }
+                });
+            }
 
             connection.send(ServerPacket::State {
                 time: self.time_total,
+                partial_fleets_info,
+                full_fleets_info,
                 positions,
-                add_fleets,
                 remove_fleets,
             });
         }

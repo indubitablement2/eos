@@ -63,21 +63,36 @@ func add_state_packet(packet: PackedByteArray) -> void:
 
 
 func _apply_state(state: PackedByteArray) -> void:
-	var num_add_fleet := state.decode_u32(12)
-	var num_state := state.decode_u32(16)
-	var num_remove_fleet := state.decode_u32(20)
-	var i := 24
+	var num_partial_fleets_info := state.decode_u32(12)
+	var num_full_fleets_info := state.decode_u32(16)
+	var num_state := state.decode_u32(20)
+	var num_remove_fleet := state.decode_u32(24)
+	var i := 28
 	
-	# Add fleets.
-	for _i in num_add_fleet:
+	var new_fleet : Array[Fleet] = []
+	for _i in num_partial_fleets_info:
 		var id := state.decode_u64(i)
 		i += 8
+		var num_ship := state.decode_u32(i)
+		i += 4
 		
-		var fleet := Fleet.new()
-		add_child(fleet)
-		fleets[id] = fleet
+		var fleet : Fleet
+		if !fleets.has(id):
+			fleet = Fleet.new()
+			add_child(fleet)
+			fleets[id] = fleet
+			new_fleet.push_back(fleet)
+		else:
+			fleet = fleets[id]
+		
+		fleet.set_partial_info(num_ship)
 	
-	# Set fleets state.
+	for _i in num_full_fleets_info:
+		var _id := state.decode_u64(i)
+		i += 8
+		var _data := state.decode_u32(i)
+		i += 4
+	
 	for _i in num_state:
 		var id := state.decode_u64(i)
 		i += 8
@@ -91,10 +106,12 @@ func _apply_state(state: PackedByteArray) -> void:
 		fleet.previous_position = fleet.next_position
 		fleet.next_position = next_position
 	
-	# Remove fleets.
 	for _i in num_remove_fleet:
 		var id := state.decode_u64(i)
 		i += 8
 		
 		fleets[id].queue_free()
 		fleets.erase(id)
+	
+	for fleet in new_fleet:
+		fleet.previous_position = fleet.next_position

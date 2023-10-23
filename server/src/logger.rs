@@ -1,5 +1,3 @@
-use super::*;
-
 pub struct Logger;
 impl Logger {
     pub fn init() {
