@@ -13,14 +13,21 @@ var states : Array[PackedByteArray] = []
 ## {int: Fleet}
 var fleets := {}
 
+
+@onready
+var camera : Camera = $Camera
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if !event.is_pressed():
 		return
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			send_move_fleet(123, get_global_mouse_position())
+			get_viewport().set_input_as_handled()
 	elif event is InputEventScreenTouch:
 		send_move_fleet(123, get_global_mouse_position())
+		get_viewport().set_input_as_handled()
 
 
 func _process(delta: float) -> void:
