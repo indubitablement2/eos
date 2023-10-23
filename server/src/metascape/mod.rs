@@ -49,9 +49,9 @@ impl Metascape {
             Fleet {
                 faction_id: FactionId(0),
                 position: Vector2::new(0.0, 0.0),
-                velocity: Vector2::new(0.0, 0.0),
-                acceleration: 0.0,
-                max_velocity: 1.0,
+                velocity: Vector2::new(10.0, 10.0),
+                acceleration: 100.0,
+                max_velocity: 100.0,
                 wish_movement: None,
             },
         );
@@ -72,6 +72,7 @@ impl Metascape {
 
         // Handle new connection.
         for new_connection in self.connection_receiver.try_iter() {
+            log::debug!("{:?} connected", new_connection.client_id);
             self.connections
                 .insert(new_connection.client_id, new_connection);
         }

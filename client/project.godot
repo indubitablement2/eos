@@ -24,6 +24,13 @@ Metascape="*res://core/singleton/metascape.gd"
 
 import/blender/enabled=false
 
+[input]
+
+m_move_fleet={
+"deadzone": 0.5,
+"events": []
+}
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

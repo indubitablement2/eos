@@ -145,6 +145,11 @@ impl ClientPacket {
             Message::Binary(buf) => {
                 let mut buf = buf.as_slice();
 
+                if buf.remaining() < 4 {
+                    log::debug!("Received ClientPacket of size < 4");
+                    return None;
+                }
+
                 let packet_id = buf.get_u32_le();
                 match packet_id {
                     0 => {
@@ -229,10 +234,9 @@ pub async fn start_server_loop() -> std::sync::mpsc::Receiver<Connection> {
                     reason: None,
                 };
                 log::debug!("Sending login response: {:?}", response);
-                connection
+                let _ = connection
                     .to_client_sender
-                    .send(Message::Text(serde_json::to_string(&response).unwrap()))
-                    .unwrap();
+                    .send(Message::Text(serde_json::to_string(&response).unwrap()));
 
                 connection_sender.send(connection).unwrap();
 
@@ -248,7 +252,9 @@ pub async fn start_server_loop() -> std::sync::mpsc::Receiver<Connection> {
                 while let Some(msg) = read.next().await {
                     match msg {
                         Ok(msg) => {
-                            from_client_sender.send(msg).unwrap();
+                            if from_client_sender.send(msg).is_err() {
+                                return;
+                            }
                         }
                         Err(err) => {
                             log::debug!("Failed to receive message from client: {}", err);

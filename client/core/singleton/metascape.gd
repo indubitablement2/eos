@@ -13,6 +13,15 @@ var states : Array[PackedByteArray] = []
 ## {int: Fleet}
 var fleets := {}
 
+func _unhandled_input(event: InputEvent) -> void:
+	if !event.is_pressed():
+		return
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			send_move_fleet(123, get_global_mouse_position())
+	elif event is InputEventScreenTouch:
+		send_move_fleet(123, get_global_mouse_position())
+
 
 func _process(delta: float) -> void:
 	if !ServerConnection.is_logged_in():
@@ -60,6 +69,16 @@ func add_state_packet(packet: PackedByteArray) -> void:
 	
 	server_time = time
 	states.push_back(packet)
+
+
+func send_move_fleet(fleet_id: int, to_position: Vector2) -> void:
+	var buf := PackedByteArray()
+	buf.resize(20)
+	buf.encode_u32(0, 0)
+	buf.encode_u64(4, fleet_id)
+	buf.encode_float(12, to_position.x)
+	buf.encode_float(16, to_position.y)
+	ServerConnection.socket.send(buf, WebSocketPeer.WRITE_MODE_BINARY)
 
 
 func _apply_state(state: PackedByteArray) -> void:
