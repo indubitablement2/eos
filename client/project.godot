@@ -50,6 +50,11 @@ camera_zoom_out={
 ]
 }
 
+[physics]
+
+common/physics_ticks_per_second=10
+2d/default_gravity=0.0
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

@@ -15,10 +15,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action(&"camera_zoom_in"):
 			zoom /= ProjectSettings.get_setting_with_override(
 				&"game_setting/camera/zoom_speed")
+			get_viewport().set_input_as_handled()
 		if event.is_action(&"camera_zoom_out"):
 			zoom *= ProjectSettings.get_setting_with_override(
 				&"game_setting/camera/zoom_speed")
+			get_viewport().set_input_as_handled()
 		
 		if event is InputEventMouseMotion && dragging:
 			position -= event.relative / zoom.x
+			get_viewport().set_input_as_handled()
 

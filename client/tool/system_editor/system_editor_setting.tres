@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="SystemEditorSetting" load_steps=2 format=3 uid="uid://bdogj8kqlaar2"]
+
+[ext_resource type="Script" path="res://tool/system_editor/system_editor_setting.gd" id="1_abeqb"]
+
+[resource]
+script = ExtResource("1_abeqb")
+planet_distance_min = 200.0
+planet_distance_max = 200.0

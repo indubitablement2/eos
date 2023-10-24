@@ -19,6 +19,9 @@ var camera : Camera = $Camera
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if !ServerConnection.is_logged_in():
+		return
+	
 	if !event.is_pressed():
 		return
 	if event is InputEventMouseButton:

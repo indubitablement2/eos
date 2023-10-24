@@ -1,0 +1,94 @@
+[gd_scene load_steps=4 format=3 uid="uid://c0vwa62s5ut6y"]
+
+[ext_resource type="Script" path="res://tool/system_editor/system_editor.gd" id="1_jekku"]
+[ext_resource type="Script" path="res://tool/system_editor/system.gd" id="2_g5tww"]
+[ext_resource type="Script" path="res://tool/system_editor/planet.gd" id="3_ui4b5"]
+
+[node name="SystemEditor" type="Node"]
+script = ExtResource("1_jekku")
+metadata/_edit_lock_ = true
+
+[node name="1" type="Node2D" parent="."]
+position = Vector2(270, 171)
+script = ExtResource("2_g5tww")
+radius = 119.354
+
+[node name="0" type="Node2D" parent="1"]
+script = ExtResource("3_ui4b5")
+distance = 27.4754
+radius = 2.39879
+
+[node name="1" type="Node2D" parent="1"]
+script = ExtResource("3_ui4b5")
+distance = 39.6382
+radius = 2.10061
+
+[node name="2" type="Node2D" parent="1"]
+script = ExtResource("3_ui4b5")
+distance = 63.6649
+radius = 1.66886
+
+[node name="3" type="Node2D" parent="1"]
+script = ExtResource("3_ui4b5")
+distance = 69.3536
+radius = 1.61983
+
+[node name="2" type="Node2D" parent="."]
+position = Vector2(-122, 253)
+script = ExtResource("2_g5tww")
+radius = 125.675
+
+[node name="0" type="Node2D" parent="2"]
+script = ExtResource("3_ui4b5")
+distance = 37.4858
+radius = 1.42671
+
+[node name="1" type="Node2D" parent="2"]
+script = ExtResource("3_ui4b5")
+distance = 53.586
+radius = 0.607889
+
+[node name="2" type="Node2D" parent="2"]
+script = ExtResource("3_ui4b5")
+distance = 75.6752
+radius = 2.30546
+
+[node name="3" type="Node2D" parent="."]
+position = Vector2(31, -38)
+script = ExtResource("2_g5tww")
+radius = 165.4
+
+[node name="0" type="Node2D" parent="3"]
+script = ExtResource("3_ui4b5")
+distance = 31.562
+radius = 1.86009
+
+[node name="1" type="Node2D" parent="3"]
+script = ExtResource("3_ui4b5")
+distance = 48.8247
+radius = 2.62097
+
+[node name="2" type="Node2D" parent="3"]
+script = ExtResource("3_ui4b5")
+distance = 66.2345
+radius = 1.29743
+
+[node name="3" type="Node2D" parent="3"]
+script = ExtResource("3_ui4b5")
+distance = 93.0187
+radius = 2.92829
+
+[node name="4" type="Node2D" parent="3"]
+script = ExtResource("3_ui4b5")
+distance = 115.4
+radius = 1.37959
+
+[node name="4" type="Node2D" parent="."]
+position = Vector2(-203, -137)
+script = ExtResource("2_g5tww")
+radius = 69.5495
+
+[node name="0" type="Node2D" parent="4"]
+script = ExtResource("3_ui4b5")
+distance = 19.5495
+radius = 0.528827
