@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 mod battlescape;
+mod central_server;
 mod logger;
 mod metascape;
 
@@ -16,7 +17,7 @@ async fn main() {
 
     EntityData::set_data(vec![EntityData::default()]);
 
-    metascape::Metascape::start().await;
+    central_server::CentralServer::start().await;
 
     let mut simulation = battlescape::Battlescape::new();
     simulation.spawn_entity(EntityDataId(0), Default::default());

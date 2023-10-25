@@ -18,6 +18,7 @@ pub struct Connection {
     to_client_sender: tokio::sync::mpsc::UnboundedSender<Message>,
 
     pub knows_fleets: AHashMap<FleetId, KnownFleet>,
+    pub view: (MetascapeId, Vector2<f32>),
 }
 impl Connection {
     fn new(
@@ -36,7 +37,9 @@ impl Connection {
                 disconnected: false,
                 from_client_receiver,
                 to_client_sender,
+
                 knows_fleets: Default::default(),
+                view: (MetascapeId(1), Vector2::new(0.0, 0.0)),
             },
             to_client_receiver,
             from_client_sender,
@@ -133,15 +136,15 @@ impl ServerPacket {
 
 #[derive(Debug)]
 pub enum ClientPacket {
-    MoveFleet {
-        fleet_id: FleetId,
-        wish_position: Vector2<f32>,
+    MetascapeCommand {
+        metascape_id: MetascapeId,
+        cmd: MetascapeCommand,
     },
 }
 impl ClientPacket {
     fn deserialize(msg: Message) -> Option<Self> {
         match msg {
-            Message::Text(text) => None,
+            Message::Text(_) => None,
             Message::Binary(buf) => {
                 let mut buf = buf.as_slice();
 
@@ -149,22 +152,45 @@ impl ClientPacket {
                     log::debug!("Received ClientPacket of size < 4");
                     return None;
                 }
-
                 let packet_id = buf.get_u32_le();
+
                 match packet_id {
                     0 => {
-                        if buf.remaining() < 8 + 4 + 4 {
-                            log::debug!("Invalid packet size for MoveFleet");
+                        if buf.remaining() < 8 {
+                            log::debug!("Invalid packet size for MetascapeCommand");
                             return None;
                         }
+                        let metascape_id = MetascapeId(buf.get_u32_le());
+                        let cmd_id = buf.get_u32_le();
 
-                        let fleet_id = FleetId(buf.get_u64_le());
-                        let wish_position = Vector2::new(buf.get_f32_le(), buf.get_f32_le());
+                        match cmd_id {
+                            0 => {
+                                if buf.remaining() < 8 + 8 {
+                                    log::debug!("Invalid packet size for MoveFleet");
+                                    return None;
+                                }
+                                let fleet_id = FleetId(buf.get_u64_le());
+                                let wish_position =
+                                    Vector2::new(buf.get_f32_le(), buf.get_f32_le());
 
-                        Some(ClientPacket::MoveFleet {
-                            fleet_id,
-                            wish_position,
-                        })
+                                // 4 packet_id
+                                // 4 metascape_id
+                                // 4 cmd_id
+                                // 8 fleet_id
+                                // 8 wish_position
+                                Some(ClientPacket::MetascapeCommand {
+                                    metascape_id,
+                                    cmd: MetascapeCommand::MoveFleet {
+                                        fleet_id,
+                                        wish_position,
+                                    },
+                                })
+                            }
+                            _ => {
+                                log::debug!("Invalid cmd id {}", cmd_id);
+                                None
+                            }
+                        }
                     }
                     _ => {
                         log::debug!("Invalid packet id {}", packet_id);

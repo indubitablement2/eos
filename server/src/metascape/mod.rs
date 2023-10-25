@@ -1,145 +1,63 @@
-mod connection;
-
 use super::*;
-use connection::*;
 
 type Fleets = IndexMap<FleetId, Fleet, RandomState>;
 type Factions = IndexMap<FactionId, Faction, RandomState>;
-type Clients = IndexMap<ClientId, Client, RandomState>;
-type Connections = IndexMap<ClientId, Connection, RandomState>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct MetascapeId(pub u32);
 
 pub struct Metascape {
-    time_total: f64,
+    pub time_total: f64,
 
     next_fleet_id: FleetId,
     next_faction_id: FactionId,
-    next_client_id: ClientId,
 
-    fleets: Fleets,
+    pub fleets: Fleets,
     factions: Factions,
-    clients: Clients,
-    connections: Connections,
-
-    connection_receiver: std::sync::mpsc::Receiver<Connection>,
 }
 impl Metascape {
-    pub async fn start() {
-        let connection_receiver = connection::start_server_loop().await;
-
+    pub fn new() -> Self {
+        // TODO: Load from somewhere?
         Self {
             time_total: 0.0,
 
             next_fleet_id: FleetId(0),
             next_faction_id: FactionId(0),
-            next_client_id: ClientId(0),
 
             fleets: Default::default(),
             factions: Default::default(),
-            clients: Default::default(),
-            connections: Default::default(),
-
-            connection_receiver,
         }
-        .run();
     }
 
-    fn run(mut self) {
-        self.fleets.insert(
-            FleetId(123),
-            Fleet {
-                faction_id: FactionId(0),
-                position: Vector2::new(0.0, 0.0),
-                velocity: Vector2::new(10.0, 10.0),
-                acceleration: 100.0,
-                max_velocity: 100.0,
-                wish_movement: None,
-            },
-        );
-
-        std::thread::spawn(move || {
-            let mut now = std::time::Instant::now();
-            loop {
-                self.step(now.elapsed().as_secs_f32());
-                now = std::time::Instant::now();
-                // TODO: Use a better sleep method.
-                std::thread::sleep(std::time::Duration::from_millis(100));
+    pub fn handle_command(&mut self, cmd: MetascapeCommand) {
+        match cmd {
+            MetascapeCommand::MoveFleet {
+                fleet_id,
+                wish_position,
+            } => {
+                // TODO: Check for NaN/infinity
+                if let Some(fleet) = self.fleets.get_mut(&fleet_id) {
+                    fleet.wish_movement = Some(wish_position);
+                }
             }
-        });
+        }
     }
 
     pub fn step(&mut self, delta: f32) {
         self.time_total += delta as f64;
 
-        // Handle new connection.
-        for new_connection in self.connection_receiver.try_iter() {
-            log::debug!("{:?} connected", new_connection.client_id);
-            self.connections
-                .insert(new_connection.client_id, new_connection);
-        }
-
-        // Handle client packets.
-        let mut i = 0usize;
-        while i < self.connections.len() {
-            let connection = &mut self.connections[i];
-
-            while let Some(packet) = connection.recv() {
-                match packet {
-                    ClientPacket::MoveFleet {
-                        fleet_id,
-                        wish_position,
-                    } => {
-                        // TODO: Check for NaN/infinity
-                        if let Some(fleet) = self.fleets.get_mut(&fleet_id) {
-                            fleet.wish_movement = Some(wish_position);
-                        }
-                    }
-                }
-            }
-
-            // Remove disconnected clients.
-            if connection.disconnected {
-                log::debug!("{:?} disconnected", connection.client_id);
-                self.connections.swap_remove_index(i);
-            } else {
-                i += 1;
-            }
-        }
-
         for fleet in self.fleets.values_mut() {
             fleet.update(delta);
-        }
-
-        // Send server packets.
-        for connection in self.connections.values_mut() {
-            let remove_fleets = Vec::new();
-            let mut partial_fleets_info = Vec::new();
-            let full_fleets_info = Vec::new();
-            let mut positions = Vec::new();
-            for (&fleet_id, fleet) in self.fleets.iter() {
-                positions.push((fleet_id, fleet.position));
-
-                let known_fleet = connection.knows_fleets.entry(fleet_id).or_insert_with(|| {
-                    partial_fleets_info.push((fleet_id, 1));
-                    KnownFleet { full_info: false }
-                });
-            }
-
-            connection.send(ServerPacket::State {
-                time: self.time_total,
-                partial_fleets_info,
-                full_fleets_info,
-                positions,
-                remove_fleets,
-            });
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ClientId(pub u64);
-
-struct Client {
-    fleets: AHashSet<FleetId>,
+#[derive(Debug)]
+pub enum MetascapeCommand {
+    MoveFleet {
+        fleet_id: FleetId,
+        wish_position: Vector2<f32>,
+    },
 }
 
 /// Highest bit used to indicate standing with neutral.
@@ -181,10 +99,10 @@ struct Faction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct FleetId(pub u64);
 
-struct Fleet {
+pub struct Fleet {
     faction_id: FactionId,
 
-    position: Vector2<f32>,
+    pub position: Vector2<f32>,
     velocity: Vector2<f32>,
 
     acceleration: f32,
