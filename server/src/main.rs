@@ -1,61 +1,64 @@
+mod battlescape;
+mod central_server;
+mod connection;
+mod instance_server;
+mod logger;
+mod metascape;
+
 use ahash::{AHashMap, AHashSet, RandomState};
 use battlescape::entity::{EntityData, EntityDataId};
+use connection::*;
 use indexmap::IndexMap;
 use rand::prelude::*;
 use rapier2d::na::{self, Vector2};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
-mod battlescape;
-mod central_server;
-mod logger;
-mod metascape;
+static mut TOKIO: Option<tokio::runtime::Runtime> = None;
+fn tokio() -> &'static mut tokio::runtime::Runtime {
+    unsafe { TOKIO.as_mut().unwrap() }
+}
 
-#[tokio::main]
-async fn main() {
+fn main() {
     logger::Logger::init();
 
     EntityData::set_data(vec![EntityData::default()]);
 
-    central_server::CentralServer::start().await;
-
-    let mut simulation = battlescape::Battlescape::new();
-    simulation.spawn_entity(EntityDataId(0), Default::default());
-
-    loop {
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-        // simulation.step();
-        // let Packet = serde_json::to_string(&Packet {
-        //     time: simulation.tick,
-        //     entities: simulation
-        //         .entities
-        //         .iter()
-        //         .map(|(entity_id, entity)| {
-        //             let position = simulation.physics.bodies[entity.rb].position();
-        //             EntityPacket {
-        //                 entity_id: entity_id.0,
-        //                 entity_data_id: entity.entity_data_id.0,
-        //                 translation: position.translation.vector.into(),
-        //                 angle: position.rotation.angle(),
-        //             }
-        //         })
-        //         .collect(),
-        // })
-        // .unwrap();
+    #[cfg(all(feature = "instance_server", feature = "central_server"))]
+    unsafe {
+        TOKIO = Some(
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap(),
+        );
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            instance_server::InstanceServer::start();
+        });
+        central_server::CentralServer::start();
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Packet {
-    time: u64,
-    entities: Vec<EntityPacket>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct EntityPacket {
-    entity_id: u64,
-    entity_data_id: u32,
-    translation: [f32; 2],
-    angle: f32,
+    #[cfg(feature = "instance_server")]
+    #[cfg(not(feature = "central_server"))]
+    unsafe {
+        TOKIO = Some(
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .worker_threads(1)
+                .build()
+                .unwrap(),
+        );
+        instance_server::InstanceServer::start();
+    }
+    #[cfg(feature = "central_server")]
+    #[cfg(not(feature = "instance_server"))]
+    unsafe {
+        TOKIO = Some(
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap(),
+        );
+        central_server::CentralServer::start();
+    }
 }

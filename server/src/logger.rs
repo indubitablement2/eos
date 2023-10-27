@@ -16,7 +16,7 @@ impl log::Log for Logger {
         }
 
         println!(
-            "{} {}:{} {}",
+            "{} {}:{} - {}",
             record.level(),
             record.file().unwrap_or(""),
             record.line().unwrap_or(0),
