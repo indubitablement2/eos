@@ -54,10 +54,18 @@ impl CentralServer {
             self.next_metascape_id.0 += 1;
         }
 
-        let mut interval = Box::pin(tokio::time::interval(TICK_DURATION));
+        let mut last_step = std::time::Instant::now();
         loop {
-            tokio().block_on(interval.tick());
-            self.step(0.1);
+            let elapsed = last_step.elapsed();
+            if let Some(remaining) = TICK_DURATION.checked_sub(elapsed) {
+                std::thread::sleep(remaining);
+            }
+
+            self.step(last_step.elapsed().as_secs_f32().clamp(
+                TICK_DURATION.as_secs_f32() * 0.8,
+                TICK_DURATION.as_secs_f32() * 1.4,
+            ));
+            last_step = std::time::Instant::now();
         }
     }
 

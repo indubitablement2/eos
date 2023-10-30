@@ -1,7 +1,7 @@
 use super::*;
 use battlescape::*;
 
-const TICK_DURATION: std::time::Duration = std::time::Duration::from_millis(50);
+const TICK_DURATION: f64 = 1.0 / 24.0;
 
 pub struct InstanceServer {
     central_server_connection: Connection,
@@ -20,10 +20,28 @@ impl InstanceServer {
     fn run(mut self) {
         log::info!("Instance server started");
 
-        let mut interval = tokio::time::interval(TICK_DURATION);
+        let mut now = std::time::Instant::now();
+        let mut sim_time = 0.0f64;
+        let mut real_time = 0.0f64;
         loop {
-            tokio().block_on(interval.tick());
+            real_time += now.elapsed().as_secs_f64();
+            now = std::time::Instant::now();
+
+            let dif = sim_time - real_time;
+            if dif < -TICK_DURATION * 4.0 {
+                log::warn!("Instance server is lagging behind by {} seconds", -dif);
+                real_time = sim_time + TICK_DURATION * 4.0;
+            } else if dif > 0.001 {
+                std::thread::sleep(std::time::Duration::from_secs_f64(dif));
+            }
+
+            self.step();
+            sim_time += TICK_DURATION;
         }
+    }
+
+    fn step(&mut self) {
+        //
     }
 }
 
