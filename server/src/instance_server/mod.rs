@@ -2,14 +2,14 @@ use super::*;
 use battlescape::*;
 
 pub struct InstanceServer {
-    central_server_connection: Connection<CentralServerPacket, InstanceServerPacket>,
+    central_server_connection: Connection,
     // TODO: Client connections
     battlescapes: Option<Battlescape>,
 }
 impl InstanceServer {
     pub fn start() {
         Self {
-            central_server_connection: tokio().block_on(Connection::connect_instance_to_central()),
+            central_server_connection: Connection::connect_blocking(CENTRAL_ADDR_INSTANCE),
             battlescapes: None,
         }
         .run();

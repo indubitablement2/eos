@@ -14,12 +14,11 @@ pub struct CentralServer {
     next_client_id: ClientId,
     clients: IndexMap<ClientId, Client, RandomState>,
 
-    client_connection_receiver: std::sync::mpsc::Receiver<Connection<ClientPacket, ServerPacket>>,
-    client_login_connections: Vec<Connection<ClientPacket, ServerPacket>>,
+    client_connection_receiver: std::sync::mpsc::Receiver<Connection>,
+    client_login_connections: Vec<Connection>,
     client_connections: IndexMap<ClientId, ClientConnection, RandomState>,
 
-    instance_connection_receiver:
-        std::sync::mpsc::Receiver<Connection<InstanceServerPacket, CentralServerPacket>>,
+    instance_connection_receiver: std::sync::mpsc::Receiver<Connection>,
     // instance_connections: IndexMap<ClientId, ClientConnection, RandomState>,
 }
 impl CentralServer {
@@ -31,11 +30,11 @@ impl CentralServer {
             next_client_id: ClientId(0),
             clients: Default::default(),
 
-            client_connection_receiver: tokio().block_on(Connection::bind_central_client()),
+            client_connection_receiver: Connection::bind_blocking(CENTRAL_ADDR_CLIENT),
             client_login_connections: Default::default(),
             client_connections: Default::default(),
 
-            instance_connection_receiver: tokio().block_on(Connection::bind_central_instance()),
+            instance_connection_receiver: Connection::bind_blocking(CENTRAL_ADDR_INSTANCE),
         }
         .run();
     }

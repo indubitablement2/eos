@@ -3,7 +3,7 @@ use bytes::{Buf, BufMut};
 
 pub struct ClientConnection {
     pub client_id: ClientId,
-    pub connection: Connection<ClientPacket, ServerPacket>,
+    pub connection: Connection,
 
     pub knows_fleets: AHashMap<FleetId, KnownFleet>,
     pub view: (MetascapeId, Vector2<f32>),

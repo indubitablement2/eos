@@ -2,6 +2,7 @@ mod battlescape;
 mod central_server;
 mod connection;
 mod instance_server;
+mod interval;
 mod logger;
 mod metascape;
 
