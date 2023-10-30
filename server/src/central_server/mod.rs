@@ -7,6 +7,8 @@ use client::*;
 use client_connection::*;
 use metascape::*;
 
+const TICK_DURATION: std::time::Duration = std::time::Duration::from_millis(100);
+
 pub struct CentralServer {
     next_metascape_id: MetascapeId,
     metascapes: AHashMap<MetascapeId, Metascape>,
@@ -49,12 +51,10 @@ impl CentralServer {
             self.next_metascape_id.0 += 1;
         }
 
-        let mut now = std::time::Instant::now();
+        let mut interval = tokio::time::interval(TICK_DURATION);
         loop {
-            self.step(now.elapsed().as_secs_f32());
-            now = std::time::Instant::now();
-            // TODO: Use a better sleep method.
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            tokio().block_on(interval.tick());
+            self.step(0.1);
         }
     }
 

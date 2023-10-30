@@ -1,6 +1,8 @@
 use super::*;
 use battlescape::*;
 
+const TICK_DURATION: std::time::Duration = std::time::Duration::from_millis(50);
+
 pub struct InstanceServer {
     central_server_connection: Connection,
     // TODO: Client connections
@@ -17,6 +19,11 @@ impl InstanceServer {
 
     fn run(mut self) {
         log::info!("Instance server started");
+
+        let mut interval = tokio::time::interval(TICK_DURATION);
+        loop {
+            tokio().block_on(interval.tick());
+        }
     }
 }
 
