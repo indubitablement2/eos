@@ -8,6 +8,16 @@ pub struct ClientConnection {
     pub knows_fleets: AHashMap<FleetId, KnownFleet>,
     pub view: (MetascapeId, Vector2<f32>),
 }
+impl ClientConnection {
+    pub fn new(connection: Connection, client_id: ClientId) -> Self {
+        Self {
+            client_id,
+            connection,
+            knows_fleets: Default::default(),
+            view: (MetascapeId(1), Vector2::zeros()),
+        }
+    }
+}
 
 pub struct KnownFleet {
     pub full_info: bool,
@@ -99,7 +109,6 @@ impl SerializePacket for ServerPacket {
 
 #[derive(Debug)]
 pub enum ClientPacket {
-    Login(LoginPacket),
     MetascapeCommand {
         metascape_id: MetascapeId,
         cmd: MetascapeCommand,
@@ -114,14 +123,7 @@ impl DeserializePacket for ClientPacket {
         let packet_id = buf.get_u32_le();
 
         match packet_id {
-            0 => match serde_json::from_slice(buf) {
-                Ok(login_packet) => Some(Self::Login(login_packet)),
-                Err(err) => {
-                    log::debug!("Invalid LoginPacket: {}", err);
-                    None
-                }
-            },
-            1 => {
+            0 => {
                 if buf.remaining() < 8 {
                     log::debug!("Invalid packet size for MetascapeCommand");
                     return None;
@@ -169,4 +171,15 @@ impl DeserializePacket for ClientPacket {
 pub struct LoginPacket {
     pub username: Option<String>,
     pub password: Option<String>,
+}
+impl DeserializePacket for LoginPacket {
+    fn deserialize(packet: &[u8]) -> Option<Self> {
+        match serde_json::from_slice(packet) {
+            Ok(packet) => Some(packet),
+            Err(err) => {
+                log::debug!("Failed to deserialize LoginPacket: {}", err);
+                None
+            }
+        }
+    }
 }

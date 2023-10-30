@@ -1,6 +1,8 @@
 mod client;
 pub mod client_connection;
+pub mod instance_connection;
 
+use self::instance_connection::*;
 use super::*;
 use crate::instance_server::*;
 use client::*;
@@ -21,7 +23,7 @@ pub struct CentralServer {
     client_connections: IndexMap<ClientId, ClientConnection, RandomState>,
 
     instance_connection_receiver: std::sync::mpsc::Receiver<Connection>,
-    // instance_connections: IndexMap<ClientId, ClientConnection, RandomState>,
+    instance_connections: Vec<InstanceConnection>,
 }
 impl CentralServer {
     pub fn start() {
@@ -37,6 +39,7 @@ impl CentralServer {
             client_connections: Default::default(),
 
             instance_connection_receiver: Connection::bind_blocking(CENTRAL_ADDR_INSTANCE),
+            instance_connections: Default::default(),
         }
         .run();
     }
@@ -51,7 +54,7 @@ impl CentralServer {
             self.next_metascape_id.0 += 1;
         }
 
-        let mut interval = tokio::time::interval(TICK_DURATION);
+        let mut interval = Box::pin(tokio::time::interval(TICK_DURATION));
         loop {
             tokio().block_on(interval.tick());
             self.step(0.1);
@@ -59,13 +62,40 @@ impl CentralServer {
     }
 
     fn step(&mut self, delta: f32) {
+        // Handle new instance connection.
+        for new_connection in self.instance_connection_receiver.try_iter() {
+            log::debug!("New connection from instance at {}", new_connection.address);
+            self.instance_connections
+                .push(InstanceConnection::new(new_connection));
+        }
+
         // Handle new connection.
         for new_connection in self.client_connection_receiver.try_iter() {
             log::debug!("New connection from client at {}", new_connection.address);
             self.client_login_connections.push(new_connection);
         }
 
-        // TODO: Handle logins.
+        // Handle logins.
+        let mut i = 0usize;
+        while i < self.client_login_connections.len() {
+            let connection = &mut self.client_login_connections[i];
+
+            if let Some(login_packet) = connection.recv::<LoginPacket>() {
+                log::debug!("Received {:?}", login_packet);
+
+                // TODO: Handle logins.
+                let client_id = ClientId(123);
+
+                let connection = self.client_login_connections.swap_remove(i);
+                self.client_connections
+                    .insert(client_id, ClientConnection::new(connection, client_id));
+            } else if connection.disconnected {
+                log::debug!("Client at {} disconnected before login", connection.address);
+                self.client_login_connections.swap_remove(i);
+            } else {
+                i += 1;
+            }
+        }
 
         // Handle client packets.
         let mut i = 0usize;
@@ -78,9 +108,6 @@ impl CentralServer {
                         if let Some(metascape) = self.metascapes.get_mut(&metascape_id) {
                             metascape.handle_command(cmd);
                         }
-                    }
-                    ClientPacket::Login(_) => {
-                        connection.connection.disconnected = true;
                     }
                 }
             }
