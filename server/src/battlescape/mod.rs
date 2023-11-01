@@ -11,11 +11,13 @@ use rapier2d::prelude::*;
 type SimRng = rand_xoshiro::Xoshiro128StarStar;
 type Entities = IndexMap<EntityId, Entity, RandomState>;
 
-pub const DT: f32 = 1.0 / 10.0;
-pub const DT_MS: u64 = 100;
+pub const DT: f32 = 1.0 / 24.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct EntityId(pub u64);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct BattlescapeId(pub u64);
 
 #[derive(Serialize, Deserialize)]
 pub struct Battlescape {
@@ -88,7 +90,7 @@ impl Battlescape {
     pub fn spawn_entity(
         &mut self,
         entity_data_id: EntityDataId,
-        position: na::Isometry2<f32>,
+        position: Isometry2<f32>,
     ) -> (EntityId, usize) {
         let entity_id = self.next_entity_id;
         self.next_entity_id.0 += 1;

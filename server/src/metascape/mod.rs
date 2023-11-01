@@ -1,4 +1,5 @@
 use super::*;
+use crate::central_server::client::ClientId;
 
 type Fleets = IndexMap<FleetId, Fleet, RandomState>;
 type Factions = IndexMap<FactionId, Faction, RandomState>;
@@ -29,16 +30,28 @@ impl Metascape {
         }
     }
 
-    pub fn handle_command(&mut self, cmd: MetascapeCommand) {
-        match cmd {
-            MetascapeCommand::MoveFleet {
-                fleet_id,
-                wish_position,
-            } => {
-                // TODO: Check for NaN/infinity
-                if let Some(fleet) = self.fleets.get_mut(&fleet_id) {
-                    fleet.wish_movement = Some(wish_position);
-                }
+    pub fn client_move_fleet(
+        &mut self,
+        client_id: ClientId,
+        fleet_id: FleetId,
+        wish_position: Vector2<f32>,
+    ) {
+        if let Some(fleet) = self.fleets.get_mut(&fleet_id) {
+            if fleet.owner != Some(client_id) {
+                log::debug!(
+                    "{:?} tried to move {:?} but it's not his",
+                    client_id,
+                    fleet_id
+                );
+            } else if wish_position.x.is_finite() && wish_position.y.is_finite() {
+                fleet.wish_movement = Some(wish_position);
+            } else {
+                log::debug!(
+                    "{:?} tried to move {:?} to {:?} but it's not finite",
+                    client_id,
+                    fleet_id,
+                    wish_position
+                );
             }
         }
     }
@@ -50,14 +63,6 @@ impl Metascape {
             fleet.update(delta);
         }
     }
-}
-
-#[derive(Debug)]
-pub enum MetascapeCommand {
-    MoveFleet {
-        fleet_id: FleetId,
-        wish_position: Vector2<f32>,
-    },
 }
 
 /// Highest bit used to indicate standing with neutral.
@@ -100,6 +105,8 @@ struct Faction {
 pub struct FleetId(pub u64);
 
 pub struct Fleet {
+    pub owner: Option<ClientId>,
+
     faction_id: FactionId,
 
     pub position: Vector2<f32>,

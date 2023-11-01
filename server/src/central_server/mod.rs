@@ -1,9 +1,10 @@
-mod client;
+pub mod client;
 pub mod client_connection;
 pub mod instance_connection;
 
 use self::instance_connection::*;
 use super::*;
+use crate::battlescape::BattlescapeId;
 use crate::instance_server::*;
 use client::*;
 use client_connection::*;
@@ -14,6 +15,11 @@ const TICK_DURATION: std::time::Duration = std::time::Duration::from_millis(100)
 pub struct CentralServer {
     next_metascape_id: MetascapeId,
     metascapes: AHashMap<MetascapeId, Metascape>,
+
+    next_battlescape_id: BattlescapeId,
+    // TODO: Simulated/instance battlescape.
+    // TODO: Battlescape state.
+    battlescapes: AHashMap<BattlescapeId, ()>,
 
     next_client_id: ClientId,
     clients: IndexMap<ClientId, Client, RandomState>,
@@ -31,7 +37,7 @@ impl CentralServer {
             next_metascape_id: MetascapeId(1),
             metascapes: Default::default(),
 
-            next_client_id: ClientId(0),
+            next_client_id: ClientId(1),
             clients: Default::default(),
 
             client_connection_receiver: Connection::bind_blocking(CENTRAL_ADDR_CLIENT),
@@ -40,6 +46,9 @@ impl CentralServer {
 
             instance_connection_receiver: Connection::bind_blocking(CENTRAL_ADDR_INSTANCE),
             instance_connections: Default::default(),
+
+            next_battlescape_id: BattlescapeId(1),
+            battlescapes: Default::default(),
         }
         .run();
     }
@@ -77,6 +86,29 @@ impl CentralServer {
                 .push(InstanceConnection::new(new_connection));
         }
 
+        // Handle instance packets.
+        for instance in self.instance_connections.iter_mut() {
+            while let Some(packet) = instance.connection.recv::<InstanceCentralPacket>() {
+                match packet {
+                    InstanceCentralPacket::AuthClient(auth) => {
+                        let success = self.client_connections.get(&auth.client_id).is_some_and(
+                            |connection| {
+                                if connection.token == auth.token {
+                                    // TODO: Remove client from other battlescape (if any).
+                                    true
+                                } else {
+                                    false
+                                }
+                            },
+                        );
+                        instance
+                            .connection
+                            .send(CentralInstancePacket::AuthClientResponse { auth, success });
+                    }
+                }
+            }
+        }
+
         // Handle new connection.
         for new_connection in self.client_connection_receiver.try_iter() {
             log::debug!("New connection from client at {}", new_connection.address);
@@ -95,8 +127,14 @@ impl CentralServer {
                 let client_id = ClientId(123);
 
                 let connection = self.client_login_connections.swap_remove(i);
-                self.client_connections
-                    .insert(client_id, ClientConnection::new(connection, client_id));
+                let mut connection = ClientConnection::new(connection, client_id);
+
+                connection.connection.send(ServerPacket::LoginResponse {
+                    token: connection.token,
+                    success: true,
+                });
+
+                self.client_connections.insert(client_id, connection);
             } else if connection.disconnected {
                 log::debug!("Client at {} disconnected before login", connection.address);
                 self.client_login_connections.swap_remove(i);
@@ -112,10 +150,44 @@ impl CentralServer {
 
             while let Some(packet) = connection.connection.recv() {
                 match packet {
-                    ClientPacket::MetascapeCommand { metascape_id, cmd } => {
+                    ClientPacket::MoveFleet {
+                        metascape_id,
+                        fleet_id,
+                        wish_position,
+                    } => {
                         if let Some(metascape) = self.metascapes.get_mut(&metascape_id) {
-                            metascape.handle_command(cmd);
+                            metascape.client_move_fleet(
+                                connection.client_id,
+                                fleet_id,
+                                wish_position,
+                            );
+                        } else {
+                            log::debug!(
+                                "Client {:?} tried to move fleet {:?} on unknown metascape {:?}",
+                                connection.client_id,
+                                fleet_id,
+                                metascape_id
+                            );
                         }
+                    }
+                    ClientPacket::CreatePracticeBattlescape => {
+                        // TODO: Take less busy instance / closest to client.
+                        let battlescape_id = self.next_battlescape_id;
+                        self.next_battlescape_id.0 += 1;
+
+                        let instance = &mut self.instance_connections[0];
+
+                        self.battlescapes
+                            .insert(battlescape_id, instance.create_battlescape(battlescape_id));
+
+                        connection.view = ClientView::Battlescape { battlescape_id };
+
+                        connection
+                            .connection
+                            .send(ServerPacket::PracticeBattlescapeCreated {
+                                battlescape_id,
+                                instance_addr: instance.connection.address.ip().to_string(),
+                            });
                     }
                 }
             }
@@ -135,29 +207,35 @@ impl CentralServer {
 
         // Send server packets.
         for connection in self.client_connections.values_mut() {
-            if let Some(metascape) = self.metascapes.get(&connection.view.0) {
-                let remove_fleets = Vec::new();
-                let mut partial_fleets_info = Vec::new();
-                let full_fleets_info = Vec::new();
-                let mut positions = Vec::new();
-                for (&fleet_id, fleet) in metascape.fleets.iter() {
-                    positions.push((fleet_id, fleet.position));
+            if let ClientView::Metascape {
+                metascape_id,
+                fleet,
+                knows_fleets,
+            } = &mut connection.view
+            {
+                if let Some(metascape) = self.metascapes.get(&metascape_id) {
+                    let remove_fleets = Vec::new();
+                    let mut partial_fleets_info = Vec::new();
+                    let full_fleets_info = Vec::new();
+                    let mut positions = Vec::new();
+                    for (&fleet_id, fleet) in metascape.fleets.iter() {
+                        positions.push((fleet_id, fleet.position));
 
-                    let known_fleet =
-                        connection.knows_fleets.entry(fleet_id).or_insert_with(|| {
+                        let known_fleet = knows_fleets.entry(fleet_id).or_insert_with(|| {
                             partial_fleets_info.push((fleet_id, 1));
                             KnownFleet { full_info: false }
                         });
-                    // TODO: Maybe send full info.
-                }
+                        // TODO: Maybe send full info.
+                    }
 
-                connection.connection.send(ServerPacket::State {
-                    time: metascape.time_total,
-                    partial_fleets_info,
-                    full_fleets_info,
-                    positions,
-                    remove_fleets,
-                });
+                    connection.connection.send(ServerPacket::State {
+                        time: metascape.time_total,
+                        partial_fleets_info,
+                        full_fleets_info,
+                        positions,
+                        remove_fleets,
+                    });
+                }
             }
         }
     }

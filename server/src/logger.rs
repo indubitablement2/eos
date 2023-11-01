@@ -2,6 +2,7 @@ pub struct Logger;
 impl Logger {
     pub fn init() {
         log::set_logger(&LOGGER).unwrap();
+        // Use cargo features to set log level.
         log::set_max_level(log::LevelFilter::Trace);
     }
 }

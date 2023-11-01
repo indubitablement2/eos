@@ -7,10 +7,11 @@ mod metascape;
 
 use ahash::{AHashMap, AHashSet, RandomState};
 use battlescape::entity::{EntityData, EntityDataId};
+use central_server::client::ClientId;
 use connection::*;
 use indexmap::IndexMap;
 use rand::prelude::*;
-use rapier2d::na::{self, Vector2};
+use rapier2d::na::{self, Isometry2, Vector2};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
@@ -18,6 +19,12 @@ static mut TOKIO: Option<tokio::runtime::Runtime> = None;
 fn tokio() -> &'static mut tokio::runtime::Runtime {
     unsafe { TOKIO.as_mut().unwrap() }
 }
+
+// // TODO: Client can ask central to create a practice bc
+// // central ask an instance to create the bc
+// // client is notified of the instance addr
+// // instance send packet to clients to connect to it
+// (add a few ship to the bc)
 
 fn main() {
     logger::Logger::init();

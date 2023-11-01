@@ -2,17 +2,24 @@ use super::*;
 use futures_util::{SinkExt, StreamExt};
 use std::net::SocketAddr;
 
-/// Address for the instance servers to connect to.
+/// Address for the clients to connect to the central server.
+pub const CENTRAL_ADDR_CLIENT: SocketAddr = SocketAddr::V6(std::net::SocketAddrV6::new(
+    std::net::Ipv6Addr::LOCALHOST,
+    8461,
+    0,
+    0,
+));
+/// Address for the instance servers to connect to the central server.
 pub const CENTRAL_ADDR_INSTANCE: SocketAddr = SocketAddr::V6(std::net::SocketAddrV6::new(
     std::net::Ipv6Addr::LOCALHOST,
     12461,
     0,
     0,
 ));
-/// Address for the clients to connect to.
-pub const CENTRAL_ADDR_CLIENT: SocketAddr = SocketAddr::V6(std::net::SocketAddrV6::new(
+/// Address for the client to connect to the instance servers.
+pub const INSTANCE_ADDR_CLIENT: SocketAddr = SocketAddr::V6(std::net::SocketAddrV6::new(
     std::net::Ipv6Addr::LOCALHOST,
-    8461,
+    7245,
     0,
     0,
 ));

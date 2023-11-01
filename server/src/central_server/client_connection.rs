@@ -4,21 +4,36 @@ use bytes::{Buf, BufMut};
 pub struct ClientConnection {
     pub client_id: ClientId,
     pub connection: Connection,
+    pub token: u64,
 
-    pub knows_fleets: AHashMap<FleetId, KnownFleet>,
-    pub view: (MetascapeId, Vector2<f32>),
+    pub view: ClientView,
 }
 impl ClientConnection {
     pub fn new(connection: Connection, client_id: ClientId) -> Self {
         Self {
             client_id,
             connection,
-            knows_fleets: Default::default(),
-            view: (MetascapeId(1), Vector2::zeros()),
+            token: random(),
+            view: Default::default(),
         }
     }
 }
 
+#[derive(Debug, Default)]
+pub enum ClientView {
+    #[default]
+    None,
+    Metascape {
+        metascape_id: MetascapeId,
+        fleet: FleetId,
+        knows_fleets: AHashMap<FleetId, KnownFleet>,
+    },
+    Battlescape {
+        battlescape_id: BattlescapeId,
+    },
+}
+
+#[derive(Debug, Default)]
 pub struct KnownFleet {
     pub full_info: bool,
 }
@@ -26,8 +41,8 @@ pub struct KnownFleet {
 #[derive(Debug)]
 pub enum ServerPacket {
     LoginResponse {
+        token: u64,
         success: bool,
-        reason: Option<String>,
     },
     State {
         time: f64,
@@ -36,23 +51,20 @@ pub enum ServerPacket {
         positions: Vec<(FleetId, Vector2<f32>)>,
         remove_fleets: Vec<FleetId>,
     },
+    PracticeBattlescapeCreated {
+        battlescape_id: BattlescapeId,
+        instance_addr: String,
+    },
 }
 impl SerializePacket for ServerPacket {
     fn serialize(self) -> Vec<u8> {
         let mut buf = Vec::new();
 
         match self {
-            ServerPacket::LoginResponse { success, reason } => {
-                buf.reserve_exact(
-                    4 + 4 + reason.as_ref().map(|reason| reason.len() + 4).unwrap_or(0),
-                );
-
-                buf.put_u32_le(0);
+            ServerPacket::LoginResponse { token, success } => {
+                buf.reserve_exact(8 + 4);
+                buf.put_u64_le(token);
                 buf.put_u32_le(success as u32);
-                if let Some(reason) = reason {
-                    buf.put_u32_le(reason.len() as u32);
-                    buf.put(reason.as_bytes());
-                }
             }
             ServerPacket::State {
                 time,
@@ -101,6 +113,16 @@ impl SerializePacket for ServerPacket {
                     buf.put_u64_le(id.0);
                 }
             }
+            ServerPacket::PracticeBattlescapeCreated {
+                battlescape_id,
+                instance_addr,
+            } => {
+                buf.reserve_exact(4 + 8 + instance_addr.len());
+
+                buf.put_u32_le(2);
+                buf.put_u64_le(battlescape_id.0);
+                buf.put(instance_addr.as_bytes());
+            }
         }
 
         buf
@@ -109,10 +131,17 @@ impl SerializePacket for ServerPacket {
 
 #[derive(Debug)]
 pub enum ClientPacket {
-    MetascapeCommand {
+    // 4 packet_id
+    // 4 metascape_id
+    // 8 fleet_id
+    // 8 wish_position
+    MoveFleet {
         metascape_id: MetascapeId,
-        cmd: MetascapeCommand,
+        fleet_id: FleetId,
+        wish_position: Vector2<f32>,
     },
+    // 4 packet_id
+    CreatePracticeBattlescape,
 }
 impl DeserializePacket for ClientPacket {
     fn deserialize(mut buf: &[u8]) -> Option<Self> {
@@ -124,41 +153,20 @@ impl DeserializePacket for ClientPacket {
 
         match packet_id {
             0 => {
-                if buf.remaining() < 8 {
-                    log::debug!("Invalid packet size for MetascapeCommand");
+                if buf.remaining() < 4 + 8 + 8 {
+                    log::debug!("Invalid packet size for MoveFleet");
                     return None;
                 }
                 let metascape_id = MetascapeId(buf.get_u32_le());
-                let cmd_id = buf.get_u32_le();
-
-                match cmd_id {
-                    0 => {
-                        if buf.remaining() < 8 + 8 {
-                            log::debug!("Invalid packet size for MoveFleet");
-                            return None;
-                        }
-                        let fleet_id = FleetId(buf.get_u64_le());
-                        let wish_position = Vector2::new(buf.get_f32_le(), buf.get_f32_le());
-
-                        // 4 packet_id
-                        // 4 metascape_id
-                        // 4 cmd_id
-                        // 8 fleet_id
-                        // 8 wish_position
-                        Some(ClientPacket::MetascapeCommand {
-                            metascape_id,
-                            cmd: MetascapeCommand::MoveFleet {
-                                fleet_id,
-                                wish_position,
-                            },
-                        })
-                    }
-                    _ => {
-                        log::debug!("Invalid cmd id {}", cmd_id);
-                        None
-                    }
-                }
+                let fleet_id = FleetId(buf.get_u64_le());
+                let wish_position = Vector2::new(buf.get_f32_le(), buf.get_f32_le());
+                Some(Self::MoveFleet {
+                    metascape_id,
+                    fleet_id,
+                    wish_position,
+                })
             }
+            1 => Some(ClientPacket::CreatePracticeBattlescape),
             _ => {
                 log::debug!("Invalid packet id {}", packet_id);
                 None

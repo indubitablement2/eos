@@ -88,7 +88,7 @@ func send_move_fleet(fleet_id: int, to_position: Vector2) -> void:
 	buf.encode_u64(4, fleet_id)
 	buf.encode_float(12, to_position.x)
 	buf.encode_float(16, to_position.y)
-	ServerConnection.socket.send(buf, WebSocketPeer.WRITE_MODE_BINARY)
+	ServerConnection.central_socket.send(buf, WebSocketPeer.WRITE_MODE_BINARY)
 
 
 func _apply_state(state: PackedByteArray) -> void:
