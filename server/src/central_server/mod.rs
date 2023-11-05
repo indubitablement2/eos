@@ -1,242 +1,228 @@
-pub mod client;
-pub mod client_connection;
-pub mod instance_connection;
+mod client;
+mod client_connection;
 
-use self::instance_connection::*;
+use self::{client::Client, client_connection::*};
 use super::*;
-use crate::battlescape::BattlescapeId;
-use crate::instance_server::*;
-use client::*;
-use client_connection::*;
-use metascape::*;
+use atomic::AtomicU64;
+use central_client::*;
+use central_instance::*;
+use client_central::*;
+use instance_central::*;
 
-const TICK_DURATION: std::time::Duration = std::time::Duration::from_millis(100);
+struct State {
+    instances: RwLock<AHashMap<SocketAddr, Instance>>,
 
-pub struct CentralServer {
-    next_metascape_id: MetascapeId,
-    metascapes: AHashMap<MetascapeId, Metascape>,
-
-    next_battlescape_id: BattlescapeId,
-    // TODO: Simulated/instance battlescape.
-    // TODO: Battlescape state.
-    battlescapes: AHashMap<BattlescapeId, ()>,
-
-    next_client_id: ClientId,
-    clients: IndexMap<ClientId, Client, RandomState>,
-
-    client_connection_receiver: std::sync::mpsc::Receiver<Connection>,
-    client_login_connections: Vec<Connection>,
-    client_connections: IndexMap<ClientId, ClientConnection, RandomState>,
-
-    instance_connection_receiver: std::sync::mpsc::Receiver<Connection>,
-    instance_connections: Vec<InstanceConnection>,
+    next_client_id: AtomicU64,
+    clients: RwLock<AHashMap<ClientId, Client>>,
+    username: RwLock<AHashMap<String, ClientId>>,
+    client_connection: RwLock<AHashMap<ClientId, ClientConnection>>,
 }
-impl CentralServer {
-    pub fn start() {
-        Self {
-            next_metascape_id: MetascapeId(1),
-            metascapes: Default::default(),
 
-            next_client_id: ClientId(1),
+// TODO: Handle disconnect.
+struct Instance {
+    connection: ConnectionOutbound,
+}
+impl Instance {
+    pub fn send(&self, packet: CentralInstancePacket) {
+        self.connection.send(packet);
+    }
+}
+
+pub async fn _start() {
+    log::info!("Starting central server");
+
+    // TODO: Load state from file.
+    unsafe {
+        STATE = Some(State {
+            instances: Default::default(),
+
+            next_client_id: Default::default(),
             clients: Default::default(),
-
-            client_connection_receiver: Connection::bind_blocking(CENTRAL_ADDR_CLIENT),
-            client_login_connections: Default::default(),
-            client_connections: Default::default(),
-
-            instance_connection_receiver: Connection::bind_blocking(CENTRAL_ADDR_INSTANCE),
-            instance_connections: Default::default(),
-
-            next_battlescape_id: BattlescapeId(1),
-            battlescapes: Default::default(),
-        }
-        .run();
+            username: Default::default(),
+            client_connection: Default::default(),
+        });
     }
 
-    fn run(mut self) {
-        log::info!("Central server started");
-
-        // TODO: Remove this.
-        {
-            let metascape = Metascape::new();
-            self.metascapes.insert(self.next_metascape_id, metascape);
-            self.next_metascape_id.0 += 1;
+    // Instance connection.
+    let listener = tokio::net::TcpListener::bind(CENTRAL_ADDR_INSTANCE)
+        .await
+        .unwrap();
+    tokio::spawn(async move {
+        while let Ok((stream, addr)) = listener.accept().await {
+            tokio::spawn(handle_instance_connection(stream, addr));
         }
+    });
 
-        let mut last_step = std::time::Instant::now();
-        loop {
-            let elapsed = last_step.elapsed();
-            if let Some(remaining) = TICK_DURATION.checked_sub(elapsed) {
-                std::thread::sleep(remaining);
-            }
-
-            self.step(last_step.elapsed().as_secs_f32().clamp(
-                TICK_DURATION.as_secs_f32() * 0.8,
-                TICK_DURATION.as_secs_f32() * 1.4,
-            ));
-            last_step = std::time::Instant::now();
-        }
+    // Client connection.
+    let listener = tokio::net::TcpListener::bind(CENTRAL_ADDR_CLIENT)
+        .await
+        .unwrap();
+    log::info!("Central server started");
+    while let Ok((stream, address)) = listener.accept().await {
+        tokio::spawn(handle_client_connection(stream, address));
     }
 
-    fn step(&mut self, delta: f32) {
-        // Handle new instance connection.
-        for new_connection in self.instance_connection_receiver.try_iter() {
-            log::debug!("New connection from instance at {}", new_connection.address);
-            self.instance_connections
-                .push(InstanceConnection::new(new_connection));
-        }
+    log::info!("Central server stopped");
+}
 
-        // Handle instance packets.
-        for instance in self.instance_connections.iter_mut() {
-            while let Some(packet) = instance.connection.recv::<InstanceCentralPacket>() {
-                match packet {
-                    InstanceCentralPacket::AuthClient(auth) => {
-                        let success = self.client_connections.get(&auth.client_id).is_some_and(
-                            |connection| {
-                                if connection.token == auth.token {
-                                    // TODO: Remove client from other battlescape (if any).
-                                    true
-                                } else {
-                                    false
-                                }
-                            },
-                        );
-                        instance
-                            .connection
-                            .send(CentralInstancePacket::AuthClientResponse { auth, success });
-                    }
-                }
-            }
-        }
-
-        // Handle new connection.
-        for new_connection in self.client_connection_receiver.try_iter() {
-            log::debug!("New connection from client at {}", new_connection.address);
-            self.client_login_connections.push(new_connection);
-        }
-
-        // Handle logins.
-        let mut i = 0usize;
-        while i < self.client_login_connections.len() {
-            let connection = &mut self.client_login_connections[i];
-
-            if let Some(login_packet) = connection.recv::<LoginPacket>() {
-                log::debug!("Received {:?}", login_packet);
-
-                // TODO: Handle logins.
-                let client_id = ClientId(123);
-
-                let connection = self.client_login_connections.swap_remove(i);
-                let mut connection = ClientConnection::new(connection, client_id);
-
-                connection.connection.send(ServerPacket::LoginResponse {
-                    token: connection.token,
-                    success: true,
-                });
-
-                self.client_connections.insert(client_id, connection);
-            } else if connection.disconnected {
-                log::debug!("Client at {} disconnected before login", connection.address);
-                self.client_login_connections.swap_remove(i);
-            } else {
-                i += 1;
-            }
-        }
-
-        // Handle client packets.
-        let mut i = 0usize;
-        while i < self.client_connections.len() {
-            let connection = &mut self.client_connections[i];
-
-            while let Some(packet) = connection.connection.recv() {
-                match packet {
-                    ClientPacket::MoveFleet {
-                        metascape_id,
-                        fleet_id,
-                        wish_position,
-                    } => {
-                        if let Some(metascape) = self.metascapes.get_mut(&metascape_id) {
-                            metascape.client_move_fleet(
-                                connection.client_id,
-                                fleet_id,
-                                wish_position,
-                            );
-                        } else {
-                            log::debug!(
-                                "Client {:?} tried to move fleet {:?} on unknown metascape {:?}",
-                                connection.client_id,
-                                fleet_id,
-                                metascape_id
-                            );
-                        }
-                    }
-                    ClientPacket::CreatePracticeBattlescape => {
-                        // TODO: Take less busy instance / closest to client.
-                        let battlescape_id = self.next_battlescape_id;
-                        self.next_battlescape_id.0 += 1;
-
-                        let instance = &mut self.instance_connections[0];
-
-                        self.battlescapes
-                            .insert(battlescape_id, instance.create_battlescape(battlescape_id));
-
-                        connection.view = ClientView::Battlescape { battlescape_id };
-
-                        connection
-                            .connection
-                            .send(ServerPacket::PracticeBattlescapeCreated {
-                                battlescape_id,
-                                instance_addr: instance.connection.address.ip().to_string(),
-                            });
-                    }
-                }
-            }
-
-            // Remove disconnected clients.
-            if connection.connection.disconnected {
-                log::debug!("{:?} disconnected", connection.client_id);
-                self.client_connections.swap_remove_index(i);
-            } else {
-                i += 1;
-            }
-        }
-
-        for metascape in self.metascapes.values_mut() {
-            metascape.step(delta);
-        }
-
-        // Send server packets.
-        for connection in self.client_connections.values_mut() {
-            if let ClientView::Metascape {
-                metascape_id,
-                fleet,
-                knows_fleets,
-            } = &mut connection.view
+async fn handle_instance_packet(packet: InstanceCentralPacket, addr: SocketAddr) {
+    match packet {
+        InstanceCentralPacket::AuthClient { client_id, token } => {
+            let success = if let Some(connection) =
+                state().client_connection.read().unwrap().get(&client_id)
             {
-                if let Some(metascape) = self.metascapes.get(&metascape_id) {
-                    let remove_fleets = Vec::new();
-                    let mut partial_fleets_info = Vec::new();
-                    let full_fleets_info = Vec::new();
-                    let mut positions = Vec::new();
-                    for (&fleet_id, fleet) in metascape.fleets.iter() {
-                        positions.push((fleet_id, fleet.position));
+                connection.token == token
+            } else {
+                false
+            };
 
-                        let known_fleet = knows_fleets.entry(fleet_id).or_insert_with(|| {
-                            partial_fleets_info.push((fleet_id, 1));
-                            KnownFleet { full_info: false }
-                        });
-                        // TODO: Maybe send full info.
-                    }
-
-                    connection.connection.send(ServerPacket::State {
-                        time: metascape.time_total,
-                        partial_fleets_info,
-                        full_fleets_info,
-                        positions,
-                        remove_fleets,
-                    });
-                }
+            if let Some(instance) = state().instances.read().unwrap().get(&addr) {
+                instance.send(CentralInstancePacket::AuthClientResult {
+                    client_id,
+                    token,
+                    success,
+                });
             }
         }
     }
+}
+
+async fn handle_client_packet(packet: ClientCentralPacket, client_id: ClientId) {
+    match packet {
+        ClientCentralPacket::SendGlobalMessage { channel, message } => {
+            let packet = CentralClientPacket::GlobalMessage {
+                from: client_id,
+                channel,
+                message,
+            }
+            .serialize();
+            // TODO: Only send to client in same channel.
+            for connection in state().client_connection.read().unwrap().values() {
+                connection.send_raw(packet.clone());
+            }
+        }
+    }
+}
+
+async fn handle_client_connection(stream: tokio::net::TcpStream, address: SocketAddr) {
+    log::debug!("Client connection attempt: {}", address);
+
+    let Some((outbound, mut inbound)) = ConnectionOutbound::accept(stream).await else {
+        return;
+    };
+
+    let Some(login) = inbound.recv::<ClientCentralLoginPacket>().await else {
+        return;
+    };
+    log::debug!("{:?}", login);
+
+    // Verify login.
+    let client_id = if login.new_account {
+        if let Some((username, password)) = login.username.zip(login.password) {
+            let mut usernames = state().username.write().unwrap();
+
+            if usernames.contains_key(&username) {
+                log::debug!("Username already taken");
+                return;
+            }
+
+            let client_id = ClientId(
+                state()
+                    .next_client_id
+                    .fetch_add(1, atomic::Ordering::Relaxed),
+            );
+
+            usernames.insert(username, client_id);
+            drop(usernames);
+
+            let client = Client::new_password(password);
+            state().clients.write().unwrap().insert(client_id, client);
+
+            client_id
+        } else {
+            return;
+        }
+    } else {
+        if let Some((username, password)) = login.username.zip(login.password) {
+            let Some(client_id) = state().username.read().unwrap().get(&username).copied() else {
+                return;
+            };
+
+            if state()
+                .clients
+                .read()
+                .unwrap()
+                .get(&client_id)
+                .is_some_and(|client| client.verify_password(password.as_str()))
+            {
+                client_id
+            } else {
+                return;
+            }
+        } else {
+            // No other login method implemented.
+            log::debug!("Invalid login method: Only username+password implemented");
+            return;
+        }
+    };
+
+    let token = rand::random::<u64>();
+    outbound.send(CentralClientPacket::LoginSuccess { client_id, token });
+
+    state()
+        .client_connection
+        .write()
+        .unwrap()
+        .insert(client_id, ClientConnection::new(outbound, token));
+
+    // Handle packets
+    while let Some(packet) = inbound.recv().await {
+        handle_client_packet(packet, client_id).await;
+    }
+
+    state()
+        .client_connection
+        .write()
+        .unwrap()
+        .remove(&client_id);
+    log::debug!("{:?} disconnected", client_id);
+}
+
+async fn handle_instance_connection(stream: tokio::net::TcpStream, addr: SocketAddr) {
+    log::debug!("Instance connection attempt: {}", addr);
+
+    let Some((outbound, mut inbound)) = ConnectionOutbound::accept(stream).await else {
+        return;
+    };
+
+    // Authenticate instance.
+    let Some(login) = inbound.recv::<InstanceCentralLoginPacket>().await else {
+        return;
+    };
+    log::debug!("{:?}", login);
+    if login.private_key != PRIVATE_KEY {
+        log::debug!("Invalid private key");
+        return;
+    }
+    let login_result = CentralInstanceLoginResult { nothing: false };
+    log::info!("{:?}", login_result);
+    outbound.send(login_result);
+
+    state().instances.write().unwrap().insert(addr, {
+        Instance {
+            connection: outbound,
+        }
+    });
+
+    while let Some(packet) = inbound.recv::<InstanceCentralPacket>().await {
+        handle_instance_packet(packet, addr).await;
+    }
+
+    state().instances.write().unwrap().remove(&addr);
+    log::warn!("Instance disconnected: {}", addr);
+}
+
+static mut STATE: Option<State> = None;
+fn state() -> &'static mut State {
+    unsafe { STATE.as_mut().unwrap_unchecked() }
 }

@@ -3,69 +3,75 @@ mod central_server;
 mod connection;
 mod instance_server;
 mod logger;
-mod metascape;
 
 use ahash::{AHashMap, AHashSet, RandomState};
-use battlescape::entity::{EntityData, EntityDataId};
-use central_server::client::ClientId;
 use connection::*;
+// use battlescape::entity::{EntityData, EntityDataId};
 use indexmap::IndexMap;
 use rand::prelude::*;
 use rapier2d::na::{self, Isometry2, Vector2};
 use serde::{Deserialize, Serialize};
-use std::f32::consts::{FRAC_PI_2, PI, TAU};
+use std::sync::{atomic, Mutex, RwLock};
+use std::{
+    f32::consts::{FRAC_PI_2, PI, TAU},
+    net::SocketAddr,
+};
 
-static mut TOKIO: Option<tokio::runtime::Runtime> = None;
-fn tokio() -> &'static mut tokio::runtime::Runtime {
-    unsafe { TOKIO.as_mut().unwrap() }
-}
+const PRIVATE_KEY: u64 = const_random::const_random!(u64);
 
-// // TODO: Client can ask central to create a practice bc
-// // central ask an instance to create the bc
-// // client is notified of the instance addr
-// // instance send packet to clients to connect to it
-// (add a few ship to the bc)
+/// Address for the instance servers to connect to the central server.
+pub const CENTRAL_ADDR_INSTANCE: SocketAddr = SocketAddr::V6(std::net::SocketAddrV6::new(
+    std::net::Ipv6Addr::LOCALHOST,
+    12461,
+    0,
+    0,
+));
+/// Address for the clients to connect to the central server.
+pub const CENTRAL_ADDR_CLIENT: SocketAddr = SocketAddr::V6(std::net::SocketAddrV6::new(
+    std::net::Ipv6Addr::LOCALHOST,
+    8461,
+    0,
+    0,
+));
 
-fn main() {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct EntityId(pub u64);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct BattlescapeId(pub u64);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct ClientId(pub u64);
+
+#[tokio::main]
+async fn main() {
     logger::Logger::init();
 
-    EntityData::set_data(vec![EntityData::default()]);
+    log::debug!("{:x}", PRIVATE_KEY);
 
-    #[cfg(all(feature = "instance_server", feature = "central_server"))]
-    unsafe {
-        TOKIO = Some(
-            tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()
-                .unwrap(),
-        );
-        std::thread::spawn(|| {
-            std::thread::sleep(std::time::Duration::from_millis(200));
-            instance_server::InstanceServer::start();
-        });
-        central_server::CentralServer::start();
+    // EntityData::set_data(vec![EntityData::default()]);
+
+    let mut central = false;
+    let mut instance = false;
+    for arg in std::env::args() {
+        if &arg == "instance" {
+            instance = true;
+        } else if &arg == "central" {
+            central = true;
+        }
     }
-    #[cfg(feature = "instance_server")]
-    #[cfg(not(feature = "central_server"))]
-    unsafe {
-        TOKIO = Some(
-            tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .worker_threads(1)
-                .build()
-                .unwrap(),
-        );
-        instance_server::InstanceServer::start();
+    if !central && !instance {
+        log::warn!("No arguments specified, defaulting to 'instance' and 'central'");
+        central = true;
+        instance = true;
     }
-    #[cfg(feature = "central_server")]
-    #[cfg(not(feature = "instance_server"))]
-    unsafe {
-        TOKIO = Some(
-            tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()
-                .unwrap(),
-        );
-        central_server::CentralServer::start();
+
+    if central && instance {
+        tokio::spawn(instance_server::_start());
+        central_server::_start().await;
+    } else if central {
+        central_server::_start().await;
+    } else if instance {
+        instance_server::_start().await;
     }
 }

@@ -13,12 +13,6 @@ type Entities = IndexMap<EntityId, Entity, RandomState>;
 
 pub const DT: f32 = 1.0 / 24.0;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct EntityId(pub u64);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct BattlescapeId(pub u64);
-
 #[derive(Serialize, Deserialize)]
 pub struct Battlescape {
     pub tick: u64,
