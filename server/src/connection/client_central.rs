@@ -3,7 +3,7 @@ use super::*;
 #[derive(Debug)]
 pub enum ClientCentralPacket {
     /// 10
-    SendGlobalMessage { channel: u32, message: String },
+    GlobalMessage { channel: u32, message: String },
 }
 impl Packet for ClientCentralPacket {
     fn serialize(self) -> Message {
@@ -20,7 +20,7 @@ impl Packet for ClientCentralPacket {
                 let packet_id = buf.get_u32_var()?;
 
                 match packet_id {
-                    10 => Ok(Some(Self::SendGlobalMessage {
+                    10 => Ok(Some(Self::GlobalMessage {
                         channel: buf.get_u32_var()?,
                         message: buf.get_string_var()?,
                     })),

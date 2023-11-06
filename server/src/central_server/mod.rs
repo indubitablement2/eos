@@ -36,7 +36,7 @@ pub async fn _start() {
         STATE = Some(State {
             instances: Default::default(),
 
-            next_client_id: Default::default(),
+            next_client_id: AtomicU64::new(1),
             clients: Default::default(),
             username: Default::default(),
             client_connection: Default::default(),
@@ -89,7 +89,7 @@ async fn handle_instance_packet(packet: InstanceCentralPacket, addr: SocketAddr)
 
 async fn handle_client_packet(packet: ClientCentralPacket, client_id: ClientId) {
     match packet {
-        ClientCentralPacket::SendGlobalMessage { channel, message } => {
+        ClientCentralPacket::GlobalMessage { channel, message } => {
             let packet = CentralClientPacket::GlobalMessage {
                 from: client_id,
                 channel,
@@ -165,6 +165,7 @@ async fn handle_client_connection(stream: tokio::net::TcpStream, address: Socket
             return;
         }
     };
+    log::debug!("Client logged in as: {:?}", client_id);
 
     let token = rand::random::<u64>();
     outbound.send(CentralClientPacket::LoginSuccess { client_id, token });

@@ -12,8 +12,8 @@ func _ready() -> void:
 	add_child(sp)
 
 
-func _process(_delta: float) -> void:
-	position = previous_position.lerp(next_position, Metascape.interpolation)
+#func _process(_delta: float) -> void:
+#	position = previous_position.lerp(next_position, Metascape.interpolation)
 
 
 func set_partial_info(_num_ship: int) -> void:

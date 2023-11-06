@@ -1,0 +1,14 @@
+[gd_scene load_steps=4 format=3 uid="uid://dyxlx5o2hh1ti"]
+
+[ext_resource type="Script" path="res://core/singleton/battlescape.gd" id="1_uwp7t"]
+[ext_resource type="Texture2D" uid="uid://cke4taba0wnvh" path="res://icon.svg" id="2_05h1t"]
+[ext_resource type="PackedScene" uid="uid://dmb4ocmtfjt8g" path="res://core/scene/camera/camera.tscn" id="3_ufskd"]
+
+[node name="Battlescape" type="Node2D"]
+script = ExtResource("1_uwp7t")
+
+[node name="Camera" parent="." instance=ExtResource("3_ufskd")]
+
+[node name="Icon" type="Sprite2D" parent="."]
+position = Vector2(-1, 0)
+texture = ExtResource("2_05h1t")

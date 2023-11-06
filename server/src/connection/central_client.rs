@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Debug)]
 pub enum CentralClientPacket {
-    /// N/A
+    /// 1
     LoginSuccess { client_id: ClientId, token: u64 },
     /// 10
     /// Receive a message from a client in global chat.
@@ -18,8 +18,9 @@ impl Packet for CentralClientPacket {
 
         match self {
             CentralClientPacket::LoginSuccess { client_id, token } => {
-                buf.reserve_exact(32);
-                buf.put_array_var(2);
+                buf.reserve_exact(8 + 8 + 12 + 12);
+                buf.put_array_var(3);
+                buf.put_u32_var(1);
                 buf.put_u64_var(client_id.0);
                 buf.put_u64_var(token);
             }
@@ -28,7 +29,7 @@ impl Packet for CentralClientPacket {
                 channel,
                 message,
             } => {
-                buf.reserve_exact(44 + message.len().next_multiple_of(4));
+                buf.reserve_exact(8 + 8 + 12 + 8 + 8 + message.len().next_multiple_of(4));
                 buf.put_array_var(4);
                 buf.put_u32_var(10);
                 buf.put_u64_var(from.0);

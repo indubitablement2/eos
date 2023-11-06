@@ -17,8 +17,9 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+Util="*res://core/singleton/util.gd"
 ServerConnection="*res://core/singleton/server_connection.gd"
-Metascape="*res://core/singleton/metascape.tscn"
+Battlescape="*res://core/singleton/battlescape.tscn"
 
 [filesystem]
 
