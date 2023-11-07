@@ -1,12 +1,19 @@
 use super::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum CentralInstancePacket {
-    /// Send after a client authentication request was received.
-    AuthClientResult {
+    // /// Send after a client authentication request was received.
+    // AuthClientResult {
+    //     client_id: ClientId,
+    //     token: u64,
+    //     success: bool,
+    // },
+    ClientChangedBattlescape {
         client_id: ClientId,
         token: u64,
-        success: bool,
+        /// None when the client left this instance.
+        /// If some, the battlescape is garanteed to be in this instance.
+        battlescape_id: Option<BattlescapeId>,
     },
 }
 impl Packet for CentralInstancePacket {

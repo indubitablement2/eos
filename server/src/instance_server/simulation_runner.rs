@@ -1,23 +1,27 @@
 use super::*;
 use battlescape::*;
 
-pub struct SimulationRunnerHandle {
+pub struct BattlescapeHandle {
     handle: std::thread::JoinHandle<()>,
+    pub clients: Mutex<AHashSet<ClientId>>,
 }
-impl SimulationRunnerHandle {
+impl BattlescapeHandle {
     pub fn start() -> Self {
         let handle = std::thread::spawn(|| {
-            SimulationRunner {}.run();
+            BattlescapeRunner {}.run();
         });
 
-        Self { handle }
+        Self {
+            handle,
+            clients: Default::default(),
+        }
     }
 }
 
-struct SimulationRunner {
+struct BattlescapeRunner {
     //
 }
-impl SimulationRunner {
+impl BattlescapeRunner {
     fn run(mut self) {
         let mut now = std::time::Instant::now();
         let mut sim_time = 0.0f64;

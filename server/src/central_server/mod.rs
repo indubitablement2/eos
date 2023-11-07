@@ -3,29 +3,35 @@ mod client_connection;
 
 use self::{client::Client, client_connection::*};
 use super::*;
-use atomic::AtomicU64;
 use central_client::*;
 use central_instance::*;
 use client_central::*;
 use instance_central::*;
 
 struct State {
-    instances: RwLock<AHashMap<SocketAddr, Instance>>,
+    instances: DashMap<SocketAddr, Instance, RandomState>,
+    battlescapes: DashMap<BattlescapeId, Battlescape, RandomState>,
 
-    next_client_id: AtomicU64,
-    clients: RwLock<AHashMap<ClientId, Client>>,
-    username: RwLock<AHashMap<String, ClientId>>,
-    client_connection: RwLock<AHashMap<ClientId, ClientConnection>>,
+    next_client_id: atomic::AtomicU64,
+    clients: DashMap<ClientId, Client, RandomState>,
+    username: DashMap<String, ClientId, RandomState>,
+    client_connection: DashMap<ClientId, ClientConnection, RandomState>,
 }
 
 // TODO: Handle disconnect.
 struct Instance {
     connection: ConnectionOutbound,
+    battlescapes: Mutex<AHashSet<BattlescapeId>>,
 }
 impl Instance {
     pub fn send(&self, packet: CentralInstancePacket) {
         self.connection.send(packet);
     }
+}
+
+struct Battlescape {
+    instance_addr: SocketAddr,
+    clients: Mutex<AHashSet<ClientId>>,
 }
 
 pub async fn _start() {
@@ -35,8 +41,9 @@ pub async fn _start() {
     unsafe {
         STATE = Some(State {
             instances: Default::default(),
+            battlescapes: Default::default(),
 
-            next_client_id: AtomicU64::new(1),
+            next_client_id: atomic::AtomicU64::new(1),
             clients: Default::default(),
             username: Default::default(),
             client_connection: Default::default(),
@@ -66,28 +73,16 @@ pub async fn _start() {
 }
 
 async fn handle_instance_packet(packet: InstanceCentralPacket, addr: SocketAddr) {
-    match packet {
-        InstanceCentralPacket::AuthClient { client_id, token } => {
-            let success = if let Some(connection) =
-                state().client_connection.read().unwrap().get(&client_id)
-            {
-                connection.token == token
-            } else {
-                false
-            };
-
-            if let Some(instance) = state().instances.read().unwrap().get(&addr) {
-                instance.send(CentralInstancePacket::AuthClientResult {
-                    client_id,
-                    token,
-                    success,
-                });
-            }
-        }
-    }
+    log::debug!("{} -> {:?}", addr, packet);
+    // match packet {}
 }
 
-async fn handle_client_packet(packet: ClientCentralPacket, client_id: ClientId) {
+/// Return and error message if the packet is invalid.
+async fn handle_client_packet(
+    packet: ClientCentralPacket,
+    client_id: ClientId,
+) -> Option<&'static str> {
+    log::debug!("{:?} -> {:?}", client_id, packet);
     match packet {
         ClientCentralPacket::GlobalMessage { channel, message } => {
             let packet = CentralClientPacket::GlobalMessage {
@@ -97,11 +92,24 @@ async fn handle_client_packet(packet: ClientCentralPacket, client_id: ClientId) 
             }
             .serialize();
             // TODO: Only send to client in same channel.
-            for connection in state().client_connection.read().unwrap().values() {
+            for connection in state().client_connection.iter() {
                 connection.send_raw(packet.clone());
             }
         }
+        ClientCentralPacket::JoinBattlescape { new_battlescape_id } => {
+            if let Some(battlescape_id) = new_battlescape_id {
+                if !state().battlescapes.contains_key(&battlescape_id) {
+                    return Some("Battlescape does not exist");
+                }
+            }
+
+            if let Some(client) = state().client_connection.get(&client_id) {
+                client.set_battlescape(new_battlescape_id);
+            }
+        }
     }
+
+    None
 }
 
 async fn handle_client_connection(stream: tokio::net::TcpStream, address: SocketAddr) {
@@ -112,6 +120,7 @@ async fn handle_client_connection(stream: tokio::net::TcpStream, address: Socket
     };
 
     let Some(login) = inbound.recv::<ClientCentralLoginPacket>().await else {
+        outbound.close("Invalid login packet");
         return;
     };
     log::debug!("{:?}", login);
@@ -119,10 +128,8 @@ async fn handle_client_connection(stream: tokio::net::TcpStream, address: Socket
     // Verify login.
     let client_id = if login.new_account {
         if let Some((username, password)) = login.username.zip(login.password) {
-            let mut usernames = state().username.write().unwrap();
-
-            if usernames.contains_key(&username) {
-                log::debug!("Username already taken");
+            if state().username.contains_key(&username) {
+                outbound.close("Username already taken");
                 return;
             }
 
@@ -132,61 +139,62 @@ async fn handle_client_connection(stream: tokio::net::TcpStream, address: Socket
                     .fetch_add(1, atomic::Ordering::Relaxed),
             );
 
-            usernames.insert(username, client_id);
-            drop(usernames);
+            state().username.insert(username, client_id);
 
-            let client = Client::new_password(password);
-            state().clients.write().unwrap().insert(client_id, client);
+            let client = Client::new(Some(password));
+            state().clients.insert(client_id, client);
 
             client_id
         } else {
+            // No other registration method implemented.
+            outbound.close("Invalid registration method: Only username+password implemented");
             return;
         }
     } else {
         if let Some((username, password)) = login.username.zip(login.password) {
-            let Some(client_id) = state().username.read().unwrap().get(&username).copied() else {
+            let Some(client_id) = state().username.get(&username).as_deref().copied() else {
+                outbound.close("Invalid username");
                 return;
             };
 
             if state()
                 .clients
-                .read()
-                .unwrap()
                 .get(&client_id)
                 .is_some_and(|client| client.verify_password(password.as_str()))
             {
                 client_id
             } else {
+                outbound.close("Invalid password");
                 return;
             }
         } else {
             // No other login method implemented.
-            log::debug!("Invalid login method: Only username+password implemented");
+            outbound.close("Invalid login method: Only username+password implemented");
             return;
         }
     };
-    log::debug!("Client logged in as: {:?}", client_id);
+    log::debug!("{:?} logged in", client_id);
 
     let token = rand::random::<u64>();
     outbound.send(CentralClientPacket::LoginSuccess { client_id, token });
 
     state()
         .client_connection
-        .write()
-        .unwrap()
-        .insert(client_id, ClientConnection::new(outbound, token));
+        .insert(client_id, ClientConnection::new(outbound, client_id, token));
 
     // Handle packets
+    let mut reason = "Unknown error while receiving packets";
     while let Some(packet) = inbound.recv().await {
-        handle_client_packet(packet, client_id).await;
+        if let Some(new_reason) = handle_client_packet(packet, client_id).await {
+            reason = new_reason;
+            break;
+        }
     }
 
-    state()
-        .client_connection
-        .write()
-        .unwrap()
-        .remove(&client_id);
-    log::debug!("{:?} disconnected", client_id);
+    if let Some((_, connection)) = state().client_connection.remove(&client_id) {
+        connection.close(reason);
+    }
+    log::debug!("{:?} connection fully removed", client_id);
 }
 
 async fn handle_instance_connection(stream: tokio::net::TcpStream, addr: SocketAddr) {
@@ -209,9 +217,10 @@ async fn handle_instance_connection(stream: tokio::net::TcpStream, addr: SocketA
     log::info!("{:?}", login_result);
     outbound.send(login_result);
 
-    state().instances.write().unwrap().insert(addr, {
+    state().instances.insert(addr, {
         Instance {
             connection: outbound,
+            battlescapes: Default::default(),
         }
     });
 
@@ -219,11 +228,11 @@ async fn handle_instance_connection(stream: tokio::net::TcpStream, addr: SocketA
         handle_instance_packet(packet, addr).await;
     }
 
-    state().instances.write().unwrap().remove(&addr);
+    state().instances.remove(&addr);
     log::warn!("Instance disconnected: {}", addr);
 }
 
 static mut STATE: Option<State> = None;
-fn state() -> &'static mut State {
-    unsafe { STATE.as_mut().unwrap_unchecked() }
+fn state() -> &'static State {
+    unsafe { STATE.as_ref().unwrap_unchecked() }
 }

@@ -1,8 +1,8 @@
 use super::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum InstanceCentralPacket {
-    AuthClient { client_id: ClientId, token: u64 },
+    // AuthClient { client_id: ClientId, token: u64 },
 }
 impl Packet for InstanceCentralPacket {
     fn serialize(self) -> Message {

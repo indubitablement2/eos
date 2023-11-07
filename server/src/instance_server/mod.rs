@@ -5,15 +5,15 @@ use central_instance::*;
 use client_instance::*;
 use instance_central::*;
 use instance_client::*;
-use simulation_runner::SimulationRunnerHandle;
+use simulation_runner::BattlescapeHandle;
 
 struct State {
     central_outbound: ConnectionOutbound,
 
-    client_auth_request: Mutex<AHashMap<(ClientId, u64), tokio::sync::oneshot::Sender<bool>>>,
-    client_connections: RwLock<AHashMap<ClientId, ConnectionOutbound>>,
+    client_tokens: DashMap<ClientId, (u64, BattlescapeId), RandomState>,
+    client_connections: DashMap<ClientId, ConnectionOutbound, RandomState>,
 
-    simulations: AHashMap<BattlescapeId, SimulationRunnerHandle>,
+    battlescapes: DashMap<BattlescapeId, BattlescapeHandle, RandomState>,
 }
 
 pub async fn _start() {
@@ -27,13 +27,13 @@ pub async fn _start() {
         .recv::<CentralInstanceLoginResult>()
         .await
         .unwrap();
-    log::debug!("Login result: {:?}", result);
+    log::info!("{:?}", result);
 
     unsafe {
         STATE = Some(State {
             central_outbound,
-            simulations: Default::default(),
-            client_auth_request: Default::default(),
+            battlescapes: Default::default(),
+            client_tokens: Default::default(),
             client_connections: Default::default(),
         });
     }
@@ -50,32 +50,45 @@ pub async fn _start() {
 
     // Receive central server packets.
     while let Some(packet) = central_inbound.recv::<CentralInstancePacket>().await {
-        handle_instance_packet(packet).await;
+        handle_central_packet(packet).await;
     }
 
     log::info!("Instance server stopped");
 }
 
-async fn handle_instance_packet(packet: CentralInstancePacket) {
+async fn handle_central_packet(packet: CentralInstancePacket) {
+    log::debug!("{:?}", packet);
     match packet {
-        CentralInstancePacket::AuthClientResult {
+        CentralInstancePacket::ClientChangedBattlescape {
             client_id,
             token,
-            success,
+            battlescape_id,
         } => {
-            if let Some(sender) = state()
-                .client_auth_request
-                .lock()
-                .unwrap()
-                .remove(&(client_id, token))
-            {
-                let _ = sender.send(success);
+            let old_battlescape_id = if let Some(battlescape_id) = battlescape_id {
+                if let Some(battlescape) = state().battlescapes.get(&battlescape_id) {
+                    battlescape.clients.lock().insert(client_id);
+                }
+                state()
+                    .client_tokens
+                    .insert(client_id, (token, battlescape_id))
+                    .map(|v| v.1)
+            } else {
+                if let Some((_, outbound)) = state().client_connections.remove(&client_id) {
+                    outbound.close("Left battlescape");
+                }
+                state().client_tokens.remove(&client_id).map(|v| v.1 .1)
+            };
+            if let Some(battlescape_id) = old_battlescape_id {
+                if let Some(battlescape) = state().battlescapes.get(&battlescape_id) {
+                    battlescape.clients.lock().remove(&client_id);
+                }
             }
         }
     }
 }
 
 async fn handle_client_packet(packet: ClientInstancePacket, client_id: ClientId) {
+    log::debug!("{:?}", packet);
     match packet {
         ClientInstancePacket::Test => todo!(),
     }
@@ -89,36 +102,37 @@ async fn handle_client_connection(stream: tokio::net::TcpStream, addr: SocketAdd
     };
 
     let Some(login) = inbound.recv::<ClientInstanceLoginPacket>().await else {
+        outbound.close("Invalid login packet");
         return;
     };
     log::debug!("{:?}", login);
 
     // Verify login.
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state()
-        .client_auth_request
-        .lock()
-        .unwrap()
-        .insert((login.client_id, login.token), tx);
+    let Some(battlescape_id) = state()
+        .client_tokens
+        .get(&login.client_id)
+        .and_then(|token| {
+            if token.0 == login.token {
+                Some(token.1)
+            } else {
+                None
+            }
+        })
+    else {
+        outbound.close("Invalid login token");
+        return;
+    };
 
-    state()
-        .central_outbound
-        .send(InstanceCentralPacket::AuthClient {
-            client_id: login.client_id,
-            token: login.token,
-        });
-
-    if !rx.await.is_ok_and(|success| success) {
-        log::debug!("Client auth failed");
+    if let Some(battlescape) = state().battlescapes.get(&battlescape_id) {
+        battlescape.clients.lock().insert(login.client_id);
+    } else {
+        log::warn!("Client connected to non-existent battlescape");
+        outbound.close("Battlescape does not exist");
         return;
     }
-    log::debug!("Client auth success");
+    state().client_connections.insert(login.client_id, outbound);
 
-    state()
-        .client_connections
-        .write()
-        .unwrap()
-        .insert(login.client_id, outbound);
+    log::debug!("Client login successful");
 
     // Receive client packets.
     while let Some(packet) = inbound.recv::<ClientInstancePacket>().await {
@@ -126,11 +140,8 @@ async fn handle_client_connection(stream: tokio::net::TcpStream, addr: SocketAdd
     }
 
     // Remove client.
-    state()
-        .client_connections
-        .write()
-        .unwrap()
-        .remove(&login.client_id);
+    state().client_connections.remove(&login.client_id);
+    // Rest should be removed when central server sends ClientChangedBattlescape.
 }
 
 static mut STATE: Option<State> = None;

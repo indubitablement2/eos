@@ -2,6 +2,11 @@ use super::*;
 
 #[derive(Debug)]
 pub enum ClientCentralPacket {
+    /// 5
+    /// Request to join a battlescape.
+    JoinBattlescape {
+        new_battlescape_id: Option<BattlescapeId>,
+    },
     /// 10
     GlobalMessage { channel: u32, message: String },
 }
@@ -20,6 +25,18 @@ impl Packet for ClientCentralPacket {
                 let packet_id = buf.get_u32_var()?;
 
                 match packet_id {
+                    5 => {
+                        let battlescape_id = buf.get_u64_var()?;
+                        let battlescape_id = if battlescape_id == 0 {
+                            None
+                        } else {
+                            Some(BattlescapeId(battlescape_id))
+                        };
+
+                        Ok(Some(Self::JoinBattlescape {
+                            new_battlescape_id: battlescape_id,
+                        }))
+                    }
                     10 => Ok(Some(Self::GlobalMessage {
                         channel: buf.get_u32_var()?,
                         message: buf.get_string_var()?,

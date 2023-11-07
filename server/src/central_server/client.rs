@@ -8,10 +8,10 @@ pub struct Client {
 }
 impl Client {
     // TODO: Handle new client (add fleet).
-    pub fn new_password(password: String) -> Self {
+    pub fn new(password: Option<String>) -> Self {
         Self {
             ships: Default::default(),
-            password: Some(password),
+            password,
         }
     }
 

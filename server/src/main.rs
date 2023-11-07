@@ -7,11 +7,13 @@ mod logger;
 use ahash::{AHashMap, AHashSet, RandomState};
 use connection::*;
 // use battlescape::entity::{EntityData, EntityDataId};
+use dashmap::DashMap;
 use indexmap::IndexMap;
+use parking_lot::Mutex;
 use rand::prelude::*;
 use rapier2d::na::{self, Isometry2, Vector2};
 use serde::{Deserialize, Serialize};
-use std::sync::{atomic, Mutex, RwLock};
+use std::sync::atomic;
 use std::{
     f32::consts::{FRAC_PI_2, PI, TAU},
     net::SocketAddr,
@@ -33,6 +35,8 @@ pub const CENTRAL_ADDR_CLIENT: SocketAddr = SocketAddr::V6(std::net::SocketAddrV
     0,
     0,
 ));
+
+// TODO: Use non-zero IDs.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct EntityId(pub u64);

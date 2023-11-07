@@ -5,13 +5,14 @@ pub mod client_instance;
 pub mod instance_central;
 pub mod instance_client;
 
-use std::sync::Arc;
-
 use super::*;
 use bytes::{Buf, BufMut};
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
-use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
+use tokio_tungstenite::{
+    tungstenite::{protocol::CloseFrame, Message},
+    WebSocketStream,
+};
 
 pub trait Packet: Sized {
     fn serialize(self) -> Message;
@@ -21,9 +22,8 @@ pub trait Packet: Sized {
 /// Dropping this will also cause the inbound side to always recv None.
 #[derive(Clone)]
 pub struct ConnectionOutbound {
+    pub close_reason: &'static str,
     outbound_sender: tokio::sync::mpsc::UnboundedSender<Message>,
-    /// To detect when this struct is dropped on the inbound side.
-    _disconnected: Arc<()>,
 }
 impl ConnectionOutbound {
     /// Will keep trying to connect until it succeeds.
@@ -76,16 +76,12 @@ impl ConnectionOutbound {
             }
         });
 
-        let arc = Arc::new(());
         (
             Self {
+                close_reason: "Unspecified",
                 outbound_sender,
-                _disconnected: arc.clone(),
             },
-            ConnectionInbound {
-                inbound,
-                disconnected: arc,
-            },
+            ConnectionInbound { inbound },
         )
     }
 
@@ -97,27 +93,43 @@ impl ConnectionOutbound {
         let _ = self.outbound_sender.send(msg);
     }
 
+    pub fn close(mut self, reason: &'static str) {
+        self.close_reason = reason;
+    }
+
     pub fn is_closed(&self) -> bool {
         self.outbound_sender.is_closed()
+    }
+}
+impl Drop for ConnectionOutbound {
+    fn drop(&mut self) {
+        let _ = self.outbound_sender.send(Message::Close(Some(CloseFrame {
+            code: tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode::Normal,
+            reason: self.close_reason.into(),
+        })));
     }
 }
 
 pub struct ConnectionInbound {
     inbound: futures_util::stream::SplitStream<WebSocketStream<TcpStream>>,
-    disconnected: Arc<()>,
 }
 impl ConnectionInbound {
     /// Will return `None` if the outbound side is dropped.
     pub async fn recv<T: Packet>(&mut self) -> Option<T> {
-        while let Some(Ok(msg)) = self.inbound.next().await {
-            if Arc::strong_count(&self.disconnected) == 1 {
-                return None;
-            }
-
-            match T::parse(msg) {
-                Ok(Some(t)) => return Some(t),
-                Ok(None) => continue,
-                Err(_) => return None,
+        while let Some(msg) = self.inbound.next().await {
+            match msg {
+                Ok(msg) => match T::parse(msg) {
+                    Ok(Some(t)) => return Some(t),
+                    Ok(None) => continue,
+                    Err(_) => {
+                        log::debug!("Failed to parse message");
+                        return None;
+                    }
+                },
+                Err(err) => {
+                    log::debug!("Error receiving message: {}", err);
+                    return None;
+                }
             }
         }
         None

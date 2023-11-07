@@ -4,6 +4,14 @@ use super::*;
 pub enum CentralClientPacket {
     /// 1
     LoginSuccess { client_id: ClientId, token: u64 },
+    /// 5
+    /// Received after requesting to join a battlescape.
+    /// Return 0 battlescape_id and empty addr to indicate leaving.
+    ChangeBattlescape {
+        battlescape_id: Option<BattlescapeId>,
+        same_addr: bool,
+        instance_addr: Option<SocketAddr>,
+    },
     /// 10
     /// Receive a message from a client in global chat.
     GlobalMessage {
@@ -23,6 +31,25 @@ impl Packet for CentralClientPacket {
                 buf.put_u32_var(1);
                 buf.put_u64_var(client_id.0);
                 buf.put_u64_var(token);
+            }
+            CentralClientPacket::ChangeBattlescape {
+                battlescape_id,
+                same_addr,
+                instance_addr,
+            } => {
+                let addr = instance_addr
+                    .map(|addr| addr.to_string())
+                    .unwrap_or_default();
+                let battlescape_id = battlescape_id
+                    .map(|battlescape_id| battlescape_id.0)
+                    .unwrap_or_default();
+
+                buf.reserve_exact(8 + 8 + 12 + 8 + 8 + addr.len().next_multiple_of(4));
+                buf.put_array_var(3);
+                buf.put_u32_var(5);
+                buf.put_u64_var(battlescape_id);
+                buf.put_bool_var(same_addr);
+                buf.put_string_var(addr.as_str());
             }
             CentralClientPacket::GlobalMessage {
                 from,
