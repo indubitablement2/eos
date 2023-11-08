@@ -1,12 +1,14 @@
 mod battlescape;
 mod central_server;
 mod connection;
+mod database;
 mod instance_server;
 mod logger;
+mod runner;
 
 use ahash::{AHashMap, AHashSet, RandomState};
+use battlescape::Battlescape;
 use connection::*;
-// use battlescape::entity::{EntityData, EntityDataId};
 use dashmap::DashMap;
 use indexmap::IndexMap;
 use parking_lot::Mutex;
@@ -14,12 +16,15 @@ use rand::prelude::*;
 use rapier2d::na::{self, Isometry2, Vector2};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic;
+use std::sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender};
+use std::time::{Duration, Instant};
 use std::{
     f32::consts::{FRAC_PI_2, PI, TAU},
     net::SocketAddr,
 };
 
-const PRIVATE_KEY: u64 = const_random::const_random!(u64);
+const TARGET_DT_DURATION: Duration = Duration::from_millis(50);
+pub const TARGET_DT: f32 = 0.05;
 
 /// Address for the instance servers to connect to the central server.
 pub const CENTRAL_ADDR_INSTANCE: SocketAddr = SocketAddr::V6(std::net::SocketAddrV6::new(
@@ -37,6 +42,7 @@ pub const CENTRAL_ADDR_CLIENT: SocketAddr = SocketAddr::V6(std::net::SocketAddrV
 ));
 
 // TODO: Use non-zero IDs.
+// TODO: Store receiver channel (db -> battlescape) in battlescape
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct EntityId(pub u64);
@@ -47,35 +53,23 @@ pub struct BattlescapeId(pub u64);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ClientId(pub u64);
 
-#[tokio::main]
-async fn main() {
+fn main() {
     logger::Logger::init();
-
-    log::debug!("{:x}", PRIVATE_KEY);
 
     // EntityData::set_data(vec![EntityData::default()]);
 
-    let mut central = false;
-    let mut instance = false;
-    for arg in std::env::args() {
-        if &arg == "instance" {
-            instance = true;
-        } else if &arg == "central" {
-            central = true;
-        }
-    }
-    if !central && !instance {
-        log::warn!("No arguments specified, defaulting to 'instance' and 'central'");
-        central = true;
-        instance = true;
-    }
+    let (mut runner, new_battlescape_sender) = runner::BattlescapesRunner::new(2);
+    database::Database::start(new_battlescape_sender);
 
-    if central && instance {
-        tokio::spawn(instance_server::_start());
-        central_server::_start().await;
-    } else if central {
-        central_server::_start().await;
-    } else if instance {
-        instance_server::_start().await;
+    let mut previous_step = Instant::now();
+    loop {
+        if let Some(remaining) = TARGET_DT_DURATION.checked_sub(previous_step.elapsed()) {
+            std::thread::sleep(remaining);
+        }
+
+        let now = Instant::now();
+        let delta = (now - previous_step).as_secs_f32().min(TARGET_DT * 2.0);
+        previous_step = now;
+        runner.step(delta);
     }
 }

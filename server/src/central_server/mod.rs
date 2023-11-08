@@ -209,7 +209,7 @@ async fn handle_instance_connection(stream: tokio::net::TcpStream, addr: SocketA
         return;
     };
     log::debug!("{:?}", login);
-    if login.private_key != PRIVATE_KEY {
+    if login.private_key != 123 {
         log::debug!("Invalid private key");
         return;
     }
