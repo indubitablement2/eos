@@ -49,6 +49,8 @@ impl Packet for InstanceCentralLoginPacket {
 }
 impl InstanceCentralLoginPacket {
     pub fn new() -> Self {
-        Self { private_key: 123 }
+        Self {
+            private_key: PRIVATE_KEY,
+        }
     }
 }

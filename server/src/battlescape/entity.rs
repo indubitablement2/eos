@@ -118,8 +118,8 @@ impl Entity {
         rb.set_angvel(
             angvel
                 + (wish_angvel - angvel).clamp(
-                    -self.mobility.angular_acceleration * TARGET_DT,
-                    self.mobility.angular_acceleration * TARGET_DT,
+                    -self.mobility.angular_acceleration * DT,
+                    self.mobility.angular_acceleration * DT,
                 ),
             wake_up,
         );

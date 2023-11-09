@@ -11,13 +11,10 @@ use rapier2d::prelude::*;
 type SimRng = rand_xoshiro::Xoshiro128StarStar;
 type Entities = IndexMap<EntityId, Entity, RandomState>;
 
+pub const DT: f32 = 1.0 / 24.0;
+
 #[derive(Serialize, Deserialize)]
 pub struct Battlescape {
-    pub battlescape_id: BattlescapeId,
-
-    /// Moving average duration of a step.
-    pub step_duration: f32,
-
     pub tick: u64,
     pub half_size: f32,
     rng: SimRng,
@@ -29,10 +26,8 @@ pub struct Battlescape {
     pub ais: IndexMap<EntityId, EntityAi, RandomState>,
 }
 impl Battlescape {
-    pub fn new(battlescape_id: BattlescapeId) -> Self {
+    pub fn new() -> Self {
         Self {
-            battlescape_id,
-            step_duration: 0.005,
             rng: SimRng::from_entropy(),
             tick: 0,
             half_size: 100.0,
@@ -52,7 +47,7 @@ impl Battlescape {
         serde_json::from_slice(bytes)
     }
 
-    pub fn step(&mut self, now: &mut Instant, delta: f32) {
+    pub fn step(&mut self) {
         self.tick += 1;
 
         // Update ais.
@@ -84,11 +79,6 @@ impl Battlescape {
 
         self.physics.step();
         // TODO: Handle physic events.
-
-        let new_now = Instant::now();
-        let elapsed = (new_now - *now).as_secs_f32();
-        self.step_duration = self.step_duration * 0.98 + elapsed * 0.02;
-        *now = new_now;
     }
 
     pub fn spawn_entity(

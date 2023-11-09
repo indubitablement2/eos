@@ -152,8 +152,8 @@ struct CustomIntegrationParameters(IntegrationParameters);
 impl Default for CustomIntegrationParameters {
     fn default() -> Self {
         Self(IntegrationParameters {
-            dt: TARGET_DT,
-            min_ccd_dt: TARGET_DT / 100.0,
+            dt: DT,
+            min_ccd_dt: DT / 100.0,
             ..Default::default()
         })
     }
