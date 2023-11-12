@@ -1,19 +1,20 @@
-mod battlescape;
-mod central_server;
 mod connection;
-mod instance_server;
+mod database;
+mod godot_encoding;
+mod ids;
+mod interval;
 mod logger;
 
 use ahash::{AHashMap, AHashSet, RandomState};
-use connection::*;
-// use battlescape::entity::{EntityData, EntityDataId};
-use dashmap::DashMap;
+use connection::Packet;
+use ids::*;
 use indexmap::IndexMap;
 use parking_lot::Mutex;
 use rand::prelude::*;
 use rapier2d::na::{self, Isometry2, Vector2};
 use serde::{Deserialize, Serialize};
-use std::sync::atomic;
+use std::sync::mpsc::{channel, sync_channel, Receiver, RecvError, Sender, SyncSender};
+use std::time::{Duration, Instant};
 use std::{
     f32::consts::{FRAC_PI_2, PI, TAU},
     net::SocketAddr,
@@ -21,61 +22,44 @@ use std::{
 
 const PRIVATE_KEY: u64 = const_random::const_random!(u64);
 
-/// Address for the instance servers to connect to the central server.
-pub const CENTRAL_ADDR_INSTANCE: SocketAddr = SocketAddr::V6(std::net::SocketAddrV6::new(
-    std::net::Ipv6Addr::LOCALHOST,
-    12461,
-    0,
-    0,
-));
-/// Address for the clients to connect to the central server.
-pub const CENTRAL_ADDR_CLIENT: SocketAddr = SocketAddr::V6(std::net::SocketAddrV6::new(
-    std::net::Ipv6Addr::LOCALHOST,
-    8461,
-    0,
-    0,
-));
-
-// TODO: Use non-zero IDs.
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct EntityId(pub u64);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct BattlescapeId(pub u64);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ClientId(pub u64);
-
-#[tokio::main]
-async fn main() {
+fn main() {
     logger::Logger::init();
 
-    log::debug!("{:x}", PRIVATE_KEY);
+    log::debug!("{}", PRIVATE_KEY);
 
     // EntityData::set_data(vec![EntityData::default()]);
 
-    let mut central = false;
+    let mut database = false;
     let mut instance = false;
+    let mut database_addr = SocketAddr::V6(std::net::SocketAddrV6::new(
+        std::net::Ipv6Addr::LOCALHOST,
+        17384,
+        0,
+        0,
+    ));
     for arg in std::env::args() {
         if &arg == "instance" {
             instance = true;
-        } else if &arg == "central" {
-            central = true;
+        } else if &arg == "database" {
+            database = true;
+        } else if let Ok(addr) = arg.parse() {
+            database_addr = addr;
         }
     }
-    if !central && !instance {
+    if !database && !instance {
         log::warn!("No arguments specified, defaulting to 'instance' and 'central'");
-        central = true;
+        database = true;
         instance = true;
     }
 
-    if central && instance {
-        tokio::spawn(instance_server::_start());
-        central_server::_start().await;
-    } else if central {
-        central_server::_start().await;
+    log::info!("Database address: {}", database_addr);
+
+    if database && instance {
+        std::thread::spawn(|| {});
+        database::_start(database_addr);
+    } else if database {
+        database::_start(database_addr);
     } else if instance {
-        instance_server::_start().await;
+        // TODO
     }
 }

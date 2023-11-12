@@ -8,12 +8,17 @@ use instance_client::*;
 use simulation_runner::BattlescapeHandle;
 
 struct State {
-    central_outbound: ConnectionOutbound,
+    database_outbound: ConnectionOutbound,
 
     client_tokens: DashMap<ClientId, (u64, BattlescapeId), RandomState>,
     client_connections: DashMap<ClientId, ConnectionOutbound, RandomState>,
 
     battlescapes: DashMap<BattlescapeId, BattlescapeHandle, RandomState>,
+}
+impl State {
+    pub fn send_database(&self, cmds: Vec<()>) {
+        // self.database_outbound.send(packet)
+    }
 }
 
 pub async fn _start() {
@@ -31,7 +36,7 @@ pub async fn _start() {
 
     unsafe {
         STATE = Some(State {
-            central_outbound,
+            database_outbound: central_outbound,
             battlescapes: Default::default(),
             client_tokens: Default::default(),
             client_connections: Default::default(),

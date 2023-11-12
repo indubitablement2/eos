@@ -1,21 +1,52 @@
-mod client;
-mod client_connection;
-
-use self::{client::Client, client_connection::*};
 use super::*;
-use central_client::*;
-use central_instance::*;
-use client_central::*;
-use instance_central::*;
 
+#[derive(Serialize, Deserialize)]
+pub enum DatabaseRequest {
+    // TODO
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum DatabaseResponse {
+    // TODO
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DatabaseLogin {
+    pub private_key: u64,
+}
+impl Packet for DatabaseLogin {
+    fn serialize(self) -> Vec<u8> {
+        bincode::serialize(&self).unwrap()
+    }
+
+    fn parse_buf(buf: Vec<u8>) -> Result<Self, &'static str> {
+        bincode::deserialize(&buf).map_err(|_| "Bincode failed to deserialize")
+    }
+}
+
+#[derive(Serialize, Deserialize)]
 struct State {
-    instances: DashMap<SocketAddr, Instance, RandomState>,
-    battlescapes: DashMap<BattlescapeId, Battlescape, RandomState>,
+    #[serde(skip)]
+    instances: AHashMap<SocketAddr, Instance>,
 
-    next_client_id: atomic::AtomicU64,
-    clients: DashMap<ClientId, Client, RandomState>,
-    username: DashMap<String, ClientId, RandomState>,
-    client_connection: DashMap<ClientId, ClientConnection, RandomState>,
+    next_battlescape_id: BattlescapeId,
+    battlescapes: AHashMap<BattlescapeId, Battlescape>,
+
+    next_client_id: ClientId,
+    clients: AHashMap<ClientId, Client>,
+    username: AHashMap<String, ClientId>,
+}
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            instances: Default::default(),
+            next_battlescape_id: Default::default(),
+            battlescapes: Default::default(),
+            next_client_id: Default::default(),
+            clients: Default::default(),
+            username: Default::default(),
+        }
+    }
 }
 
 // TODO: Handle disconnect.
@@ -29,9 +60,68 @@ impl Instance {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 struct Battlescape {
     instance_addr: SocketAddr,
     clients: Mutex<AHashSet<ClientId>>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Client {
+    ships: AHashSet<()>,
+    password: Option<String>,
+}
+
+fn handle_cmd(state: &mut State, cmd: DatabaseRequest) {
+    match cmd {
+        // TODO
+    }
+}
+
+pub fn _start(database_addr: SocketAddr) {
+    // TODO: Load state from file.
+    let mut state = State::default();
+
+    let (inbound_sender, inbound_receiver) = std::sync::mpsc::sync_channel(512);
+
+    tokio().spawn(async move {
+        let listener = ConnectionListener::new(database_addr).await;
+        while let Some((stream, addr)) = listener.accept().await {
+            log::debug!("Database connection attempt from: {}", addr);
+
+            let Some((outbound, mut inbound)) = ConnectionOutbound::accept(stream).await else {
+                return;
+            };
+
+            // Authenticate connection.
+            let Some(login) = inbound.recv::<DatabaseLogin>().await else {
+                return;
+            };
+            if login.private_key != PRIVATE_KEY {
+                outbound.close("Invalid private key");
+                return;
+            }
+
+            // state().instances.insert(addr, {
+            //     Instance {
+            //         connection: outbound,
+            //         battlescapes: Default::default(),
+            //     }
+            // });
+
+            // while let Some(packet) = inbound.recv::<InstanceCentralPacket>().await {
+            //     handle_instance_packet(packet, addr).await;
+            // }
+
+            // state().instances.remove(&addr);
+            log::info!("Instance disconnected: {}", addr);
+        }
+    });
+
+    inbound_receiver
+        .iter()
+        .flatten()
+        .for_each(|cmd| handle_cmd(&mut state, cmd));
 }
 
 pub async fn _start() {

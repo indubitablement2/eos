@@ -23,6 +23,18 @@ struct BattlescapeRunner {
 }
 impl BattlescapeRunner {
     fn run(mut self) {
+        // let mut previous_step = Instant::now();
+        // loop {
+        //     if let Some(remaining) = TARGET_DT_DURATION.checked_sub(previous_step.elapsed()) {
+        //         std::thread::sleep(remaining);
+        //     }
+
+        //     let now = Instant::now();
+        //     let delta = (now - previous_step).as_secs_f32().min(TARGET_DT * 2.0);
+        //     previous_step = now;
+        //     runner.step(delta);
+        // }
+
         let mut now = std::time::Instant::now();
         let mut sim_time = 0.0f64;
         let mut real_time = 0.0f64;
