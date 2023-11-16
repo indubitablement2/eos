@@ -172,11 +172,11 @@ func _find_target() -> void:
 		mask = Layers.ALL_HULL_SHIP
 	mask &= ~(Layers.TEAM << Layers.TEAM_OFFSET * hull.team)
 	
-	for d in Battlescape.hull_area_query(global_position, effective_range(), mask):
-		var other : Hull = d["collider"]
-		if can_look_at(other):
-			set_target(other)
-			return
+	#for d in Battlescape.hull_area_query(global_position, effective_range(), mask):
+		#var other : Hull = d["collider"]
+		#if can_look_at(other):
+			#set_target(other)
+			#return
 	
 	# Only add cooldown when failing to find target.
 	query_cooldown = TARGET_QUERY_COOLDOWN

@@ -1,204 +1,78 @@
-@tool
 extends RigidBody2D
 class_name Hull
 
 
-const HULL_SHADER := preload("res://core/shader/hull.gdshader")
-
-
-const ARMOR_CELL_EFFECT = [
-	[Vector2i(-1, -1), 0.04105876015144],
-	[Vector2i(0, -1), 0.12609423172741],
-	[Vector2i(1, -1), 0.04105876015144],
-	[Vector2i(-1, 0), 0.12609423172741],
-	[Vector2i(0, 0), 0.3313880324846],
-	[Vector2i(1, 0), 0.12609423172741],
-	[Vector2i(-1, 1), 0.04105876015144],
-	[Vector2i(0, 1), 0.12609423172741],
-	[Vector2i(1, 1), 0.04105876015144],
-]
+const ARMOR_CELL_OFFSET : Array[Vector2i] = [
+	Vector2i(-1, -1),
+	Vector2i(0, -1),
+	Vector2i(1, -1),
+	Vector2i(-1, 0),
+	Vector2i(0, 0),
+	Vector2i(1, 0),
+	Vector2i(-1, 1),
+	Vector2i(0, 1),
+	Vector2i(1, 1)]
+const ARMOR_CELL_EFFECT : PackedFloat32Array = [
+	0.041059,
+	0.126094,
+	0.041059,
+	0.126094,
+	0.331388,
+	0.126094,
+	0.041059,
+	0.126094,
+	0.041059]
+## This many pixel equal 1 armor cell.
 const ARMOR_SCALE = 16.0
+## There is always at least this many armor cell.
 const ARMOR_SIZE_MIN = Vector2i(3, 3)
+## Used to not go oob
 const ARMOR_CENTER_MIN = Vector2i(1, 1)
+## Used to not go oob
 const ARMOR_CENTER_MAX = Vector2i(2, 2)
 
 
-const RECENT_DAMAGE_REMOVE_RATE = 0.2
-# How much hull damage / hull max to reach 1.0 recent damage.
-const RECENT_DAMAGE_EFFECT = 0.1
-
-
-enum Tool {
-	NONE,
-	VERIFY,
-	CENTER_SPRITE,
-	DERIVE_RADIUS_FROM_SPRITE,
-}
-@export
-var tool := Tool.NONE:
-	set = set_tool
-func set_tool(value: Tool) -> void:
-	if !Engine.is_editor_hint():
-		return
-	
-	match value:
-		Tool.VERIFY:
-			custom_integrator = true
-			max_contacts_reported = 4
-			contact_monitor = true
-			can_sleep = false
-			
-			if data == null:
-				data = HullData.new()
-			data._verify()
-			
-			linear_acceleration = data.linear_acceleration
-			linear_velocity_max = data.linear_velocity_max
-			angular_acceleration = data.angular_acceleration
-			angular_velocity_max = data.angular_velocity_max
-			time_scale = data.time_scale
-			hull_hp_max = data.hull_hp_max
-			armor_hp_max = data.armor_hp_max
-			armor_min_effectiveness = data.armor_min_effectiveness
-			
-			hull_hp = hull_hp_max
-			
-			previous_time_scale = 1.0
-			
-			if data.simplified_hull:
-				armor_relative_image = null
-				armor_relative_texture = null
-				recent_damage_image = null
-				recent_damage_texture = null
-				# Only remove material if it is using hull shader.
-				if material != null:
-					if material is ShaderMaterial:
-						if material.shader == HULL_SHADER:
-							material = null
-			else:
-				armor_relative_image = data.armor_relative_image.duplicate()
-				armor_relative_image.resource_local_to_scene = true
-				
-				armor_relative_texture = ImageTexture.create_from_image(
-					armor_relative_image)
-				armor_relative_texture.resource_local_to_scene = true
-				
-				recent_damage_image = Image.create(
-					armor_relative_image.get_width(),
-					armor_relative_image.get_height(),
-					false,
-					Image.FORMAT_RH)
-				recent_damage_image.resource_local_to_scene = true
-				
-				recent_damage_texture = ImageTexture.create_from_image(
-					recent_damage_image)
-				recent_damage_texture.resource_local_to_scene = true
-				
-				var mat := ShaderMaterial.new()
-				mat.resource_local_to_scene = true
-				mat.set_shader(HULL_SHADER)
-				mat.set_shader_parameter(
-					"armor_max_relative_texture", data.armor_relative_texture)
-				mat.set_shader_parameter(
-					"armor_relative_texture", armor_relative_texture)
-				mat.set_shader_parameter(
-					"recent_damage_texture", recent_damage_texture)
-				material = mat
-		Tool.CENTER_SPRITE:
-			data.sprite_offset = data.sprite.get_size() * -0.5
-		Tool.DERIVE_RADIUS_FROM_SPRITE:
-			var i := data.sprite.get_size().max_axis_index()
-			data.radius = data.sprite.get_size()[i] * 0.5
-	
-	queue_redraw()
-
-
-## Should always be set.
 ## Shared between hulls. Do not modify at runtime.
-@export
-var data : HullData
+@export var data : HullData
 
 
-@export_group("Computed")
+## If HullSprite, will automaticaly update it.
+@export var sprite : Sprite2D
 
-## Used to detect when local time scale change.
-@export
-var previous_time_scale := 1.0
 
-@export
-var linear_acceleration := 800.0
-@export
-var linear_velocity_max := 400.0
-@export
-var angular_acceleration := 8.0
-@export
-var angular_velocity_max := 4.0
+@export var linear_acceleration := 800.0
+@export var linear_velocity_max := 400.0
+@export var angular_acceleration := 8.0
+@export var angular_velocity_max := 4.0
+
 
 ## Changing this will change rigid body's linear/abgular velocity.
-## It will also update various time based properties like
-## linear_velocity_max and angular_velocity_max.
 ##
-## Since this is used to scale other properties,
+## Since this is used to scale many properties,
 ## it can not be set to 0 as a mutiplication by 0 can not be undone.
-## Use a very small number like 0.01 instead of 0.
-@export_range(0.01, 4.0, 0.01, "or_greater")
-var time_scale := 1.0:
+## Use a very small number like 0.01 to instead.
+@export_range(0.01, 4.0, 0.01, "or_greater") var time_scale := 1.0:
 	set = set_time_scale
 func set_time_scale(value: float) -> void:
+	var scale_properties := value / time_scale 
 	time_scale = value
-	
-	if Engine.is_editor_hint():
-		return
-	
-	var scale_properties := value / previous_time_scale 
-	
-	previous_time_scale = value
 	
 	linear_velocity *= scale_properties
 	angular_velocity *= scale_properties
 
-@export
-var hull_hp_max := 100.0
 
-@export
-var armor_hp_max := 0.0
-@export
-var armor_min_effectiveness := 0.1
+@export var hull_hp_max := 100.0
+@export var hull_hp := 100.0
 
-## null when simplified hull is set.
-@export
-var armor_relative_image : Image = null
-
-
-@export
-var hull_hp := 100.0
+@export var armor_max := 0.0
+@export var armor_effectiveness := 1.0
+## Armor will keep at least this much effect even when no armor remain.
+@export var armor_min_effectiveness := 0.1
+## Armor cells with value [0..1] relative to armor max.
+@export var armor_relative_image : Image
 
 
-@export
-var armor_relative_texture_dirty := false
-## null when simplified hull is set.
-@export
-var armor_relative_texture : ImageTexture = null
-
-
-# Used as an hashset of Vector2i
-# Keeps track of cells that have recent damage, 
-# so that we don't have to iterate over the while recent damage image.
-@export
-var recent_damage_set := {}
-# Time since recent damage was last changed.
-@export
-var recent_damage_last := 0.0
-## null when simplified hull is set.
-@export
-var recent_damage_image : Image
-## null when simplified hull is set.
-@export
-var recent_damage_texture : ImageTexture
-
-
-@export
-var team := 0:
+@export var team := 0:
 	set = set_team
 func set_team(value: int) -> void:
 	team = value
@@ -221,19 +95,13 @@ signal team_changed()
 @export_group("Turrets modifier")
 ## projectile, missile, laser
 ## What this does is left to be interpreted by the turret.
-@export
-var turret_range := Vector3.ONE
-@export
-var projectile_damage := 1.0
-@export
-var ammo_replenish_delay := 1.0
-@export
-var rotation_speed := 1.0
-@export
-var fire_delay := 1.0
+@export var turret_range := Vector3.ONE
+@export var damage_mutiplier := Vector3.ONE
+@export var ammo_replenish_delay := 1.0
+@export var rotation_speed := 1.0
+@export var fire_delay := 1.0
 ## ammo, missile, laser
-@export
-var ammo_max := Vector3.ONE
+@export var ammo_max := Vector3.ONE
 @export
 var prediction_iter := 0
 @export_group("")
@@ -309,47 +177,30 @@ var turrets : Array[Turret] = []
 var detector : RID
 
 
-func _enter_tree() -> void:
-	if Engine.is_editor_hint():
-		set_tool(Tool.VERIFY)
-		return
-	detector = Battlescape.hull_area_create(self)
+signal took_damage(amount: Vector4, cell_center: Vector2i)
+
+
+func _init() -> void:
+	armor_relative_image = data.armor_relative_image.duplicate()
+
+
+#func _enter_tree() -> void:
+	#detector = Battlescape.hull_area_create(self)
 
 
 func _exit_tree() -> void:
-	if Engine.is_editor_hint():
-		return
 	set_target(null)
 	PhysicsServer2D.free_rid(detector)
 
 
 func _draw() -> void:
 	draw_arc(Vector2.ZERO, data.radius, 0.0, TAU, 32, Color())
-	draw_texture(data.sprite, data.sprite_offset)
 
 
 func _physics_process(_delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
 	PhysicsServer2D.area_set_transform(detector, transform)
-
-
-func _process(delta: float) -> void:
-	if Engine.is_editor_hint():
-		return
-	
-	if !data.simplified_hull:
-		recent_damage_last += delta * time_scale
-	
-		# TODO: Only if we can see the sprite + offset
-		if true:
-			if !recent_damage_set.is_empty():
-				_update_recent_damage()
-				recent_damage_texture.update(recent_damage_image)
-			
-			if armor_relative_texture_dirty:
-				armor_relative_texture_dirty = false
-				armor_relative_texture.update(armor_relative_image)
 
 
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
@@ -360,10 +211,10 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 		var contact_impulse := state.get_contact_impulse(i)
 		var contact_magnitude := contact_impulse.length_squared()
 		if contact_magnitude > 400.0:
+			var amount := sqrt(contact_magnitude)
 			damage(
-				sqrt(contact_magnitude),
-				state.get_contact_local_position(i),
-				Vector4(1.0, 1.0, 1.0, 0.25))
+				Vector4(amount, amount, amount, amount),
+				state.get_contact_local_position(i))
 		i += 1
 	
 	# Angular velocity.
@@ -476,103 +327,56 @@ func wish_linear_velocity_force_relative(force: Vector2) -> void:
 	wish_linear_velocity = force
 
 
-## amount and mutipliers.y should never be <= 0.
 ## point is where damage originated in global space.
-## multipliers:
+## amount:
 ## x: hull
 ## y: armor
 ## z: shield
 ## w: emp
-func damage(amount: float, global_point: Vector2, multipliers: Vector4) -> void:
-	amount *= multipliers.y
-	if amount < 0.01:
-		return
+func damage(amount: Vector4, point: Vector2) -> void:
+	# Find nearest armor cell.
+	var cell_center := Vector2i((to_local(point) - sprite.offset) / ARMOR_SCALE).clamp(
+		ARMOR_CENTER_MIN,
+		armor_relative_image.get_size() - ARMOR_CENTER_MAX)
 	
-	var remaining_dmg : float
+	# Compute armor effectiveness from nearby cells.
+	var armor_effect := 0.0
+	var i := 0
+	for offset in ARMOR_CELL_OFFSET:
+		armor_effect += armor_relative_image.get_pixelv(
+			cell_center + offset).r * ARMOR_CELL_EFFECT[i]
+		i += 1
+	armor_effect = maxf(armor_effect, armor_min_effectiveness) * armor_effectiveness # 1.0
 	
-	if data.simplified_hull:
-		var armor := maxf(armor_hp_max, data.armor_hp_max * armor_min_effectiveness)
-		var dmg_reduction := amount / (amount + armor)
-		amount *= dmg_reduction
-		
-		var armor_dmg := amount * (armor_hp_max / data.armor_hp_max)
-		remaining_dmg = amount - armor_dmg
-		
-		armor_hp_max -= armor_dmg
-		if armor_hp_max < 0.0:
-			remaining_dmg -= armor_hp_max
-			armor_hp_max = 0.0
-	else:
-		# Find nearest armor cell.
-		global_point = (to_local(global_point) - data.sprite_offset) / ARMOR_SCALE
-		var local_point := Vector2i(global_point).clamp(
-			ARMOR_CENTER_MIN,
-			data.armor_relative_image.get_size() - ARMOR_CENTER_MAX)
-		
-		# Compute armor relative. [0..1]
-		var armor := 0.0
-		for cell in ARMOR_CELL_EFFECT:
-			armor += armor_relative_image.get_pixelv(
-				local_point + cell[0]).r * cell[1]
-		armor = maxf(armor, armor_min_effectiveness)
-		
-		# Damage reduction.
-		armor *= armor_hp_max
-		var dmg_reduction := amount / (amount + armor)
-		amount *= dmg_reduction
-		
-		# Apply armor damage.
-		var armor_dmg := amount * (armor / armor_hp_max)
-		remaining_dmg = amount - armor_dmg
-		# Armor relative damage.
-		armor_dmg = armor_dmg * ARMOR_CELL_EFFECT.size() / armor_hp_max
-		var recent_dmg := remaining_dmg / hull_hp_max / multipliers.y
-		_update_recent_damage()
-		armor_relative_texture_dirty = true
-		for cell in ARMOR_CELL_EFFECT:
-			var point : Vector2 = local_point + cell[0]
-			var v := armor_relative_image.get_pixelv(point).r
-			var v2 := recent_damage_image.get_pixelv(point).r
-			
-			v -= armor_dmg * cell[1]
-			if v < 0.0:
-				var extra := v * armor_hp_max / ARMOR_CELL_EFFECT.size()
-				remaining_dmg -= extra
-				v2 -= extra / hull_hp_max / multipliers.y
-				v = 0.0
-			armor_relative_image.set_pixelv(point, Color(v, 0.0, 0.0))
-			
-			recent_damage_set[point] = null
-			v2 += recent_dmg
-			v2 *= multipliers.x
-			v2 = minf(v2, 1.0)
-			recent_damage_image.set_pixelv(point, Color(v2, 0.0, 0.0))
+	# amount    6000, 4000, 2000, 1000
+	# armor     5000
 	
-	remaining_dmg /= multipliers.y
+	# Compute damage reduction from armor.
+	var dmg_mutiplier := amount.y  / (amount.y + armor_effect * armor_max) # 0.4444
+	assert(is_finite(dmg_mutiplier))
+	dmg_mutiplier = minf(dmg_mutiplier, 1.0)
 	
-	var hull_dmg := remaining_dmg * multipliers.x
-	hull_hp -= hull_dmg
+	# Damage that will be spread between affected cells based on distance.
+	if armor_max > 1.0:
+		amount.y *= dmg_mutiplier # 1778
+		var armor_cell_relative_damage := amount.y / armor_max # 0.3555
+		i = 0
+		for offset in ARMOR_CELL_OFFSET:
+			var point_cell := cell_center + offset # (0, 0)
+			var cell := armor_relative_image.get_pixelv(point_cell).r
+			cell -= armor_cell_relative_damage * ARMOR_CELL_EFFECT[i]
+			cell = maxf(cell, 0.0) # 0.1185
+			armor_relative_image.set_pixelv(point_cell, Color(cell, 0.0, 0.0))
+			i += 1
 	
-	var emp_dmg := remaining_dmg * multipliers.w
+	amount.x *= dmg_mutiplier # 2666
+	hull_hp -= amount.x
+	if sprite is HullSprite:
+		sprite.took_hull_damage(amount.x, cell_center)
+	
 	# TODO: Apply emp damage
-	print("emp_dmg: ", emp_dmg)
-
-
-func _update_recent_damage() -> void:
-	if recent_damage_last == 0.0 || recent_damage_set.is_empty():
-		recent_damage_last = 0.0
-		return
 	
-	var recent_damage_remove := recent_damage_last * RECENT_DAMAGE_REMOVE_RATE
-	recent_damage_last = 0.0
-	
-	for key in recent_damage_set.keys():
-		var new_value = recent_damage_image.get_pixelv(key).r - recent_damage_remove
-		if new_value < 0.0:
-			recent_damage_set.erase(key)
-			recent_damage_image.set_pixelv(key, Color())
-		else:
-			recent_damage_image.set_pixelv(key, Color(new_value, 0.0, 0.0))
+	took_damage.emit(amount, cell_center)
 
 
 func _integrate_angvel(

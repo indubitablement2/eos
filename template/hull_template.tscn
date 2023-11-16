@@ -1,0 +1,18 @@
+[gd_scene load_steps=4 format=3 uid="uid://bdd3n5kegckvi"]
+
+[ext_resource type="Script" path="res://core/battlescape/hull.gd" id="1_mfcbx"]
+[ext_resource type="Texture2D" uid="uid://rdq6qq6fmbfh" path="res://icon.svg" id="2_7s4w6"]
+[ext_resource type="Script" path="res://core/battlescape/hull_sprite.gd" id="3_ck7ui"]
+
+[node name="HullTemplate" type="RigidBody2D"]
+custom_integrator = true
+max_contacts_reported = 4
+contact_monitor = true
+script = ExtResource("1_mfcbx")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+clip_children = 2
+texture = ExtResource("2_7s4w6")
+script = ExtResource("3_ck7ui")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="."]

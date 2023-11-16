@@ -2,6 +2,7 @@
 extends Resource
 class_name HullData
 
+
 static var HULL_CLASS := PackedStringArray([
 	"missile",
 	"fighter",
@@ -22,10 +23,8 @@ enum HullClass {
 var hull_class := HullClass.MISSILE
 
 
-@export
+## Taken from Hull's sprite
 var sprite: Texture2D = Util.PIXEL_TEXTURE
-@export
-var sprite_offset := Vector2.ZERO
 
 
 @export_range(1.0, 500.0, 0.5, "or_greater")
@@ -58,17 +57,12 @@ var armor_min_effectiveness := 0.1
 var armor_relative_texture : Texture2D = Util.PIXEL_TEXTURE
 
 
-## Do not force hull material.
-## Do not track recent damage.
-## Use armor_hp_max as current armor instead of armor cells. 
-## Intended for simple missile.
-@export
-var simplified_hull := false
-
-
 @export_group("Computed")
-@export
-var armor_relative_image : Image
+@export var armor_relative_image : Image
+
+
+#func _init() -> void:
+	#print(get_root())
 
 
 func is_ship() -> bool:
