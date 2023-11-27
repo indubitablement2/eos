@@ -1,25 +1,36 @@
 use super::*;
 
 pub struct Interval {
-    previous_step: Instant,
+    internal_time: Instant,
+    max_difference: Duration,
     target_interval: Duration,
 }
 impl Interval {
-    pub fn new(millis: u64) -> Self {
+    pub fn new(interval: u64, max_difference: u64) -> Self {
         Self {
-            previous_step: Instant::now(),
-            target_interval: Duration::from_millis(millis),
+            internal_time: Instant::now(),
+            max_difference: Duration::from_millis(max_difference),
+            target_interval: Duration::from_millis(interval),
         }
     }
 
     pub fn step(&mut self) {
-        if let Some(remaining) = self
-            .target_interval
-            .checked_sub(self.previous_step.elapsed())
-        {
-            std::thread::sleep(remaining);
+        let now = Instant::now();
+
+        self.internal_time += self.target_interval;
+
+        let behind = now - self.internal_time;
+        if behind > self.max_difference {
+            log::debug!(
+                "Interval behind by {}ms which is more than maximum of {}ms",
+                behind.as_millis(),
+                self.max_difference.as_millis()
+            );
+            self.internal_time = now - self.max_difference;
         }
 
-        self.previous_step = Instant::now();
+        if let Some(delay) = self.internal_time.checked_duration_since(now) {
+            std::thread::sleep(delay);
+        }
     }
 }

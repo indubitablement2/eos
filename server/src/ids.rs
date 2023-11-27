@@ -24,3 +24,6 @@ impl Default for ClientId {
         Self(NonZeroU64::new(1).unwrap())
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct InstanceId(pub u32);

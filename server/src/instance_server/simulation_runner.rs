@@ -1,61 +1,56 @@
 use super::*;
 use battlescape::*;
 
-pub struct BattlescapeHandle {
-    handle: std::thread::JoinHandle<()>,
-    pub clients: Mutex<AHashSet<ClientId>>,
+pub enum BattlescapeRunnerRequest {
+    // TODO
 }
-impl BattlescapeHandle {
+
+pub enum BattlescapeRunnerResponse {
+    // TODO
+}
+
+pub struct BattlescapeRunnerHandle {
+    pub request_sender: Sender<BattlescapeRunnerRequest>,
+    pub response_receiver: Receiver<BattlescapeRunnerResponse>,
+}
+impl BattlescapeRunnerHandle {
     pub fn start() -> Self {
-        let handle = std::thread::spawn(|| {
-            BattlescapeRunner {}.run();
+        let (request_sender, request_receiver) = channel();
+        let (response_sender, response_receiver) = channel();
+
+        std::thread::spawn(move || {
+            BattlescapeRunner {
+                request_receiver,
+                response_sender,
+            }
+            .run();
         });
 
         Self {
-            handle,
-            clients: Default::default(),
+            request_sender,
+            response_receiver,
         }
     }
 }
 
 struct BattlescapeRunner {
-    //
+    // battlescape: Battlescape,
+    request_receiver: Receiver<BattlescapeRunnerRequest>,
+    response_sender: Sender<BattlescapeRunnerResponse>,
 }
 impl BattlescapeRunner {
     fn run(mut self) {
-        // let mut previous_step = Instant::now();
-        // loop {
-        //     if let Some(remaining) = TARGET_DT_DURATION.checked_sub(previous_step.elapsed()) {
-        //         std::thread::sleep(remaining);
-        //     }
-
-        //     let now = Instant::now();
-        //     let delta = (now - previous_step).as_secs_f32().min(TARGET_DT * 2.0);
-        //     previous_step = now;
-        //     runner.step(delta);
-        // }
-
-        let mut now = std::time::Instant::now();
-        let mut sim_time = 0.0f64;
-        let mut real_time = 0.0f64;
+        let mut interval = interval::Interval::new(DT_MS);
         loop {
-            real_time += now.elapsed().as_secs_f64();
-            now = std::time::Instant::now();
+            interval.step();
 
-            let dif = sim_time - real_time;
-            if dif < -DT as f64 * 4.0 {
-                log::warn!("Simulation runner is lagging behind by {} seconds", -dif);
-                real_time = sim_time + DT as f64 * 4.0;
-            } else if dif > 0.001 {
-                std::thread::sleep(std::time::Duration::from_secs_f64(dif));
+            for request in self.request_receiver.try_iter() {
+                match request {
+                    // TODO
+                }
             }
 
             self.step();
-            sim_time += DT as f64;
-
-            // if self.central_server_connection.disconnected {
-            //     break;
-            // }
         }
     }
 

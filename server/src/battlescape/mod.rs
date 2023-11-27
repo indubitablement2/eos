@@ -11,7 +11,8 @@ use rapier2d::prelude::*;
 type SimRng = rand_xoshiro::Xoshiro128StarStar;
 type Entities = IndexMap<EntityId, Entity, RandomState>;
 
-pub const DT: f32 = 1.0 / 24.0;
+pub const DT: f32 = 1.0 / 20.0;
+pub const DT_MS: u64 = 50;
 
 #[derive(Serialize, Deserialize)]
 pub struct Battlescape {

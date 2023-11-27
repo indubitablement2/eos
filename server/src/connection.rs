@@ -1,180 +1,252 @@
 use super::*;
-use std::net::TcpListener;
-use std::net::TcpStream;
-use tungstenite::util::*;
-use tungstenite::{HandshakeError, Message, WebSocket};
+use futures_util::{SinkExt, StreamExt};
+use tokio::net::{TcpListener, TcpStream};
+use tokio_tungstenite::{
+    tungstenite::{
+        protocol::{frame::coding::CloseCode, CloseFrame},
+        Message,
+    },
+    WebSocketStream,
+};
 
-pub trait Packet: Sized {
+pub trait Packet: Sized + Send {
     fn serialize(self) -> Vec<u8>;
-    fn parse(buf: Vec<u8>) -> Result<Self, &'static str>;
+    fn parse(buf: Vec<u8>) -> anyhow::Result<Self>;
+}
+impl Packet for Vec<u8> {
+    fn serialize(self) -> Vec<u8> {
+        self
+    }
+
+    fn parse(buf: Vec<u8>) -> anyhow::Result<Self> {
+        Ok(buf)
+    }
+}
+
+pub trait Authentication: Clone + Send + Sized + 'static {
+    fn login_packet(
+        &mut self,
+    ) -> impl std::future::Future<Output = impl Packet> + std::marker::Send;
+    fn verify_first_packet(
+        &mut self,
+        first_packet: Vec<u8>,
+    ) -> impl std::future::Future<Output = anyhow::Result<u64>> + std::marker::Send;
 }
 
 pub struct ConnectionListener {
-    listener: TcpListener,
-    accept_ongoing: Vec<
-        tungstenite::handshake::MidHandshake<
-            tungstenite::ServerHandshake<TcpStream, tungstenite::handshake::server::NoCallback>,
-        >,
-    >,
-    login_ongoing: Vec<Connection>,
-    login_failure: Vec<Connection>,
+    new_connection_receiver: Receiver<(Connection, u64)>,
 }
 impl ConnectionListener {
-    pub fn bind(addr: SocketAddr) -> Self {
-        let listener = TcpListener::bind(addr).unwrap();
-        listener.set_nonblocking(true).unwrap();
+    pub fn bind(addr: SocketAddr, auth: impl Authentication) -> Self {
+        let listener = tokio()
+            .block_on(async move { TcpListener::bind(addr).await })
+            .unwrap();
+
+        let (new_connection_sender, new_connection_receiver) = unbounded();
+
+        tokio().spawn(async move {
+            loop {
+                let (stream, addr) = match listener.accept().await {
+                    Ok(ok) => ok,
+                    Err(err) => {
+                        log::error!("Failed to accept connection: {}", err);
+                        break;
+                    }
+                };
+
+                let auth = auth.clone();
+                let new_connection_sender = new_connection_sender.clone();
+
+                tokio::spawn(async move {
+                    log::debug!("New connection attempt from {}", addr);
+
+                    match Connection::accept_stream(stream, addr, auth).await {
+                        Ok(ok) => {
+                            let _ = new_connection_sender.send(ok);
+                        }
+                        Err(err) => {
+                            log::debug!("Failed to accept connection from {}: {}", addr, err);
+                        }
+                    }
+                });
+            }
+        });
 
         Self {
-            listener,
-            accept_ongoing: Vec::new(),
-            login_ongoing: Vec::new(),
-            login_failure: Vec::new(),
+            new_connection_receiver,
         }
     }
 
-    pub fn accept<T: Packet>(
-        &mut self,
-        mut login: impl FnMut(T) -> Result<(), &'static str>,
-        mut new_connection: impl FnMut(Connection),
-    ) {
-        let mut accept = Vec::new();
-
-        loop {
-            match self.listener.accept().no_block() {
-                Ok(Some((stream, _))) => {
-                    if let Err(err) = stream.set_nodelay(true) {
-                        log::warn!("Failed to set nodelay: {}", err);
-                    }
-
-                    if let Err(err) = stream.set_nonblocking(true) {
-                        log::warn!("Failed to set non-blocking: {}", err);
-                        continue;
-                    }
-
-                    match tungstenite::accept(stream) {
-                        Ok(socket) => {
-                            self.login_ongoing.push(Connection { socket });
-                        }
-                        Err(HandshakeError::Interrupted(mid)) => {
-                            self.accept_ongoing.push(mid);
-                        }
-                        Err(HandshakeError::Failure(err)) => {
-                            log::debug!("Failed to accept connection: {}", err);
-                        }
-                    }
-                }
-                Ok(None) => break,
-                Err(err) => {
-                    log::error!("Failed to accept connection: {}", err);
-                    break;
-                }
-            }
-        }
-
-        std::mem::swap(&mut self.accept_ongoing, &mut accept);
-        for mid in accept {
-            match mid.handshake() {
-                Ok(socket) => {
-                    self.login_ongoing.push(Connection { socket });
-                }
-                Err(HandshakeError::Interrupted(mid)) => self.accept_ongoing.push(mid),
-                Err(HandshakeError::Failure(err)) => {
-                    log::debug!("Failed to accept connection: {}", err);
-                }
-            }
-        }
-
-        let mut i = 0;
-        while i < self.login_ongoing.len() {
-            let connection = &mut self.login_ongoing[i];
-
-            if connection.is_closed() {
-                self.login_ongoing.swap_remove(i);
-                continue;
-            }
-
-            if let Some(t) = connection.recv() {
-                let mut connection = self.login_ongoing.swap_remove(i);
-
-                if let Err(reason) = login(t) {
-                    connection.close(reason);
-                    self.login_failure.push(connection);
-                } else {
-                    new_connection(connection);
-                }
-
-                continue;
-            }
-
-            i += 1;
-        }
-
-        self.login_failure.retain_mut(|connection| {
-            connection.flush();
-            !connection.is_closed()
-        });
+    pub fn recv(&mut self) -> Option<(Connection, u64)> {
+        self.new_connection_receiver.try_recv().ok()
     }
 }
 
 pub struct Connection {
-    socket: WebSocket<TcpStream>,
+    disconnected: bool,
+    pub peer_addr: SocketAddr,
+    inbound_receiver: Receiver<Vec<u8>>,
+    outbound_sender: tokio::sync::mpsc::UnboundedSender<Result<Option<Vec<u8>>, &'static str>>,
 }
 impl Connection {
-    pub fn connect(addr: SocketAddr) -> Self {
-        let stream = TcpStream::connect(addr).unwrap();
-        stream.set_nodelay(true).unwrap();
-        stream.set_nonblocking(true).unwrap();
+    pub fn connect(addr: SocketAddr, auth: impl Authentication) -> anyhow::Result<(Self, u64)> {
+        tokio().block_on(Connection::accept_client(addr, auth))
+    }
 
-        match tungstenite::client("ws://", stream) {
-            Ok((socket, _)) => Self { socket },
-            Err(HandshakeError::Interrupted(mut old_mid)) => loop {
-                std::thread::sleep(std::time::Duration::from_millis(200));
-                match old_mid.handshake() {
-                    Ok((socket, _)) => break Self { socket },
-                    Err(HandshakeError::Interrupted(mid)) => old_mid = mid,
-                    Err(HandshakeError::Failure(err)) => {
-                        panic!("Failed to connect: {}", err);
+    async fn accept_client(
+        server_addr: SocketAddr,
+        auth: impl Authentication,
+    ) -> anyhow::Result<(Self, u64)> {
+        let stream = TcpStream::connect(server_addr).await?;
+        let ws = tokio_tungstenite::client_async(format!("ws://{}", server_addr), stream)
+            .await?
+            .0;
+        Connection::accept(ws, server_addr, auth).await
+    }
+
+    async fn accept_stream(
+        stream: TcpStream,
+        addr: SocketAddr,
+        auth: impl Authentication,
+    ) -> anyhow::Result<(Self, u64)> {
+        let ws = tokio_tungstenite::accept_async(stream).await?;
+        Connection::accept(ws, addr, auth).await
+    }
+
+    async fn accept(
+        mut ws: WebSocketStream<TcpStream>,
+        addr: SocketAddr,
+        mut auth: impl Authentication,
+    ) -> anyhow::Result<(Self, u64)> {
+        let _ = ws.get_mut().set_nodelay(true);
+        let (mut sink, mut stream) = ws.split();
+
+        // Login
+        sink.send(Message::Binary(auth.login_packet().await.serialize()))
+            .await?;
+        let id = match auth.verify_first_packet(read_vec(&mut stream).await?).await {
+            Ok(id) => id,
+            Err(err) => {
+                let _ = sink
+                    .send(Message::Close(Some(CloseFrame {
+                        code: CloseCode::Normal,
+                        reason: err.to_string().into(),
+                    })))
+                    .await;
+                return Err(err);
+            }
+        };
+
+        // Inbound loop
+        let (inbound_sender, inbound_receiver) = unbounded();
+        tokio::spawn(async move {
+            while let Ok(buf) = read_vec(&mut stream).await {
+                if inbound_sender.send(buf).is_err() {
+                    break;
+                }
+            }
+            log::debug!("Stream with {} closed", addr);
+        });
+
+        // Outbound loop
+        let (outbound_sender, mut outbound_receiver) =
+            tokio::sync::mpsc::unbounded_channel::<Result<Option<Vec<u8>>, &'static str>>();
+        tokio::spawn(async move {
+            while let Some(buf) = outbound_receiver.recv().await {
+                match buf {
+                    Ok(Some(buf)) => {
+                        if let Err(err) = sink.feed(Message::Binary(buf)).await {
+                            log::debug!("Failed to feed packet to {}: {}", addr, err);
+                            break;
+                        }
+                    }
+                    Ok(None) => {
+                        if let Err(err) = sink.flush().await {
+                            log::debug!("Failed to flush packets to {}: {}", addr, err);
+                            break;
+                        }
+                    }
+                    Err(close_reason) => {
+                        let _ = sink
+                            .send(Message::Close(Some(CloseFrame {
+                                code: CloseCode::Normal,
+                                reason: close_reason.into(),
+                            })))
+                            .await;
+                        break;
                     }
                 }
-            },
-            Err(HandshakeError::Failure(err)) => {
-                panic!("Failed to connect: {}", err);
             }
-        }
+
+            log::debug!("Sink with {} closed", addr);
+        });
+
+        Ok((
+            Self {
+                disconnected: false,
+                peer_addr: addr,
+                inbound_receiver,
+                outbound_sender,
+            },
+            id,
+        ))
     }
 
     pub fn recv<T: Packet>(&mut self) -> Option<T> {
-        while let Ok(msg) = self.socket.read() {
-            if let Message::Binary(buf) = msg {
-                return match T::parse(buf) {
-                    Ok(t) => Some(t),
-                    Err(err) => {
-                        log::debug!("Failed to parse packet: {}", err);
-                        None
-                    }
-                };
+        loop {
+            match self.inbound_receiver.try_recv() {
+                Ok(buf) => {
+                    return match T::parse(buf) {
+                        Ok(t) => Some(t),
+                        Err(err) => {
+                            log::debug!("Failed to parse packet: {}", err);
+                            return None;
+                        }
+                    };
+                }
+                Err(TryRecvError::Empty) => {
+                    return None;
+                }
+                Err(TryRecvError::Disconnected) => {
+                    self.disconnected = true;
+                    return None;
+                }
             }
         }
-
-        None
     }
 
-    pub fn queue(&mut self, buf: Vec<u8>) {
-        let _ = self.socket.write(Message::Binary(buf));
+    pub fn queue(&self, packet: impl Packet) {
+        let _ = self.outbound_sender.send(Ok(Some(packet.serialize())));
     }
 
-    pub fn flush(&mut self) {
-        let _ = self.socket.flush();
+    pub fn flush(&self) {
+        let _ = self.outbound_sender.send(Ok(None));
     }
 
-    pub fn is_closed(&self) -> bool {
-        self.socket.can_read()
+    pub fn close(&mut self, reason: &'static str) {
+        self.flush();
+        self.disconnected = true;
+        self.outbound_sender.send(Err(reason)).ok();
     }
 
-    pub fn close(&mut self, reason: &str) {
-        let _ = self.socket.close(Some(tungstenite::protocol::CloseFrame {
-            code: tungstenite::protocol::frame::coding::CloseCode::Normal,
-            reason: reason.into(),
-        }));
+    pub fn is_disconnected(&self) -> bool {
+        self.disconnected || self.outbound_sender.is_closed()
     }
+
+    pub fn is_connected(&self) -> bool {
+        !self.is_disconnected()
+    }
+}
+
+async fn read_vec(
+    stream: &mut futures_util::stream::SplitStream<tokio_tungstenite::WebSocketStream<TcpStream>>,
+) -> anyhow::Result<Vec<u8>> {
+    while let Some(msg) = stream.next().await {
+        match msg? {
+            Message::Binary(buf) => return Ok(buf),
+            Message::Close(_) => anyhow::bail!("Connection closed"),
+            _ => {}
+        }
+    }
+    anyhow::bail!("Connection closed");
 }

@@ -1,29 +1,24 @@
+mod client_inbound;
+pub mod client_login;
+mod client_outbound;
 mod simulation_runner;
 
 use super::*;
-use central_instance::*;
-use client_instance::*;
-use instance_central::*;
-use instance_client::*;
-use simulation_runner::BattlescapeHandle;
+use connection::*;
+use database::*;
+use simulation_runner::*;
 
 struct State {
-    database_outbound: ConnectionOutbound,
+    database_connection: Connection,
 
-    client_tokens: DashMap<ClientId, (u64, BattlescapeId), RandomState>,
-    client_connections: DashMap<ClientId, ConnectionOutbound, RandomState>,
+    client_login: AHashMap<client_login::ClientLogin, Connection>,
+    client_connections: AHashMap<ClientId, Connection>,
 
-    battlescapes: DashMap<BattlescapeId, BattlescapeHandle, RandomState>,
+    battlescapes: DashMap<BattlescapeId, BattlescapeRunnerHandle, RandomState>,
 }
-impl State {
-    pub fn send_database(&self, cmds: Vec<()>) {
-        // self.database_outbound.send(packet)
-    }
-}
+impl State {}
 
-pub async fn _start() {
-    log::info!("Starting instance server");
-
+pub fn _start(db_addr: SocketAddr) {
     // Connect to central server.
     let (central_outbound, mut central_inbound) =
         ConnectionOutbound::connect(CENTRAL_ADDR_INSTANCE).await;

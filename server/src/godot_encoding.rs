@@ -1,7 +1,7 @@
 use super::*;
 use bytes::{Buf, BufMut};
 
-trait VariantEncoding: BufMut {
+pub trait VariantEncoding: BufMut {
     /// Advance by 8.
     fn put_bool_var(&mut self, value: bool) {
         self.put_u32_le(1);
@@ -65,10 +65,10 @@ trait VariantEncoding: BufMut {
 }
 impl VariantEncoding for Vec<u8> {}
 
-trait VariantDecoding: Buf {
-    fn get_bool_var(&mut self) -> Result<bool, ()> {
+pub trait VariantDecoding: Buf {
+    fn get_bool_var(&mut self) -> anyhow::Result<bool> {
         if self.remaining() < 8 {
-            return Err(());
+            anyhow::bail!("Buffer too small for bool");
         }
 
         let header = self.get_u32_le();
@@ -79,10 +79,10 @@ trait VariantDecoding: Buf {
         Ok(self.get_u32_le() != 0)
     }
 
-    /// Convert to u32 if needed.
-    fn get_u32_var(&mut self) -> Result<u32, ()> {
+    /// Convert from 64 bits int if needed.
+    fn get_u32_var(&mut self) -> anyhow::Result<u32> {
         if self.remaining() < 8 {
-            return Err(());
+            anyhow::bail!("Buffer too small for int");
         }
 
         let header = self.get_u32_le();
@@ -92,21 +92,21 @@ trait VariantDecoding: Buf {
 
         if flag == 0 {
             if self.remaining() < 4 {
-                Err(())
+                anyhow::bail!("Buffer too small for 32bits int");
             } else {
                 Ok(self.get_u32_le())
             }
         } else if self.remaining() < 8 {
-            Err(())
+            anyhow::bail!("Buffer too small for 64bits int");
         } else {
             Ok(self.get_u64_le() as u32)
         }
     }
 
-    /// Convert to u32 if needed.
-    fn get_u64_var(&mut self) -> Result<u64, ()> {
+    /// Convert from 32 bits int if needed.
+    fn get_u64_var(&mut self) -> anyhow::Result<u64> {
         if self.remaining() < 8 {
-            return Err(());
+            anyhow::bail!("Buffer too small for int");
         }
 
         let header = self.get_u32_le();
@@ -116,21 +116,21 @@ trait VariantDecoding: Buf {
 
         if flag == 0 {
             if self.remaining() < 4 {
-                Err(())
+                anyhow::bail!("Buffer too small for 32bits int");
             } else {
                 Ok(self.get_u32_le() as u64)
             }
         } else if self.remaining() < 8 {
-            Err(())
+            anyhow::bail!("Buffer too small for 64bits int");
         } else {
             Ok(self.get_u64_le())
         }
     }
 
     /// Convert f64 to f32 if needed.
-    fn get_f32_var(&mut self) -> Result<f32, ()> {
+    fn get_f32_var(&mut self) -> anyhow::Result<f32> {
         if self.remaining() < 8 {
-            return Err(());
+            anyhow::bail!("Buffer too small for float");
         }
 
         let header = self.get_u32_le();
@@ -140,21 +140,21 @@ trait VariantDecoding: Buf {
 
         if flag == 0 {
             if self.remaining() < 4 {
-                Err(())
+                anyhow::bail!("Buffer too small for 32bits float");
             } else {
                 Ok(self.get_f32_le())
             }
         } else if self.remaining() < 8 {
-            Err(())
+            anyhow::bail!("Buffer too small for 64bits float");
         } else {
             Ok(self.get_f64_le() as f32)
         }
     }
 
     /// Convert f32 to f64 if needed.
-    fn get_f64_var(&mut self) -> Result<f64, ()> {
+    fn get_f64_var(&mut self) -> anyhow::Result<f64> {
         if self.remaining() < 8 {
-            return Err(());
+            anyhow::bail!("Buffer too small for float");
         }
 
         let header = self.get_u32_le();
@@ -164,20 +164,20 @@ trait VariantDecoding: Buf {
 
         if flag == 0 {
             if self.remaining() < 4 {
-                Err(())
+                anyhow::bail!("Buffer too small for 32bits float");
             } else {
                 Ok(self.get_f32_le() as f64)
             }
         } else if self.remaining() < 8 {
-            Err(())
+            anyhow::bail!("Buffer too small for 64bits float");
         } else {
             Ok(self.get_f64_le())
         }
     }
 
-    fn get_string_var(&mut self) -> Result<String, ()> {
+    fn get_string_var(&mut self) -> anyhow::Result<String> {
         if self.remaining() < 8 {
-            return Err(());
+            anyhow::bail!("Buffer too small for string");
         }
 
         let header = self.get_u32_le();
@@ -188,26 +188,23 @@ trait VariantDecoding: Buf {
         let len = self.get_u32_le() as usize;
         let full_len = len.next_multiple_of(4);
         if self.remaining() < full_len {
-            log::debug!(
+            anyhow::bail!(
                 "Buffer too small for string of length {}( has:{}, need:{})",
                 len,
                 self.remaining(),
                 full_len
             );
-            return Err(());
         }
 
         let mut vec = vec![0; full_len];
         self.copy_to_slice(&mut vec);
         vec.truncate(len);
-        String::from_utf8(vec).map_err(|err| {
-            log::debug!("Failed to parse string: {}", err);
-        })
+        Ok(String::from_utf8(vec)?)
     }
 
-    fn get_vec2_var(&mut self) -> Result<Vector2<f32>, ()> {
+    fn get_vec2_var(&mut self) -> anyhow::Result<Vector2<f32>> {
         if self.remaining() < 12 {
-            return Err(());
+            anyhow::bail!("Buffer too small for Vector2");
         }
 
         let header = self.get_u32_le();
@@ -218,9 +215,9 @@ trait VariantDecoding: Buf {
         Ok(Vector2::new(self.get_f32_le(), self.get_f32_le()))
     }
 
-    fn get_array_var(&mut self) -> Result<usize, ()> {
+    fn get_array_var(&mut self) -> anyhow::Result<usize> {
         if self.remaining() < 8 {
-            return Err(());
+            anyhow::bail!("Buffer too small for array");
         }
 
         // Header has godot properties which we don't care about.
