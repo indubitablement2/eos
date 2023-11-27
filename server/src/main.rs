@@ -23,10 +23,10 @@ use std::{
 
 // TODO: Keep track of what data client has and send as needed instead of waiting for query
 
-// TODO: database (rmp, bincode)
+// // TODO: database (json, bincode)
 // // TODO: instance <-> database (bincode)
-// TODO: replay (rmp)
-// TODO: instance <-> client (godot?)
+// TODO: replay (json)
+// TODO: instance <-> client (godot)
 
 const PRIVATE_KEY: u64 = const_random::const_random!(u64);
 

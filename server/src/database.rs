@@ -360,7 +360,7 @@ const REQUEST_MUT_ID: u8 = 0;
 const REQUEST_REF_ID: u8 = 1;
 
 #[test]
-fn database_request_encoding() {
+fn test_request_encoding() {
     let request_mut = DatabaseRequestMut::TestRequest;
     let request_ref = DatabaseRequestRef::TestRequest;
 
@@ -376,4 +376,30 @@ fn database_request_encoding() {
     assert_eq!(buf[0], REQUEST_REF_ID);
 }
 
-// TODO: Test rmp stability
+#[test]
+fn test_json_stability() {
+    #[derive(Serialize, Deserialize)]
+    enum A {
+        ToRemove(String),
+        B { to_remove: u64, to_rename: u64 },
+    }
+
+    #[derive(Serialize, Deserialize)]
+    enum B {
+        B {
+            #[serde(alias = "to_remove")]
+            renamed: u64,
+            #[serde(default)]
+            to_add: u64,
+        },
+    }
+
+    serde_json::from_slice::<B>(
+        &serde_json::to_vec(&A::B {
+            to_remove: 1,
+            to_rename: 2,
+        })
+        .unwrap(),
+    )
+    .unwrap();
+}
