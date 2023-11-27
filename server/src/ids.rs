@@ -26,4 +26,4 @@ impl Default for ClientId {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct InstanceId(pub u32);
+pub struct InstanceId(pub u64);

@@ -60,7 +60,6 @@ struct Database {
 struct State {
     mut_requests_writer: BufWriter<File>,
 
-    next_instance_id: InstanceId,
     connection_listener: ConnectionListener,
     instances: AHashMap<InstanceId, Connection>,
 }
@@ -72,7 +71,6 @@ impl State {
         let mut state = Self {
             mut_requests_writer: BufWriter::new(File::create("dummy")?),
 
-            next_instance_id: InstanceId(0),
             instances: AHashMap::new(),
             connection_listener: ConnectionListener::bind(database_addr(), DatabaseInstanceAuth),
         };
@@ -160,9 +158,15 @@ impl State {
 
     fn step(&mut self, db: &mut Database) {
         // Get new instances.
-        while let Some((new_instance, _)) = self.connection_listener.recv() {
-            self.instances.insert(self.next_instance_id, new_instance);
-            self.next_instance_id.0 += 1;
+        while let Some((new_instance, id)) = self.connection_listener.recv() {
+            let id = InstanceId(id);
+
+            if self.instances.contains_key(&id) {
+                log::warn!("Instance with id {} already connected", id.0);
+                continue;
+            }
+
+            self.instances.insert(id, new_instance);
         }
 
         // Gather instance requests.
