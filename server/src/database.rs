@@ -324,7 +324,7 @@ impl Authentication for DatabaseInstanceAuth {
 
 #[derive(Serialize, Deserialize)]
 struct DatabaseLogin {
-    private_key: u64,
+    private_key: [u8; 32],
     instance_id: InstanceId,
 }
 impl Packet for DatabaseLogin {

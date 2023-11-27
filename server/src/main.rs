@@ -28,7 +28,7 @@ use std::{
 // TODO: replay (json)
 // TODO: instance <-> client (godot)
 
-const PRIVATE_KEY: u64 = const_random::const_random!(u64);
+const PRIVATE_KEY: [u8; 32] = const_random::const_random!([u8; 32]);
 
 static _TOKIO_RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
 fn tokio() -> &'static tokio::runtime::Runtime {
