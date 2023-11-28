@@ -67,6 +67,12 @@ impl Physics {
         self.events.0.try_lock().unwrap().as_slice()
     }
 
+    /// mprops: Use `MassProperties::from_ball`.
+    /// That way center of mass is always at the local origin.
+    ///
+    /// ignore: Optional EntityId to ignore collisions with.
+    /// Useful for ignoring collisions with the entity that spawned the body.
+    /// Can only have one.
     pub fn add_body(
         &mut self,
         position: Isometry2<f32>,
@@ -90,6 +96,7 @@ impl Physics {
         self.bodies.insert(rb)
     }
 
+    /// Collider do not affect body's mass properties.
     pub fn add_collider(
         &mut self,
         shape: SharedShape,
@@ -179,7 +186,9 @@ impl PhysicsHooks for Hooks {
         if let Some((rb1, rb2)) = context.rigid_body1.zip(context.rigid_body2) {
             let a = context.bodies[rb1].user_data;
             let b = context.bodies[rb2].user_data;
-            if a.body_entity_ignore() == b.entity_id() || b.body_entity_ignore() == a.entity_id() {
+            if Some(a.entity_id()) == b.body_entity_ignore()
+                || Some(b.entity_id()) == a.body_entity_ignore()
+            {
                 return None;
             }
         }
@@ -285,7 +294,9 @@ pub trait UserData {
     fn pack_body(entity_id: EntityId, ignore: Option<EntityId>) -> Self;
     fn pack_collider(entity_id: EntityId, collider_id: ColliderGenericId) -> Self;
     fn entity_id(self) -> EntityId;
-    fn body_entity_ignore(self) -> EntityId;
+    /// Only valid if this was taken from a body's user data.
+    fn body_entity_ignore(self) -> Option<EntityId>;
+    /// Only valid if this was taken from a collider's user data.
     fn collider_collider_id(self) -> ColliderGenericId;
 }
 impl UserData for u128 {
@@ -301,8 +312,8 @@ impl UserData for u128 {
         EntityId::from_u64(self as u64).unwrap()
     }
 
-    fn body_entity_ignore(self) -> EntityId {
-        EntityId::from_u64((self >> 64) as u64).unwrap()
+    fn body_entity_ignore(self) -> Option<EntityId> {
+        EntityId::from_u64((self >> 64) as u64)
     }
 
     fn collider_collider_id(self) -> ColliderGenericId {
