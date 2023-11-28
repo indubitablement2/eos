@@ -10,21 +10,24 @@ use rapier2d::prelude::*;
 
 type SimRng = rand_xoshiro::Xoshiro128StarStar;
 type Entities = IndexMap<EntityId, Entity, RandomState>;
+type Ais = IndexMap<EntityId, EntityAi, RandomState>;
 
 pub const DT: f32 = 1.0 / 20.0;
 pub const DT_MS: u64 = 50;
+
+// TODO: store collision events on entity for one tick
 
 #[derive(Serialize, Deserialize)]
 pub struct Battlescape {
     pub tick: u64,
     pub half_size: f32,
     rng: SimRng,
+
     pub physics: Physics,
 
     next_entity_id: EntityId,
-
     pub entities: Entities,
-    pub ais: IndexMap<EntityId, EntityAi, RandomState>,
+    pub ais: Ais,
 }
 impl Battlescape {
     pub fn new() -> Self {
@@ -39,47 +42,32 @@ impl Battlescape {
         }
     }
 
-    pub fn serialize(&self) -> Vec<u8> {
-        // Afaik this can not fail.
-        serde_json::to_vec(&self).unwrap()
-    }
-
-    pub fn deserialize(bytes: &[u8]) -> Result<Self, serde_json::Error> {
-        serde_json::from_slice(bytes)
+    pub fn apply_cmd(&mut self, cmd: BattlescapeCommand) {
+        // TODO
     }
 
     pub fn step(&mut self) {
         self.tick += 1;
 
         // Update ais.
-        let mut remove: Vec<usize> = Vec::new();
-        for (ai_idx, (entity_id, ai)) in self.ais.iter_mut().enumerate() {
+        self.ais.retain(|entity_id, ai| {
             if let Some(entity_idx) = self.entities.get_index_of(entity_id) {
-                if ai.update(entity_idx, &mut self.entities, &mut self.physics) {
-                    remove.push(ai_idx);
-                }
+                !ai.update(entity_idx, &mut self.entities, &mut self.physics)
+            } else {
+                false
             }
-        }
-        for ai_idx in remove.into_iter().rev() {
-            self.ais.swap_remove_index(ai_idx);
-        }
+        });
 
         // Update entities.
-        let mut remove: Vec<usize> = Vec::new();
-        for (entity_idx, entity) in self.entities.values_mut().enumerate() {
-            if entity.update(&mut self.physics) {
-                remove.push(entity_idx);
-            }
-        }
-        for entity_idx in remove.into_iter().rev() {
-            if let Some((entity_id, entity)) = self.entities.swap_remove_index(entity_idx) {
-                // TODO: Do something with the destroyed entity?
-                self.ais.swap_remove(&entity_id);
-            };
-        }
+        self.entities.retain(|_entity_id, entity| {
+            // TODO: Do something with the destroyed entity?
+            !entity.update(&mut self.physics)
+        });
 
         self.physics.step();
+
         // TODO: Handle physic events.
+        let events = self.physics.take_events();
     }
 
     pub fn spawn_entity(
@@ -110,4 +98,9 @@ impl Battlescape {
             // TODO:
         }
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum BattlescapeCommand {
+    // TODO
 }

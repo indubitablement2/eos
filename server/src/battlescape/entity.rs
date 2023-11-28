@@ -1,5 +1,6 @@
 use super::*;
 
+// TODO: Add hulls abstraction
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Entity {
     pub entity_data_id: EntityDataId,
@@ -34,7 +35,7 @@ impl Entity {
         physics.add_collider(
             SimpleColliderBuilder::new_ship(entity_data.shape.clone()),
             rb,
-            ColliderGenericId::HullIndex(0),
+            ColliderGenericId::HullIdx(0),
         );
 
         Self {
@@ -129,6 +130,10 @@ impl Entity {
         );
 
         self.defence.hull <= 0
+    }
+
+    pub fn handle_contact_force_event(&mut self, event: ContactForceEvent, physics: &mut Physics) {
+        // TODO
     }
 }
 

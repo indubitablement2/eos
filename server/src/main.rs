@@ -1,4 +1,5 @@
 // mod battlescape;
+mod battlescape;
 mod connection;
 mod database;
 mod godot_encoding;

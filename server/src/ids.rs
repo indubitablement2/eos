@@ -3,27 +3,32 @@ use std::num::NonZeroU64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct EntityId(pub NonZeroU64);
+impl EntityId {
+    pub fn from_u64(id: u64) -> Option<Self> {
+        NonZeroU64::new(id).map(Self)
+    }
+
+    pub fn as_u64(self) -> u64 {
+        self.0.get()
+    }
+}
 impl Default for EntityId {
     fn default() -> Self {
-        Self(NonZeroU64::new(1).unwrap())
+        Self::from_u64(1).unwrap()
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct BattlescapeId(pub NonZeroU64);
-impl Default for BattlescapeId {
-    fn default() -> Self {
-        Self(NonZeroU64::new(1).unwrap())
-    }
-}
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
+)]
+pub struct BattlescapeId(pub u64);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ClientId(pub NonZeroU64);
-impl Default for ClientId {
-    fn default() -> Self {
-        Self(NonZeroU64::new(1).unwrap())
-    }
-}
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
+)]
+pub struct ClientId(pub u64);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
+)]
 pub struct InstanceId(pub u64);
