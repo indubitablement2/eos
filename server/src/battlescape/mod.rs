@@ -1,16 +1,12 @@
 pub mod entity;
-pub mod entity_ai;
 pub mod physics;
 
 use super::*;
 use entity::*;
-use entity_ai::EntityAi;
 use physics::*;
 use rapier2d::prelude::*;
 
 type SimRng = rand_xoshiro::Xoshiro128StarStar;
-type Entities = IndexMap<EntityId, Entity, RandomState>;
-type Ais = IndexMap<EntityId, EntityAi, RandomState>;
 
 pub const DT: f32 = 1.0 / 20.0;
 pub const DT_MS: u64 = 50;
@@ -26,8 +22,10 @@ pub struct Battlescape {
     pub physics: Physics,
 
     next_entity_id: EntityId,
-    pub entities: Entities,
-    pub ais: Ais,
+    pub entities: IndexMap<EntityId, Entity, RandomState>,
+
+    /// Objects are processed in the same order they are added.
+    objects: Vec<Object>,
 }
 impl Battlescape {
     pub fn new() -> Self {
@@ -38,11 +36,11 @@ impl Battlescape {
             physics: Default::default(),
             next_entity_id: Default::default(),
             entities: Default::default(),
-            ais: Default::default(),
+            objects: Default::default(),
         }
     }
 
-    pub fn apply_cmd(&mut self, cmd: BattlescapeCommand) {
+    pub fn apply_cmd(&mut self, cmd: &BattlescapeCommand) {
         // TODO
     }
 
@@ -76,24 +74,22 @@ impl Battlescape {
             !entity.update(&mut self.physics)
         });
 
-        // TODO: Rename to object, one entity can have mutiple objects.
-        // Update ais.
-        self.ais.retain(|entity_id, ai| {
-            if let Some(entity_idx) = self.entities.get_index_of(entity_id) {
-                !ai.update(entity_idx, &mut self.entities, &mut self.physics)
-            } else {
-                false
-            }
-        });
+        // Update objects.
+        let mut objs = std::mem::take(&mut self.objects);
+        objs.retain_mut(|obj| obj.update_retain(self));
+        std::mem::swap(&mut self.objects, &mut objs);
+        // Add new objects.
+        self.objects.extend(objs.into_iter());
     }
 
-    pub fn spawn_entity(
+    fn spawn_entity(
         &mut self,
         entity_data_id: EntityDataId,
         position: Isometry2<f32>,
         linvel: Vector2<f32>,
         angvel: f32,
         ignore: Option<EntityId>,
+        target: Option<EntityId>,
     ) -> (EntityId, usize) {
         let entity_id = self.next_entity_id.next();
 
@@ -105,6 +101,7 @@ impl Battlescape {
             linvel,
             angvel,
             ignore,
+            target,
         );
         let entity_idx = self.entities.insert_full(entity_id, entity).0;
 
@@ -121,4 +118,59 @@ impl Battlescape {
 #[derive(Serialize, Deserialize)]
 pub enum BattlescapeCommand {
     // TODO
+}
+
+/// Something that modify the simulation (ai, effect, etc).
+#[derive(Debug, Serialize, Deserialize)]
+enum Object {
+    /// Will try to face entity's target and go forward at max speed.
+    /// If entity has no target just move forward untill a target is set.
+    Seek {
+        entity_id: EntityId,
+    },
+    Ship {
+        entity_id: EntityId,
+    },
+}
+impl Object {
+    fn new_seek(entity: &mut Entity, entity_id: EntityId) -> Self {
+        entity.wish_linvel = WishLinVel::ForceRelative(Vector2::new(1.0, 0.0));
+
+        Self::Seek { entity_id }
+    }
+
+    // Removed if returning false.
+    fn update_retain(&mut self, battlescape: &mut Battlescape) -> bool {
+        match self {
+            Self::Seek { entity_id } => {
+                let Some((idx, _, entity)) = battlescape.entities.get_full(entity_id) else {
+                    return false;
+                };
+
+                // Map to target's translation.
+                if let Some(target) = entity
+                    .target
+                    .and_then(|target| battlescape.entities.get(&target))
+                    .map(|target| *battlescape.physics.body(target.rb).translation())
+                {
+                    battlescape.entities[idx].wish_angvel = WishAngVel::AimSmooth(target);
+                }
+
+                true
+            }
+            Self::Ship { entity_id } => {
+                if let Some(entity) = battlescape.entities.get_mut(entity_id) {
+                    // TODO
+                    if entity.controlled {
+                        // TODO
+                    } else {
+                        // TODO
+                    }
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+    }
 }

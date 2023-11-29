@@ -12,6 +12,10 @@ pub struct Entity {
     pub wish_angvel: WishAngVel,
     pub wish_linvel: WishLinVel,
     // pub wish_aim: (),
+    pub controlled: bool,
+
+    pub target: Option<EntityId>,
+    // TODO: Events (hit, leaving, death, etc)
 }
 impl Entity {
     pub fn new(
@@ -24,6 +28,8 @@ impl Entity {
         linvel: Vector2<f32>,
         angvel: f32,
         ignore: Option<EntityId>,
+
+        target: Option<EntityId>,
     ) -> Entity {
         let entity_data = entity_data_id.data();
 
@@ -38,19 +44,26 @@ impl Entity {
             ignore,
         );
 
-        let s = Self {
+        let mut s = Self {
             entity_data_id,
             rb,
             defence: entity_data.defence,
             mobility: entity_data.mobility,
             wish_angvel: Default::default(),
             wish_linvel: Default::default(),
+            controlled: false,
+            target,
         };
 
-        for new_event in entity_data.new_events.iter() {
+        for new_event in entity_data.on_new.iter() {
             match new_event {
-                EntityNewEvent::Ship => {
-                    // TODO Add ship ai
+                EntityEvent::Ship => {
+                    battlescape.objects.push(Object::Ship { entity_id });
+                }
+                EntityEvent::Seek => {
+                    battlescape
+                        .objects
+                        .push(Object::new_seek(&mut s, entity_id));
                 }
             }
         }
@@ -213,7 +226,7 @@ pub struct EntityData {
     // TODO: Shields
     pub mobility: Mobility,
 
-    new_events: Vec<EntityNewEvent>,
+    on_new: Vec<EntityEvent>,
     // TODO: remove event
     // TODO: damage event
 }
@@ -236,7 +249,7 @@ impl Default for EntityData {
             mprops: MassProperties::from_ball(1.0, 0.5),
             groups: group::GROUPS_SHIP,
             mobility: Default::default(),
-            new_events: Default::default(),
+            on_new: Default::default(),
         }
     }
 }
@@ -304,10 +317,10 @@ impl Default for HullShape {
     }
 }
 
-/// Do Something when entity is created.
 #[derive(Debug, Serialize, Deserialize)]
-enum EntityNewEvent {
+enum EntityEvent {
     Ship,
+    Seek,
 }
 
 #[test]
