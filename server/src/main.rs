@@ -14,7 +14,7 @@ use crossbeam_channel::{bounded, unbounded, Receiver, RecvError, Sender, TryRecv
 use ids::*;
 use indexmap::IndexMap;
 use rand::prelude::*;
-use rapier2d::na::{self, Isometry2, Vector2};
+use rapier2d::na::{self, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 use std::{

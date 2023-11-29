@@ -36,7 +36,7 @@ impl Battlescape {
             tick: 0,
             half_size: 100.0,
             physics: Default::default(),
-            next_entity_id: EntityId(0),
+            next_entity_id: Default::default(),
             entities: Default::default(),
             ais: Default::default(),
         }
@@ -49,6 +49,34 @@ impl Battlescape {
     pub fn step(&mut self) {
         self.tick += 1;
 
+        self.physics.step();
+
+        // TODO Handle physic events.
+        for (a, event) in self.physics.events.0.try_lock().unwrap().iter().copied() {
+            // if let Some(entity) = self.entities.get_mut(&a) {
+            //     entity.take_contact_event(event);
+            // }
+
+            // let b = event.with_entity_id;
+            // let event = ContactEvent {
+            //     collider_id: event.with_collider_id,
+            //     with_entity_id: a,
+            //     with_collider_id: event.collider_id,
+            //     force_direction: event.force_direction,
+            //     force_magnitude: event.force_magnitude,
+            // };
+            // if let Some(entity) = self.entities.get_mut(&b) {
+            //     entity.take_contact_event(event);
+            // }
+        }
+
+        // Update entities.
+        self.entities.retain(|_entity_id, entity| {
+            // TODO: Do something with the destroyed entity?
+            !entity.update(&mut self.physics)
+        });
+
+        // TODO: Rename to object, one entity can have mutiple objects.
         // Update ais.
         self.ais.retain(|entity_id, ai| {
             if let Some(entity_idx) = self.entities.get_index_of(entity_id) {
@@ -57,38 +85,28 @@ impl Battlescape {
                 false
             }
         });
-
-        // Update entities.
-        self.entities.retain(|_entity_id, entity| {
-            // TODO: Do something with the destroyed entity?
-            !entity.update(&mut self.physics)
-        });
-
-        self.physics.step();
-
-        // TODO: Handle physic events.
-        let events = self.physics.take_events();
     }
 
     pub fn spawn_entity(
         &mut self,
         entity_data_id: EntityDataId,
         position: Isometry2<f32>,
+        linvel: Vector2<f32>,
+        angvel: f32,
+        ignore: Option<EntityId>,
     ) -> (EntityId, usize) {
-        let entity_id = self.next_entity_id;
-        self.next_entity_id.0 += 1;
+        let entity_id = self.next_entity_id.next();
 
-        let entity = Entity::new(entity_data_id, entity_id, &mut self.physics, position);
+        let entity = Entity::new(
+            self,
+            entity_data_id,
+            entity_id,
+            position,
+            linvel,
+            angvel,
+            ignore,
+        );
         let entity_idx = self.entities.insert_full(entity_id, entity).0;
-
-        if let Some(ai) = entity_data_id.data().ai {
-            self.ais.insert_full(entity_id, ai);
-            self.ais.entry(entity_id).or_insert(ai).changed(
-                entity_idx,
-                &mut self.entities,
-                Default::default(),
-            );
-        }
 
         (entity_id, entity_idx)
     }

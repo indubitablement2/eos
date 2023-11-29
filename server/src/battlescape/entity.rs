@@ -1,6 +1,5 @@
 use super::*;
 
-// TODO: Add hulls abstraction
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Entity {
     pub entity_data_id: EntityDataId,
@@ -10,48 +9,62 @@ pub struct Entity {
     pub defence: Defence,
     mobility: Mobility,
 
-    pub target: Option<EntityId>,
-
     pub wish_angvel: WishAngVel,
     pub wish_linvel: WishLinVel,
     // pub wish_aim: (),
 }
 impl Entity {
     pub fn new(
+        battlescape: &mut Battlescape,
+
         entity_data_id: EntityDataId,
         entity_id: EntityId,
-        physics: &mut Physics,
-        position: na::Isometry2<f32>,
+
+        position: Isometry2<f32>,
+        linvel: Vector2<f32>,
+        angvel: f32,
+        ignore: Option<EntityId>,
     ) -> Entity {
         let entity_data = entity_data_id.data();
 
-        let rb = physics.add_body(
-            SimpleRigidBodyBuilder::dynamic()
-                .translation(position.translation.vector)
-                .rotation(position.rotation.angle()),
-            BodyGenericId::EntityId(entity_id),
+        let rb = battlescape.physics.add_body(
+            position,
+            linvel,
+            angvel,
+            entity_data.shape.clone(),
+            entity_data.groups,
+            entity_data.mprops,
+            entity_id,
+            ignore,
         );
 
-        physics.add_collider(
-            SimpleColliderBuilder::new_ship(entity_data.shape.clone()),
-            rb,
-            ColliderGenericId::HullIdx(0),
-        );
-
-        Self {
+        let s = Self {
             entity_data_id,
             rb,
             defence: entity_data.defence,
             mobility: entity_data.mobility,
             wish_angvel: Default::default(),
             wish_linvel: Default::default(),
-            target: None,
+        };
+
+        for new_event in entity_data.new_events.iter() {
+            match new_event {
+                EntityNewEvent::Ship => {
+                    // TODO Add ship ai
+                }
+            }
         }
+
+        s
+    }
+
+    pub fn take_contact_event(&mut self, event: ContactEvent) {
+        // TODO
     }
 
     /// Returns `true` if the entity was destroyed.
     pub fn update(&mut self, physics: &mut Physics) -> bool {
-        let rb = physics.bodies.get_mut(self.rb).unwrap();
+        let rb = physics.body_mut(self.rb);
         let angvel = rb.angvel();
         let linvel = *rb.linvel();
 
@@ -184,12 +197,15 @@ impl EntityDataId {
     }
 }
 
+// TODO: Remove unsafe
 static mut ENTITY_DATA: Vec<EntityData> = Vec::new();
 
 pub struct EntityData {
     pub defence: Defence,
-    pub shape: SharedShape,
-    pub density: f32,
+
+    shape: SharedShape,
+    mprops: MassProperties,
+    groups: InteractionGroups,
 
     // TODO: weapon slot
     // TODO: built-in weapon (take a slot #)
@@ -197,7 +213,9 @@ pub struct EntityData {
     // TODO: Shields
     pub mobility: Mobility,
 
-    pub ai: Option<EntityAi>,
+    new_events: Vec<EntityNewEvent>,
+    // TODO: remove event
+    // TODO: damage event
 }
 impl EntityData {
     pub fn set_data(data: Vec<Self>) {
@@ -215,9 +233,10 @@ impl Default for EntityData {
         Self {
             defence: Default::default(),
             shape: HullShape::default().to_shared_shape(),
-            density: 1.0,
+            mprops: MassProperties::from_ball(1.0, 0.5),
+            groups: group::GROUPS_SHIP,
             mobility: Default::default(),
-            ai: Default::default(),
+            new_events: Default::default(),
         }
     }
 }
@@ -283,6 +302,12 @@ impl Default for HullShape {
     fn default() -> Self {
         Self::Ball { radius: 0.5 }
     }
+}
+
+/// Do Something when entity is created.
+#[derive(Debug, Serialize, Deserialize)]
+enum EntityNewEvent {
+    Ship,
 }
 
 #[test]

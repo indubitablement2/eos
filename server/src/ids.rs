@@ -11,6 +11,12 @@ impl EntityId {
     pub fn as_u64(self) -> u64 {
         self.0.get()
     }
+
+    pub fn next(&mut self) -> Self {
+        let current = *self;
+        self.0 = self.0.checked_add(1).unwrap();
+        current
+    }
 }
 impl Default for EntityId {
     fn default() -> Self {
