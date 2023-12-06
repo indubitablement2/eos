@@ -246,7 +246,7 @@ impl State {
                 {
                     None
                 } else {
-                    let client_id = db.next_client_id;
+                    let client_id = db.next_client_id.next();
                     db.username.insert(login.username.clone(), client_id);
 
                     db.clients.insert(

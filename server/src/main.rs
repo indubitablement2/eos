@@ -1,4 +1,3 @@
-// mod battlescape;
 mod battlescape;
 mod connection;
 mod database;
@@ -28,10 +27,10 @@ use std::{
 
 // TODO: Database
 // Save battlescape with its cmds to file
-// Remove state. Use _start(). Maybe this can prevent one copy.
 
 // TODO: Instance:
 // Keep track of what data client has and send as needed instead of waiting for query
+// add battlescape
 
 // TODO: Battlescape:
 // figure out how to handle collisions
