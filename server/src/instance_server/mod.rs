@@ -103,10 +103,17 @@ impl ClientAuthManager {
     fn update(&mut self, database_connection: &Connection) {
         // Handle client auth request.
         for (login, sender) in self.client_auth_receiver.try_iter() {
-            database_connection.queue(DatabaseRequest::Ref(DatabaseRequestRef::ClientAuth {
-                login: login.clone(),
-            }));
+            let request = if login.new_account {
+                DatabaseRequest::Mut(DatabaseRequestMut::NewClient {
+                    login: login.clone(),
+                })
+            } else {
+                DatabaseRequest::Ref(DatabaseRequestRef::ClientAuth {
+                    login: login.clone(),
+                })
+            };
 
+            database_connection.queue(request);
             self.logins.insert(login, sender);
         }
     }
@@ -118,10 +125,9 @@ struct Client {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Default)]
 pub struct ClientLogin {
+    pub new_account: bool,
     pub username: String,
     pub password: String,
-    // TODO: Create new account
-    pub new_account: bool,
 }
 
 #[derive(Clone)]

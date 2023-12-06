@@ -19,7 +19,7 @@ pub enum DatabaseRequest {
 /// Single threaded; Should be very cheap to process.
 #[derive(Serialize, Deserialize)]
 pub enum DatabaseRequestMut {
-    TestRequest,
+    NewClient { login: ClientLogin },
     // move ship to battlescape
     // notify client ship changes
 }
@@ -238,7 +238,31 @@ impl State {
         };
 
         match request {
-            DatabaseRequestMut::TestRequest => todo!(),
+            DatabaseRequestMut::NewClient { login } => {
+                let client_id = if login.username.len() > 4
+                    && login.username.len() < 32
+                    && login.password.len() > 4
+                    && db.username.contains_key(&login.username)
+                {
+                    None
+                } else {
+                    let client_id = db.next_client_id;
+                    db.username.insert(login.username.clone(), client_id);
+
+                    db.clients.insert(
+                        client_id,
+                        Client {
+                            password: Some(login.password.clone()),
+                        },
+                    );
+
+                    Some(client_id)
+                };
+
+                if let Some(from) = from {
+                    self.instances[&from].queue(DatabaseResponse::ClientAuth { login, client_id });
+                }
+            }
         }
     }
 
@@ -367,7 +391,9 @@ const REQUEST_REF_ID: u8 = 1;
 
 #[test]
 fn test_request_encoding() {
-    let request_mut = DatabaseRequestMut::TestRequest;
+    let request_mut = DatabaseRequestMut::NewClient {
+        login: Default::default(),
+    };
     let request_ref = DatabaseRequestRef::ClientAuth {
         login: Default::default(),
     };
