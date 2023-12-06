@@ -4,11 +4,12 @@ mod connection;
 mod database;
 mod godot_encoding;
 mod ids;
-// mod instance_server;
+mod instance_server;
 mod interval;
 mod logger;
 
 use ahash::{AHashMap, AHashSet, RandomState};
+use anyhow::Context;
 use connection::*;
 use crossbeam_channel::{bounded, unbounded, Receiver, RecvError, Sender, TryRecvError};
 use ids::*;
@@ -27,6 +28,7 @@ use std::{
 
 // TODO: Database
 // Save battlescape with its cmds to file
+// Remove state. Use _start(). Maybe this can prevent one copy.
 
 // TODO: Instance:
 // Keep track of what data client has and send as needed instead of waiting for query
@@ -138,11 +140,11 @@ fn main() {
     }
 
     if database && instance {
-        std::thread::spawn(|| {});
+        std::thread::spawn(|| instance_server::_start());
         database::_start();
     } else if database {
         database::_start();
     } else if instance {
-        // TODO
+        instance_server::_start();
     }
 }

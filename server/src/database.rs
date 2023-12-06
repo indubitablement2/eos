@@ -1,5 +1,6 @@
 use super::*;
 use chrono::{DateTime, FixedOffset, Utc};
+use instance_server::ClientLogin;
 use rayon::prelude::*;
 use std::{
     fs::File,
@@ -27,7 +28,7 @@ pub enum DatabaseRequestMut {
 /// Single threaded; Should be very cheap to process.
 #[derive(Serialize, Deserialize, Clone)]
 pub enum DatabaseRequestRef {
-    TestRequest,
+    ClientAuth { login: ClientLogin },
     // Subscribe to new ship in battlescape
     // unsubscibe
 }
@@ -42,7 +43,10 @@ pub enum DatabaseRequestQuery {
 
 #[derive(Serialize, Deserialize)]
 pub enum DatabaseResponse {
-    TestResponse,
+    ClientAuth {
+        login: ClientLogin,
+        client_id: Option<ClientId>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -52,15 +56,21 @@ struct Database {
     battlescapes: AHashMap<BattlescapeId, ()>,
 
     next_client_id: ClientId,
-    clients: AHashMap<ClientId, ()>,
+    clients: AHashMap<ClientId, Client>,
     username: AHashMap<String, ClientId>,
     client_connection: AHashMap<ClientId, ()>,
+}
+#[derive(Serialize, Deserialize, Default)]
+struct Client {
+    password: Option<String>,
 }
 
 struct State {
     mut_requests_writer: BufWriter<File>,
 
+    // Id is unused.
     connection_listener: ConnectionListener,
+    next_instance_id: InstanceId,
     instances: AHashMap<InstanceId, Connection>,
 }
 impl State {
@@ -72,7 +82,8 @@ impl State {
             mut_requests_writer: BufWriter::new(File::create("dummy")?),
 
             instances: AHashMap::new(),
-            connection_listener: ConnectionListener::bind(database_addr(), DatabaseInstanceAuth),
+            next_instance_id: InstanceId::default(),
+            connection_listener: ConnectionListener::bind(database_addr(), DatabaseAuth),
         };
 
         // Find latest database file.
@@ -158,13 +169,8 @@ impl State {
 
     fn step(&mut self, db: &mut Database) {
         // Get new instances.
-        while let Some((new_instance, id)) = self.connection_listener.recv() {
-            let id = InstanceId(id);
-
-            if self.instances.contains_key(&id) {
-                log::warn!("Instance with id {} already connected", id.0);
-                continue;
-            }
+        while let Some((new_instance, _)) = self.connection_listener.recv() {
+            let id = self.next_instance_id.next();
 
             self.instances.insert(id, new_instance);
         }
@@ -246,7 +252,24 @@ impl State {
         };
 
         match request {
-            DatabaseRequestRef::TestRequest => todo!(),
+            DatabaseRequestRef::ClientAuth { login } => {
+                // TODO: Add other login method here
+
+                let client_id = db.username.get(&login.username).and_then(|client_id| {
+                    db.clients
+                        .get(client_id)
+                        .and_then(|client| client.password.as_deref())
+                        .and_then(|password| {
+                            if password == login.password.as_str() {
+                                Some(*client_id)
+                            } else {
+                                None
+                            }
+                        })
+                });
+
+                self.instances[&from].queue(DatabaseResponse::ClientAuth { login, client_id });
+            }
         }
     }
 
@@ -275,11 +298,11 @@ pub fn _start() {
     }
 }
 
-pub fn connect_to_database(instance_id: InstanceId) -> Connection {
+pub fn connect_to_database() -> Connection {
     loop {
         std::thread::sleep(Duration::from_millis(500));
 
-        match Connection::connect(database_addr(), InstanceDatabaseAuth(instance_id)) {
+        match Connection::connect(database_addr(), DatabaseAuth) {
             Ok((connection, _)) => return connection,
             Err(err) => {
                 log::warn!("Failed to connect to database: {}", err);
@@ -289,12 +312,11 @@ pub fn connect_to_database(instance_id: InstanceId) -> Connection {
 }
 
 #[derive(Clone)]
-struct InstanceDatabaseAuth(InstanceId);
-impl Authentication for InstanceDatabaseAuth {
+struct DatabaseAuth;
+impl Authentication for DatabaseAuth {
     async fn login_packet(&mut self) -> impl Packet {
         DatabaseLogin {
             private_key: PRIVATE_KEY,
-            instance_id: self.0,
         }
     }
 
@@ -303,33 +325,13 @@ impl Authentication for InstanceDatabaseAuth {
         if first_packet.private_key != PRIVATE_KEY {
             anyhow::bail!("Wrong private key")
         }
-        Ok(self.0 .0 as u64)
-    }
-}
-
-#[derive(Clone)]
-struct DatabaseInstanceAuth;
-impl Authentication for DatabaseInstanceAuth {
-    async fn login_packet(&mut self) -> impl Packet {
-        DatabaseLogin {
-            private_key: PRIVATE_KEY,
-            instance_id: InstanceId(0), // unused, instance decides its id
-        }
-    }
-
-    async fn verify_first_packet(&mut self, first_packet: Vec<u8>) -> anyhow::Result<u64> {
-        let first_packet = DatabaseLogin::parse(first_packet)?;
-        if first_packet.private_key != PRIVATE_KEY {
-            anyhow::bail!("Wrong private key")
-        }
-        Ok(first_packet.instance_id.0 as u64)
+        Ok(0)
     }
 }
 
 #[derive(Serialize, Deserialize)]
 struct DatabaseLogin {
     private_key: [u8; 32],
-    instance_id: InstanceId,
 }
 impl Packet for DatabaseLogin {
     fn serialize(self) -> Vec<u8> {
@@ -366,7 +368,9 @@ const REQUEST_REF_ID: u8 = 1;
 #[test]
 fn test_request_encoding() {
     let request_mut = DatabaseRequestMut::TestRequest;
-    let request_ref = DatabaseRequestRef::TestRequest;
+    let request_ref = DatabaseRequestRef::ClientAuth {
+        login: Default::default(),
+    };
 
     assert_eq!(
         &bincode_encode(&DatabaseRequest::Ref(request_ref.clone()))[1..],

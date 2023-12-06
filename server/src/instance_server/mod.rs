@@ -1,150 +1,182 @@
-mod client_inbound;
-pub mod client_login;
-mod client_outbound;
 mod simulation_runner;
 
 use super::*;
+use battlescape::*;
 use connection::*;
 use database::*;
 use simulation_runner::*;
 
-struct State {
-    database_connection: Connection,
+pub fn _start() {
+    let mut database_connection = connect_to_database();
 
-    client_login: AHashMap<client_login::ClientLogin, Connection>,
-    client_connections: AHashMap<ClientId, Connection>,
+    let mut client_auth_manager = ClientAuthManager::new();
+    let mut clients: AHashMap<ClientId, Client> = Default::default();
 
-    battlescapes: DashMap<BattlescapeId, BattlescapeRunnerHandle, RandomState>,
-}
-impl State {}
+    let mut battlescape_handles: AHashMap<BattlescapeId, BattlescapeRunnerHandle> =
+        Default::default();
 
-pub fn _start(db_addr: SocketAddr) {
-    // Connect to central server.
-    let (central_outbound, mut central_inbound) =
-        ConnectionOutbound::connect(CENTRAL_ADDR_INSTANCE).await;
-    central_outbound.send(InstanceCentralLoginPacket::new());
-    let result = central_inbound
-        .recv::<CentralInstanceLoginResult>()
-        .await
-        .unwrap();
-    log::info!("{:?}", result);
+    log::info!("Started instance server");
 
-    unsafe {
-        STATE = Some(State {
-            database_outbound: central_outbound,
-            battlescapes: Default::default(),
-            client_tokens: Default::default(),
-            client_connections: Default::default(),
+    let mut interval = interval::Interval::new(DT_MS, DT_MS * 4);
+    loop {
+        interval.step();
+
+        client_auth_manager.update(&database_connection);
+
+        // Get new client connections.
+        while let Some((connection, id)) = client_auth_manager.client_listener.recv() {
+            let client_id = ClientId::from_u64(id).unwrap();
+            connection.queue(ClientOutbound::LoggedIn { client_id });
+            clients.insert(client_id, Client { connection });
+        }
+
+        // Handle database responses.
+        while let Some(response) = database_connection.recv::<DatabaseResponse>() {
+            match response {
+                DatabaseResponse::ClientAuth { login, client_id } => {
+                    client_auth_manager.handle_client_auth_response(login, client_id);
+                }
+            }
+        }
+
+        // Handle client packets.
+        for (client_id, client) in clients.iter_mut() {
+            while let Some(packet) = client.connection.recv::<ClientInbound>() {
+                match packet {
+                    ClientInbound::Test => todo!(),
+                }
+            }
+        }
+
+        // Step battlescapes.
+        for handle in battlescape_handles.values_mut() {
+            // TODO: Handle overloaded runner. Use request_sender's len.
+            let _ = handle.request_sender.send(BattlescapeRunnerRequest::Step);
+
+            // Handle battlescape responses.
+            for battlescape_response in handle.response_receiver.try_iter() {
+                match battlescape_response {}
+            }
+        }
+
+        // Flush client connections.
+        clients.retain(|_, client| {
+            client.connection.flush();
+            client.connection.is_connected()
         });
-    }
 
-    // Accept client connections.
-    let listener = tokio::net::TcpListener::bind(":::0").await.unwrap();
-    tokio::spawn(async move {
-        while let Ok((stream, addr)) = listener.accept().await {
-            tokio::spawn(handle_client_connection(stream, addr));
-        }
-    });
-
-    log::info!("Instance server started");
-
-    // Receive central server packets.
-    while let Some(packet) = central_inbound.recv::<CentralInstancePacket>().await {
-        handle_central_packet(packet).await;
-    }
-
-    log::info!("Instance server stopped");
-}
-
-async fn handle_central_packet(packet: CentralInstancePacket) {
-    log::debug!("{:?}", packet);
-    match packet {
-        CentralInstancePacket::ClientChangedBattlescape {
-            client_id,
-            token,
-            battlescape_id,
-        } => {
-            let old_battlescape_id = if let Some(battlescape_id) = battlescape_id {
-                if let Some(battlescape) = state().battlescapes.get(&battlescape_id) {
-                    battlescape.clients.lock().insert(client_id);
-                }
-                state()
-                    .client_tokens
-                    .insert(client_id, (token, battlescape_id))
-                    .map(|v| v.1)
-            } else {
-                if let Some((_, outbound)) = state().client_connections.remove(&client_id) {
-                    outbound.close("Left battlescape");
-                }
-                state().client_tokens.remove(&client_id).map(|v| v.1 .1)
-            };
-            if let Some(battlescape_id) = old_battlescape_id {
-                if let Some(battlescape) = state().battlescapes.get(&battlescape_id) {
-                    battlescape.clients.lock().remove(&client_id);
-                }
-            }
+        // Flush database connection.
+        database_connection.flush();
+        if database_connection.is_disconnected() {
+            log::error!("Database disconnected");
+            break;
         }
     }
 }
 
-async fn handle_client_packet(packet: ClientInstancePacket, client_id: ClientId) {
-    log::debug!("{:?}", packet);
-    match packet {
-        ClientInstancePacket::Test => todo!(),
+struct ClientAuthManager {
+    client_listener: ConnectionListener,
+    client_auth_receiver: Receiver<(ClientLogin, tokio::sync::mpsc::Sender<Option<ClientId>>)>,
+    logins: AHashMap<ClientLogin, tokio::sync::mpsc::Sender<Option<ClientId>>>,
+}
+impl ClientAuthManager {
+    fn new() -> Self {
+        let (client_auth_sender, client_auth_receiver) =
+            unbounded::<(ClientLogin, tokio::sync::mpsc::Sender<Option<ClientId>>)>();
+
+        Self {
+            client_listener: ConnectionListener::bind(
+                instance_addr(),
+                ClientAuth { client_auth_sender },
+            ),
+            client_auth_receiver,
+            logins: Default::default(),
+        }
+    }
+
+    fn handle_client_auth_response(&mut self, login: ClientLogin, client_id: Option<ClientId>) {
+        if let Some(sender) = self.logins.remove(&login) {
+            let _ = sender.send(client_id);
+        }
+    }
+
+    fn update(&mut self, database_connection: &Connection) {
+        // Handle client auth request.
+        for (login, sender) in self.client_auth_receiver.try_iter() {
+            database_connection.queue(DatabaseRequest::Ref(DatabaseRequestRef::ClientAuth {
+                login: login.clone(),
+            }));
+
+            self.logins.insert(login, sender);
+        }
     }
 }
 
-async fn handle_client_connection(stream: tokio::net::TcpStream, addr: SocketAddr) {
-    log::debug!("New connection from client {}", addr);
-
-    let Some((outbound, mut inbound)) = ConnectionOutbound::accept(stream).await else {
-        return;
-    };
-
-    let Some(login) = inbound.recv::<ClientInstanceLoginPacket>().await else {
-        outbound.close("Invalid login packet");
-        return;
-    };
-    log::debug!("{:?}", login);
-
-    // Verify login.
-    let Some(battlescape_id) = state()
-        .client_tokens
-        .get(&login.client_id)
-        .and_then(|token| {
-            if token.0 == login.token {
-                Some(token.1)
-            } else {
-                None
-            }
-        })
-    else {
-        outbound.close("Invalid login token");
-        return;
-    };
-
-    if let Some(battlescape) = state().battlescapes.get(&battlescape_id) {
-        battlescape.clients.lock().insert(login.client_id);
-    } else {
-        log::warn!("Client connected to non-existent battlescape");
-        outbound.close("Battlescape does not exist");
-        return;
-    }
-    state().client_connections.insert(login.client_id, outbound);
-
-    log::debug!("Client login successful");
-
-    // Receive client packets.
-    while let Some(packet) = inbound.recv::<ClientInstancePacket>().await {
-        handle_client_packet(packet, login.client_id).await;
-    }
-
-    // Remove client.
-    state().client_connections.remove(&login.client_id);
-    // Rest should be removed when central server sends ClientChangedBattlescape.
+struct Client {
+    connection: Connection,
 }
 
-static mut STATE: Option<State> = None;
-fn state() -> &'static mut State {
-    unsafe { STATE.as_mut().unwrap_unchecked() }
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Default)]
+pub struct ClientLogin {
+    pub username: String,
+    pub password: String,
+    // TODO: Create new account
+    pub new_account: bool,
+}
+
+#[derive(Clone)]
+struct ClientAuth {
+    client_auth_sender: Sender<(ClientLogin, tokio::sync::mpsc::Sender<Option<ClientId>>)>,
+}
+impl Authentication for ClientAuth {
+    async fn login_packet(&mut self) -> impl Packet {
+        ClientOutbound::Hello
+    }
+
+    async fn verify_first_packet(&mut self, first_packet: Vec<u8>) -> anyhow::Result<u64> {
+        let login: ClientLogin = bincode_decode(&first_packet)?;
+
+        let (client_id_sender, mut client_id_receiver) = tokio::sync::mpsc::channel(1);
+
+        self.client_auth_sender
+            .send((login, client_id_sender))
+            .context("stopped accepting new client")?;
+
+        let client_id = client_id_receiver
+            .recv()
+            .await
+            .context("channel dropped without answering")?
+            .context("auth failed")?;
+
+        Ok(client_id.as_u64())
+    }
+}
+
+#[derive(Deserialize)]
+enum ClientInbound {
+    Test,
+}
+impl Packet for ClientInbound {
+    fn serialize(self) -> Vec<u8> {
+        unimplemented!()
+    }
+
+    fn parse(buf: Vec<u8>) -> anyhow::Result<Self> {
+        bincode_decode(&buf)
+    }
+}
+
+#[derive(Serialize)]
+enum ClientOutbound {
+    Hello,
+    LoggedIn { client_id: ClientId },
+}
+impl Packet for ClientOutbound {
+    fn serialize(self) -> Vec<u8> {
+        bincode_encode(self)
+    }
+
+    fn parse(_buf: Vec<u8>) -> anyhow::Result<Self> {
+        unimplemented!()
+    }
 }

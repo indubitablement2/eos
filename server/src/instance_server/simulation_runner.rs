@@ -1,8 +1,7 @@
 use super::*;
-use battlescape::*;
 
 pub enum BattlescapeRunnerRequest {
-    // TODO
+    Step,
 }
 
 pub enum BattlescapeRunnerResponse {
@@ -14,12 +13,13 @@ pub struct BattlescapeRunnerHandle {
     pub response_receiver: Receiver<BattlescapeRunnerResponse>,
 }
 impl BattlescapeRunnerHandle {
-    pub fn start() -> Self {
-        let (request_sender, request_receiver) = channel();
-        let (response_sender, response_receiver) = channel();
+    pub fn start(battlescape: Box<Battlescape>) -> Self {
+        let (request_sender, request_receiver) = unbounded();
+        let (response_sender, response_receiver) = unbounded();
 
         std::thread::spawn(move || {
             BattlescapeRunner {
+                battlescape,
                 request_receiver,
                 response_sender,
             }
@@ -34,27 +34,16 @@ impl BattlescapeRunnerHandle {
 }
 
 struct BattlescapeRunner {
-    // battlescape: Battlescape,
+    battlescape: Box<Battlescape>,
     request_receiver: Receiver<BattlescapeRunnerRequest>,
     response_sender: Sender<BattlescapeRunnerResponse>,
 }
 impl BattlescapeRunner {
     fn run(mut self) {
-        let mut interval = interval::Interval::new(DT_MS);
-        loop {
-            interval.step();
-
-            for request in self.request_receiver.try_iter() {
-                match request {
-                    // TODO
-                }
+        for request in self.request_receiver.iter() {
+            match request {
+                BattlescapeRunnerRequest::Step => self.battlescape.step(),
             }
-
-            self.step();
         }
-    }
-
-    fn step(&mut self) {
-        //
     }
 }
