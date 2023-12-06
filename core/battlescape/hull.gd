@@ -72,26 +72,6 @@ func set_time_scale(value: float) -> void:
 @export var armor_relative_image : Image
 
 
-@export var team := 0:
-	set = set_team
-func set_team(value: int) -> void:
-	team = value
-	
-	if data.hull_class == HullData.HullClass.MISSILE:
-		collision_layer = Layers.HULL_MISSILE << Layers.TEAM_OFFSET * team
-	elif data.hull_class == HullData.HullClass.FIGHTER:
-		collision_layer = Layers.HULL_FIGHTER << Layers.TEAM_OFFSET * team
-	else:
-		collision_layer = Layers.HULL_SHIP << Layers.TEAM_OFFSET * team
-	
-	# Invalid when not added to tree.
-	if detector.is_valid():
-		PhysicsServer2D.area_set_collision_layer(detector, collision_layer)
-	
-	team_changed.emit()
-signal team_changed()
-
-
 @export_group("Turrets modifier")
 ## projectile, missile, laser
 ## What this does is left to be interpreted by the turret.

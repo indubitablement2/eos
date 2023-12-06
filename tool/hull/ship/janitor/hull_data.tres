@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="HullData" load_steps=3 format=3 uid="uid://cwttayk76wxbg"]
+
+[ext_resource type="Texture2D" uid="uid://dhnfb1i6xi61i" path="res://core/texture/pixel.png" id="1_wjibm"]
+[ext_resource type="Script" path="res://core/battlescape/hull_data.gd" id="2_maqiq"]
+
+[resource]
+script = ExtResource("2_maqiq")
+hull_class = 2
+offset = Vector2(0, 0)
+radius = 10.0
+linear_acceleration = 800.0
+linear_velocity_max = 400.0
+angular_acceleration = 8.0
+angular_velocity_max = 4.0
+hull_hp_max = 2000.0
+hull_hp = 100.0
+armor_hp_max = 500.0
+armor_max_relative_texture = ExtResource("1_wjibm")
+armor_effectiveness = 1.0
+armor_min_effectiveness = 0.1
+turret_range = Vector3(1, 1, 1)
+damage_mutiplier = Vector3(1, 1, 1)
+ammo_replenish_delay = Vector3(1, 1, 1)
+rotation_speed = Vector3(1, 1, 1)
+fire_delay = Vector3(1, 1, 1)
+ammo_max = Vector3(1, 1, 1)
+prediction_iter = 0

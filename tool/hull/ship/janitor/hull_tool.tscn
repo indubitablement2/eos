@@ -1,0 +1,20 @@
+[gd_scene load_steps=5 format=3 uid="uid://b43qt16qs0pm"]
+
+[ext_resource type="Script" path="res://tool/hull/hull_tool.gd" id="1_8bmgt"]
+[ext_resource type="Texture2D" uid="uid://dmbisvdkk3gra" path="res://base/ship/janitor/janitor.png" id="2_dcu4j"]
+[ext_resource type="Resource" uid="uid://cwttayk76wxbg" path="res://tool/hull/ship/janitor/hull_data.tres" id="3_vv6aw"]
+
+[sub_resource type="CanvasTexture" id="CanvasTexture_b7el6"]
+diffuse_texture = ExtResource("2_dcu4j")
+
+[node name="HullToolTemplate" type="RigidBody2D" node_paths=PackedStringArray("sprite")]
+script = ExtResource("1_8bmgt")
+sprite = NodePath("Sprite2D")
+data = ExtResource("3_vv6aw")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(0, -13.575)
+texture = SubResource("CanvasTexture_b7el6")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="."]
+polygon = PackedVector2Array(-65, -21, -20, -112, 22, -113, 71, 12, 41, 89, -46, 87)
