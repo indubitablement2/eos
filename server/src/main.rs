@@ -22,12 +22,30 @@ use std::{
     net::SocketAddr,
 };
 
-// TODO: Keep track of what data client has and send as needed instead of waiting for query
+// TODO: Add feature for database/instance
+// TODO: Remove const random
+
+// TODO: Database
+// Save battlescape with its cmds to file
+
+// TODO: Instance:
+// Keep track of what data client has and send as needed instead of waiting for query
+
+// TODO: Battlescape:
+// figure out how to handle collisions
+// shield
+// figure out serialization + replay
+// command to shrink repier's arena (used before saving otherwise each empty node will be saved)
+
+// TODO: Client:
+// add c++
+// impl bincode decoder/encoder
+// add packet base class and one child for each packet type
 
 // // TODO: database (json, bincode)
 // // TODO: instance <-> database (bincode)
 // TODO: replay (json)
-// TODO: instance <-> client (godot)
+// TODO: instance <-> client (bincode)
 
 const PRIVATE_KEY: [u8; 32] = const_random::const_random!([u8; 32]);
 

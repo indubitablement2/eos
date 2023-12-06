@@ -11,12 +11,10 @@ type SimRng = rand_xoshiro::Xoshiro128StarStar;
 pub const DT: f32 = 1.0 / 20.0;
 pub const DT_MS: u64 = 50;
 
-// TODO: store collision events on entity for one tick
-
 #[derive(Serialize, Deserialize)]
 pub struct Battlescape {
     pub tick: u64,
-    pub half_size: f32,
+    pub radius: f32,
     rng: SimRng,
 
     pub physics: Physics,
@@ -32,7 +30,7 @@ impl Battlescape {
         Self {
             rng: SimRng::from_entropy(),
             tick: 0,
-            half_size: 100.0,
+            radius: 100.0,
             physics: Default::default(),
             next_entity_id: Default::default(),
             entities: Default::default(),
@@ -139,11 +137,11 @@ impl Object {
         Self::Seek { entity_id }
     }
 
-    // Removed if returning false.
+    // Removed if returning `false`.
     fn update_retain(&mut self, battlescape: &mut Battlescape) -> bool {
         match self {
             Self::Seek { entity_id } => {
-                let Some((idx, _, entity)) = battlescape.entities.get_full(entity_id) else {
+                let Some((entity_idx, _, entity)) = battlescape.entities.get_full(entity_id) else {
                     return false;
                 };
 
@@ -153,23 +151,23 @@ impl Object {
                     .and_then(|target| battlescape.entities.get(&target))
                     .map(|target| *battlescape.physics.body(target.rb).translation())
                 {
-                    battlescape.entities[idx].wish_angvel = WishAngVel::AimSmooth(target);
+                    battlescape.entities[entity_idx].wish_angvel = WishAngVel::AimSmooth(target);
                 }
 
                 true
             }
             Self::Ship { entity_id } => {
-                if let Some(entity) = battlescape.entities.get_mut(entity_id) {
+                let Some((entity_idx, _, entity)) = battlescape.entities.get_full(entity_id) else {
+                    return false;
+                };
+
+                if entity.controlled {
                     // TODO
-                    if entity.controlled {
-                        // TODO
-                    } else {
-                        // TODO
-                    }
-                    true
                 } else {
-                    false
+                    // TODO
                 }
+
+                true
             }
         }
     }

@@ -8,6 +8,24 @@ const DEFAULT_FRICTION: f32 = 0.3;
 const DEFAULT_RESTITUTION: f32 = 0.2;
 const DEFAULT_CONTACT_FORCE_EVENT_THRESHOLD: f32 = 0.0;
 
+const INTEGRATION_PARAMETERS: IntegrationParameters = IntegrationParameters {
+    dt: DT,
+    min_ccd_dt: DT / 100.0,
+    erp: 0.8,
+    damping_ratio: 0.25,
+    joint_erp: 1.0,
+    joint_damping_ratio: 0.25,
+    allowed_linear_error: 0.001,
+    max_penetration_correction: f32::MAX,
+    prediction_distance: 0.002,
+    max_velocity_iterations: 4,
+    max_velocity_friction_iterations: 8,
+    max_stabilization_iterations: 1,
+    interleave_restitution_and_friction_resolution: true,
+    min_island_size: 128,
+    max_ccd_substeps: 1,
+};
+
 pub mod group {
     use super::*;
 
@@ -32,9 +50,6 @@ pub struct Physics {
     query_pipeline: QueryPipeline,
     #[serde(skip)]
     physics_pipeline: PhysicsPipeline,
-    #[serde(skip)]
-    #[serde(default = "default_integration_parameters")]
-    integration_parameters: IntegrationParameters,
     islands: IslandManager,
     broad_phase: BroadPhase,
     narrow_phase: NarrowPhase,
@@ -52,7 +67,7 @@ impl Physics {
 
         self.physics_pipeline.step(
             &vector![0.0, 0.0],
-            &self.integration_parameters,
+            &INTEGRATION_PARAMETERS,
             &mut self.islands,
             &mut self.broad_phase,
             &mut self.narrow_phase,
@@ -157,14 +172,6 @@ impl Physics {
 
     pub fn body_mut(&mut self, rb: RigidBodyHandle) -> &mut RigidBody {
         &mut self.bodies[rb]
-    }
-}
-
-fn default_integration_parameters() -> IntegrationParameters {
-    IntegrationParameters {
-        dt: DT,
-        min_ccd_dt: DT / 100.0,
-        ..Default::default()
     }
 }
 
