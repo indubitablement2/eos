@@ -1,6 +1,6 @@
 use super::*;
 use chrono::{DateTime, FixedOffset, Utc};
-use instance_server::ClientLogin;
+use instance::ClientLogin;
 use rayon::prelude::*;
 use std::{
     fs::File,

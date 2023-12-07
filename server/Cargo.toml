@@ -14,7 +14,7 @@ chrono = "0.4"
 anyhow = "1.0"
 
 # broccoli = "6.3"
-rapier2d = { version = "0.17", features = ["serde-serialize"] }
+rapier2d = { version = "0.17", features = ["serde-serialize", "simd-stable"] }
 approx = "0.5"
 
 ahash = { version = "0.8", features = ["serde"] }

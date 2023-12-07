@@ -3,7 +3,7 @@ mod connection;
 mod database;
 mod godot_encoding;
 mod ids;
-mod instance_server;
+mod instance;
 mod interval;
 mod logger;
 
@@ -25,7 +25,7 @@ use std::{
 // TODO: Add feature for database/instance
 // TODO: Remove const random
 
-// TODO: Database
+// TODO: Database:
 // Save battlescape with its cmds to file
 
 // TODO: Instance:
@@ -139,11 +139,11 @@ fn main() {
     }
 
     if database && instance {
-        std::thread::spawn(|| instance_server::_start());
+        std::thread::spawn(|| instance::_start());
         database::_start();
     } else if database {
         database::_start();
     } else if instance {
-        instance_server::_start();
+        instance::_start();
     }
 }
