@@ -4,6 +4,9 @@ use connection::*;
 use database::*;
 use rayon::prelude::*;
 
+/// How many tick between battlescape saves. (30 minutes)
+const BATTLESCAPE_SAVE_INTERVAL: u64 = DT_MS * 60 * 30;
+
 struct State {
     database_connection: Connection,
 
@@ -13,7 +16,15 @@ struct State {
 
     clients: AHashMap<ClientId, Client>,
 
-    battlescapes: AHashMap<BattlescapeId, Battlescape>,
+    battlescapes: AHashMap<BattlescapeId, BattlescapeHandle>,
+}
+struct Client {
+    connection: Connection,
+}
+struct BattlescapeHandle {
+    tick_since_last_save: u64,
+    battlescape: Battlescape,
+    cmds: Vec<BattlescapeCommand>,
 }
 impl State {
     fn new() -> Self {
@@ -81,11 +92,35 @@ impl State {
         }
 
         // Step battlescapes.
+        let num_battlescapes = self.battlescapes.len() as u64;
         self.battlescapes
             .par_iter_mut()
-            .for_each(|(_, battlescape)| {
-                // TODO: Cmds
-                battlescape.step();
+            .for_each(|(&battlescape_id, handle)| {
+                handle.tick_since_last_save += 1;
+
+                for cmd in handle.cmds.drain(..) {
+                    handle.battlescape.apply_cmd(&cmd);
+                }
+
+                handle.battlescape.step();
+
+                if handle.tick_since_last_save >= BATTLESCAPE_SAVE_INTERVAL
+                    && battlescape_id.as_u64() % num_battlescapes == 0
+                {
+                    handle.tick_since_last_save = 0;
+
+                    self.database_connection.queue(DatabaseRequest::Mut(
+                        DatabaseRequestMut::SaveBattlescape {
+                            battlescape_id,
+                            json_battlescape_save: serde_json::to_string(
+                                &handle.battlescape.save(),
+                            )
+                            .unwrap(),
+                        },
+                    ));
+                    // TODO: Save ships
+                    // TODO: Save planets?
+                }
             });
 
         self.database_connection.flush();
@@ -96,10 +131,6 @@ impl State {
             client.connection.is_connected()
         });
     }
-}
-
-struct Client {
-    connection: Connection,
 }
 
 pub fn _start() {

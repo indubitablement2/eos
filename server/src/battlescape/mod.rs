@@ -11,10 +11,10 @@ type SimRng = rand_xoshiro::Xoshiro128StarStar;
 pub const DT: f32 = 1.0 / 20.0;
 pub const DT_MS: u64 = 50;
 
-#[derive(Serialize, Deserialize)]
+const RADIUS: f32 = 100.0;
+
 pub struct Battlescape {
     pub tick: u64,
-    pub radius: f32,
     rng: SimRng,
 
     pub physics: Physics,
@@ -26,11 +26,10 @@ pub struct Battlescape {
     objects: Vec<Object>,
 }
 impl Battlescape {
-    pub fn new() -> Self {
+    pub fn new(save: BattlescapeSave) -> Self {
         Self {
-            rng: SimRng::from_entropy(),
             tick: 0,
-            radius: 100.0,
+            rng: SimRng::from_entropy(),
             physics: Default::default(),
             next_entity_id: Default::default(),
             entities: Default::default(),
@@ -40,6 +39,7 @@ impl Battlescape {
 
     pub fn apply_cmd(&mut self, cmd: &BattlescapeCommand) {
         // TODO
+        // match cmd {}
     }
 
     pub fn step(&mut self) {
@@ -78,6 +78,10 @@ impl Battlescape {
         std::mem::swap(&mut self.objects, &mut objs);
         // Add new objects.
         self.objects.extend(objs.into_iter());
+    }
+
+    pub fn save(&self) -> BattlescapeSave {
+        BattlescapeSave {}
     }
 
     fn spawn_entity(
@@ -170,5 +174,17 @@ impl Object {
                 true
             }
         }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(default)]
+pub struct BattlescapeSave {
+    // TODO: Debris
+    // TODO: items
+}
+impl Default for BattlescapeSave {
+    fn default() -> Self {
+        Self {}
     }
 }

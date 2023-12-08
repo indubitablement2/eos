@@ -19,7 +19,15 @@ pub enum DatabaseRequest {
 /// Single threaded; Should be very cheap to process.
 #[derive(Serialize, Deserialize)]
 pub enum DatabaseRequestMut {
-    NewClient { login: ClientLogin },
+    NewClient {
+        login: ClientLogin,
+    },
+    SaveBattlescape {
+        battlescape_id: BattlescapeId,
+        json_battlescape_save: String,
+    },
+    // TODO: Save ship state
+    // TODO: Create battlescape
     // move ship to battlescape
     // notify client ship changes
 }
@@ -34,7 +42,7 @@ pub enum DatabaseRequestRef {
 }
 
 /// Potentially expensive non-mutable query.
-/// Batched and processed in parallel.
+/// Batched and processed in parallel **after ref and mut**.
 #[derive(Serialize, Deserialize)]
 pub enum DatabaseRequestQuery {
     TestRequest,
@@ -53,16 +61,26 @@ pub enum DatabaseResponse {
 struct Database {
     num_mut_requests: u64,
 
-    battlescapes: AHashMap<BattlescapeId, ()>,
+    battlescapes: AHashMap<BattlescapeId, Battlescape>,
+    ships: AHashMap<u64, ()>,
 
     next_client_id: ClientId,
     clients: AHashMap<ClientId, Client>,
     username: AHashMap<String, ClientId>,
-    client_connection: AHashMap<ClientId, ()>,
 }
+
 #[derive(Serialize, Deserialize, Default)]
 struct Client {
     password: Option<String>,
+}
+#[derive(Serialize, Deserialize, Default)]
+struct Battlescape {
+    json_battlescape_save: String,
+    // TODO: ship ids
+    // TODO: planets state
+    // TODO: star?
+    // TODO: battlescape connections
+    // TODO: Position
 }
 
 struct State {
@@ -71,6 +89,7 @@ struct State {
     // Id is unused.
     connection_listener: ConnectionListener,
     next_instance_id: InstanceId,
+    // TODO: Which battlescapes is this running
     instances: AHashMap<InstanceId, Connection>,
 }
 impl State {
@@ -261,6 +280,16 @@ impl State {
 
                 if let Some(from) = from {
                     self.instances[&from].queue(DatabaseResponse::ClientAuth { login, client_id });
+                }
+            }
+            DatabaseRequestMut::SaveBattlescape {
+                battlescape_id,
+                json_battlescape_save,
+            } => {
+                if let Some(battlescape) = db.battlescapes.get_mut(&battlescape_id) {
+                    battlescape.json_battlescape_save = json_battlescape_save;
+                } else {
+                    log::warn!("Can not save battlescape: {:?} not found", battlescape_id);
                 }
             }
         }

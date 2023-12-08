@@ -30,7 +30,6 @@ use std::{
 
 // TODO: Instance:
 // Keep track of what data client has and send as needed instead of waiting for query
-// add battlescape
 
 // TODO: Battlescape:
 // figure out how to handle collisions
