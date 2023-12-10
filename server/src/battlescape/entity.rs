@@ -1,12 +1,19 @@
 use super::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// `[0..1]` relative to armor_hp_max.
+type ArmorCells = SmallVec<[u8; 16]>;
+
 pub struct Entity {
-    pub entity_data_id: EntityDataId,
+    pub data: &'static EntityData,
 
     pub rb: RigidBodyHandle,
 
-    pub defence: Defence,
+    hull_max: f32,
+    hull: f32,
+
+    armor_max: f32,
+    armor_cells: ArmorCells,
+
     mobility: Mobility,
 
     pub wish_angvel: WishAngVel,
@@ -18,44 +25,44 @@ pub struct Entity {
     // TODO: Events (hit, leaving, death, etc)
 }
 impl Entity {
+    // TODO: from save
     pub fn new(
         battlescape: &mut Battlescape,
 
-        entity_data_id: EntityDataId,
+        data: &'static EntityData,
+        save: EntitySave,
+
         entity_id: EntityId,
 
-        position: Isometry2<f32>,
-        linvel: Vector2<f32>,
-        angvel: f32,
         ignore: Option<EntityId>,
-
         target: Option<EntityId>,
     ) -> Entity {
-        let entity_data = entity_data_id.data();
-
         let rb = battlescape.physics.add_body(
-            position,
-            linvel,
-            angvel,
-            entity_data.shape.clone(),
-            entity_data.groups,
-            entity_data.mprops,
+            save.position,
+            save.linvel,
+            save.angvel,
+            data.shape.clone(),
+            data.groups,
+            data.mprops,
             entity_id,
             ignore,
         );
 
         let mut s = Self {
-            entity_data_id,
+            data,
             rb,
-            defence: entity_data.defence,
-            mobility: entity_data.mobility,
-            wish_angvel: Default::default(),
-            wish_linvel: Default::default(),
+            hull_max: data.hull_max,
+            hull: save.hull,
+            armor_max: data.armor_max,
+            armor_cells: save.armor_cells,
+            mobility: data.mobility,
+            wish_angvel: WishAngVel::None,
+            wish_linvel: WishLinVel::None,
             controlled: false,
             target,
         };
 
-        for new_event in entity_data.on_new.iter() {
+        for new_event in data.on_new.iter() {
             match new_event {
                 EntityEvent::Ship => {
                     battlescape.objects.push(Object::Ship { entity_id });
@@ -155,11 +162,7 @@ impl Entity {
             wake_up,
         );
 
-        self.defence.hull <= 0
-    }
-
-    pub fn handle_contact_force_event(&mut self, event: ContactForceEvent, physics: &mut Physics) {
-        // TODO
+        self.hull < 0.0
     }
 }
 
@@ -202,19 +205,29 @@ pub enum WishLinVel {
     ForceRelative(Vector2<f32>),
 }
 
+// ####################################################################################
+// ################################### DATA ###########################################
+// ####################################################################################
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct EntityDataId(pub u32);
 impl EntityDataId {
     pub fn data(self) -> &'static EntityData {
-        unsafe { &ENTITY_DATA[self.0 as usize] }
+        &EntityData::get_data()[self.0 as usize]
     }
 }
 
-// TODO: Remove unsafe
-static mut ENTITY_DATA: Vec<EntityData> = Vec::new();
+static ENTITY_DATA: std::sync::OnceLock<Vec<EntityData>> = std::sync::OnceLock::new();
 
 pub struct EntityData {
-    pub defence: Defence,
+    pub id: EntityDataId,
+
+    hull_max: f32,
+
+    armor_max: f32,
+    armor_cells_size: Vector2<i32>,
+    /// The maximum value a cell can have.
+    armor_cells: ArmorCells,
 
     shape: SharedShape,
     mprops: MassProperties,
@@ -227,30 +240,10 @@ pub struct EntityData {
     pub mobility: Mobility,
 
     on_new: Vec<EntityEvent>,
-    // TODO: remove event
-    // TODO: damage event
 }
 impl EntityData {
-    pub fn set_data(data: Vec<Self>) {
-        unsafe {
-            ENTITY_DATA = data;
-        }
-    }
-
     pub fn get_data() -> &'static [Self] {
-        unsafe { &ENTITY_DATA }
-    }
-}
-impl Default for EntityData {
-    fn default() -> Self {
-        Self {
-            defence: Default::default(),
-            shape: HullShape::default().to_shared_shape(),
-            mprops: MassProperties::from_ball(1.0, 0.5),
-            groups: group::GROUPS_SHIP,
-            mobility: Default::default(),
-            on_new: Default::default(),
-        }
+        ENTITY_DATA.get().unwrap()
     }
 }
 
@@ -272,16 +265,68 @@ impl Default for Mobility {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct Defence {
-    pub hull: i32,
-    pub armor: i32,
+#[derive(Debug, Serialize, Deserialize)]
+enum EntityEvent {
+    Ship,
+    Seek,
 }
-impl Default for Defence {
-    fn default() -> Self {
-        Self {
-            hull: 100,
-            armor: 100,
+
+// ####################################################################################
+// ############################## DATA TRANSIENT ######################################
+// ####################################################################################
+
+pub fn _load_data() {
+    let data: Vec<EntityDataTransient> =
+        serde_json::from_slice(&std::fs::read("path").unwrap()).unwrap();
+
+    let data = data
+        .into_iter()
+        .enumerate()
+        .map(|(i, d)| d.parse(i as u32))
+        .collect::<Vec<_>>();
+
+    ENTITY_DATA.set(data).ok().unwrap();
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+struct EntityDataTransient {
+    hull: f32,
+
+    armor_max: f32,
+    armor_cells_size: Vector2<i32>,
+    armor_cells: ArmorCells,
+
+    shape: HullShape,
+    mass_radius: f32,
+    density: f32,
+    groups: InteractionGroups,
+
+    // TODO: weapon slot
+    // TODO: built-in weapon (take a slot #)
+    // TODO: Engine placement
+    // TODO: Shields
+    mobility: Mobility,
+
+    on_new: Vec<EntityEvent>,
+}
+impl EntityDataTransient {
+    fn parse(self, id: u32) -> EntityData {
+        EntityData {
+            id: EntityDataId(id),
+
+            hull_max: self.hull,
+
+            armor_max: self.armor_max,
+            armor_cells_size: self.armor_cells_size,
+            armor_cells: self.armor_cells,
+
+            shape: self.shape.to_shared_shape(),
+            mprops: MassProperties::from_ball(self.density, self.mass_radius),
+            groups: self.groups,
+
+            mobility: self.mobility,
+
+            on_new: self.on_new,
         }
     }
 }
@@ -293,7 +338,7 @@ enum HullShape {
     Polygon { vertices: Vec<f32> },
 }
 impl HullShape {
-    pub fn to_shared_shape(&self) -> SharedShape {
+    fn to_shared_shape(&self) -> SharedShape {
         match self {
             HullShape::Cuboid { hx, hy } => SharedShape::cuboid(*hx, *hy),
             HullShape::Ball { radius } => SharedShape::ball(*radius),
@@ -305,6 +350,7 @@ impl HullShape {
 
                 let indices = (0..vertices.len() as u32 - 1)
                     .map(|i| [i, i + 1])
+                    .chain(std::iter::once([vertices.len() as u32 - 1, 0]))
                     .collect::<Vec<_>>();
                 SharedShape::convex_decomposition(&vertices, indices.as_slice())
             }
@@ -317,10 +363,88 @@ impl Default for HullShape {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-enum EntityEvent {
-    Ship,
-    Seek,
+// ####################################################################################
+// ################################### SAVE ###########################################
+// ####################################################################################
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct EntitySave {
+    position: Isometry2<f32>,
+    linvel: Vector2<f32>,
+    angvel: f32,
+
+    hull: f32,
+    armor_cells: ArmorCells,
+    // TODO: Buffs
+    // TODO: Inventory
+    // TODO: Turret
+}
+impl EntitySave {
+    pub fn new(
+        data: &'static EntityData,
+        position: Isometry2<f32>,
+        linvel: Vector2<f32>,
+        angvel: f32,
+    ) -> Self {
+        Self {
+            position,
+            linvel,
+            angvel,
+            hull: data.hull_max,
+            armor_cells: data.armor_cells.clone(),
+        }
+    }
+
+    pub fn from_entity(entity: &Entity, battlescape: &Battlescape) -> Self {
+        let body = battlescape.physics.body(entity.rb);
+        Self {
+            position: *body.position(),
+            linvel: *body.linvel(),
+            angvel: body.angvel(),
+            hull: entity.hull,
+            armor_cells: entity.armor_cells.clone(),
+        }
+    }
+}
+
+#[test]
+fn test_serialize_data() {
+    println!(
+        "{}\n",
+        serde_json::to_string_pretty(&EntityDataTransient {
+            hull: 456.0,
+            armor_max: 123.0,
+            armor_cells_size: Vector2::new(3, 3),
+            armor_cells: (0u8..3 * 3).into_iter().collect(),
+            shape: HullShape::Polygon {
+                vertices: vec![0.0, -1.0, 1.0, 1.0, -1.0, 1.0]
+            },
+            mass_radius: 2.0,
+            density: 3.0,
+            groups: group::GROUPS_SHIP,
+            mobility: Mobility {
+                linear_acceleration: 1.0,
+                angular_acceleration: 2.0,
+                max_linear_velocity: 3.0,
+                max_angular_velocity: 4.0
+            },
+            on_new: vec![EntityEvent::Ship, EntityEvent::Seek]
+        })
+        .unwrap()
+    );
+
+    println!(
+        "{}\n",
+        serde_json::to_string_pretty(&EntitySave {
+            position: Default::default(),
+            linvel: Default::default(),
+            angvel: Default::default(),
+            hull: 456.0,
+            armor_cells: (0u8..3 * 3).into_iter().collect(),
+        })
+        .unwrap()
+    );
 }
 
 #[test]

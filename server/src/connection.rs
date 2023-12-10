@@ -82,11 +82,33 @@ impl ConnectionListener {
     }
 }
 
+#[derive(Clone)]
+pub struct ConnectionOutbound {
+    outbound_sender: tokio::sync::mpsc::UnboundedSender<Result<Option<Vec<u8>>, &'static str>>,
+}
+impl ConnectionOutbound {
+    pub fn queue(&self, packet: impl Packet) {
+        let _ = self.outbound_sender.send(Ok(Some(packet.serialize())));
+    }
+
+    pub fn flush(&self) {
+        let _ = self.outbound_sender.send(Ok(None));
+    }
+
+    pub fn is_disconnected(&self) -> bool {
+        self.outbound_sender.is_closed()
+    }
+
+    pub fn is_connected(&self) -> bool {
+        !self.is_disconnected()
+    }
+}
+
 pub struct Connection {
     disconnected: bool,
     pub peer_addr: SocketAddr,
     inbound_receiver: Receiver<Vec<u8>>,
-    outbound_sender: tokio::sync::mpsc::UnboundedSender<Result<Option<Vec<u8>>, &'static str>>,
+    pub connection_outbound: ConnectionOutbound,
 }
 impl Connection {
     pub fn connect(addr: SocketAddr, auth: impl Authentication) -> anyhow::Result<(Self, u64)> {
@@ -186,7 +208,7 @@ impl Connection {
                 disconnected: false,
                 peer_addr: addr,
                 inbound_receiver,
-                outbound_sender,
+                connection_outbound: ConnectionOutbound { outbound_sender },
             },
             id,
         ))
@@ -196,11 +218,10 @@ impl Connection {
         loop {
             match self.inbound_receiver.try_recv() {
                 Ok(buf) => {
-                    return match T::parse(buf) {
-                        Ok(t) => Some(t),
+                    match T::parse(buf) {
+                        Ok(t) => return Some(t),
                         Err(err) => {
                             log::debug!("Failed to parse packet: {}", err);
-                            return None;
                         }
                     };
                 }
@@ -216,21 +237,24 @@ impl Connection {
     }
 
     pub fn queue(&self, packet: impl Packet) {
-        let _ = self.outbound_sender.send(Ok(Some(packet.serialize())));
+        self.connection_outbound.queue(packet);
     }
 
     pub fn flush(&self) {
-        let _ = self.outbound_sender.send(Ok(None));
+        self.connection_outbound.flush();
     }
 
     pub fn close(&mut self, reason: &'static str) {
         self.flush();
         self.disconnected = true;
-        self.outbound_sender.send(Err(reason)).ok();
+        self.connection_outbound
+            .outbound_sender
+            .send(Err(reason))
+            .ok();
     }
 
     pub fn is_disconnected(&self) -> bool {
-        self.disconnected || self.outbound_sender.is_closed()
+        self.disconnected || self.connection_outbound.is_disconnected()
     }
 
     pub fn is_connected(&self) -> bool {

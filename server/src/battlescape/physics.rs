@@ -45,10 +45,9 @@ pub mod group {
     pub const GROUPS_SHIP: InteractionGroups = InteractionGroups::new(GROUP_SHIP, GROUP_ALL);
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Default)]
 pub struct Physics {
     query_pipeline: QueryPipeline,
-    #[serde(skip)]
     physics_pipeline: PhysicsPipeline,
     islands: IslandManager,
     broad_phase: BroadPhase,
@@ -58,7 +57,6 @@ pub struct Physics {
     impulse_joints: ImpulseJointSet,
     multibody_joints: MultibodyJointSet,
     ccd_solver: CCDSolver,
-    #[serde(skip)]
     pub events: PhysicsEventCollector,
 }
 impl Physics {

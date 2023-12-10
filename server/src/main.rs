@@ -16,36 +16,35 @@ use indexmap::IndexMap;
 use rand::prelude::*;
 use rapier2d::na::{self, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 use std::time::{Duration, Instant};
 use std::{
     f32::consts::{FRAC_PI_2, PI, TAU},
     net::SocketAddr,
 };
 
-// TODO: Add feature for database/instance
-// TODO: Remove const random
+// TODO: Remove const random, add feature for database/instance, add private key file
 
 // TODO: Database:
-// Save battlescape with its cmds to file
+// translate bincode to json when saving to json file
+// load from either json or bincode
+// save as bincode by default
+// Create battlescape cmd
+// move ship to battlescape cmd
+// notify instance ship changes and send to client (subscribtion based)
 
 // TODO: Instance:
 // Keep track of what data client has and send as needed instead of waiting for query
+// add ships to intermitent battlescape save
 
 // TODO: Battlescape:
 // figure out how to handle collisions
 // shield
-// figure out serialization + replay
-// command to shrink repier's arena (used before saving otherwise each empty node will be saved)
 
 // TODO: Client:
 // add c++
 // impl bincode decoder/encoder
 // add packet base class and one child for each packet type
-
-// // TODO: database (json, bincode)
-// // TODO: instance <-> database (bincode)
-// TODO: replay (json)
-// TODO: instance <-> client (bincode)
 
 const PRIVATE_KEY: [u8; 32] = const_random::const_random!([u8; 32]);
 
@@ -102,7 +101,7 @@ fn main() {
         )
         .unwrap();
 
-    // EntityData::set_data(vec![EntityData::default()]);
+    battlescape::entity::_load_data();
 
     let mut database = false;
     let mut instance = false;

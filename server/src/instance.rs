@@ -5,14 +5,13 @@ use database::*;
 use rayon::prelude::*;
 
 /// How many tick between battlescape saves. (30 minutes)
-const BATTLESCAPE_SAVE_INTERVAL: u64 = DT_MS * 60 * 30;
+const BATTLESCAPE_SAVE_INTERVAL: u64 = (1000 / DT_MS) * 60 * 30;
 
 struct State {
     database_connection: Connection,
 
     client_listener: ConnectionListener,
-    client_auth_receiver: Receiver<(ClientLogin, tokio::sync::mpsc::Sender<Option<ClientId>>)>,
-    logins: AHashMap<ClientLogin, tokio::sync::mpsc::Sender<Option<ClientId>>>,
+    logins: AHashMap<u64, Connection>,
 
     clients: AHashMap<ClientId, Client>,
 
@@ -28,56 +27,38 @@ struct BattlescapeHandle {
 }
 impl State {
     fn new() -> Self {
-        let (client_auth_sender, client_auth_receiver) =
-            unbounded::<(ClientLogin, tokio::sync::mpsc::Sender<Option<ClientId>>)>();
+        let database_connection = connect_to_database();
 
         Self {
-            database_connection: connect_to_database(),
-
             client_listener: ConnectionListener::bind(
                 instance_addr(),
-                ClientAuth { client_auth_sender },
+                ClientAuth {
+                    database_connection: database_connection.connection_outbound.clone(),
+                },
             ),
-            client_auth_receiver,
+            database_connection,
             logins: Default::default(),
-
             clients: Default::default(),
-
             battlescapes: Default::default(),
         }
     }
 
     fn step(&mut self) {
-        // Handle client auth request.
-        for (login, sender) in self.client_auth_receiver.try_iter() {
-            let request = if login.new_account {
-                DatabaseRequest::Mut(DatabaseRequestMut::NewClient {
-                    login: login.clone(),
-                })
-            } else {
-                DatabaseRequest::Ref(DatabaseRequestRef::ClientAuth {
-                    login: login.clone(),
-                })
-            };
-
-            self.database_connection.queue(request);
-            self.logins.insert(login, sender);
-        }
-
         // Get new client connections.
-        while let Some((connection, id)) = self.client_listener.recv() {
-            let client_id = ClientId::from_u64(id).unwrap();
-            connection.queue(ClientOutbound::LoggedIn { client_id });
-            self.clients.insert(client_id, Client { connection });
+        while let Some((connection, login_token)) = self.client_listener.recv() {
+            self.logins.insert(login_token, connection);
         }
 
         // Handle database responses.
         while let Some(response) = self.database_connection.recv::<DatabaseResponse>() {
             match response {
-                DatabaseResponse::ClientAuth { login, client_id } => {
-                    if let Some(sender) = self.logins.remove(&login) {
-                        let _ = sender.send(client_id);
-                    }
+                DatabaseResponse::ClientAuth {
+                    client_id,
+                    response_token,
+                } => {
+                    // if let Some(sender) = self.logins.remove(&login) {
+                    //     let _ = sender.send(client_id);
+                    // }
                 }
             }
         }
@@ -109,15 +90,11 @@ impl State {
                 {
                     handle.tick_since_last_save = 0;
 
-                    self.database_connection.queue(DatabaseRequest::Mut(
-                        DatabaseRequestMut::SaveBattlescape {
+                    self.database_connection
+                        .queue(DatabaseRequest::SaveBattlescape {
                             battlescape_id,
-                            json_battlescape_save: serde_json::to_string(
-                                &handle.battlescape.save(),
-                            )
-                            .unwrap(),
-                        },
-                    ));
+                            battlescape_misc_save: bincode_encode(&handle.battlescape.misc_save()),
+                        });
                     // TODO: Save ships
                     // TODO: Save planets?
                 }
@@ -150,7 +127,7 @@ pub fn _start() {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct ClientLogin {
     pub new_account: bool,
     pub username: String,
@@ -159,7 +136,7 @@ pub struct ClientLogin {
 
 #[derive(Clone)]
 struct ClientAuth {
-    client_auth_sender: Sender<(ClientLogin, tokio::sync::mpsc::Sender<Option<ClientId>>)>,
+    database_connection: ConnectionOutbound,
 }
 impl Authentication for ClientAuth {
     async fn login_packet(&mut self) -> impl Packet {

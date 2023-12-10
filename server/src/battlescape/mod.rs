@@ -26,7 +26,7 @@ pub struct Battlescape {
     objects: Vec<Object>,
 }
 impl Battlescape {
-    pub fn new(save: BattlescapeSave) -> Self {
+    pub fn new(save: BattlescapeMiscSave) -> Self {
         Self {
             tick: 0,
             rng: SimRng::from_entropy(),
@@ -80,31 +80,20 @@ impl Battlescape {
         self.objects.extend(objs.into_iter());
     }
 
-    pub fn save(&self) -> BattlescapeSave {
-        BattlescapeSave {}
+    pub fn misc_save(&self) -> BattlescapeMiscSave {
+        BattlescapeMiscSave {}
     }
 
     fn spawn_entity(
         &mut self,
-        entity_data_id: EntityDataId,
-        position: Isometry2<f32>,
-        linvel: Vector2<f32>,
-        angvel: f32,
+        data: &'static EntityData,
+        save: EntitySave,
         ignore: Option<EntityId>,
         target: Option<EntityId>,
     ) -> (EntityId, usize) {
         let entity_id = self.next_entity_id.next();
 
-        let entity = Entity::new(
-            self,
-            entity_data_id,
-            entity_id,
-            position,
-            linvel,
-            angvel,
-            ignore,
-            target,
-        );
+        let entity = Entity::new(self, data, save, entity_id, ignore, target);
         let entity_idx = self.entities.insert_full(entity_id, entity).0;
 
         (entity_id, entity_idx)
@@ -120,6 +109,7 @@ impl Battlescape {
 #[derive(Serialize, Deserialize)]
 pub enum BattlescapeCommand {
     // TODO
+    ShipEnter { ship_id: ShipId },
 }
 
 /// Something that modify the simulation (ai, effect, etc).
@@ -179,11 +169,11 @@ impl Object {
 
 #[derive(Serialize, Deserialize)]
 #[serde(default)]
-pub struct BattlescapeSave {
+pub struct BattlescapeMiscSave {
     // TODO: Debris
     // TODO: items
 }
-impl Default for BattlescapeSave {
+impl Default for BattlescapeMiscSave {
     fn default() -> Self {
         Self {}
     }
