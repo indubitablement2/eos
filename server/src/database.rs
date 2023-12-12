@@ -358,7 +358,12 @@ pub fn _start() {
 impl Database {
     fn step(&mut self) {
         // Get new instances.
-        while let Some((connection, _)) = self.connection_listener.recv() {
+        while let Some((connection, login)) = self.connection_listener.recv() {
+            if &login.private_key != private_key() {
+                log::debug!("Refused instance login: Invalid private key");
+                continue;
+            }
+
             let id = self.next_instance_id.next();
             let (outbound, inbound) = connection.split();
 
@@ -562,7 +567,7 @@ pub fn connect_to_database() -> Connection {
         match Connection::connect(
             database_addr(),
             DatabaseLogin {
-                private_key: PRIVATE_KEY,
+                private_key: private_key().to_vec(),
             },
         ) {
             Ok(connection) => return connection,
@@ -575,7 +580,7 @@ pub fn connect_to_database() -> Connection {
 
 #[derive(Serialize, Deserialize)]
 struct DatabaseLogin {
-    private_key: [u8; 32],
+    private_key: Vec<u8>,
 }
 impl Packet for DatabaseLogin {
     fn serialize(self) -> Vec<u8> {

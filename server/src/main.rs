@@ -10,25 +10,19 @@ mod logger;
 use ahash::{AHashMap, AHashSet, RandomState};
 use anyhow::Context;
 use connection::*;
-use crossbeam_channel::{bounded, unbounded, Receiver, RecvError, Sender, TryRecvError};
+use crossbeam_channel::{unbounded, Receiver, Sender, TryRecvError};
 use ids::*;
 use indexmap::IndexMap;
 use rand::prelude::*;
 use rapier2d::na::{self, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use std::net::SocketAddr;
 use std::time::{Duration, Instant};
-use std::{
-    f32::consts::{FRAC_PI_2, PI, TAU},
-    net::SocketAddr,
-};
 
-// TODO: Remove const random, add feature for database/instance, add private key file
+// TODO: add feature for database/instance
 
 // TODO: Database:
-// translate bincode to json when saving to json file
-// load from either json or bincode
-// save as bincode by default
 // Create battlescape cmd
 // move ship to battlescape cmd
 // notify instance ship changes and send to client (subscribtion based)
@@ -46,11 +40,23 @@ use std::{
 // impl bincode decoder/encoder
 // add packet base class and one child for each packet type
 
-const PRIVATE_KEY: [u8; 32] = const_random::const_random!([u8; 32]);
+const _PRIVATE_KEY_FALLBACK: [u8; 64] = const_random::const_random!([u8; 64]);
+static _PRIVATE_KEY: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+fn private_key() -> &'static [u8] {
+    _PRIVATE_KEY
+        .get()
+        .map(Vec::as_slice)
+        .unwrap_or(&_PRIVATE_KEY_FALLBACK)
+}
 
 static _TOKIO_RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
 fn tokio() -> &'static tokio::runtime::Runtime {
-    _TOKIO_RUNTIME.get().unwrap()
+    _TOKIO_RUNTIME.get_or_init(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+    })
 }
 
 static _DATABASE_ADDR: std::sync::OnceLock<SocketAddr> = std::sync::OnceLock::new();
@@ -107,6 +113,8 @@ fn main() {
     let mut instance = false;
 
     for arg in std::env::args() {
+        log::info!("Arg: {}", arg);
+
         if &arg == "instance" {
             instance = true;
         } else if &arg == "database" {
@@ -115,12 +123,14 @@ fn main() {
             .strip_prefix("database_addr=")
             .and_then(|arg| arg.parse().ok())
         {
-            _DATABASE_ADDR.set(addr);
+            let _ = _DATABASE_ADDR.set(addr);
         } else if let Some(addr) = arg
             .strip_prefix("instance_addr=")
             .and_then(|arg| arg.parse().ok())
         {
-            _INSTANCE_ADDR.set(addr);
+            let _ = _INSTANCE_ADDR.set(addr);
+        } else if let Some(key) = arg.strip_prefix("key=") {
+            let _ = _PRIVATE_KEY.set(key.as_bytes().to_vec());
         }
     }
     if !database && !instance {
