@@ -38,7 +38,8 @@ impl State {
         }
     }
 
-    fn step(&mut self) {
+    /// Return if disconnected.
+    fn step(&mut self) -> bool {
         // Get new client connections.
         while let Some((connection, login)) = self.client_listener.recv() {
             self.database_connection.queue(DatabaseRequest::ClientAuth {
@@ -50,7 +51,11 @@ impl State {
         }
 
         // Handle database responses.
-        while let Some(response) = self.database_connection.recv::<DatabaseResponse>() {
+        let mut database_disconnected = false;
+        while let Some(response) = self
+            .database_connection
+            .recv_deferred::<DatabaseResponse>(&mut database_disconnected)
+        {
             match response {
                 DatabaseResponse::ClientAuth {
                     client_id,
@@ -65,15 +70,19 @@ impl State {
                 }
             }
         }
-
-        // Handle client packets.
-        for (client_id, client) in self.clients.iter_mut() {
-            while let Some(packet) = client.connection.recv::<ClientInbound>() {
-                match packet {
-                    ClientInbound::Test => todo!(),
-                }
-            }
+        if database_disconnected {
+            return true;
         }
+
+        // TODO: Handle in thread
+        // // Handle client packets.
+        // for (client_id, client) in self.clients.iter_mut() {
+        //     while let Some(packet) = client.connection.recv::<ClientInbound>() {
+        //         match packet {
+        //             ClientInbound::Test => todo!(),
+        //         }
+        //     }
+        // }
 
         // Step battlescapes.
         let num_battlescapes = self.battlescapes.len() as u64;
@@ -105,11 +114,13 @@ impl State {
 
         self.database_connection.flush();
 
-        // Flush client connections.
-        self.clients.retain(|_, client| {
-            client.connection.flush();
-            client.connection.is_connected()
-        });
+        // // Flush client connections.
+        // self.clients.retain(|_, client| {
+        //     client.connection.flush();
+        //     client.connection.is_connected()
+        // });
+
+        false
     }
 }
 
@@ -121,9 +132,8 @@ pub fn _start() {
     let mut interval = interval::Interval::new(DT_MS, DT_MS * 4);
     loop {
         interval.step();
-        state.step();
 
-        if state.database_connection.is_disconnected() {
+        if state.step() {
             log::warn!("Database disconnected");
             state = State::new();
         }

@@ -102,11 +102,24 @@ impl ConnectionOutbound {
     }
 }
 
-pub struct Connection {
-    disconnected: bool,
-    pub peer_addr: SocketAddr,
+pub struct ConnectionInbound {
     inbound_receiver: Receiver<Vec<u8>>,
-    pub connection_outbound: ConnectionOutbound,
+}
+impl ConnectionInbound {
+    pub fn recv<T: Packet>(&mut self) -> Result<T, TryRecvError> {
+        self.inbound_receiver.try_recv().and_then(|buf| {
+            T::parse(buf).map_err(|err| {
+                log::debug!("Failed to parse packet: {}", err);
+                TryRecvError::Disconnected
+            })
+        })
+    }
+}
+
+pub struct Connection {
+    pub peer_addr: SocketAddr,
+    pub inbound: ConnectionInbound,
+    pub outbound: ConnectionOutbound,
 }
 impl Connection {
     pub fn connect(addr: SocketAddr, login: impl Packet) -> anyhow::Result<Self> {
@@ -120,8 +133,8 @@ impl Connection {
         r
     }
 
-    pub fn split(self) -> (ConnectionOutbound, Receiver<Vec<u8>>) {
-        (self.connection_outbound, self.inbound_receiver)
+    pub fn split(self) -> (ConnectionOutbound, ConnectionInbound) {
+        (self.outbound, self.inbound)
     }
 
     async fn accept_client(server_addr: SocketAddr) -> anyhow::Result<Self> {
@@ -193,10 +206,9 @@ impl Connection {
 
         Ok((
             Self {
-                disconnected: false,
                 peer_addr: addr,
-                inbound_receiver,
-                connection_outbound: ConnectionOutbound { outbound_sender },
+                inbound: ConnectionInbound { inbound_receiver },
+                outbound: ConnectionOutbound { outbound_sender },
             },
             stream,
             inbound_sender,
@@ -212,53 +224,33 @@ impl Connection {
         log::debug!("Stream with {} closed", addr);
     }
 
-    pub fn recv<T: Packet>(&mut self) -> Option<T> {
-        loop {
-            match self.inbound_receiver.try_recv() {
-                Ok(buf) => {
-                    match T::parse(buf) {
-                        Ok(t) => return Some(t),
-                        Err(err) => {
-                            log::debug!("Failed to parse packet: {}", err);
-                            self.disconnected = true;
-                            return None;
-                        }
-                    };
-                }
-                Err(TryRecvError::Empty) => {
-                    return None;
-                }
-                Err(TryRecvError::Disconnected) => {
-                    self.disconnected = true;
-                    return None;
-                }
-            }
-        }
-    }
-
     pub fn queue(&self, packet: impl Packet) {
-        self.connection_outbound.queue(packet);
+        self.outbound.queue(packet);
     }
 
     pub fn flush(&self) {
-        self.connection_outbound.flush();
+        self.outbound.flush();
     }
 
     pub fn close(&mut self, reason: &'static str) {
-        self.disconnected = true;
-        self.connection_outbound
-            .outbound_sender
-            .send(Err(reason))
-            .ok();
+        self.outbound.outbound_sender.send(Err(reason)).ok();
         self.flush();
     }
 
-    pub fn is_disconnected(&self) -> bool {
-        self.disconnected || self.connection_outbound.is_disconnected()
+    pub fn recv<T: Packet>(&mut self) -> Result<T, TryRecvError> {
+        self.inbound.recv()
     }
 
-    pub fn is_connected(&self) -> bool {
-        !self.is_disconnected()
+    pub fn recv_deferred<T: Packet>(&mut self, disconnected: &mut bool) -> Option<T> {
+        match self.inbound.recv() {
+            Ok(t) => Some(t),
+            Err(err) => {
+                if err == TryRecvError::Disconnected {
+                    *disconnected = true;
+                }
+                None
+            }
+        }
     }
 }
 

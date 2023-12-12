@@ -86,6 +86,10 @@ struct Database {
     // TODO: Which battlescapes is this running
     #[serde(skip)]
     instances: AHashMap<InstanceId, Instance>,
+    #[serde(skip)]
+    instance_inbounds: AHashMap<InstanceId, ConnectionInbound>,
+    #[serde(skip)]
+    queries: Vec<(DatabaseQuery, InstanceId)>,
 
     battlescapes: AHashMap<BattlescapeId, Battlescape>,
     ships: AHashMap<ShipId, Ship>,
@@ -95,7 +99,7 @@ struct Database {
     username: AHashMap<String, ClientId>,
 }
 struct Instance {
-    connection: Connection,
+    outbound: ConnectionOutbound,
     battlescapes: AHashSet<BattlescapeId>,
 }
 #[derive(Serialize, Deserialize, Default)]
@@ -136,6 +140,8 @@ impl Default for Database {
             connection_listener: ConnectionListener::bind(database_addr()),
             next_instance_id: Default::default(),
             instances: Default::default(),
+            instance_inbounds: Default::default(),
+            queries: Default::default(),
             battlescapes: Default::default(),
             ships: Default::default(),
             next_client_id: Default::default(),
@@ -322,7 +328,7 @@ impl Database {
             serde_json::to_writer(&mut writer, self)?;
             self.to_bin()?;
         } else {
-            bincode::Options::serialize_into(bincode::DefaultOptions::new(), &mut writer, self);
+            bincode::Options::serialize_into(bincode::DefaultOptions::new(), &mut writer, self)?;
         }
         writer.flush()?;
 
@@ -354,46 +360,47 @@ impl Database {
         // Get new instances.
         while let Some((connection, _)) = self.connection_listener.recv() {
             let id = self.next_instance_id.next();
+            let (outbound, inbound) = connection.split();
 
             self.instances.insert(
                 id,
                 Instance {
-                    connection,
+                    outbound,
                     battlescapes: AHashSet::new(),
                 },
             );
+            self.instance_inbounds.insert(id, inbound);
         }
 
-        // Gather instance requests to process later.
-        let mut requests = Vec::new();
-        for (&instance_id, instance) in self.instances.iter_mut() {
-            while let Some(buf) = instance.connection.recv::<Vec<u8>>() {
-                requests.push((buf, instance_id));
-            }
-        }
-
-        // Handle requests.
-        let queries = requests
-            .into_iter()
-            .filter_map(
-                |(request, from)| match self.handle_request(&request, Some(from), true) {
-                    Ok(query) => query.map(|query| (query, from)),
+        let mut instance_inbounds = std::mem::take(&mut self.instance_inbounds);
+        instance_inbounds.retain(|&from, inbound| loop {
+            match inbound.recv::<Vec<u8>>() {
+                Ok(request) => match self.handle_request(&request, Some(from), true) {
+                    Ok(query) => {
+                        if let Some(query) = query {
+                            self.queries.push((query, from));
+                        }
+                    }
                     Err(err) => {
                         log::error!("Failed to handle request: {}", err);
-                        None
+                        break false;
                     }
                 },
-            )
-            .collect::<Vec<_>>();
+                Err(TryRecvError::Empty) => break true,
+                Err(TryRecvError::Disconnected) => break false,
+            }
+        });
+        self.instance_inbounds = instance_inbounds;
 
         // Handle queries in parallel.
-        queries.into_par_iter().for_each(|(query, from)| {
-            self.handle_query(query, from);
+        self.queries.par_iter().for_each(|(query, from)| {
+            self.handle_query(query, *from);
         });
+        self.queries.clear();
 
         // TODO: Handle disconnect
         self.instances.retain(|_, instance| {
-            if instance.connection.is_connected() {
+            if instance.outbound.is_connected() {
                 true
             } else {
                 log::warn!("Instance disconnected");
@@ -433,7 +440,7 @@ impl Database {
 
                 if let Some(from) = from {
                     self.instances[&from]
-                        .connection
+                        .outbound
                         .queue(DatabaseResponse::ClientAuth {
                             client_id,
                             response_token,
@@ -501,7 +508,7 @@ impl Database {
         Ok(None)
     }
 
-    fn handle_query(&self, query: DatabaseQuery, from: InstanceId) {
+    fn handle_query(&self, query: &DatabaseQuery, from: InstanceId) {
         match query {
             DatabaseQuery::RemoveMe => {}
         }
