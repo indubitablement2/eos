@@ -626,6 +626,8 @@ fn test_json_stability() {
 
 #[test]
 fn test_database_serialization() {
+    _DATABASE_ADDR.set("[::1]:0".parse().unwrap()).unwrap();
+
     let db = Database::default();
     bincode_decode::<Database>(&bincode_encode(&db)).unwrap();
     serde_json::from_slice::<Database>(&serde_json::to_vec(&db).unwrap()).unwrap();
