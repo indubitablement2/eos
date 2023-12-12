@@ -80,7 +80,7 @@ struct Database {
 
     /// Id is unused.
     #[serde(skip)]
-    connection_listener: ConnectionListener,
+    connection_listener: ConnectionListener<DatabaseLogin>,
     #[serde(skip)]
     next_instance_id: InstanceId,
     // TODO: Which battlescapes is this running
@@ -133,7 +133,7 @@ impl Default for Database {
             is_json: false,
             save_count: Default::default(),
             mut_requests_writer: BufWriter::new(File::create("dummy").unwrap()),
-            connection_listener: ConnectionListener::bind(database_addr(), DatabaseAuth),
+            connection_listener: ConnectionListener::bind(database_addr()),
             next_instance_id: Default::default(),
             instances: Default::default(),
             battlescapes: Default::default(),
@@ -552,30 +552,17 @@ pub fn connect_to_database() -> Connection {
     loop {
         std::thread::sleep(Duration::from_millis(500));
 
-        match Connection::connect(database_addr(), DatabaseAuth) {
-            Ok((connection, _)) => return connection,
+        match Connection::connect(
+            database_addr(),
+            DatabaseLogin {
+                private_key: PRIVATE_KEY,
+            },
+        ) {
+            Ok(connection) => return connection,
             Err(err) => {
                 log::warn!("Failed to connect to database: {}", err);
             }
         }
-    }
-}
-
-#[derive(Clone)]
-struct DatabaseAuth;
-impl Authentication for DatabaseAuth {
-    async fn login_packet(&mut self) -> impl Packet {
-        DatabaseLogin {
-            private_key: PRIVATE_KEY,
-        }
-    }
-
-    async fn verify_first_packet(&mut self, first_packet: Vec<u8>) -> anyhow::Result<u64> {
-        let first_packet = DatabaseLogin::parse(first_packet)?;
-        if first_packet.private_key != PRIVATE_KEY {
-            anyhow::bail!("Wrong private key")
-        }
-        Ok(0)
     }
 }
 

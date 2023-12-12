@@ -1,3 +1,5 @@
+use std::sync::{atomic::AtomicBool, Arc};
+
 use super::*;
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -23,21 +25,11 @@ impl Packet for Vec<u8> {
     }
 }
 
-pub trait Authentication: Clone + Send + Sized + 'static {
-    fn login_packet(
-        &mut self,
-    ) -> impl std::future::Future<Output = impl Packet> + std::marker::Send;
-    fn verify_first_packet(
-        &mut self,
-        first_packet: Vec<u8>,
-    ) -> impl std::future::Future<Output = anyhow::Result<u64>> + std::marker::Send;
+pub struct ConnectionListener<T: Packet> {
+    new_connection_receiver: Receiver<(Connection, T)>,
 }
-
-pub struct ConnectionListener {
-    new_connection_receiver: Receiver<(Connection, u64)>,
-}
-impl ConnectionListener {
-    pub fn bind(addr: SocketAddr, auth: impl Authentication) -> Self {
+impl<T: Packet + 'static> ConnectionListener<T> {
+    pub fn bind(addr: SocketAddr) -> Self {
         let listener = tokio()
             .block_on(async move { TcpListener::bind(addr).await })
             .unwrap();
@@ -45,7 +37,8 @@ impl ConnectionListener {
         let (new_connection_sender, new_connection_receiver) = unbounded();
 
         tokio().spawn(async move {
-            loop {
+            let closed = Arc::new(AtomicBool::new(false));
+            while !closed.load(std::sync::atomic::Ordering::Relaxed) {
                 let (stream, addr) = match listener.accept().await {
                     Ok(ok) => ok,
                     Err(err) => {
@@ -54,15 +47,18 @@ impl ConnectionListener {
                     }
                 };
 
-                let auth = auth.clone();
                 let new_connection_sender = new_connection_sender.clone();
-
+                let closed = closed.clone();
                 tokio::spawn(async move {
                     log::debug!("New connection attempt from {}", addr);
 
-                    match Connection::accept_stream(stream, addr, auth).await {
-                        Ok(ok) => {
-                            let _ = new_connection_sender.send(ok);
+                    match Connection::accept_stream::<T>(stream, addr).await {
+                        Ok((connection, login, stream, inbound_sender)) => {
+                            if new_connection_sender.send((connection, login)).is_err() {
+                                closed.store(true, std::sync::atomic::Ordering::Relaxed);
+                            }
+
+                            Connection::inbound_loop(stream, inbound_sender, addr).await;
                         }
                         Err(err) => {
                             log::debug!("Failed to accept connection from {}: {}", addr, err);
@@ -70,6 +66,8 @@ impl ConnectionListener {
                     }
                 });
             }
+
+            log::debug!("Connection listener closed");
         });
 
         Self {
@@ -77,7 +75,7 @@ impl ConnectionListener {
         }
     }
 
-    pub fn recv(&mut self) -> Option<(Connection, u64)> {
+    pub fn recv(&mut self) -> Option<(Connection, T)> {
         self.new_connection_receiver.try_recv().ok()
     }
 }
@@ -111,64 +109,52 @@ pub struct Connection {
     pub connection_outbound: ConnectionOutbound,
 }
 impl Connection {
-    pub fn connect(addr: SocketAddr, auth: impl Authentication) -> anyhow::Result<(Self, u64)> {
-        tokio().block_on(Connection::accept_client(addr, auth))
+    pub fn connect(addr: SocketAddr, login: impl Packet) -> anyhow::Result<Self> {
+        let r = tokio().block_on(Connection::accept_client(addr));
+
+        if let Ok(connection) = &r {
+            connection.queue(login);
+            connection.flush();
+        }
+
+        r
     }
 
-    async fn accept_client(
-        server_addr: SocketAddr,
-        auth: impl Authentication,
-    ) -> anyhow::Result<(Self, u64)> {
+    pub fn split(self) -> (ConnectionOutbound, Receiver<Vec<u8>>) {
+        (self.connection_outbound, self.inbound_receiver)
+    }
+
+    async fn accept_client(server_addr: SocketAddr) -> anyhow::Result<Self> {
         let stream = TcpStream::connect(server_addr).await?;
         let ws = tokio_tungstenite::client_async(format!("ws://{}", server_addr), stream)
             .await?
             .0;
-        Connection::accept(ws, server_addr, auth).await
+
+        let (connection, stream, inbound_sender) = Connection::accept(ws, server_addr).await?;
+        let addr = connection.peer_addr;
+        tokio::spawn(Connection::inbound_loop(stream, inbound_sender, addr));
+
+        Ok(connection)
     }
 
-    async fn accept_stream(
+    async fn accept_stream<T: Packet>(
         stream: TcpStream,
         addr: SocketAddr,
-        auth: impl Authentication,
-    ) -> anyhow::Result<(Self, u64)> {
+    ) -> anyhow::Result<(Self, T, WsStream, Sender<Vec<u8>>)> {
         let ws = tokio_tungstenite::accept_async(stream).await?;
-        Connection::accept(ws, addr, auth).await
+        let (connection, mut stream, inbound_sender) = Connection::accept(ws, addr).await?;
+
+        let login = T::parse(read_vec(&mut stream).await?)?;
+
+        Ok((connection, login, stream, inbound_sender))
     }
 
     async fn accept(
         mut ws: WebSocketStream<TcpStream>,
         addr: SocketAddr,
-        mut auth: impl Authentication,
-    ) -> anyhow::Result<(Self, u64)> {
+    ) -> anyhow::Result<(Self, WsStream, Sender<Vec<u8>>)> {
         let _ = ws.get_mut().set_nodelay(true);
-        let (mut sink, mut stream) = ws.split();
-
-        // Login
-        sink.send(Message::Binary(auth.login_packet().await.serialize()))
-            .await?;
-        let id = match auth.verify_first_packet(read_vec(&mut stream).await?).await {
-            Ok(id) => id,
-            Err(err) => {
-                let _ = sink
-                    .send(Message::Close(Some(CloseFrame {
-                        code: CloseCode::Normal,
-                        reason: err.to_string().into(),
-                    })))
-                    .await;
-                return Err(err);
-            }
-        };
-
-        // Inbound loop
-        let (inbound_sender, inbound_receiver) = unbounded();
-        tokio::spawn(async move {
-            while let Ok(buf) = read_vec(&mut stream).await {
-                if inbound_sender.send(buf).is_err() {
-                    break;
-                }
-            }
-            log::debug!("Stream with {} closed", addr);
-        });
+        let (mut sink, stream) = ws.split();
 
         // Outbound loop
         let (outbound_sender, mut outbound_receiver) =
@@ -203,6 +189,8 @@ impl Connection {
             log::debug!("Sink with {} closed", addr);
         });
 
+        let (inbound_sender, inbound_receiver) = unbounded();
+
         Ok((
             Self {
                 disconnected: false,
@@ -210,8 +198,18 @@ impl Connection {
                 inbound_receiver,
                 connection_outbound: ConnectionOutbound { outbound_sender },
             },
-            id,
+            stream,
+            inbound_sender,
         ))
+    }
+
+    async fn inbound_loop(mut stream: WsStream, inbound_sender: Sender<Vec<u8>>, addr: SocketAddr) {
+        while let Ok(buf) = read_vec(&mut stream).await {
+            if inbound_sender.send(buf).is_err() {
+                break;
+            }
+        }
+        log::debug!("Stream with {} closed", addr);
     }
 
     pub fn recv<T: Packet>(&mut self) -> Option<T> {
@@ -222,6 +220,8 @@ impl Connection {
                         Ok(t) => return Some(t),
                         Err(err) => {
                             log::debug!("Failed to parse packet: {}", err);
+                            self.disconnected = true;
+                            return None;
                         }
                     };
                 }
@@ -245,12 +245,12 @@ impl Connection {
     }
 
     pub fn close(&mut self, reason: &'static str) {
-        self.flush();
         self.disconnected = true;
         self.connection_outbound
             .outbound_sender
             .send(Err(reason))
             .ok();
+        self.flush();
     }
 
     pub fn is_disconnected(&self) -> bool {
@@ -262,9 +262,9 @@ impl Connection {
     }
 }
 
-async fn read_vec(
-    stream: &mut futures_util::stream::SplitStream<tokio_tungstenite::WebSocketStream<TcpStream>>,
-) -> anyhow::Result<Vec<u8>> {
+type WsStream = futures_util::stream::SplitStream<WebSocketStream<TcpStream>>;
+
+async fn read_vec(stream: &mut WsStream) -> anyhow::Result<Vec<u8>> {
     while let Some(msg) = stream.next().await {
         match msg? {
             Message::Binary(buf) => return Ok(buf),

@@ -10,8 +10,9 @@ const BATTLESCAPE_SAVE_INTERVAL: u64 = (1000 / DT_MS) * 60 * 30;
 struct State {
     database_connection: Connection,
 
-    client_listener: ConnectionListener,
+    client_listener: ConnectionListener<ClientLogin>,
     logins: AHashMap<u64, Connection>,
+    next_login_token: u64,
 
     clients: AHashMap<ClientId, Client>,
 
@@ -27,17 +28,11 @@ struct BattlescapeHandle {
 }
 impl State {
     fn new() -> Self {
-        let database_connection = connect_to_database();
-
         Self {
-            client_listener: ConnectionListener::bind(
-                instance_addr(),
-                ClientAuth {
-                    database_connection: database_connection.connection_outbound.clone(),
-                },
-            ),
-            database_connection,
+            client_listener: ConnectionListener::bind(instance_addr()),
+            database_connection: connect_to_database(),
             logins: Default::default(),
+            next_login_token: 0,
             clients: Default::default(),
             battlescapes: Default::default(),
         }
@@ -45,8 +40,13 @@ impl State {
 
     fn step(&mut self) {
         // Get new client connections.
-        while let Some((connection, login_token)) = self.client_listener.recv() {
-            self.logins.insert(login_token, connection);
+        while let Some((connection, login)) = self.client_listener.recv() {
+            self.database_connection.queue(DatabaseRequest::ClientAuth {
+                login,
+                response_token: self.next_login_token,
+            });
+            self.logins.insert(self.next_login_token, connection);
+            self.next_login_token += 1;
         }
 
         // Handle database responses.
@@ -56,9 +56,12 @@ impl State {
                     client_id,
                     response_token,
                 } => {
-                    // if let Some(sender) = self.logins.remove(&login) {
-                    //     let _ = sender.send(client_id);
-                    // }
+                    if let Some(connection) = self.logins.remove(&response_token) {
+                        if let Some(client_id) = client_id {
+                            connection.queue(ClientOutbound::LoggedIn { client_id });
+                            self.clients.insert(client_id, Client { connection });
+                        }
+                    }
                 }
             }
         }
@@ -133,32 +136,13 @@ pub struct ClientLogin {
     pub username: String,
     pub password: String,
 }
-
-#[derive(Clone)]
-struct ClientAuth {
-    database_connection: ConnectionOutbound,
-}
-impl Authentication for ClientAuth {
-    async fn login_packet(&mut self) -> impl Packet {
-        ClientOutbound::Hello
+impl Packet for ClientLogin {
+    fn serialize(self) -> Vec<u8> {
+        unimplemented!()
     }
 
-    async fn verify_first_packet(&mut self, first_packet: Vec<u8>) -> anyhow::Result<u64> {
-        let login: ClientLogin = bincode_decode(&first_packet)?;
-
-        let (client_id_sender, mut client_id_receiver) = tokio::sync::mpsc::channel(1);
-
-        self.client_auth_sender
-            .send((login, client_id_sender))
-            .context("stopped accepting new client")?;
-
-        let client_id = client_id_receiver
-            .recv()
-            .await
-            .context("channel dropped without answering")?
-            .context("auth failed")?;
-
-        Ok(client_id.as_u64())
+    fn parse(buf: Vec<u8>) -> anyhow::Result<Self> {
+        bincode_decode(&buf)
     }
 }
 
