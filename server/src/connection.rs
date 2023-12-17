@@ -232,7 +232,7 @@ impl Connection {
         self.outbound.flush();
     }
 
-    pub fn close(&mut self, reason: &'static str) {
+    pub fn close(&self, reason: &'static str) {
         self.outbound.outbound_sender.send(Err(reason)).ok();
         self.flush();
     }

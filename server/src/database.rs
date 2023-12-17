@@ -1,7 +1,7 @@
 use super::*;
 use battlescape::{entity::EntitySave, BattlescapeMiscSave};
 use chrono::{DateTime, FixedOffset, Utc};
-use instance::ClientLogin;
+use instance::ClientLoginType;
 use rayon::prelude::*;
 use std::{
     fs::File,
@@ -12,7 +12,7 @@ use std::{
 #[derive(Serialize, Deserialize)]
 pub enum DatabaseRequest {
     ClientAuth {
-        login: ClientLogin,
+        login: ClientLoginType,
         response_token: u64,
     },
     SaveBattlescape {
@@ -46,10 +46,10 @@ impl Packet for DatabaseRequest {
 /// Batched and processed in parallel.
 #[derive(Serialize, Deserialize)]
 pub enum DatabaseQuery {
-    /// Will respond with [DatabaseResponse::ClientShips] if client is online.
+    /// Will respond with [DatabaseBattlescapeResponse::ClientShips].
     ClientShips {
         client_id: ClientId,
-        request: BattlescapeId,
+        from: BattlescapeId,
     },
 }
 
@@ -63,19 +63,11 @@ pub enum DatabaseResponse {
         battlescape_id: BattlescapeId,
         /// [battlescape::BattlescapeMiscSave]
         battlescape_misc_save: Vec<u8>,
+        epoch: SystemTime,
     },
-    ClientShips {
-        client_id: ClientId,
-        request: BattlescapeId,
-        /// vec of [ClientShip]
-        client_ships: Vec<u8>,
-    },
-    ShipEntered {
-        ship_id: ShipId,
-        battlescape_id: BattlescapeId,
-        /// [battlescape::entity::EntitySave]
-        entity_save: Vec<u8>,
-        owner: Option<ClientId>,
+    DatabaseBattlescapeResponse {
+        from: BattlescapeId,
+        response: DatabaseBattlescapeResponse,
     },
 }
 impl Packet for DatabaseResponse {
@@ -86,6 +78,21 @@ impl Packet for DatabaseResponse {
     fn parse(buf: Vec<u8>) -> anyhow::Result<Self> {
         bincode_decode(&buf)
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum DatabaseBattlescapeResponse {
+    ClientShips {
+        client_id: ClientId,
+        /// vec of [ClientShip]
+        client_ships: Vec<u8>,
+    },
+    ShipEntered {
+        ship_id: ShipId,
+        /// [battlescape::entity::EntitySave]
+        entity_save: Vec<u8>,
+        owner: Option<ClientId>,
+    },
 }
 
 #[derive(Serialize)]
@@ -108,7 +115,6 @@ struct Database {
     #[serde(skip)]
     mut_requests_writer: BufWriter<File>,
 
-    /// Id is unused.
     #[serde(skip)]
     connection_listener: ConnectionListener<DatabaseLogin>,
     #[serde(skip)]
@@ -119,6 +125,8 @@ struct Database {
     instance_inbounds: AHashMap<InstanceId, ConnectionInbound>,
     #[serde(skip)]
     queries: Vec<(DatabaseQuery, InstanceId)>,
+
+    epoch: SystemTime,
 
     battlescapes: AHashMap<BattlescapeId, Battlescape>,
     ships: AHashMap<ShipId, Ship>,
@@ -172,6 +180,7 @@ impl Default for Database {
             save_count: Default::default(),
             mut_requests_writer: BufWriter::new(File::create("dummy").unwrap()),
             connection_listener: ConnectionListener::bind(database_addr()),
+            epoch: SystemTime::now(),
             next_instance_id: Default::default(),
             instances: Default::default(),
             instance_inbounds: Default::default(),
@@ -479,11 +488,11 @@ impl Database {
                 response_token,
             } => {
                 let client_id = match login {
-                    ClientLogin::LoginUsernamePassword { username, password } => {
+                    ClientLoginType::LoginUsernamePassword { username, password } => {
                         None
                         //
                     }
-                    ClientLogin::RegisterUsernamePassword { username, password } => {
+                    ClientLoginType::RegisterUsernamePassword { username, password } => {
                         if username.len() < 4
                             || username.len() > 32
                             || password.len() < 4
@@ -611,9 +620,9 @@ impl Database {
         Ok(())
     }
 
-    fn handle_query(&self, query: &DatabaseQuery, from: InstanceId) -> anyhow::Result<()> {
+    fn handle_query(&self, query: &DatabaseQuery, from_instance: InstanceId) -> anyhow::Result<()> {
         match query {
-            DatabaseQuery::ClientShips { client_id, request } => {
+            DatabaseQuery::ClientShips { client_id, from } => {
                 let client = self.clients.get(client_id).context("Client not found")?;
 
                 let client_ships = bincode_encode(
@@ -631,13 +640,15 @@ impl Database {
                         .collect::<Vec<ClientShip>>(),
                 );
 
-                self.instances[&from]
-                    .outbound
-                    .queue(DatabaseResponse::ClientShips {
-                        client_id: *client_id,
-                        request: *request,
-                        client_ships,
-                    });
+                self.instances[&from_instance].outbound.queue(
+                    DatabaseResponse::DatabaseBattlescapeResponse {
+                        from: *from,
+                        response: DatabaseBattlescapeResponse::ClientShips {
+                            client_id: *client_id,
+                            client_ships,
+                        },
+                    },
+                );
             }
         }
 

@@ -1,7 +1,9 @@
+pub mod client;
 pub mod entity;
 pub mod physics;
 
 use super::*;
+use client::*;
 use entity::*;
 use physics::*;
 use rapier2d::prelude::*;
@@ -11,10 +13,23 @@ type SimRng = rand_xoshiro::Xoshiro128StarStar;
 pub const DT: f32 = 1.0 / 20.0;
 pub const DT_MS: u64 = 50;
 
+/// How many tick between battlescape saves. (30 minutes)
+const SAVE_INTERVAL: u64 = 30 * 60 * (1000 / DT_MS);
+
 const RADIUS: f32 = 100.0;
 
+pub enum BattlescapeInbound {
+    DatabaseBattlescapeResponse(DatabaseBattlescapeResponse),
+    NewClient { client_id: ClientId, client: Client },
+}
+
 pub struct Battlescape {
+    pub battlescape_id: BattlescapeId,
+
+    pub epoch: SystemTime,
+    epoch_sec: f64,
     pub tick: u64,
+    next_save_tick: u64,
     rng: SimRng,
 
     pub physics: Physics,
@@ -24,9 +39,20 @@ pub struct Battlescape {
 
     /// Objects are processed in the same order they are added.
     objects: Vec<Object>,
+
+    database_outbound: ConnectionOutbound,
+    battlescape_inbound: Receiver<BattlescapeInbound>,
+
+    clients: IndexMap<ClientId, Client, RandomState>,
 }
 impl Battlescape {
-    pub fn new(save: BattlescapeMiscSave) -> Self {
+    pub fn new(
+        battlescape_id: BattlescapeId,
+        epoch: SystemTime,
+        database_outbound: ConnectionOutbound,
+        battlescape_inbound: Receiver<BattlescapeInbound>,
+        save: BattlescapeMiscSave,
+    ) -> Self {
         Self {
             tick: 0,
             rng: SimRng::from_entropy(),
@@ -34,16 +60,32 @@ impl Battlescape {
             next_entity_id: Default::default(),
             entities: Default::default(),
             objects: Default::default(),
-        }
-    }
+            clients: Default::default(),
+            battlescape_id,
 
-    pub fn apply_cmd(&mut self, cmd: &BattlescapeCommand) {
-        // TODO
-        // match cmd {}
+            epoch,
+            epoch_sec: 0.0,
+            next_save_tick: thread_rng().gen_range(2000..8000),
+            database_outbound,
+            battlescape_inbound,
+        }
     }
 
     pub fn step(&mut self) {
         self.tick += 1;
+
+        // TODO: Handle inbound.
+
+        // Handle client packets.
+        self.clients.retain(|client_id, client| loop {
+            match client.connection.recv::<ClientInbound>() {
+                Ok(packet) => match packet {
+                    ClientInbound::Test => {}
+                },
+                Err(TryRecvError::Empty) => break true,
+                Err(TryRecvError::Disconnected) => break false,
+            }
+        });
 
         self.physics.step();
 
@@ -78,10 +120,36 @@ impl Battlescape {
         std::mem::swap(&mut self.objects, &mut objs);
         // Add new objects.
         self.objects.extend(objs.into_iter());
+
+        // Save.
+        if self.tick > self.next_save_tick {
+            self.save();
+        }
     }
 
-    pub fn misc_save(&self) -> BattlescapeMiscSave {
-        BattlescapeMiscSave {}
+    fn save(&mut self) {
+        self.next_save_tick = self.tick + SAVE_INTERVAL + self.rng.gen_range(0..4000);
+
+        let misc = BattlescapeMiscSave {};
+
+        self.database_outbound
+            .queue(DatabaseRequest::SaveBattlescape {
+                battlescape_id: self.battlescape_id,
+                battlescape_misc_save: bincode_encode(&misc),
+            });
+        // TODO: Save ships
+        // TODO: Save planets?
+    }
+
+    pub fn adjust_global_time(&mut self, instant: std::time::SystemTime, global_time: f64) {
+        let old_time = self.epoch_sec;
+        self.epoch_sec = global_time + instant.elapsed().unwrap_or_default().as_secs_f64();
+        log::debug!(
+            "Adjusting time from {} to {} (delta: {})",
+            old_time,
+            self.epoch_sec,
+            self.epoch_sec - old_time
+        );
     }
 
     fn spawn_entity(
@@ -104,12 +172,6 @@ impl Battlescape {
             // TODO:
         }
     }
-}
-
-#[derive(Serialize, Deserialize)]
-pub enum BattlescapeCommand {
-    // TODO
-    ShipEnter { ship_id: ShipId },
 }
 
 /// Something that modify the simulation (ai, effect, etc).

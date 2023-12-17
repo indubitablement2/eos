@@ -6,12 +6,12 @@ mod ids;
 mod instance;
 mod interval;
 mod logger;
-mod runner;
 
 use ahash::{AHashMap, AHashSet, RandomState};
 use anyhow::Context;
 use connection::*;
 use crossbeam_channel::{unbounded, Receiver, Sender, TryRecvError};
+use database::*;
 use ids::*;
 use indexmap::IndexMap;
 use rand::prelude::*;
@@ -19,24 +19,27 @@ use rapier2d::na::{self, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::net::SocketAddr;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
-// modular connection
+// merge runner into instance and battlescape
 
 // TODO: add feature for database/instance
 // TODO: Replace bincode for msgpack
-// TODO: instance-database communication
 // TODO: Static battlescape server address
+// TODO: Mini app which compile and relauches instance and database if they exit
 
 // TODO: Database:
-// Create battlescape cmd
-// Balance battlescapes
-// move ship to battlescape cmd
-// notify instance ship changes and send to client (subscribtion based)
+// replace private key with static instance addr
+// Add global time tracking
+// // Create battlescape cmd
+// // Balance battlescapes
+// // move ship to battlescape cmd
+// // notify instance ship changes and send to client (subscribtion based)
 
 // TODO: Instance:
 // Keep track of what data client has and send as needed instead of waiting for query
 // add ships to intermitent battlescape save
+// Get client side addr from database
 
 // TODO: Battlescape:
 // figure out how to handle collisions
