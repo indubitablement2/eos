@@ -15,7 +15,7 @@ pub fn _start() {
 
         if state.step() {
             log::warn!("Database disconnected");
-            state = State::new();
+            break;
         }
     }
 }
@@ -76,6 +76,7 @@ impl State {
                                     client_id,
                                     joined_battlescape_id: *battlescape_id,
                                 });
+                                connection.flush();
                                 // TODO: Send.
                             }
                         }
@@ -112,22 +113,7 @@ impl State {
             return true;
         }
 
-        // // Handle client packets.
-        // for (client_id, client) in self.clients.iter_mut() {
-        //     while let Some(packet) = client.connection.recv::<ClientInbound>() {
-        //         match packet {
-        //             ClientInbound::Test => todo!(),
-        //         }
-        //     }
-        // }
-
         self.database_connection.flush();
-
-        // // Flush client connections.
-        // self.clients.retain(|_, client| {
-        //     client.connection.flush();
-        //     client.connection.is_connected()
-        // });
 
         false
     }

@@ -26,6 +26,7 @@ use std::time::{Duration, Instant};
 // TODO: add feature for database/instance
 // TODO: Replace bincode for msgpack
 // TODO: instance-database communication
+// TODO: Static battlescape server address
 
 // TODO: Database:
 // Create battlescape cmd
@@ -151,8 +152,8 @@ fn main() {
     }
 
     if database && instance {
-        std::thread::spawn(|| instance::_start());
-        database::_start();
+        std::thread::spawn(|| database::_start());
+        instance::_start();
     } else if database {
         database::_start();
     } else if instance {
