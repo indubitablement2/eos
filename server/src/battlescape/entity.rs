@@ -30,7 +30,7 @@ impl Entity {
         battlescape: &mut Battlescape,
 
         data: &'static EntityData,
-        save: EntitySave,
+        mut save: EntitySave,
 
         entity_id: EntityId,
 
@@ -46,6 +46,11 @@ impl Entity {
             data.mprops,
             entity_id,
             ignore,
+        );
+
+        save.armor_cells.resize(
+            data.armor_cells_size.x as usize * data.armor_cells_size.y as usize,
+            0,
         );
 
         let mut s = Self {
@@ -381,6 +386,10 @@ pub struct EntitySave {
     // TODO: Turret
 }
 impl EntitySave {
+    pub fn new_stationary(data: &'static EntityData, position: Isometry2<f32>) -> Self {
+        Self::new(data, position, Vector2::zeros(), 0.0)
+    }
+
     pub fn new(
         data: &'static EntityData,
         position: Isometry2<f32>,
@@ -408,6 +417,7 @@ impl EntitySave {
     }
 }
 
+// Just to see what data looks like.
 #[test]
 fn test_serialize_data() {
     println!(

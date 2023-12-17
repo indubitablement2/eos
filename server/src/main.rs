@@ -6,6 +6,7 @@ mod ids;
 mod instance;
 mod interval;
 mod logger;
+mod runner;
 
 use ahash::{AHashMap, AHashSet, RandomState};
 use anyhow::Context;
@@ -21,9 +22,12 @@ use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
 // TODO: add feature for database/instance
+// TODO: Replace bincode for msgpack
+// TODO: instance-database communication
 
 // TODO: Database:
 // Create battlescape cmd
+// Balance battlescapes
 // move ship to battlescape cmd
 // notify instance ship changes and send to client (subscribtion based)
 
@@ -139,9 +143,7 @@ fn main() {
         instance = true;
     }
 
-    if database {
-        log::info!("Database address: {}", database_addr());
-    }
+    log::info!("Database address: {}", database_addr());
     if instance {
         log::info!("Instance address: {}", instance_addr());
     }

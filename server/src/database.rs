@@ -1,6 +1,5 @@
-use crate::battlescape::{entity::EntitySave, BattlescapeMiscSave};
-
 use super::*;
+use battlescape::{entity::EntitySave, BattlescapeMiscSave};
 use chrono::{DateTime, FixedOffset, Utc};
 use instance::ClientLogin;
 use rayon::prelude::*;
@@ -22,12 +21,12 @@ pub enum DatabaseRequest {
     },
     SaveShip {
         ship_id: ShipId,
-        entity_save: Vec<u8>,
-    },
-    MoveShip {
-        ship_id: ShipId,
         battlescape_id: BattlescapeId,
         entity_save: Vec<u8>,
+        owner: Option<ClientId>,
+    },
+    RemoveShip {
+        ship_id: ShipId,
     },
     Query(DatabaseQuery),
 }
@@ -45,14 +44,34 @@ impl Packet for DatabaseRequest {
 /// Batched and processed in parallel.
 #[derive(Serialize, Deserialize)]
 pub enum DatabaseQuery {
-    RemoveMe,
+    /// Will respond with [DatabaseResponse::ClientShips] if client is online.
+    ClientShips {
+        client_id: ClientId,
+        request: BattlescapeId,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
 pub enum DatabaseResponse {
-    ClientAuth {
+    ClientAuthResult {
         client_id: Option<ClientId>,
         response_token: u64,
+    },
+    HandleBattlescape {
+        battlescape_id: BattlescapeId,
+        battlescape_misc_save: Vec<u8>,
+    },
+    ClientShips {
+        client_id: ClientId,
+        request: BattlescapeId,
+        /// vec of [ClientShip]
+        client_ships: Vec<u8>,
+    },
+    ShipEntered {
+        ship_id: ShipId,
+        battlescape_id: BattlescapeId,
+        entity_save: Vec<u8>,
+        owner: Option<ClientId>,
     },
 }
 impl Packet for DatabaseResponse {
@@ -63,6 +82,13 @@ impl Packet for DatabaseResponse {
     fn parse(buf: Vec<u8>) -> anyhow::Result<Self> {
         bincode_decode(&buf)
     }
+}
+
+#[derive(Serialize)]
+struct ClientShip {
+    ship_id: ShipId,
+    battlescape_id: BattlescapeId,
+    flags: u8,
 }
 
 // ####################################################################################
@@ -83,7 +109,6 @@ struct Database {
     connection_listener: ConnectionListener<DatabaseLogin>,
     #[serde(skip)]
     next_instance_id: InstanceId,
-    // TODO: Which battlescapes is this running
     #[serde(skip)]
     instances: AHashMap<InstanceId, Instance>,
     #[serde(skip)]
@@ -109,6 +134,8 @@ struct Battlescape {
     battlescape_misc_save: Vec<u8>,
     #[serde(skip)]
     ships: AHashSet<ShipId>,
+    #[serde(skip)]
+    runner: Option<InstanceId>,
     // TODO: planets state
     // TODO: star?
     // TODO: battlescape connections
@@ -120,11 +147,14 @@ struct Ship {
     battlescape_id: BattlescapeId,
     /// [battlescape::entity::EntitySave]
     entity_save: Vec<u8>,
+    owner: Option<ClientId>,
 }
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
 struct Client {
     password: Option<String>,
+    #[serde(skip)]
+    ships: AHashSet<ShipId>,
 }
 
 // ####################################################################################
@@ -156,16 +186,30 @@ impl Default for Database {
 // ####################################################################################
 
 impl Database {
-    fn prepare_fresh(&mut self) -> anyhow::Result<()> {
-        for (ship_id, ship) in self.ships.iter() {
-            self.battlescapes
-                .get_mut(&ship.battlescape_id)
-                .context("Ship's battlescape not found")?
-                .ships
-                .insert(*ship_id);
-        }
+    fn prepare_fresh(&mut self) {
+        self.ships.retain(|ship_id, ship| {
+            if let Some(battlescape) = self.battlescapes.get_mut(&ship.battlescape_id) {
+                battlescape.ships.insert(*ship_id);
 
-        Ok(())
+                if let Some(owner) = ship.owner {
+                    if let Some(client) = self.clients.get_mut(&owner) {
+                        client.ships.insert(*ship_id);
+                    } else {
+                        log::warn!("{:?} owner ({:?}) not found", ship_id, owner);
+                        ship.owner = None;
+                    }
+                }
+
+                true
+            } else {
+                log::warn!(
+                    "{:?}'s battlescape ({:?}) not found",
+                    ship_id,
+                    ship.battlescape_id
+                );
+                false
+            }
+        });
     }
 
     fn to_json(&mut self) -> anyhow::Result<()> {
@@ -271,7 +315,7 @@ fn load_database() -> anyhow::Result<Database> {
 
     db.to_bin()?;
 
-    db.prepare_fresh()?;
+    db.prepare_fresh();
 
     // Apply saved requests.
     let path = std::env::current_dir()?.join(MUT_REQUESTS_FILE);
@@ -380,17 +424,11 @@ impl Database {
         let mut instance_inbounds = std::mem::take(&mut self.instance_inbounds);
         instance_inbounds.retain(|&from, inbound| loop {
             match inbound.recv::<Vec<u8>>() {
-                Ok(request) => match self.handle_request(&request, Some(from), true) {
-                    Ok(query) => {
-                        if let Some(query) = query {
-                            self.queries.push((query, from));
-                        }
-                    }
-                    Err(err) => {
+                Ok(request) => {
+                    if let Err(err) = self.handle_request(&request, Some(from), true) {
                         log::error!("Failed to handle request: {}", err);
-                        break false;
                     }
-                },
+                }
                 Err(TryRecvError::Empty) => break true,
                 Err(TryRecvError::Disconnected) => break false,
             }
@@ -428,7 +466,7 @@ impl Database {
         request: &[u8],
         from: Option<InstanceId>,
         can_save: bool,
-    ) -> anyhow::Result<Option<DatabaseQuery>> {
+    ) -> anyhow::Result<()> {
         let mut save = false;
 
         match bincode_decode::<DatabaseRequest>(request)? {
@@ -436,17 +474,41 @@ impl Database {
                 login,
                 response_token,
             } => {
-                let client_id = if login.new_account {
-                    save = true;
-                    self.handle_register(login)
-                } else {
-                    self.handle_login(login)
+                let client_id = match login {
+                    ClientLogin::LoginUsernamePassword { username, password } => {
+                        None
+                        //
+                    }
+                    ClientLogin::RegisterUsernamePassword { username, password } => {
+                        if username.len() < 4
+                            || username.len() > 32
+                            || password.len() < 4
+                            || self.username.contains_key(&username)
+                        {
+                            None
+                        } else {
+                            let client_id = self.next_client_id.next();
+                            self.username.insert(username, client_id);
+
+                            self.clients.insert(
+                                client_id,
+                                Client {
+                                    password: Some(password),
+                                    ..Default::default()
+                                },
+                            );
+
+                            Some(client_id)
+                        }
+                    }
                 };
+
+                // TODO: Add starting ship (if no ship)
 
                 if let Some(from) = from {
                     self.instances[&from]
                         .outbound
-                        .queue(DatabaseResponse::ClientAuth {
+                        .queue(DatabaseResponse::ClientAuthResult {
                             client_id,
                             response_token,
                         });
@@ -465,42 +527,74 @@ impl Database {
             }
             DatabaseRequest::SaveShip {
                 ship_id,
-                entity_save,
-            } => {
-                save = true;
-
-                self.ships
-                    .get_mut(&ship_id)
-                    .context("Ship not found")?
-                    .entity_save = entity_save;
-            }
-            DatabaseRequest::MoveShip {
-                ship_id,
                 battlescape_id,
                 entity_save,
+                owner,
             } => {
                 save = true;
 
                 let ship = self.ships.get_mut(&ship_id).context("Ship not found")?;
 
-                self.battlescapes
-                    .get_mut(&ship.battlescape_id)
-                    .context("Ship's previous battlescape not found")?
-                    .ships
-                    .remove(&ship_id);
-
-                let new_battlescape = self
-                    .battlescapes
-                    .get_mut(&battlescape_id)
-                    .context("Ship's new battlescape not found")?;
-                ship.battlescape_id = battlescape_id;
                 ship.entity_save = entity_save;
-                new_battlescape.ships.insert(ship_id);
 
-                // TODO: Notify instance which run this battlescape
+                if ship.owner != owner {
+                    if let Some(old_owner) = ship.owner {
+                        self.clients
+                            .get_mut(&old_owner)
+                            .context("Ship's old owner not found")?
+                            .ships
+                            .remove(&ship_id);
+                    }
+
+                    if let Some(new_owner) = owner {
+                        self.clients
+                            .get_mut(&new_owner)
+                            .context("Ship's new owner not found")?
+                            .ships
+                            .insert(ship_id);
+                    }
+
+                    ship.owner = owner;
+                }
+
+                if ship.battlescape_id != battlescape_id {
+                    self.battlescapes
+                        .get_mut(&ship.battlescape_id)
+                        .context("Ship's previous battlescape not found")?
+                        .ships
+                        .remove(&ship_id);
+
+                    let new_battlescape = self
+                        .battlescapes
+                        .get_mut(&battlescape_id)
+                        .context("Ship's new battlescape not found")?
+                        .ships
+                        .insert(ship_id);
+
+                    ship.battlescape_id = battlescape_id;
+
+                    // TODO: Notify new battlescape
+                }
+            }
+            DatabaseRequest::RemoveShip { ship_id } => {
+                save = true;
+
+                if let Some(ship) = self.ships.remove(&ship_id) {
+                    if let Some(owner) = ship.owner {
+                        if let Some(client) = self.clients.get_mut(&owner) {
+                            client.ships.remove(&ship_id);
+                        }
+                    }
+
+                    if let Some(battlescape) = self.battlescapes.get_mut(&ship.battlescape_id) {
+                        battlescape.ships.remove(&ship_id);
+                    }
+                }
             }
             DatabaseRequest::Query(query) => {
-                return Ok(Some(query));
+                if let Some(from) = from {
+                    self.queries.push((query, from));
+                }
             }
         }
 
@@ -510,45 +604,74 @@ impl Database {
             self.mut_requests_writer.write_all(request)?;
         }
 
-        Ok(None)
+        Ok(())
     }
 
-    fn handle_query(&self, query: &DatabaseQuery, from: InstanceId) {
+    fn handle_query(&self, query: &DatabaseQuery, from: InstanceId) -> anyhow::Result<()> {
         match query {
-            DatabaseQuery::RemoveMe => {}
+            DatabaseQuery::ClientShips { client_id, request } => {
+                let client = self.clients.get(client_id).context("Client not found")?;
+
+                let client_ships = bincode_encode(
+                    client
+                        .ships
+                        .iter()
+                        .map(|ship_id| {
+                            let ship = self.ships.get(ship_id).unwrap();
+                            ClientShip {
+                                ship_id: *ship_id,
+                                battlescape_id: ship.battlescape_id,
+                                flags: 0,
+                            }
+                        })
+                        .collect::<Vec<ClientShip>>(),
+                );
+
+                self.instances[&from]
+                    .outbound
+                    .queue(DatabaseResponse::ClientShips {
+                        client_id: *client_id,
+                        request: *request,
+                        client_ships,
+                    });
+            }
         }
+
+        Ok(())
     }
 
-    fn handle_register(&mut self, login: ClientLogin) -> Option<ClientId> {
-        if login.username.len() < 4
-            || login.username.len() > 32
-            || login.password.len() < 4
-            || self.username.contains_key(&login.username)
+    fn register_username_password(
+        &mut self,
+        username: String,
+        password: String,
+    ) -> Option<ClientId> {
+        if username.len() < 4
+            || username.len() > 32
+            || password.len() < 4
+            || self.username.contains_key(&username)
         {
             return None;
         }
 
         let client_id = self.next_client_id.next();
-        self.username.insert(login.username, client_id);
+        self.username.insert(username, client_id);
 
         self.clients.insert(
             client_id,
             Client {
-                password: Some(login.password),
+                password: Some(password),
+                ..Default::default()
             },
         );
 
         Some(client_id)
     }
 
-    fn handle_login(&self, login: ClientLogin) -> Option<ClientId> {
-        // TODO: Add other login method here
-        self.login_username_password(&login.username, &login.password)
-    }
-
-    fn login_username_password(&self, username: &str, password: &str) -> Option<ClientId> {
+    fn login_username_password(&mut self, username: &str, password: &str) -> Option<ClientId> {
         let client_id = *self.username.get(username)?;
-        if self.clients.get(&client_id)?.password.as_deref()? == password {
+        let client = self.clients.get_mut(&client_id)?;
+
+        if client.password.as_deref()? == password {
             Some(client_id)
         } else {
             None
