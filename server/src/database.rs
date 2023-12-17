@@ -17,11 +17,13 @@ pub enum DatabaseRequest {
     },
     SaveBattlescape {
         battlescape_id: BattlescapeId,
+        /// [battlescape::BattlescapeMiscSave]
         battlescape_misc_save: Vec<u8>,
     },
     SaveShip {
         ship_id: ShipId,
         battlescape_id: BattlescapeId,
+        /// [battlescape::entity::EntitySave]
         entity_save: Vec<u8>,
         owner: Option<ClientId>,
     },
@@ -59,6 +61,7 @@ pub enum DatabaseResponse {
     },
     HandleBattlescape {
         battlescape_id: BattlescapeId,
+        /// [battlescape::BattlescapeMiscSave]
         battlescape_misc_save: Vec<u8>,
     },
     ClientShips {
@@ -70,6 +73,7 @@ pub enum DatabaseResponse {
     ShipEntered {
         ship_id: ShipId,
         battlescape_id: BattlescapeId,
+        /// [battlescape::entity::EntitySave]
         entity_save: Vec<u8>,
         owner: Option<ClientId>,
     },

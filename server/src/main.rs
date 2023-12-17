@@ -21,6 +21,8 @@ use smallvec::SmallVec;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
+// modular connection
+
 // TODO: add feature for database/instance
 // TODO: Replace bincode for msgpack
 // TODO: instance-database communication
