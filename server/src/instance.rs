@@ -120,7 +120,7 @@ impl State {
             } => {
                 let database_outbound = self.database_outbound.clone();
                 let (battlescape_outbound, battlescape_inbound) = unbounded();
-                let save = bincode_decode(&battlescape_misc_save)?;
+                let save = bin_decode(&battlescape_misc_save)?;
 
                 self.battlescapes
                     .insert(battlescape_id, battlescape_outbound);
@@ -165,7 +165,7 @@ impl Packet for ClientLogin {
     }
 
     fn parse(buf: Vec<u8>) -> anyhow::Result<Self> {
-        bincode_decode(&buf)
+        bin_decode(&buf)
     }
 }
 
@@ -182,7 +182,7 @@ struct ClientLoginSuccess {
 }
 impl Packet for ClientLoginSuccess {
     fn serialize(self) -> Vec<u8> {
-        bincode_encode(self)
+        bin_encode(self)
     }
 
     fn parse(_buf: Vec<u8>) -> anyhow::Result<Self> {

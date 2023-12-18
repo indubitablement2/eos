@@ -27,7 +27,7 @@ impl Packet for ClientInbound {
     }
 
     fn parse(buf: Vec<u8>) -> anyhow::Result<Self> {
-        bincode_decode(&buf)
+        bin_decode(&buf)
     }
 }
 
@@ -37,7 +37,7 @@ pub enum ClientOutbound {
 }
 impl Packet for ClientOutbound {
     fn serialize(self) -> Vec<u8> {
-        bincode_encode(self)
+        bin_encode(self)
     }
 
     fn parse(_buf: Vec<u8>) -> anyhow::Result<Self> {

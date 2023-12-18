@@ -21,14 +21,12 @@ use smallvec::SmallVec;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant, SystemTime};
 
-// merge runner into instance and battlescape
-
 // TODO: add feature for database/instance
-// TODO: Replace bincode for msgpack
 // TODO: Static battlescape server address
 // TODO: Mini app which compile and relauches instance and database if they exit
 
 // TODO: Database:
+// Chech invariant on startup (armor cell size)
 // replace private key with static instance addr
 // Add global time tracking
 // // Create battlescape cmd
@@ -95,14 +93,11 @@ fn instance_addr() -> SocketAddr {
         )))
 }
 
-fn bincode_encode(data: impl Serialize) -> Vec<u8> {
-    bincode::Options::serialize(bincode::DefaultOptions::new(), &data).unwrap()
+fn bin_encode(data: impl Serialize) -> Vec<u8> {
+    postcard::to_allocvec(&data).unwrap()
 }
-fn bincode_decode<'a, T: Deserialize<'a>>(data: &'a [u8]) -> anyhow::Result<T> {
-    Ok(bincode::Options::deserialize(
-        bincode::DefaultOptions::new(),
-        data,
-    )?)
+fn bin_decode<'a, T: Deserialize<'a>>(data: &'a [u8]) -> anyhow::Result<T> {
+    Ok(postcard::from_bytes(data)?)
 }
 
 fn main() {

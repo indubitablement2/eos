@@ -34,11 +34,11 @@ pub enum DatabaseRequest {
 }
 impl Packet for DatabaseRequest {
     fn serialize(self) -> Vec<u8> {
-        bincode_encode(self)
+        bin_encode(self)
     }
 
     fn parse(buf: Vec<u8>) -> anyhow::Result<Self> {
-        bincode_decode(&buf)
+        bin_decode(&buf)
     }
 }
 
@@ -72,11 +72,11 @@ pub enum DatabaseResponse {
 }
 impl Packet for DatabaseResponse {
     fn serialize(self) -> Vec<u8> {
-        bincode_encode(self)
+        bin_encode(self)
     }
 
     fn parse(buf: Vec<u8>) -> anyhow::Result<Self> {
-        bincode_decode(&buf)
+        bin_decode(&buf)
     }
 }
 
@@ -263,10 +263,10 @@ impl Database {
 }
 
 fn bin_to_json<'a, T: Deserialize<'a> + Serialize>(data: &'a [u8]) -> anyhow::Result<Vec<u8>> {
-    Ok(serde_json::to_vec(&bincode_decode::<T>(data)?)?)
+    Ok(serde_json::to_vec(&bin_decode::<T>(data)?)?)
 }
 fn json_to_bin<'a, T: Deserialize<'a> + Serialize>(data: &'a [u8]) -> anyhow::Result<Vec<u8>> {
-    Ok(bincode_encode(&serde_json::from_slice::<T>(data)?))
+    Ok(bin_encode(&serde_json::from_slice::<T>(data)?))
 }
 
 // ####################################################################################
@@ -319,7 +319,8 @@ fn load_database() -> anyhow::Result<Database> {
         if is_json {
             serde_json::from_reader(&mut reader)?
         } else {
-            bincode::Options::deserialize_from(bincode::DefaultOptions::new(), &mut reader)?
+            let mut buf = vec![0; 4096];
+            postcard::from_io((&mut reader, &mut buf)).map(|(db, _)| db)?
         }
     } else {
         log::warn!("No database file found, creating new one");
@@ -385,7 +386,7 @@ impl Database {
             serde_json::to_writer(&mut writer, self)?;
             self.to_bin()?;
         } else {
-            bincode::Options::serialize_into(bincode::DefaultOptions::new(), &mut writer, self)?;
+            postcard::to_io(&self, &mut writer)?;
         }
         writer.flush()?;
 
@@ -482,7 +483,7 @@ impl Database {
     ) -> anyhow::Result<()> {
         let mut save = false;
 
-        match bincode_decode::<DatabaseRequest>(request)? {
+        match bin_decode::<DatabaseRequest>(request)? {
             DatabaseRequest::ClientAuth {
                 login,
                 response_token,
@@ -625,7 +626,7 @@ impl Database {
             DatabaseQuery::ClientShips { client_id, from } => {
                 let client = self.clients.get(client_id).context("Client not found")?;
 
-                let client_ships = bincode_encode(
+                let client_ships = bin_encode(
                     client
                         .ships
                         .iter()
@@ -722,11 +723,11 @@ struct DatabaseLogin {
 }
 impl Packet for DatabaseLogin {
     fn serialize(self) -> Vec<u8> {
-        bincode_encode(self)
+        bin_encode(self)
     }
 
     fn parse(buf: Vec<u8>) -> anyhow::Result<Self> {
-        bincode_decode(&buf)
+        bin_decode(&buf)
     }
 }
 
@@ -767,6 +768,6 @@ fn test_database_serialization() {
     _DATABASE_ADDR.set("[::1]:0".parse().unwrap()).unwrap();
 
     let db = Database::default();
-    bincode_decode::<Database>(&bincode_encode(&db)).unwrap();
+    bin_decode::<Database>(&bin_encode(&db)).unwrap();
     serde_json::from_slice::<Database>(&serde_json::to_vec(&db).unwrap()).unwrap();
 }

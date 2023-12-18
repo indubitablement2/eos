@@ -135,7 +135,7 @@ impl Battlescape {
         self.database_outbound
             .queue(DatabaseRequest::SaveBattlescape {
                 battlescape_id: self.battlescape_id,
-                battlescape_misc_save: bincode_encode(&misc),
+                battlescape_misc_save: bin_encode(&misc),
             });
         // TODO: Save ships
         // TODO: Save planets?
