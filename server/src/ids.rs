@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use super::*;
 use std::num::{NonZeroU32, NonZeroU64};
 
