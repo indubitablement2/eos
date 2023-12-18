@@ -1,4 +1,5 @@
 use super::*;
+use battlescape::entity::{EntityData, EntityDataJson};
 use std::{fs::File, io::BufReader};
 
 static DATA: std::sync::OnceLock<Data> = std::sync::OnceLock::new();
@@ -10,6 +11,8 @@ pub fn data() -> &'static Data {
 pub struct Data {
     pub instances: AHashMap<InstanceId, InstanceData>,
     pub systems: AHashMap<BattlescapeId, SystemData>,
+
+    pub entities: Vec<EntityData>,
 }
 
 pub struct InstanceData {
@@ -22,7 +25,7 @@ pub struct SystemData {
 }
 
 // ####################################################################################
-// ############## JSON ################################################################
+// ############## LOAD ################################################################
 // ####################################################################################
 
 pub fn _load_data() {
@@ -64,6 +67,13 @@ pub fn _load_data() {
         }
     });
 
+    data.entities = json
+        .entities
+        .into_iter()
+        .enumerate()
+        .map(|(id, entity_json)| entity_json.parse(EntityDataId(id as u32)))
+        .collect();
+
     let _ = DATA.set(data);
 }
 
@@ -71,16 +81,25 @@ pub fn _load_data_default() {
     let _ = DATA.set(Data::default());
 }
 
+// ####################################################################################
+// ############## JSON ################################################################
+// ####################################################################################
+
 #[derive(Serialize, Deserialize)]
 struct DataJson {
     instances: AHashMap<InstanceId, String>,
     systems: AHashMap<BattlescapeId, SystemDataJson>,
+    entities: Vec<EntityDataJson>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 struct SystemDataJson {
     instance: InstanceId,
 }
+
+// ####################################################################################
+// ############## TEST ################################################################
+// ####################################################################################
 
 #[test]
 fn test_asd() {
@@ -107,6 +126,7 @@ fn test_asd() {
                 system_data_json.clone(),
             )
         })),
+        entities: vec![Default::default()],
     };
 
     println!("{}", serde_json::to_string_pretty(&json).unwrap());

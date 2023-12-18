@@ -214,16 +214,6 @@ pub enum WishLinVel {
 // ################################### DATA ###########################################
 // ####################################################################################
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct EntityDataId(pub u32);
-impl EntityDataId {
-    pub fn data(self) -> &'static EntityData {
-        &EntityData::get_data()[self.0 as usize]
-    }
-}
-
-static ENTITY_DATA: std::sync::OnceLock<Vec<EntityData>> = std::sync::OnceLock::new();
-
 pub struct EntityData {
     pub id: EntityDataId,
 
@@ -245,11 +235,6 @@ pub struct EntityData {
     pub mobility: Mobility,
 
     on_new: Vec<EntityEvent>,
-}
-impl EntityData {
-    pub fn get_data() -> &'static [Self] {
-        ENTITY_DATA.get().unwrap()
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
@@ -277,31 +262,18 @@ enum EntityEvent {
 }
 
 // ####################################################################################
-// ############################## DATA TRANSIENT ######################################
+// ############################## DATA JSON ###########################################
 // ####################################################################################
 
-pub fn _load_data() {
-    let data: Vec<EntityDataTransient> =
-        serde_json::from_slice(&std::fs::read("path").unwrap()).unwrap();
-
-    let data = data
-        .into_iter()
-        .enumerate()
-        .map(|(i, d)| d.parse(i as u32))
-        .collect::<Vec<_>>();
-
-    ENTITY_DATA.set(data).ok().unwrap();
-}
-
 #[derive(Debug, Serialize, Deserialize, Default)]
-struct EntityDataTransient {
+pub struct EntityDataJson {
     hull: f32,
 
     armor_max: f32,
     armor_cells_size: Vector2<i32>,
     armor_cells: ArmorCells,
 
-    shape: HullShape,
+    shape: HullShapeJson,
     mass_radius: f32,
     density: f32,
     groups: InteractionGroups,
@@ -314,10 +286,10 @@ struct EntityDataTransient {
 
     on_new: Vec<EntityEvent>,
 }
-impl EntityDataTransient {
-    fn parse(self, id: u32) -> EntityData {
+impl EntityDataJson {
+    pub fn parse(self, id: EntityDataId) -> EntityData {
         EntityData {
-            id: EntityDataId(id),
+            id,
 
             hull_max: self.hull,
 
@@ -337,17 +309,17 @@ impl EntityDataTransient {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-enum HullShape {
+enum HullShapeJson {
     Cuboid { hx: f32, hy: f32 },
     Ball { radius: f32 },
     Polygon { vertices: Vec<f32> },
 }
-impl HullShape {
+impl HullShapeJson {
     fn to_shared_shape(&self) -> SharedShape {
         match self {
-            HullShape::Cuboid { hx, hy } => SharedShape::cuboid(*hx, *hy),
-            HullShape::Ball { radius } => SharedShape::ball(*radius),
-            HullShape::Polygon { vertices } => {
+            HullShapeJson::Cuboid { hx, hy } => SharedShape::cuboid(*hx, *hy),
+            HullShapeJson::Ball { radius } => SharedShape::ball(*radius),
+            HullShapeJson::Polygon { vertices } => {
                 let vertices = vertices
                     .chunks_exact(2)
                     .map(|v| na::point![v[0], v[1]])
@@ -362,7 +334,7 @@ impl HullShape {
         }
     }
 }
-impl Default for HullShape {
+impl Default for HullShapeJson {
     fn default() -> Self {
         Self::Ball { radius: 0.5 }
     }
@@ -417,17 +389,21 @@ impl EntitySave {
     }
 }
 
+// ####################################################################################
+// ################################### TEST ###########################################
+// ####################################################################################
+
 // Just to see what data looks like.
 #[test]
 fn test_serialize_data() {
     println!(
         "{}\n",
-        serde_json::to_string_pretty(&EntityDataTransient {
+        serde_json::to_string_pretty(&EntityDataJson {
             hull: 456.0,
             armor_max: 123.0,
             armor_cells_size: Vector2::new(3, 3),
             armor_cells: (0u8..3 * 3).into_iter().collect(),
-            shape: HullShape::Polygon {
+            shape: HullShapeJson::Polygon {
                 vertices: vec![0.0, -1.0, 1.0, 1.0, -1.0, 1.0]
             },
             mass_radius: 2.0,

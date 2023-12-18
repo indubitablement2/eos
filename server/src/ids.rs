@@ -1,7 +1,22 @@
 #![allow(unused)]
 
 use super::*;
+use battlescape::entity::EntityData;
 use std::num::{NonZeroU32, NonZeroU64};
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
+)]
+pub struct EntityDataId(pub u32);
+impl EntityDataId {
+    pub fn is_valid(self) -> bool {
+        self.0 < data().entities.len() as u32
+    }
+
+    pub fn data(self) -> &'static EntityData {
+        &data().entities[self.0 as usize]
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct EntityId(NonZeroU64);

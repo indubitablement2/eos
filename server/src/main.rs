@@ -12,6 +12,7 @@ use ahash::{AHashMap, AHashSet, RandomState};
 use anyhow::Context;
 use connection::*;
 use crossbeam_channel::{unbounded, Receiver, Sender, TryRecvError};
+use data::data;
 use database::*;
 use ids::*;
 use indexmap::IndexMap;
@@ -113,7 +114,7 @@ fn main() {
         )
         .unwrap();
 
-    battlescape::entity::_load_data();
+    data::_load_data();
 
     let mut database = false;
     let mut instance = false;
