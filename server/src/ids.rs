@@ -2,7 +2,7 @@ use super::*;
 use std::num::{NonZeroU32, NonZeroU64};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct EntityId(pub NonZeroU64);
+pub struct EntityId(NonZeroU64);
 impl EntityId {
     pub fn from_u64(id: u64) -> Option<Self> {
         NonZeroU64::new(id).map(Self)
@@ -25,7 +25,7 @@ impl Default for EntityId {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ShipId(pub NonZeroU64);
+pub struct ShipId(NonZeroU64);
 impl ShipId {
     pub fn from_u64(id: u64) -> Option<Self> {
         NonZeroU64::new(id).map(Self)
@@ -48,7 +48,7 @@ impl Default for ShipId {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct BattlescapeId(pub NonZeroU64);
+pub struct BattlescapeId(NonZeroU64);
 impl BattlescapeId {
     pub fn from_u64(id: u64) -> Option<Self> {
         NonZeroU64::new(id).map(Self)
@@ -71,7 +71,7 @@ impl Default for BattlescapeId {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ClientId(pub NonZeroU64);
+pub struct ClientId(NonZeroU64);
 impl ClientId {
     pub fn from_u64(id: u64) -> Option<Self> {
         NonZeroU64::new(id).map(Self)
@@ -94,7 +94,7 @@ impl Default for ClientId {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct InstanceId(pub NonZeroU32);
+pub struct InstanceId(NonZeroU32);
 impl InstanceId {
     pub fn from_u32(id: u32) -> Option<Self> {
         NonZeroU32::new(id).map(Self)
