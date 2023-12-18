@@ -451,7 +451,9 @@ impl Database {
 
         // Handle queries in parallel.
         self.queries.par_iter().for_each(|(query, from)| {
-            self.handle_query(query, *from);
+            if let Err(err) = self.handle_query(query, *from) {
+                log::error!("Failed to handle query: {}", err);
+            }
         });
         self.queries.clear();
 
