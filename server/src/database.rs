@@ -492,8 +492,20 @@ impl Database {
             } => {
                 let client_id = match login {
                     ClientLoginType::LoginUsernamePassword { username, password } => {
-                        None
-                        //
+                        if let Some(client_id) = self.username.get(&username) {
+                            let client = self
+                                .clients
+                                .get_mut(client_id)
+                                .context("Client not found, but username exist")?;
+
+                            if client.password.as_deref() == Some(password.as_str()) {
+                                Some(*client_id)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
                     }
                     ClientLoginType::RegisterUsernamePassword { username, password } => {
                         if username.len() < 4
@@ -656,44 +668,6 @@ impl Database {
         }
 
         Ok(())
-    }
-
-    fn register_username_password(
-        &mut self,
-        username: String,
-        password: String,
-    ) -> Option<ClientId> {
-        if username.len() < 4
-            || username.len() > 32
-            || password.len() < 4
-            || self.username.contains_key(&username)
-        {
-            return None;
-        }
-
-        let client_id = self.next_client_id.next();
-        self.username.insert(username, client_id);
-
-        self.clients.insert(
-            client_id,
-            Client {
-                password: Some(password),
-                ..Default::default()
-            },
-        );
-
-        Some(client_id)
-    }
-
-    fn login_username_password(&mut self, username: &str, password: &str) -> Option<ClientId> {
-        let client_id = *self.username.get(username)?;
-        let client = self.clients.get_mut(&client_id)?;
-
-        if client.password.as_deref()? == password {
-            Some(client_id)
-        } else {
-            None
-        }
     }
 }
 
