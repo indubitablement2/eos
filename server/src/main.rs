@@ -1,5 +1,6 @@
 mod battlescape;
 mod connection;
+mod data;
 mod database;
 mod godot_encoding;
 mod ids;
@@ -26,9 +27,9 @@ use std::time::{Duration, Instant, SystemTime};
 // TODO: Mini app which compile and relauches instance and database if they exit
 
 // TODO: Database:
-// Chech invariant on startup (armor cell size)
+// Check invariants on startup (armor cell size, username -> client)
 // replace private key with static instance addr
-// Add global time tracking
+// // Add global time tracking
 // // Create battlescape cmd
 // // Balance battlescapes
 // // move ship to battlescape cmd
