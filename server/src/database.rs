@@ -118,8 +118,6 @@ struct Database {
     #[serde(skip)]
     connection_listener: ConnectionListener<DatabaseLogin>,
     #[serde(skip)]
-    next_instance_id: InstanceId,
-    #[serde(skip)]
     instances: AHashMap<InstanceId, Instance>,
     #[serde(skip)]
     instance_inbounds: AHashMap<InstanceId, ConnectionInbound>,
@@ -181,7 +179,6 @@ impl Default for Database {
             mut_requests_writer: BufWriter::new(File::create("dummy").unwrap()),
             connection_listener: ConnectionListener::bind(data().database_addr).unwrap(),
             epoch: SystemTime::now(),
-            next_instance_id: Default::default(),
             instances: Default::default(),
             instance_inbounds: Default::default(),
             queries: Default::default(),
@@ -422,17 +419,16 @@ impl Database {
                 continue;
             }
 
-            let id = self.next_instance_id.next();
             let (outbound, inbound) = connection.split();
 
             self.instances.insert(
-                id,
+                login.instance_id,
                 Instance {
                     outbound,
                     battlescapes: AHashSet::new(),
                 },
             );
-            self.instance_inbounds.insert(id, inbound);
+            self.instance_inbounds.insert(login.instance_id, inbound);
         }
 
         let mut instance_inbounds = std::mem::take(&mut self.instance_inbounds);
