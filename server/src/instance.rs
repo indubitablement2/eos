@@ -33,12 +33,23 @@ struct State {
 }
 impl State {
     fn new() -> Self {
-        let (database_outbound, database_inbound) = connect_to_database().split();
+        let mut result = Err(anyhow::anyhow!("No suitable address found"));
+        for (instance_id, instance_data) in data().instances.iter() {
+            result = ConnectionListener::bind(instance_data.addr)
+                .map(|listener| (*instance_id, listener));
+            if result.is_ok() {
+                break;
+            }
+        }
+        let (instance_id, client_listener) = result.unwrap();
+        log::info!("Bound as: {:?}", instance_id);
+
+        let (database_outbound, database_inbound) = connect_to_database(instance_id).split();
 
         Self {
             database_inbound: Some(database_inbound),
             database_outbound,
-            client_listener: ConnectionListener::bind(instance_addr()),
+            client_listener,
             logins: Default::default(),
             next_login_token: 0,
             battlescapes: Default::default(),

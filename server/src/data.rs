@@ -4,14 +4,16 @@ use std::{fs::File, io::BufReader};
 
 static DATA: std::sync::OnceLock<Data> = std::sync::OnceLock::new();
 pub fn data() -> &'static Data {
-    DATA.get().unwrap()
+    DATA.get_or_init(|| {
+        println!("Data set for test");
+        parse_json(json_test())
+    })
 }
 
-#[derive(Default)]
 pub struct Data {
+    pub database_addr: SocketAddr,
     pub instances: AHashMap<InstanceId, InstanceData>,
     pub systems: AHashMap<BattlescapeId, SystemData>,
-
     pub entities: Vec<EntityData>,
 }
 
@@ -28,37 +30,46 @@ pub struct SystemData {
 // ############## LOAD ################################################################
 // ####################################################################################
 
-pub fn _load_data() {
+pub fn load_data() {
     let mut read = BufReader::new(File::open("data.json").unwrap());
-    let json: DataJson = serde_json::from_reader(&mut read).unwrap();
+    let data = parse_json(serde_json::from_reader(&mut read).unwrap());
 
-    let mut data = Data::default();
-
-    for (instance_id, instance_addr) in json.instances.into_iter() {
-        data.instances.insert(
-            instance_id,
-            InstanceData {
-                addr: instance_addr.parse::<SocketAddr>().unwrap(),
-                systems: AHashSet::new(),
-            },
-        );
+    if DATA.set(data).is_err() {
+        log::error!("Data already set");
+    } else {
+        log::info!("Data loaded properly");
     }
+}
 
-    for (id, system_json) in json.systems.into_iter() {
-        let system_data = SystemData {
-            instance_addr: system_json.instance,
-        };
+fn parse_json(json: DataJson) -> Data {
+    let mut instances = AHashMap::from_iter(json.instances.into_iter().map(
+        |(instance_id, instance_addr)| {
+            (
+                instance_id,
+                InstanceData {
+                    addr: instance_addr.parse().unwrap(),
+                    systems: AHashSet::new(),
+                },
+            )
+        },
+    ));
 
-        data.instances
+    let systems = AHashMap::from_iter(json.systems.into_iter().map(|(id, system_json)| {
+        instances
             .get_mut(&system_json.instance)
             .unwrap()
             .systems
             .insert(id);
 
-        data.systems.insert(id, system_data).unwrap();
-    }
+        (
+            id,
+            SystemData {
+                instance_addr: system_json.instance,
+            },
+        )
+    }));
 
-    data.instances.retain(|instance_id, instance| {
+    instances.retain(|instance_id, instance| {
         if instance.systems.is_empty() {
             log::warn!("{:?} does not have any system", instance_id);
             false
@@ -67,18 +78,19 @@ pub fn _load_data() {
         }
     });
 
-    data.entities = json
+    let entities = json
         .entities
         .into_iter()
         .enumerate()
         .map(|(id, entity_json)| entity_json.parse(EntityDataId(id as u32)))
-        .collect();
+        .collect::<Vec<_>>();
 
-    let _ = DATA.set(data);
-}
-
-pub fn _load_data_default() {
-    let _ = DATA.set(Data::default());
+    Data {
+        database_addr: json.database_addr.parse().unwrap(),
+        instances,
+        systems,
+        entities,
+    }
 }
 
 // ####################################################################################
@@ -87,6 +99,7 @@ pub fn _load_data_default() {
 
 #[derive(Serialize, Deserialize)]
 struct DataJson {
+    database_addr: String,
     instances: AHashMap<InstanceId, String>,
     systems: AHashMap<BattlescapeId, SystemDataJson>,
     entities: Vec<EntityDataJson>,
@@ -101,19 +114,19 @@ struct SystemDataJson {
 // ############## TEST ################################################################
 // ####################################################################################
 
-#[test]
-fn test_asd() {
+fn json_test() -> DataJson {
     let addresses = vec![
         "[2001::8a2e]:4993".to_string(),
         "[::1]:12345".to_string(),
-        "[::]:0".to_string(),
+        "[::]:3552".to_string(),
     ];
 
     let system_data_json = SystemDataJson {
         instance: InstanceId::from_u32(1).unwrap(),
     };
 
-    let json = DataJson {
+    DataJson {
+        database_addr: "[::1]:8561".to_string(),
         instances: AHashMap::from_iter(
             addresses
                 .into_iter()
@@ -127,7 +140,10 @@ fn test_asd() {
             )
         })),
         entities: vec![Default::default()],
-    };
+    }
+}
 
-    println!("{}", serde_json::to_string_pretty(&json).unwrap());
+#[test]
+fn test_asd() {
+    println!("{}", serde_json::to_string_pretty(&json_test()).unwrap());
 }

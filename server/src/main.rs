@@ -69,32 +69,6 @@ fn tokio() -> &'static tokio::runtime::Runtime {
     })
 }
 
-static _DATABASE_ADDR: std::sync::OnceLock<SocketAddr> = std::sync::OnceLock::new();
-fn database_addr() -> SocketAddr {
-    _DATABASE_ADDR
-        .get()
-        .copied()
-        .unwrap_or(SocketAddr::V6(std::net::SocketAddrV6::new(
-            std::net::Ipv6Addr::LOCALHOST,
-            17384,
-            0,
-            0,
-        )))
-}
-
-static _INSTANCE_ADDR: std::sync::OnceLock<SocketAddr> = std::sync::OnceLock::new();
-fn instance_addr() -> SocketAddr {
-    _INSTANCE_ADDR
-        .get()
-        .copied()
-        .unwrap_or(SocketAddr::V6(std::net::SocketAddrV6::new(
-            std::net::Ipv6Addr::LOCALHOST,
-            17385,
-            0,
-            0,
-        )))
-}
-
 fn bin_encode(data: impl Serialize) -> Vec<u8> {
     postcard::to_allocvec(&data).unwrap()
 }
@@ -114,7 +88,7 @@ fn main() {
         )
         .unwrap();
 
-    data::_load_data();
+    data::load_data();
 
     let mut database = false;
     let mut instance = false;
@@ -126,29 +100,12 @@ fn main() {
             instance = true;
         } else if &arg == "database" {
             database = true;
-        } else if let Some(addr) = arg
-            .strip_prefix("database_addr=")
-            .and_then(|arg| arg.parse().ok())
-        {
-            let _ = _DATABASE_ADDR.set(addr);
-        } else if let Some(addr) = arg
-            .strip_prefix("instance_addr=")
-            .and_then(|arg| arg.parse().ok())
-        {
-            let _ = _INSTANCE_ADDR.set(addr);
-        } else if let Some(key) = arg.strip_prefix("key=") {
-            let _ = _PRIVATE_KEY.set(key.as_bytes().to_vec());
         }
     }
     if !database && !instance {
         log::warn!("No arguments specified, defaulting to 'database' and 'instance'");
         database = true;
         instance = true;
-    }
-
-    log::info!("Database address: {}", database_addr());
-    if instance {
-        log::info!("Instance address: {}", instance_addr());
     }
 
     if database && instance {

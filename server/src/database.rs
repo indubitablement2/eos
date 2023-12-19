@@ -179,7 +179,7 @@ impl Default for Database {
             is_json: false,
             save_count: Default::default(),
             mut_requests_writer: BufWriter::new(File::create("dummy").unwrap()),
-            connection_listener: ConnectionListener::bind(database_addr()),
+            connection_listener: ConnectionListener::bind(data().database_addr).unwrap(),
             epoch: SystemTime::now(),
             next_instance_id: Default::default(),
             instances: Default::default(),
@@ -675,13 +675,14 @@ impl Database {
 // ############## CONNECTION ##########################################################
 // ####################################################################################
 
-pub fn connect_to_database() -> Connection {
+pub fn connect_to_database(instance_id: InstanceId) -> Connection {
     loop {
         std::thread::sleep(Duration::from_millis(500));
 
         match Connection::connect(
-            database_addr(),
+            data().database_addr,
             DatabaseLogin {
+                instance_id,
                 private_key: private_key().to_vec(),
             },
         ) {
@@ -695,6 +696,7 @@ pub fn connect_to_database() -> Connection {
 
 #[derive(Serialize, Deserialize)]
 struct DatabaseLogin {
+    instance_id: InstanceId,
     private_key: Vec<u8>,
 }
 impl Packet for DatabaseLogin {
@@ -741,8 +743,6 @@ fn test_json_stability() {
 
 #[test]
 fn test_database_serialization() {
-    _DATABASE_ADDR.set("[::1]:0".parse().unwrap()).unwrap();
-
     let db = Database::default();
     bin_decode::<Database>(&bin_encode(&db)).unwrap();
     serde_json::from_slice::<Database>(&serde_json::to_vec(&db).unwrap()).unwrap();

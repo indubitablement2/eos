@@ -29,10 +29,8 @@ pub struct ConnectionListener<T: Packet> {
     new_connection_receiver: Receiver<(Connection, T)>,
 }
 impl<T: Packet + 'static> ConnectionListener<T> {
-    pub fn bind(addr: SocketAddr) -> Self {
-        let listener = tokio()
-            .block_on(async move { TcpListener::bind(addr).await })
-            .unwrap();
+    pub fn bind(addr: SocketAddr) -> anyhow::Result<Self> {
+        let listener = tokio().block_on(async move { TcpListener::bind(addr).await })?;
 
         let (new_connection_sender, new_connection_receiver) = unbounded();
 
@@ -70,9 +68,9 @@ impl<T: Packet + 'static> ConnectionListener<T> {
             log::debug!("Connection listener closed");
         });
 
-        Self {
+        Ok(Self {
             new_connection_receiver,
-        }
+        })
     }
 
     pub fn recv(&mut self) -> Option<(Connection, T)> {
@@ -239,18 +237,6 @@ impl Connection {
 
     pub fn recv<T: Packet>(&mut self) -> Result<T, TryRecvError> {
         self.inbound.recv()
-    }
-
-    pub fn recv_deferred<T: Packet>(&mut self, disconnected: &mut bool) -> Option<T> {
-        match self.inbound.recv() {
-            Ok(t) => Some(t),
-            Err(err) => {
-                if err == TryRecvError::Disconnected {
-                    *disconnected = true;
-                }
-                None
-            }
-        }
     }
 }
 
