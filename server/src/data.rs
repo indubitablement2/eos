@@ -19,7 +19,7 @@ pub struct Data {
 
 pub struct InstanceData {
     pub addr: SocketAddr,
-    pub systems: AHashSet<BattlescapeId>,
+    pub systems: Vec<BattlescapeId>,
 }
 
 pub struct SystemData {
@@ -48,7 +48,7 @@ fn parse_json(json: DataJson) -> Data {
                 instance_id,
                 InstanceData {
                     addr: instance_addr.parse().unwrap(),
-                    systems: AHashSet::new(),
+                    systems: Vec::new(),
                 },
             )
         },
@@ -59,7 +59,7 @@ fn parse_json(json: DataJson) -> Data {
             .get_mut(&system_json.instance)
             .unwrap()
             .systems
-            .insert(id);
+            .push(id);
 
         (
             id,

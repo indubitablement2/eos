@@ -135,7 +135,6 @@ struct Database {
 }
 struct Instance {
     outbound: ConnectionOutbound,
-    battlescapes: AHashSet<BattlescapeId>,
 }
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -144,8 +143,6 @@ struct Battlescape {
     battlescape_misc_save: Vec<u8>,
     #[serde(skip)]
     ships: AHashSet<ShipId>,
-    #[serde(skip)]
-    runner: Option<InstanceId>,
     // TODO: planets state
     // TODO: star?
     // TODO: battlescape connections
@@ -421,13 +418,25 @@ impl Database {
 
             let (outbound, inbound) = connection.split();
 
-            self.instances.insert(
-                login.instance_id,
-                Instance {
-                    outbound,
-                    battlescapes: AHashSet::new(),
-                },
-            );
+            // Send battlescapes to instance.
+            for &battlescape_id in data()
+                .instances
+                .get(&login.instance_id)
+                .unwrap()
+                .systems
+                .iter()
+            {
+                let battlescapes = self.battlescapes.get(&battlescape_id).unwrap();
+
+                outbound.queue(DatabaseResponse::HandleBattlescape {
+                    battlescape_id,
+                    battlescape_misc_save: battlescapes.battlescape_misc_save.clone(),
+                    epoch: self.epoch,
+                });
+            }
+
+            self.instances
+                .insert(login.instance_id, Instance { outbound });
             self.instance_inbounds.insert(login.instance_id, inbound);
         }
 

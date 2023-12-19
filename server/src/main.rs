@@ -23,13 +23,15 @@ use smallvec::SmallVec;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant, SystemTime};
 
+// TODO: Store epoch in data
+
 // TODO: add feature for database/instance
 // TODO: Mini app which compile and relauches instance and database if they exit
 // TODO: Private key taken from file
 // TODO: Websocket encryption
 
 // TODO: Database:
-// Check invariants on startup (armor cell size, username -> client)
+// Check invariants on startup (armor cell size, username -> client, all battlescapes from data exist)
 // // Add global time tracking
 // // Create battlescape cmd
 // // Balance battlescapes
