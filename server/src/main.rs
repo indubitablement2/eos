@@ -24,12 +24,12 @@ use std::net::SocketAddr;
 use std::time::{Duration, Instant, SystemTime};
 
 // TODO: add feature for database/instance
-// TODO: Static battlescape server address
 // TODO: Mini app which compile and relauches instance and database if they exit
+// TODO: Private key taken from file
+// TODO: Websocket encryption
 
 // TODO: Database:
 // Check invariants on startup (armor cell size, username -> client)
-// replace private key with static instance addr
 // // Add global time tracking
 // // Create battlescape cmd
 // // Balance battlescapes
@@ -39,7 +39,6 @@ use std::time::{Duration, Instant, SystemTime};
 // TODO: Instance:
 // Keep track of what data client has and send as needed instead of waiting for query
 // add ships to intermitent battlescape save
-// Get client side addr from database
 
 // TODO: Battlescape:
 // figure out how to handle collisions
@@ -47,7 +46,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 // TODO: Client:
 // add c++
-// impl bincode decoder/encoder
+// impl binary decoder/encoder
 // add packet base class and one child for each packet type
 
 const _PRIVATE_KEY_FALLBACK: [u8; 64] = const_random::const_random!([u8; 64]);

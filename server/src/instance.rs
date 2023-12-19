@@ -81,7 +81,7 @@ impl State {
         let disconencted = loop {
             match database_inbound.recv::<DatabaseResponse>() {
                 Ok(response) => {
-                    if let Err(err) = self.handle_response(response) {
+                    if let Err(err) = self.handle_database_response(response) {
                         log::warn!("Failed to handle database response: {}", err);
                     }
                 }
@@ -94,7 +94,7 @@ impl State {
         disconencted
     }
 
-    fn handle_response(&mut self, response: DatabaseResponse) -> anyhow::Result<()> {
+    fn handle_database_response(&mut self, response: DatabaseResponse) -> anyhow::Result<()> {
         match response {
             DatabaseResponse::ClientAuthResult {
                 client_id,
@@ -137,19 +137,13 @@ impl State {
                     .insert(battlescape_id, battlescape_outbound);
 
                 std::thread::spawn(move || {
-                    let mut battlescape = Battlescape::new(
+                    battlescape_loop(Battlescape::new(
                         battlescape_id,
                         epoch,
                         database_outbound,
                         battlescape_inbound,
                         save,
-                    );
-
-                    let mut interval = interval::Interval::new(DT_MS, DT_MS * 8);
-                    loop {
-                        interval.step();
-                        battlescape.step();
-                    }
+                    ));
                 });
             }
             DatabaseResponse::DatabaseBattlescapeResponse { from, response } => {
@@ -162,6 +156,14 @@ impl State {
         }
 
         Ok(())
+    }
+}
+
+fn battlescape_loop(mut battlescape: Battlescape) {
+    let mut interval = interval::Interval::new(DT_MS, DT_MS * 8);
+    loop {
+        interval.step();
+        battlescape.step();
     }
 }
 
