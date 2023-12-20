@@ -109,6 +109,8 @@ struct ClientShip {
 #[derive(Serialize, Deserialize)]
 #[serde(default)]
 struct Database {
+    /// If encoded values are stored in json or binary format.
+    /// Always binary at runtime.
     is_json: bool,
     save_count: u64,
 
@@ -219,48 +221,34 @@ impl Database {
         });
     }
 
-    fn to_json(&mut self) -> anyhow::Result<()> {
-        if self.is_json {
+    fn set_json(&mut self, json: bool) -> anyhow::Result<()> {
+        if self.is_json == json {
             return Ok(());
         }
-        self.is_json = true;
+        self.is_json = json;
 
         for battlescapes in self.battlescapes.values_mut() {
             battlescapes.battlescape_misc_save =
-                bin_to_json::<BattlescapeMiscSave>(&battlescapes.battlescape_misc_save)?;
+                set_encoding::<BattlescapeMiscSave>(&battlescapes.battlescape_misc_save, json)?;
         }
 
         for ship in self.ships.values_mut() {
-            ship.entity_save = bin_to_json::<EntitySave>(&ship.entity_save)?;
-        }
-
-        Ok(())
-    }
-
-    fn to_bin(&mut self) -> anyhow::Result<()> {
-        if !self.is_json {
-            return Ok(());
-        }
-        self.is_json = false;
-
-        for battlescapes in self.battlescapes.values_mut() {
-            battlescapes.battlescape_misc_save =
-                json_to_bin::<BattlescapeMiscSave>(&battlescapes.battlescape_misc_save)?;
-        }
-
-        for ship in self.ships.values_mut() {
-            ship.entity_save = json_to_bin::<EntitySave>(&ship.entity_save)?;
+            ship.entity_save = set_encoding::<EntitySave>(&ship.entity_save, json)?;
         }
 
         Ok(())
     }
 }
 
-fn bin_to_json<'a, T: Deserialize<'a> + Serialize>(data: &'a [u8]) -> anyhow::Result<Vec<u8>> {
-    Ok(serde_json::to_vec(&bin_decode::<T>(data)?)?)
-}
-fn json_to_bin<'a, T: Deserialize<'a> + Serialize>(data: &'a [u8]) -> anyhow::Result<Vec<u8>> {
-    Ok(bin_encode(&serde_json::from_slice::<T>(data)?))
+fn set_encoding<'a, T: Deserialize<'a> + Serialize>(
+    data: &'a [u8],
+    json: bool,
+) -> anyhow::Result<Vec<u8>> {
+    if json {
+        Ok(serde_json::to_vec(&bin_decode::<T>(data)?)?)
+    } else {
+        Ok(bin_encode(&serde_json::from_slice::<T>(data)?))
+    }
 }
 
 // ####################################################################################
@@ -321,7 +309,7 @@ fn load_database() -> anyhow::Result<Database> {
         Database::default()
     };
 
-    db.to_bin()?;
+    db.set_json(false)?;
 
     db.prepare_fresh();
 
@@ -376,9 +364,9 @@ impl Database {
         ));
         let mut writer = BufWriter::new(File::create(path)?);
         if as_json {
-            self.to_json()?;
+            self.set_json(true)?;
             serde_json::to_writer(&mut writer, self)?;
-            self.to_bin()?;
+            self.set_json(false)?;
         } else {
             postcard::to_io(&self, &mut writer)?;
         }
