@@ -26,8 +26,8 @@ pub enum BattlescapeInbound {
 pub struct Battlescape {
     pub battlescape_id: BattlescapeId,
 
-    pub epoch: SystemTime,
-    epoch_sec: f64,
+    /// Seconds since unix epoch of last step.
+    global_time: f64,
     pub tick: u64,
     next_save_tick: u64,
     rng: SimRng,
@@ -48,7 +48,6 @@ pub struct Battlescape {
 impl Battlescape {
     pub fn new(
         battlescape_id: BattlescapeId,
-        epoch: SystemTime,
         database_outbound: ConnectionOutbound,
         battlescape_inbound: Receiver<BattlescapeInbound>,
         save: BattlescapeMiscSave,
@@ -63,8 +62,7 @@ impl Battlescape {
             clients: Default::default(),
             battlescape_id,
 
-            epoch,
-            epoch_sec: 0.0,
+            global_time: global_time(),
             next_save_tick: thread_rng().gen_range(2000..8000),
             database_outbound,
             battlescape_inbound,
@@ -73,6 +71,7 @@ impl Battlescape {
 
     pub fn step(&mut self) {
         self.tick += 1;
+        self.global_time = global_time();
 
         // TODO: Handle inbound.
 
@@ -141,17 +140,6 @@ impl Battlescape {
         // TODO: Save planets?
     }
 
-    pub fn adjust_global_time(&mut self, instant: std::time::SystemTime, global_time: f64) {
-        let old_time = self.epoch_sec;
-        self.epoch_sec = global_time + instant.elapsed().unwrap_or_default().as_secs_f64();
-        log::debug!(
-            "Adjusting time from {} to {} (delta: {})",
-            old_time,
-            self.epoch_sec,
-            self.epoch_sec - old_time
-        );
-    }
-
     fn spawn_entity(
         &mut self,
         data: &'static EntityData,
@@ -172,6 +160,13 @@ impl Battlescape {
             // TODO:
         }
     }
+}
+
+fn global_time() -> f64 {
+    std::time::UNIX_EPOCH
+        .elapsed()
+        .unwrap_or_default()
+        .as_secs_f64()
 }
 
 /// Something that modify the simulation (ai, effect, etc).

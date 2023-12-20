@@ -127,7 +127,6 @@ impl State {
             DatabaseResponse::HandleBattlescape {
                 battlescape_id,
                 battlescape_misc_save,
-                epoch,
             } => {
                 let database_outbound = self.database_outbound.clone();
                 let (battlescape_outbound, battlescape_inbound) = unbounded();
@@ -139,7 +138,6 @@ impl State {
                 std::thread::spawn(move || {
                     battlescape_loop(Battlescape::new(
                         battlescape_id,
-                        epoch,
                         database_outbound,
                         battlescape_inbound,
                         save,

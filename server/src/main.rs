@@ -21,9 +21,7 @@ use rapier2d::na::{self, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::net::SocketAddr;
-use std::time::{Duration, Instant, SystemTime};
-
-// TODO: Store epoch in data
+use std::time::{Duration, Instant};
 
 // TODO: add feature for database/instance
 // TODO: Mini app which compile and relauches instance and database if they exit

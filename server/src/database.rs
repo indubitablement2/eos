@@ -63,7 +63,6 @@ pub enum DatabaseResponse {
         battlescape_id: BattlescapeId,
         /// [battlescape::BattlescapeMiscSave]
         battlescape_misc_save: Vec<u8>,
-        epoch: SystemTime,
     },
     DatabaseBattlescapeResponse {
         from: BattlescapeId,
@@ -126,8 +125,6 @@ struct Database {
     #[serde(skip)]
     queries: Vec<(DatabaseQuery, InstanceId)>,
 
-    epoch: SystemTime,
-
     battlescapes: AHashMap<BattlescapeId, Battlescape>,
     ships: AHashMap<ShipId, Ship>,
 
@@ -177,7 +174,6 @@ impl Default for Database {
             save_count: Default::default(),
             mut_requests_writer: BufWriter::new(File::create("dummy").unwrap()),
             connection_listener: ConnectionListener::bind(data().database_addr).unwrap(),
-            epoch: SystemTime::now(),
             instances: Default::default(),
             instance_inbounds: Default::default(),
             queries: Default::default(),
@@ -421,7 +417,6 @@ impl Database {
                 outbound.queue(DatabaseResponse::HandleBattlescape {
                     battlescape_id,
                     battlescape_misc_save: battlescapes.battlescape_misc_save.clone(),
-                    epoch: self.epoch,
                 });
             }
 
