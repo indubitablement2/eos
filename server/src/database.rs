@@ -389,6 +389,8 @@ impl Database {
         self.mut_requests_writer
             .write_all(&self.save_count.to_le_bytes())?;
 
+        let _ = std::fs::remove_file("dummy");
+
         Ok(())
     }
 }
