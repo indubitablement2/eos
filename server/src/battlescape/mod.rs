@@ -78,7 +78,7 @@ impl Battlescape {
         self.global_time = global_time();
 
         // Handle inbound.
-        for inbound in self.battlescape_inbound.try_iter() {
+        while let Ok(inbound) = self.battlescape_inbound.try_recv() {
             match inbound {
                 BattlescapeInbound::DatabaseBattlescapeResponse(response) => match response {
                     DatabaseBattlescapeResponse::ClientShips {
@@ -95,7 +95,7 @@ impl Battlescape {
                         ship_id,
                         entity_save,
                     } => {
-                        // self.spawn_entity(entity_save, None, None);
+                        self.spawn_entity(entity_save, None, None, Some(ship_id));
                     }
                 },
                 BattlescapeInbound::NewClient { client_id, client } => {
@@ -180,8 +180,13 @@ impl Battlescape {
         save: EntitySave,
         ignore: Option<EntityId>,
         target: Option<EntityId>,
+        ship_id: Option<ShipId>,
     ) -> (EntityId, usize) {
-        let entity_id = self.next_entity_id.next();
+        let entity_id = if let Some(ship_id) = ship_id {
+            ship_id.to_entity_id()
+        } else {
+            self.next_entity_id.next()
+        };
 
         let entity = Entity::new(self, save, entity_id, ignore, target);
         let entity_idx = self.entities.insert_full(entity_id, entity).0;

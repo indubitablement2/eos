@@ -54,6 +54,8 @@ impl std::fmt::Debug for EntityDataId {
     }
 }
 
+const ENTITY_ID_START: u64 = 1u64 << 63;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct EntityId(NonZeroU64);
 impl EntityId {
@@ -70,10 +72,18 @@ impl EntityId {
         self.0 = self.0.checked_add(1).unwrap();
         current
     }
+
+    pub fn to_ship_id(self) -> Option<ShipId> {
+        if self.0.get() < ENTITY_ID_START {
+            Some(ShipId(self.0))
+        } else {
+            None
+        }
+    }
 }
 impl Default for EntityId {
     fn default() -> Self {
-        Self::from_u64(1).unwrap()
+        Self::from_u64(ENTITY_ID_START).unwrap()
     }
 }
 
@@ -92,6 +102,10 @@ impl ShipId {
         let current = *self;
         self.0 = self.0.checked_add(1).unwrap();
         current
+    }
+
+    pub fn to_entity_id(self) -> EntityId {
+        EntityId(self.0)
     }
 }
 impl Default for ShipId {
