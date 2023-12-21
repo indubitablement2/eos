@@ -24,18 +24,18 @@ pub enum BattlescapeInbound {
 }
 
 pub struct Battlescape {
-    pub battlescape_id: BattlescapeId,
+    battlescape_id: BattlescapeId,
 
-    /// Seconds since unix epoch of last step.
+    /// Seconds since unix epoch of current step.
     global_time: f64,
-    pub tick: u64,
+    tick: u64,
     next_save_tick: u64,
     rng: SimRng,
 
-    pub physics: Physics,
+    physics: Physics,
 
     next_entity_id: EntityId,
-    pub entities: IndexMap<EntityId, Entity, RandomState>,
+    entities: IndexMap<EntityId, Entity, RandomState>,
 
     /// Objects are processed in the same order they are added.
     objects: Vec<Object>,
@@ -52,6 +52,8 @@ impl Battlescape {
         battlescape_inbound: Receiver<BattlescapeInbound>,
         save: BattlescapeMiscSave,
     ) -> Self {
+        let global_time = global_time();
+
         Self {
             tick: 0,
             rng: SimRng::from_entropy(),
@@ -62,7 +64,7 @@ impl Battlescape {
             clients: Default::default(),
             battlescape_id,
 
-            global_time: global_time(),
+            global_time,
             next_save_tick: thread_rng().gen_range(2000..8000),
             database_outbound,
             battlescape_inbound,
@@ -167,6 +169,10 @@ fn global_time() -> f64 {
         .elapsed()
         .unwrap_or_default()
         .as_secs_f64()
+}
+
+fn sim_time(tick: u64) -> f64 {
+    tick as f64 * DT as f64
 }
 
 /// Something that modify the simulation (ai, effect, etc).
