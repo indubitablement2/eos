@@ -5,7 +5,7 @@ use std::{fs::File, io::BufReader};
 static DATA: std::sync::OnceLock<Data> = std::sync::OnceLock::new();
 pub fn data() -> &'static Data {
     DATA.get_or_init(|| {
-        println!("Data set for test");
+        log::error!("Data set for test");
         parse_json(json_test())
     })
 }

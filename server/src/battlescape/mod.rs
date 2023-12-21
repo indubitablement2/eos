@@ -12,9 +12,10 @@ type SimRng = rand_xoshiro::Xoshiro128StarStar;
 
 pub const DT: f32 = 1.0 / 20.0;
 pub const DT_MS: u64 = 50;
+const TICK_PER_SECOND: u64 = 1000 / DT_MS;
 
 /// How many tick between battlescape saves. (30 minutes)
-const SAVE_INTERVAL: u64 = 30 * 60 * (1000 / DT_MS);
+const SAVE_INTERVAL: u64 = 30 * 60 * TICK_PER_SECOND;
 
 const RADIUS: f32 = 100.0;
 
@@ -52,8 +53,6 @@ impl Battlescape {
         battlescape_inbound: Receiver<BattlescapeInbound>,
         save: BattlescapeMiscSave,
     ) -> Self {
-        let global_time = global_time();
-
         Self {
             tick: 0,
             rng: SimRng::from_entropy(),
@@ -64,7 +63,7 @@ impl Battlescape {
             clients: Default::default(),
             battlescape_id,
 
-            global_time,
+            global_time: global_time(),
             next_save_tick: thread_rng().gen_range(2000..8000),
             database_outbound,
             battlescape_inbound,
