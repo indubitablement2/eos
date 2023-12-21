@@ -1,5 +1,5 @@
 use super::*;
-use battlescape::{entity::EntitySave, BattlescapeMiscSave};
+use battlescape::{entity::EntitySave, BattlescapeSave};
 use chrono::{DateTime, FixedOffset, Utc};
 use instance::ClientLoginType;
 use rayon::prelude::*;
@@ -17,17 +17,14 @@ pub enum DatabaseRequest {
     },
     SaveBattlescape {
         battlescape_id: BattlescapeId,
-        /// [battlescape::BattlescapeMiscSave]
-        battlescape_misc_save: Vec<u8>,
+        battlescape_save: BattlescapeSave,
     },
     SaveShip {
         ship_id: ShipId,
         battlescape_id: BattlescapeId,
-        /// [battlescape::entity::EntitySave]
-        entity_save: Vec<u8>,
-        owner: Option<ClientId>,
+        save: EntitySave,
     },
-    RemoveShip {
+    DeleteShip {
         ship_id: ShipId,
     },
     Query(DatabaseQuery),
@@ -61,8 +58,7 @@ pub enum DatabaseResponse {
     },
     HandleBattlescape {
         battlescape_id: BattlescapeId,
-        /// [battlescape::BattlescapeMiscSave]
-        battlescape_misc_save: Vec<u8>,
+        battlescape_save: BattlescapeSave,
     },
     DatabaseBattlescapeResponse {
         from: BattlescapeId,
@@ -88,9 +84,7 @@ pub enum DatabaseBattlescapeResponse {
     },
     ShipEntered {
         ship_id: ShipId,
-        /// [battlescape::entity::EntitySave]
-        entity_save: Vec<u8>,
-        owner: Option<ClientId>,
+        entity_save: EntitySave,
     },
 }
 
@@ -108,9 +102,6 @@ struct ClientShip {
 #[derive(Serialize, Deserialize)]
 #[serde(default)]
 struct Database {
-    /// If encoded values are stored in json or binary format.
-    /// Always binary at runtime.
-    is_json: bool,
     save_count: u64,
 
     #[serde(skip)]
@@ -138,22 +129,15 @@ struct Instance {
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
 struct Battlescape {
-    /// [battlescape::BattlescapeMiscSave]
-    battlescape_misc_save: Vec<u8>,
+    battlescape_save: BattlescapeSave,
     #[serde(skip)]
     ships: AHashSet<ShipId>,
-    // TODO: planets state
-    // TODO: star?
-    // TODO: battlescape connections
-    // TODO: Position
 }
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
 struct Ship {
     battlescape_id: BattlescapeId,
-    /// [battlescape::entity::EntitySave]
-    entity_save: Vec<u8>,
-    owner: Option<ClientId>,
+    save: EntitySave,
 }
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -170,7 +154,6 @@ struct Client {
 impl Default for Database {
     fn default() -> Self {
         Self {
-            is_json: false,
             save_count: Default::default(),
             mut_requests_writer: BufWriter::new(File::create("dummy").unwrap()),
             connection_listener: ConnectionListener::bind(data().database_addr).unwrap(),
@@ -196,12 +179,12 @@ impl Database {
             if let Some(battlescape) = self.battlescapes.get_mut(&ship.battlescape_id) {
                 battlescape.ships.insert(*ship_id);
 
-                if let Some(owner) = ship.owner {
+                if let Some(owner) = ship.save.owner {
                     if let Some(client) = self.clients.get_mut(&owner) {
                         client.ships.insert(*ship_id);
                     } else {
                         log::warn!("{:?} owner ({:?}) not found", ship_id, owner);
-                        ship.owner = None;
+                        ship.save.owner = None;
                     }
                 }
 
@@ -215,35 +198,6 @@ impl Database {
                 false
             }
         });
-    }
-
-    fn set_json(&mut self, json: bool) -> anyhow::Result<()> {
-        if self.is_json == json {
-            return Ok(());
-        }
-        self.is_json = json;
-
-        for battlescapes in self.battlescapes.values_mut() {
-            battlescapes.battlescape_misc_save =
-                set_encoding::<BattlescapeMiscSave>(&battlescapes.battlescape_misc_save, json)?;
-        }
-
-        for ship in self.ships.values_mut() {
-            ship.entity_save = set_encoding::<EntitySave>(&ship.entity_save, json)?;
-        }
-
-        Ok(())
-    }
-}
-
-fn set_encoding<'a, T: Deserialize<'a> + Serialize>(
-    data: &'a [u8],
-    json: bool,
-) -> anyhow::Result<Vec<u8>> {
-    if json {
-        Ok(serde_json::to_vec(&bin_decode::<T>(data)?)?)
-    } else {
-        Ok(bin_encode(&serde_json::from_slice::<T>(data)?))
     }
 }
 
@@ -305,8 +259,6 @@ fn load_database() -> anyhow::Result<Database> {
         Database::default()
     };
 
-    db.set_json(false)?;
-
     db.prepare_fresh();
 
     // Apply saved requests.
@@ -358,11 +310,10 @@ impl Database {
                 DATABASE_BIN_SUFFIX
             }
         ));
+
         let mut writer = BufWriter::new(File::create(path)?);
         if as_json {
-            self.set_json(true)?;
             serde_json::to_writer(&mut writer, self)?;
-            self.set_json(false)?;
         } else {
             postcard::to_io(&self, &mut writer)?;
         }
@@ -416,7 +367,7 @@ impl Database {
 
                 outbound.queue(DatabaseResponse::HandleBattlescape {
                     battlescape_id,
-                    battlescape_misc_save: battlescapes.battlescape_misc_save.clone(),
+                    battlescape_save: battlescapes.battlescape_save.clone(),
                 });
             }
 
@@ -473,9 +424,7 @@ impl Database {
         from: Option<InstanceId>,
         can_save: bool,
     ) -> anyhow::Result<()> {
-        let mut save = false;
-
-        match bin_decode::<DatabaseRequest>(request)? {
+        let save = match bin_decode::<DatabaseRequest>(request)? {
             DatabaseRequest::ClientAuth {
                 login,
                 response_token,
@@ -531,74 +480,89 @@ impl Database {
                             response_token,
                         });
                 }
+
+                true
             }
             DatabaseRequest::SaveBattlescape {
                 battlescape_id,
-                battlescape_misc_save,
+                battlescape_save,
             } => {
-                save = true;
-
                 self.battlescapes
                     .get_mut(&battlescape_id)
                     .context("Battlescape not found")?
-                    .battlescape_misc_save = battlescape_misc_save;
+                    .battlescape_save = battlescape_save;
+
+                true
             }
             DatabaseRequest::SaveShip {
                 ship_id,
                 battlescape_id,
-                entity_save,
-                owner,
+                save,
             } => {
-                save = true;
+                let new_owner = save.owner;
 
-                let ship = self.ships.get_mut(&ship_id).context("Ship not found")?;
+                let ship = Ship {
+                    battlescape_id,
+                    save,
+                };
 
-                ship.entity_save = entity_save;
+                let mut remove_old_owner = None;
+                let mut add_new_owner = None;
+                let mut remove_new_battlescape = None;
+                let mut add_new_battlescape = None;
 
-                if ship.owner != owner {
-                    if let Some(old_owner) = ship.owner {
-                        self.clients
-                            .get_mut(&old_owner)
-                            .context("Ship's old owner not found")?
-                            .ships
-                            .remove(&ship_id);
+                if let Some(old_ship) = self.ships.insert(ship_id, ship) {
+                    if old_ship.save.owner != new_owner {
+                        remove_old_owner = old_ship.save.owner;
+                        add_new_owner = new_owner;
                     }
 
-                    if let Some(new_owner) = owner {
-                        self.clients
-                            .get_mut(&new_owner)
-                            .context("Ship's new owner not found")?
-                            .ships
-                            .insert(ship_id);
+                    if old_ship.battlescape_id != battlescape_id {
+                        remove_new_battlescape = Some(old_ship.battlescape_id);
+                        add_new_battlescape = Some(battlescape_id);
                     }
-
-                    ship.owner = owner;
+                } else {
+                    add_new_owner = new_owner;
+                    add_new_battlescape = Some(battlescape_id);
                 }
 
-                if ship.battlescape_id != battlescape_id {
+                if let Some(client_id) = remove_old_owner {
+                    self.clients
+                        .get_mut(&client_id)
+                        .context("Ship's previous owner not found")?
+                        .ships
+                        .remove(&ship_id);
+                }
+                if let Some(client_id) = add_new_owner {
+                    self.clients
+                        .get_mut(&client_id)
+                        .context("Ship's new owner not found")?
+                        .ships
+                        .insert(ship_id);
+                }
+
+                if let Some(battlescape_id) = remove_new_battlescape {
                     self.battlescapes
-                        .get_mut(&ship.battlescape_id)
+                        .get_mut(&battlescape_id)
                         .context("Ship's previous battlescape not found")?
                         .ships
                         .remove(&ship_id);
-
-                    let new_battlescape = self
-                        .battlescapes
+                }
+                if let Some(battlescape_id) = add_new_battlescape {
+                    self.battlescapes
                         .get_mut(&battlescape_id)
                         .context("Ship's new battlescape not found")?
                         .ships
                         .insert(ship_id);
 
-                    ship.battlescape_id = battlescape_id;
-
                     // TODO: Notify new battlescape
                 }
-            }
-            DatabaseRequest::RemoveShip { ship_id } => {
-                save = true;
 
+                true
+            }
+            DatabaseRequest::DeleteShip { ship_id } => {
                 if let Some(ship) = self.ships.remove(&ship_id) {
-                    if let Some(owner) = ship.owner {
+                    if let Some(owner) = ship.save.owner {
                         if let Some(client) = self.clients.get_mut(&owner) {
                             client.ships.remove(&ship_id);
                         }
@@ -608,13 +572,17 @@ impl Database {
                         battlescape.ships.remove(&ship_id);
                     }
                 }
+
+                true
             }
             DatabaseRequest::Query(query) => {
                 if let Some(from) = from {
                     self.queries.push((query, from));
                 }
+
+                false
             }
-        }
+        };
 
         if save && can_save {
             self.mut_requests_writer

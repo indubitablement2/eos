@@ -2,19 +2,55 @@
 
 use super::*;
 use battlescape::entity::EntityData;
-use std::num::{NonZeroU32, NonZeroU64};
+use entity_data_id_err::*;
+use std::{
+    num::{NonZeroU32, NonZeroU64},
+    ops::Deref,
+};
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
-)]
-pub struct EntityDataId(pub u32);
-impl EntityDataId {
-    pub fn is_valid(self) -> bool {
-        self.0 < data().entities.len() as u32
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(try_from = "u32")]
+#[serde(into = "u32")]
+pub struct EntityDataId(&'static EntityData);
+impl Default for EntityDataId {
+    fn default() -> Self {
+        Self(data().entities.first().unwrap())
     }
+}
+impl Deref for EntityDataId {
+    type Target = EntityData;
 
-    pub fn data(self) -> &'static EntityData {
-        &data().entities[self.0 as usize]
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+pub mod entity_data_id_err {
+    pub struct TryFromEntityDataIdError(pub u32);
+    impl std::fmt::Display for TryFromEntityDataIdError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "Invalid entity data id: {} out of bound", self.0)
+        }
+    }
+}
+impl TryFrom<u32> for EntityDataId {
+    type Error = TryFromEntityDataIdError;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        data()
+            .entities
+            .get(0 as usize)
+            .map(Self)
+            .ok_or(TryFromEntityDataIdError(0))
+    }
+}
+impl From<EntityDataId> for u32 {
+    fn from(ptr: EntityDataId) -> Self {
+        ptr.id
+    }
+}
+impl std::fmt::Debug for EntityDataId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.id.fmt(f)
     }
 }
 

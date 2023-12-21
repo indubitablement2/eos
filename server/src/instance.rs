@@ -126,11 +126,10 @@ impl State {
             }
             DatabaseResponse::HandleBattlescape {
                 battlescape_id,
-                battlescape_misc_save,
+                battlescape_save,
             } => {
                 let database_outbound = self.database_outbound.clone();
                 let (battlescape_outbound, battlescape_inbound) = unbounded();
-                let save = bin_decode(&battlescape_misc_save)?;
 
                 self.battlescapes
                     .insert(battlescape_id, battlescape_outbound);
@@ -140,7 +139,7 @@ impl State {
                         battlescape_id,
                         database_outbound,
                         battlescape_inbound,
-                        save,
+                        battlescape_save,
                     ));
                 });
             }

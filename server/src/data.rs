@@ -81,8 +81,8 @@ fn parse_json(json: DataJson) -> Data {
     let entities = json
         .entities
         .into_iter()
-        .enumerate()
-        .map(|(id, entity_json)| entity_json.parse(EntityDataId(id as u32)))
+        .zip(0u32..)
+        .map(|(entity_json, id)| entity_json.parse(id))
         .collect::<Vec<_>>();
 
     Data {

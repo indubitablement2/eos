@@ -4,7 +4,8 @@ use super::*;
 type ArmorCells = SmallVec<[u8; 16]>;
 
 pub struct Entity {
-    pub data: &'static EntityData,
+    pub data: EntityDataId,
+    owner: Option<ClientId>,
 
     pub rb: RigidBodyHandle,
 
@@ -29,7 +30,6 @@ impl Entity {
     pub fn new(
         battlescape: &mut Battlescape,
 
-        data: &'static EntityData,
         mut save: EntitySave,
 
         entity_id: EntityId,
@@ -41,33 +41,34 @@ impl Entity {
             save.position,
             save.linvel,
             save.angvel,
-            data.shape.clone(),
-            data.groups,
-            data.mprops,
+            save.data.shape.clone(),
+            save.data.groups,
+            save.data.mprops,
             entity_id,
             ignore,
         );
 
         save.armor_cells.resize(
-            data.armor_cells_size.x as usize * data.armor_cells_size.y as usize,
+            save.data.armor_cells_size.x as usize * save.data.armor_cells_size.y as usize,
             0,
         );
 
         let mut s = Self {
-            data,
+            data: save.data,
+            owner: save.owner,
             rb,
-            hull_max: data.hull_max,
+            hull_max: save.data.hull_max,
             hull: save.hull,
-            armor_max: data.armor_max,
+            armor_max: save.data.armor_max,
             armor_cells: save.armor_cells,
-            mobility: data.mobility,
+            mobility: save.data.mobility,
             wish_angvel: WishAngVel::None,
             wish_linvel: WishLinVel::None,
             controlled: false,
             target,
         };
 
-        for new_event in data.on_new.iter() {
+        for new_event in save.data.on_new.iter() {
             match new_event {
                 EntityEvent::Ship => {
                     battlescape.objects.push(Object::Ship { entity_id });
@@ -215,7 +216,7 @@ pub enum WishLinVel {
 // ####################################################################################
 
 pub struct EntityData {
-    pub id: EntityDataId,
+    pub id: u32,
 
     hull_max: f32,
 
@@ -287,7 +288,7 @@ pub struct EntityDataJson {
     on_new: Vec<EntityEvent>,
 }
 impl EntityDataJson {
-    pub fn parse(self, id: EntityDataId) -> EntityData {
+    pub fn parse(self, id: u32) -> EntityData {
         EntityData {
             id,
 
@@ -344,9 +345,13 @@ impl Default for HullShapeJson {
 // ################################### SAVE ###########################################
 // ####################################################################################
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(default)]
 pub struct EntitySave {
+    pub data: EntityDataId,
+
+    pub owner: Option<ClientId>,
+
     position: Isometry2<f32>,
     linvel: Vector2<f32>,
     angvel: f32,
@@ -358,17 +363,16 @@ pub struct EntitySave {
     // TODO: Turret
 }
 impl EntitySave {
-    pub fn new_stationary(data: &'static EntityData, position: Isometry2<f32>) -> Self {
-        Self::new(data, position, Vector2::zeros(), 0.0)
-    }
-
     pub fn new(
-        data: &'static EntityData,
+        data: EntityDataId,
+        owner: Option<ClientId>,
         position: Isometry2<f32>,
         linvel: Vector2<f32>,
         angvel: f32,
     ) -> Self {
         Self {
+            data,
+            owner,
             position,
             linvel,
             angvel,
@@ -380,6 +384,8 @@ impl EntitySave {
     pub fn from_entity(entity: &Entity, battlescape: &Battlescape) -> Self {
         let body = battlescape.physics.body(entity.rb);
         Self {
+            data: entity.data,
+            owner: entity.owner,
             position: *body.position(),
             linvel: *body.linvel(),
             angvel: body.angvel(),
@@ -428,6 +434,8 @@ fn test_serialize_data() {
             angvel: Default::default(),
             hull: 456.0,
             armor_cells: (0u8..3 * 3).into_iter().collect(),
+            data: Default::default(),
+            owner: None,
         })
         .unwrap()
     );
