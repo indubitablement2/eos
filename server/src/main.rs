@@ -23,9 +23,9 @@ use smallvec::SmallVec;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
-// TODO: add feature for database/instance
+// // TODO: add feature for database/instance
 // TODO: Mini app which compile and relauches instance and database if they exit
-// TODO: Private key taken from file
+// // TODO: Private key taken from file
 // TODO: Websocket encryption
 
 // TODO: Database:
@@ -49,15 +49,6 @@ use std::time::{Duration, Instant};
 // add c++
 // impl binary decoder/encoder
 // add packet base class and one child for each packet type
-
-const _PRIVATE_KEY_FALLBACK: [u8; 64] = const_random::const_random!([u8; 64]);
-static _PRIVATE_KEY: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
-fn private_key() -> &'static [u8] {
-    _PRIVATE_KEY
-        .get()
-        .map(Vec::as_slice)
-        .unwrap_or(&_PRIVATE_KEY_FALLBACK)
-}
 
 static _TOKIO_RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
 fn tokio() -> &'static tokio::runtime::Runtime {

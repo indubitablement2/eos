@@ -90,14 +90,6 @@ impl ConnectionOutbound {
     pub fn flush(&self) {
         let _ = self.outbound_sender.send(Ok(None));
     }
-
-    pub fn is_disconnected(&self) -> bool {
-        self.outbound_sender.is_closed()
-    }
-
-    pub fn is_connected(&self) -> bool {
-        !self.is_disconnected()
-    }
 }
 
 pub struct ConnectionInbound {

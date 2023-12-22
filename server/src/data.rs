@@ -2,16 +2,20 @@ use super::*;
 use battlescape::entity::{EntityData, EntityDataJson};
 use std::{fs::File, io::BufReader};
 
+const DATA_PATH: &str = "eos/client/tool/data.json";
+const CONFIG_PATH: &str = "config.json";
+
 static DATA: std::sync::OnceLock<Data> = std::sync::OnceLock::new();
 pub fn data() -> &'static Data {
     DATA.get_or_init(|| {
         log::error!("Data set for test");
-        parse_json(json_test())
+        parse_json(config_test(), json_test())
     })
 }
 
 pub struct Data {
     pub database_addr: SocketAddr,
+    pub database_key: Vec<u8>,
     pub instances: AHashMap<InstanceId, InstanceData>,
     pub systems: AHashMap<BattlescapeId, SystemData>,
     pub entities: Vec<EntityData>,
@@ -31,8 +35,11 @@ pub struct SystemData {
 // ####################################################################################
 
 pub fn load_data() {
-    let mut read = BufReader::new(File::open("data.json").unwrap());
-    let data = parse_json(serde_json::from_reader(&mut read).unwrap());
+    let mut read = BufReader::new(File::open(DATA_PATH).unwrap());
+    let data = parse_json(
+        serde_json::from_slice(&std::fs::read(CONFIG_PATH).unwrap()).unwrap(),
+        serde_json::from_reader(&mut read).unwrap(),
+    );
 
     if DATA.set(data).is_err() {
         log::error!("Data already set");
@@ -41,7 +48,7 @@ pub fn load_data() {
     }
 }
 
-fn parse_json(json: DataJson) -> Data {
+fn parse_json(config: ConfigJson, json: DataJson) -> Data {
     let mut instances = AHashMap::from_iter(json.instances.into_iter().map(
         |(instance_id, instance_addr)| {
             (
@@ -86,7 +93,8 @@ fn parse_json(json: DataJson) -> Data {
         .collect::<Vec<_>>();
 
     Data {
-        database_addr: json.database_addr.parse().unwrap(),
+        database_addr: config.database_addr.parse().unwrap(),
+        database_key: config.database_key.into_bytes(),
         instances,
         systems,
         entities,
@@ -97,9 +105,15 @@ fn parse_json(json: DataJson) -> Data {
 // ############## JSON ################################################################
 // ####################################################################################
 
+/// Kept secrets.
+#[derive(Serialize, Deserialize)]
+struct ConfigJson {
+    database_addr: String,
+    database_key: String,
+}
+
 #[derive(Serialize, Deserialize)]
 struct DataJson {
-    database_addr: String,
     instances: AHashMap<InstanceId, String>,
     systems: AHashMap<BattlescapeId, SystemDataJson>,
     entities: Vec<EntityDataJson>,
@@ -114,6 +128,13 @@ struct SystemDataJson {
 // ############## TEST ################################################################
 // ####################################################################################
 
+fn config_test() -> ConfigJson {
+    ConfigJson {
+        database_addr: "[::1]:0".to_string(),
+        database_key: "key".to_string(),
+    }
+}
+
 fn json_test() -> DataJson {
     let addresses = vec![
         "[2001::8a2e]:4993".to_string(),
@@ -126,7 +147,6 @@ fn json_test() -> DataJson {
     };
 
     DataJson {
-        database_addr: "[::1]:0".to_string(),
         instances: AHashMap::from_iter(
             addresses
                 .into_iter()
