@@ -15,6 +15,9 @@ const KEEP_DATABASE_FILES_AMOUNT: usize = 12;
 
 #[derive(Serialize, Deserialize)]
 pub enum DatabaseRequest {
+    SaveDatabase {
+        json: bool,
+    },
     ClientAuth {
         login: ClientLoginType,
         response_token: u64,
@@ -492,6 +495,10 @@ impl Database {
     #[inline]
     fn handle_request(&mut self, request: &[u8], from: Option<InstanceId>) -> anyhow::Result<()> {
         let save = match bin_decode::<DatabaseRequest>(request)? {
+            DatabaseRequest::SaveDatabase { json } => {
+                self.save(json)?;
+                false
+            }
             DatabaseRequest::ClientAuth {
                 login,
                 response_token,
