@@ -48,11 +48,6 @@ impl Entity {
             ignore,
         );
 
-        save.armor_cells.resize(
-            save.data.armor_cells_size.x as usize * save.data.armor_cells_size.y as usize,
-            0,
-        );
-
         let mut s = Self {
             data: save.data,
             owner: save.owner,
@@ -392,6 +387,13 @@ impl EntitySave {
             hull: entity.hull,
             armor_cells: entity.armor_cells.clone(),
         }
+    }
+
+    pub fn verify(&mut self) {
+        self.armor_cells.resize(
+            self.data.armor_cells_size.x as usize * self.data.armor_cells_size.y as usize,
+            0,
+        );
     }
 }
 

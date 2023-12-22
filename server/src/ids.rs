@@ -11,7 +11,7 @@ use std::{
 #[derive(Clone, Copy, Serialize, Deserialize)]
 #[serde(try_from = "u32")]
 #[serde(into = "u32")]
-pub struct EntityDataId(&'static EntityData);
+pub struct EntityDataId(pub &'static EntityData);
 impl Default for EntityDataId {
     fn default() -> Self {
         Self(data().entities.first().unwrap())

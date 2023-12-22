@@ -174,8 +174,10 @@ impl Default for Database {
 // ####################################################################################
 
 impl Database {
-    fn prepare_fresh(&mut self) {
+    fn prepare(&mut self) {
         self.ships.retain(|ship_id, ship| {
+            ship.save.verify();
+
             if let Some(battlescape) = self.battlescapes.get_mut(&ship.battlescape_id) {
                 battlescape.ships.insert(*ship_id);
 
@@ -259,7 +261,7 @@ fn load_database() -> anyhow::Result<Database> {
         Database::default()
     };
 
-    db.prepare_fresh();
+    db.prepare();
 
     // Apply saved requests.
     let path = std::env::current_dir()?.join(MUT_REQUESTS_FILE);
