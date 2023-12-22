@@ -227,10 +227,11 @@ impl Database {
 // ############## LOAD ################################################################
 // ####################################################################################
 
-const DATABASE_SUFFIX: &'static str = "_database";
+/// database_2021-09-18T18:00:00+00:00.bin
+const DATABASE_PREFIX: &'static str = "database_";
 const DATABASE_JSON_SUFFIX: &'static str = ".json";
 const DATABASE_BIN_SUFFIX: &'static str = ".bin";
-const MUT_REQUESTS_FILE: &'static str = "database_mutations.bin";
+const MUT_REQUESTS_FILE: &'static str = "mutations.bin";
 
 fn load_database() -> anyhow::Result<Database> {
     // Find latest database file.
@@ -238,30 +239,29 @@ fn load_database() -> anyhow::Result<Database> {
     for entry in std::env::current_dir()?.read_dir()? {
         let entry = entry?;
 
-        let file_name = entry.file_name();
-        let file_name = file_name.to_str().context("file name not utf8")?;
-
-        let (prefix, is_json) = if let Some(prefix) = file_name
-            .strip_suffix(DATABASE_JSON_SUFFIX)
-            .and_then(|file_name| file_name.strip_suffix(DATABASE_SUFFIX))
-        {
-            (prefix, true)
-        } else if let Some(prefix) = file_name
-            .strip_suffix(DATABASE_JSON_SUFFIX)
-            .and_then(|file_name| file_name.strip_suffix(DATABASE_SUFFIX))
-        {
-            (prefix, false)
-        } else {
+        let full_file_name = entry.file_name();
+        let full_file_name = full_file_name.to_str().context("file name not utf8")?;
+        let Some(file_name) = full_file_name.strip_prefix(DATABASE_PREFIX) else {
             continue;
         };
 
-        let date = chrono::DateTime::parse_from_rfc3339(prefix)?;
+        let (date, json) = if let Some(file_name) = file_name.strip_suffix(DATABASE_JSON_SUFFIX) {
+            (file_name, true)
+        } else if let Some(file_name) = file_name.strip_suffix(DATABASE_BIN_SUFFIX) {
+            (file_name, false)
+        } else {
+            // Only database save file should start with DATABASE_PREFIX.
+            log::warn!("Unknown file name format: {}", full_file_name);
+            continue;
+        };
+
+        let date = chrono::DateTime::parse_from_rfc3339(date)?;
         if let Some((_, prev_date, _)) = database_path {
             if date > prev_date {
-                database_path = Some((entry.path(), date, is_json));
+                database_path = Some((entry.path(), date, json));
             }
         } else {
-            database_path = Some((entry.path(), date, is_json));
+            database_path = Some((entry.path(), date, json));
         }
     }
 
@@ -277,15 +277,14 @@ fn load_database() -> anyhow::Result<Database> {
             postcard::from_io((&mut reader, &mut buf)).map(|(db, _)| db)?
         }
     } else {
-        log::warn!("No database file found, creating new one");
+        log::warn!("No database file found. Creating default one");
         Database::default()
     };
 
     db.prepare();
 
     // Apply saved requests.
-    let path = std::env::current_dir()?.join(MUT_REQUESTS_FILE);
-    if let Ok(file) = File::open(path) {
+    if let Ok(file) = File::open(MUT_REQUESTS_FILE) {
         let mut reader = BufReader::new(file);
         let mut buf = [0; 8];
         if reader
@@ -319,30 +318,27 @@ fn load_database() -> anyhow::Result<Database> {
 // ####################################################################################
 
 impl Database {
-    fn save(&mut self, as_json: bool) -> anyhow::Result<()> {
+    fn save(&mut self, json: bool) -> anyhow::Result<()> {
         self.save_count += 1;
 
-        let path = std::env::current_dir()?.join(format!(
+        let mut writer = BufWriter::new(File::create(format!(
             "{}{}{}",
+            DATABASE_PREFIX,
             Utc::now().to_rfc3339(),
-            DATABASE_SUFFIX,
-            if as_json {
+            if json {
                 DATABASE_JSON_SUFFIX
             } else {
                 DATABASE_BIN_SUFFIX
             }
-        ));
-
-        let mut writer = BufWriter::new(File::create(path)?);
-        if as_json {
+        ))?);
+        if json {
             serde_json::to_writer(&mut writer, self)?;
         } else {
             postcard::to_io(&self, &mut writer)?;
         }
         writer.flush()?;
 
-        let path = std::env::current_dir()?.join(MUT_REQUESTS_FILE);
-        let mut writer = BufWriter::new(File::create(path)?);
+        let mut writer = BufWriter::new(File::create(MUT_REQUESTS_FILE)?);
         writer.write_all(&self.save_count.to_le_bytes())?;
         self.mut_requests_writer = Some(writer);
 
