@@ -9,6 +9,10 @@ use std::{
     path::PathBuf,
 };
 
+/// Save every 4 hours.
+const SAVE_INTERVAL: Duration = Duration::from_secs(4 * 60 * 60);
+const KEEP_DATABASE_FILES_AMOUNT: usize = 12;
+
 #[derive(Serialize, Deserialize)]
 pub enum DatabaseRequest {
     ClientAuth {
@@ -103,6 +107,8 @@ struct ClientShip {
 #[serde(default)]
 struct Database {
     save_count: u64,
+    #[serde(skip)]
+    next_save: Instant,
 
     #[serde(skip)]
     mut_requests_writer: Option<BufWriter<File>>,
@@ -155,6 +161,7 @@ impl Default for Database {
     fn default() -> Self {
         Self {
             save_count: Default::default(),
+            next_save: Instant::now(),
             mut_requests_writer: None,
             connection_listener: ConnectionListener::bind(data().database_addr).unwrap(),
             instances: Default::default(),
@@ -233,9 +240,16 @@ const DATABASE_JSON_SUFFIX: &'static str = ".json";
 const DATABASE_BIN_SUFFIX: &'static str = ".bin";
 const MUT_REQUESTS_FILE: &'static str = "mutations.bin";
 
-fn load_database() -> anyhow::Result<Database> {
-    // Find latest database file.
-    let mut database_path: Option<(PathBuf, DateTime<FixedOffset>, bool)> = None;
+struct DatabaseSavePath {
+    path: PathBuf,
+    date: DateTime<FixedOffset>,
+    json: bool,
+}
+
+/// Sorted by date (oldest -> newest).
+fn database_save_files() -> anyhow::Result<Vec<DatabaseSavePath>> {
+    let mut files: Vec<DatabaseSavePath> = Vec::new();
+
     for entry in std::env::current_dir()?.read_dir()? {
         let entry = entry?;
 
@@ -256,21 +270,26 @@ fn load_database() -> anyhow::Result<Database> {
         };
 
         let date = chrono::DateTime::parse_from_rfc3339(date)?;
-        if let Some((_, prev_date, _)) = database_path {
-            if date > prev_date {
-                database_path = Some((entry.path(), date, json));
-            }
-        } else {
-            database_path = Some((entry.path(), date, json));
-        }
+
+        files.push(DatabaseSavePath {
+            path: entry.path(),
+            date,
+            json,
+        })
     }
 
-    // Load database.
-    let mut db: Database = if let Some((path, _, is_json)) = database_path {
-        log::info!("Loading database from {}", path.display());
-        let mut reader = BufReader::new(File::open(path)?);
+    files.sort_by_key(|file| file.date);
 
-        if is_json {
+    Ok(files)
+}
+
+fn load_database() -> anyhow::Result<Database> {
+    // Load newest database.
+    let mut db: Database = if let Some(save) = database_save_files()?.pop() {
+        log::info!("Loading database from {}", save.path.display());
+        let mut reader = BufReader::new(File::open(save.path)?);
+
+        if save.json {
             serde_json::from_reader(&mut reader)?
         } else {
             let mut buf = vec![0; 4096];
@@ -313,13 +332,29 @@ fn load_database() -> anyhow::Result<Database> {
     Ok(db)
 }
 
+fn remove_database_files(keep_amount: usize) -> anyhow::Result<()> {
+    let mut files = database_save_files()?;
+
+    let num_remove = files.len().saturating_sub(keep_amount);
+    for file in files.drain(..num_remove) {
+        log::info!("Removing old database file: {}", file.path.display());
+        std::fs::remove_file(file.path)?;
+    }
+
+    Ok(())
+}
+
 // ####################################################################################
 // ############## SAVE ################################################################
 // ####################################################################################
 
 impl Database {
     fn save(&mut self, json: bool) -> anyhow::Result<()> {
+        let now = Instant::now();
+        log::info!("Saving database. Json: {}", json);
+
         self.save_count += 1;
+        self.next_save = now + SAVE_INTERVAL;
 
         let mut writer = BufWriter::new(File::create(format!(
             "{}{}{}",
@@ -341,6 +376,8 @@ impl Database {
         let mut writer = BufWriter::new(File::create(MUT_REQUESTS_FILE)?);
         writer.write_all(&self.save_count.to_le_bytes())?;
         self.mut_requests_writer = Some(writer);
+
+        log::info!("Database saved in {} seconds", now.elapsed().as_secs());
 
         Ok(())
     }
@@ -433,6 +470,16 @@ impl Database {
 
         for instance in self.instances.values() {
             instance.outbound.flush();
+        }
+
+        if self.next_save < Instant::now() {
+            if let Err(err) = self.save(false) {
+                log::error!("Failed to save database: {}", err);
+            }
+
+            if let Err(err) = remove_database_files(KEEP_DATABASE_FILES_AMOUNT) {
+                log::error!("Failed to remove old database files: {}", err);
+            }
         }
     }
 }
