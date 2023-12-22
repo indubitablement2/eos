@@ -90,30 +90,17 @@ fn main() {
 
     data::load_data();
 
-    let mut database = false;
-    let mut instance = false;
-
-    for arg in std::env::args() {
-        log::info!("Arg: {}", arg);
-
-        if &arg == "instance" {
-            instance = true;
-        } else if &arg == "database" {
-            database = true;
-        }
-    }
-    if !database && !instance {
-        log::warn!("No arguments specified, defaulting to 'database' and 'instance'");
-        database = true;
-        instance = true;
-    }
-
-    if database && instance {
-        std::thread::spawn(|| database::_start());
-        instance::_start();
-    } else if database {
+    #[cfg(all(feature = "database", not(feature = "instance")))]
+    {
         database::_start();
-    } else if instance {
+    }
+    #[cfg(all(feature = "instance", not(feature = "database")))]
+    {
+        instance::_start();
+    }
+    #[cfg(all(feature = "database", feature = "instance"))]
+    {
+        std::thread::spawn(|| database::_start());
         instance::_start();
     }
 }

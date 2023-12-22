@@ -45,6 +45,10 @@ tokio-util = { version = "0.7", features = ["codec"] }
 # axum = "0.6"
 # reqwest = { version = "0.11", features = ["json"] }
 
+[features]
+database = []
+instance = []
+default = ["database", "instance"]
 
 [profile.release]
 # codegen-units = 1
