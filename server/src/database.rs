@@ -105,7 +105,7 @@ struct Database {
     save_count: u64,
 
     #[serde(skip)]
-    mut_requests_writer: BufWriter<File>,
+    mut_requests_writer: Option<BufWriter<File>>,
 
     #[serde(skip)]
     connection_listener: ConnectionListener<DatabaseLogin>,
@@ -155,7 +155,7 @@ impl Default for Database {
     fn default() -> Self {
         Self {
             save_count: Default::default(),
-            mut_requests_writer: BufWriter::new(File::create("dummy").unwrap()),
+            mut_requests_writer: None,
             connection_listener: ConnectionListener::bind(data().database_addr).unwrap(),
             instances: Default::default(),
             instance_inbounds: Default::default(),
@@ -298,7 +298,7 @@ fn load_database() -> anyhow::Result<Database> {
                 let len = u32::from_le_bytes(buf);
                 request_buf.resize(len as usize, 0);
                 reader.read_exact(&mut request_buf)?;
-                db.handle_request(&request_buf, None, false)?;
+                db.handle_request(&request_buf, None)?;
             }
 
             log::info!("Previous database mutations applied");
@@ -342,11 +342,9 @@ impl Database {
         writer.flush()?;
 
         let path = std::env::current_dir()?.join(MUT_REQUESTS_FILE);
-        self.mut_requests_writer = BufWriter::new(File::create(path)?);
-        self.mut_requests_writer
-            .write_all(&self.save_count.to_le_bytes())?;
-
-        let _ = std::fs::remove_file("dummy");
+        let mut writer = BufWriter::new(File::create(path)?);
+        writer.write_all(&self.save_count.to_le_bytes())?;
+        self.mut_requests_writer = Some(writer);
 
         Ok(())
     }
@@ -416,7 +414,7 @@ impl Database {
         instance_inbounds.retain(|&from, inbound| loop {
             match inbound.recv::<Vec<u8>>() {
                 Ok(request) => {
-                    if let Err(err) = self.handle_request(&request, Some(from), true) {
+                    if let Err(err) = self.handle_request(&request, Some(from)) {
                         log::error!("Failed to handle request: {}", err);
                     }
                 }
@@ -449,12 +447,7 @@ impl Database {
 
 impl Database {
     #[inline]
-    fn handle_request(
-        &mut self,
-        request: &[u8],
-        from: Option<InstanceId>,
-        can_save: bool,
-    ) -> anyhow::Result<()> {
+    fn handle_request(&mut self, request: &[u8], from: Option<InstanceId>) -> anyhow::Result<()> {
         let save = match bin_decode::<DatabaseRequest>(request)? {
             DatabaseRequest::ClientAuth {
                 login,
@@ -629,10 +622,11 @@ impl Database {
             }
         };
 
-        if save && can_save {
-            self.mut_requests_writer
-                .write_all(&(request.len() as u32).to_le_bytes())?;
-            self.mut_requests_writer.write_all(request)?;
+        if save {
+            if let Some(writer) = &mut self.mut_requests_writer {
+                writer.write_all(&(request.len() as u32).to_le_bytes())?;
+                writer.write_all(request)?;
+            }
         }
 
         Ok(())
