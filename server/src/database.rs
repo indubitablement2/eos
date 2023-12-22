@@ -174,11 +174,16 @@ impl Default for Database {
 // ####################################################################################
 
 impl Database {
+    /// Checks that all data is valid.
     fn prepare(&mut self) {
+        for (battlescape_id, system_data) in data().systems.iter() {
+            self.battlescapes.entry(*battlescape_id).or_default();
+        }
+
         for (username, client_id) in self.username.iter() {
             if !self.clients.contains_key(client_id) {
-                log::warn!(
-                    "{} has {:?}, but it is not found. Adding default",
+                log::error!(
+                    "{} has {:?}, but it is not found. Adding default client",
                     username,
                     client_id
                 );
@@ -196,7 +201,7 @@ impl Database {
                     if let Some(client) = self.clients.get_mut(&owner) {
                         client.ships.insert(*ship_id);
                     } else {
-                        log::warn!(
+                        log::error!(
                             "{:?} owner ({:?}) not found. Removing owner",
                             ship_id,
                             owner
@@ -207,7 +212,7 @@ impl Database {
 
                 true
             } else {
-                log::warn!(
+                log::error!(
                     "{:?}'s battlescape ({:?}) not found. Removing ship",
                     ship_id,
                     ship.battlescape_id
