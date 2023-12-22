@@ -23,7 +23,7 @@ pub struct InstanceData {
 }
 
 pub struct SystemData {
-    pub instance_addr: InstanceId,
+    pub instance_id: InstanceId,
 }
 
 // ####################################################################################
@@ -64,7 +64,7 @@ fn parse_json(json: DataJson) -> Data {
         (
             id,
             SystemData {
-                instance_addr: system_json.instance,
+                instance_id: system_json.instance,
             },
         )
     }));

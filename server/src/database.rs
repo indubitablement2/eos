@@ -84,7 +84,7 @@ pub enum DatabaseBattlescapeResponse {
     },
     ShipEntered {
         ship_id: ShipId,
-        entity_save: EntitySave,
+        save: EntitySave,
     },
 }
 
@@ -391,7 +391,21 @@ impl Database {
                     battlescape_id,
                     battlescape_save: battlescapes.battlescape_save.clone(),
                 });
+
+                for &ship_id in battlescapes.ships.iter() {
+                    let ship = self.ships.get(&ship_id).unwrap();
+
+                    outbound.queue(DatabaseResponse::DatabaseBattlescapeResponse {
+                        from: battlescape_id,
+                        response: DatabaseBattlescapeResponse::ShipEntered {
+                            ship_id,
+                            save: ship.save.clone(),
+                        },
+                    });
+                }
             }
+
+            outbound.flush();
 
             self.instances
                 .insert(login.instance_id, Instance { outbound });
@@ -407,7 +421,10 @@ impl Database {
                     }
                 }
                 Err(TryRecvError::Empty) => break true,
-                Err(TryRecvError::Disconnected) => break false,
+                Err(TryRecvError::Disconnected) => {
+                    self.instances.remove(&from);
+                    break false;
+                }
             }
         });
         self.instance_inbounds = instance_inbounds;
@@ -420,17 +437,9 @@ impl Database {
         });
         self.queries.clear();
 
-        // TODO: Handle disconnect
-        self.instances.retain(|_, instance| {
-            if instance.outbound.is_connected() {
-                true
-            } else {
-                log::warn!("Instance disconnected");
-                false
-            }
-        });
-
-        // TODO: Balance instances load
+        for instance in self.instances.values() {
+            instance.outbound.flush();
+        }
     }
 }
 
@@ -577,7 +586,24 @@ impl Database {
                         .ships
                         .insert(ship_id);
 
-                    // TODO: Notify new battlescape
+                    // Notify new battlescape
+                    if let Some(instance) = self.instances.get(
+                        &data()
+                            .systems
+                            .get(&battlescape_id)
+                            .context("Ship's new battlescape not found")?
+                            .instance_id,
+                    ) {
+                        instance
+                            .outbound
+                            .queue(DatabaseResponse::DatabaseBattlescapeResponse {
+                                from: battlescape_id,
+                                response: DatabaseBattlescapeResponse::ShipEntered {
+                                    ship_id,
+                                    save: self.ships[&ship_id].save.clone(),
+                                },
+                            });
+                    }
                 }
 
                 true

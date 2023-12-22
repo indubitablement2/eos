@@ -93,7 +93,7 @@ impl Battlescape {
                     }
                     DatabaseBattlescapeResponse::ShipEntered {
                         ship_id,
-                        entity_save,
+                        save: entity_save,
                     } => {
                         self.spawn_entity(entity_save, None, None, Some(ship_id));
                     }
