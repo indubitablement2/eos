@@ -126,7 +126,7 @@ fn json_test() -> DataJson {
     };
 
     DataJson {
-        database_addr: "[::1]:8561".to_string(),
+        database_addr: "[::1]:0".to_string(),
         instances: AHashMap::from_iter(
             addresses
                 .into_iter()

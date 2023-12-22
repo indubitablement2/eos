@@ -587,13 +587,10 @@ impl Database {
                         .insert(ship_id);
 
                     // Notify new battlescape
-                    if let Some(instance) = self.instances.get(
-                        &data()
-                            .systems
-                            .get(&battlescape_id)
-                            .context("Ship's new battlescape not found")?
-                            .instance_id,
-                    ) {
+                    if let Some(instance) = self
+                        .instances
+                        .get(&data().systems[&battlescape_id].instance_id)
+                    {
                         instance
                             .outbound
                             .queue(DatabaseResponse::DatabaseBattlescapeResponse {
