@@ -25,6 +25,7 @@ const RADIUS: f32 = 100.0;
 pub enum BattlescapeInbound {
     DatabaseBattlescapeResponse(DatabaseBattlescapeResponse),
     NewClient { client_id: ClientId, client: Client },
+    SaveRequest,
 }
 
 pub struct Battlescape {
@@ -100,6 +101,9 @@ impl Battlescape {
                 },
                 BattlescapeInbound::NewClient { client_id, client } => {
                     self.clients.insert(client_id, client);
+                }
+                BattlescapeInbound::SaveRequest => {
+                    self.save();
                 }
             }
         }
@@ -206,10 +210,6 @@ fn global_time() -> f64 {
         .elapsed()
         .unwrap_or_default()
         .as_secs_f64()
-}
-
-fn sim_time(tick: u64) -> f64 {
-    tick as f64 * DT as f64
 }
 
 /// Something that modify the simulation (ai, effect, etc).

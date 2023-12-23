@@ -15,9 +15,8 @@ const KEEP_DATABASE_FILES_AMOUNT: usize = 12;
 
 #[derive(Serialize, Deserialize)]
 pub enum DatabaseRequest {
-    SaveDatabase {
-        json: bool,
-        restart: bool,
+    SaveAndRestart {
+        save_json: bool,
     },
     ClientAuth {
         login: ClientLoginType,
@@ -68,8 +67,9 @@ pub enum DatabaseResponse {
         battlescape_id: BattlescapeId,
         battlescape_save: BattlescapeSave,
     },
+    SaveAllSystems,
     DatabaseBattlescapeResponse {
-        from: BattlescapeId,
+        to: BattlescapeId,
         response: DatabaseBattlescapeResponse,
     },
 }
@@ -117,7 +117,7 @@ struct Database {
     #[serde(skip)]
     save_request: u8,
     #[serde(skip)]
-    restart_request: bool,
+    restart_request: Option<Instant>,
 
     #[serde(skip)]
     mut_requests_writer: Option<BufWriter<File>>,
@@ -172,7 +172,7 @@ impl Default for Database {
             save_count: Default::default(),
             next_save: Instant::now(),
             save_request: 0,
-            restart_request: false,
+            restart_request: None,
             mut_requests_writer: None,
             connection_listener: ConnectionListener::bind(data().database_addr).unwrap(),
             instances: Default::default(),
@@ -404,16 +404,15 @@ pub fn _start() {
     let mut interval = interval::Interval::new(50, 50);
     loop {
         interval.step();
-        db.step();
-
-        if db.restart_request {
+        if db.step() {
             break;
         }
     }
 }
 
 impl Database {
-    fn step(&mut self) {
+    /// Return if disconnected.
+    fn step(&mut self) -> bool {
         // Get new instances.
         while let Some((connection, login)) = self.connection_listener.recv() {
             if login.database_key != data().database_key {
@@ -442,7 +441,7 @@ impl Database {
                     let ship = self.ships.get(&ship_id).unwrap();
 
                     outbound.queue(DatabaseResponse::DatabaseBattlescapeResponse {
-                        from: battlescape_id,
+                        to: battlescape_id,
                         response: DatabaseBattlescapeResponse::ShipEntered {
                             ship_id,
                             save: ship.save.clone(),
@@ -491,7 +490,9 @@ impl Database {
             self.save_request = self.save_request.max(1);
         }
 
-        if self.save_request > 0 || self.restart_request {
+        if self.save_request > 0 && self.restart_request.is_none()
+            || self.restart_request.is_some_and(|at| at < Instant::now())
+        {
             if let Err(err) = self.save(self.save_request >= 2) {
                 log::error!("Failed to save database: {}", err);
             }
@@ -499,6 +500,10 @@ impl Database {
             if let Err(err) = remove_database_files(KEEP_DATABASE_FILES_AMOUNT) {
                 log::error!("Failed to remove old database files: {}", err);
             }
+
+            self.restart_request.is_some()
+        } else {
+            false
         }
     }
 }
@@ -511,13 +516,19 @@ impl Database {
     #[inline]
     fn handle_request(&mut self, request: &[u8], from: Option<InstanceId>) -> anyhow::Result<()> {
         let save = match bin_decode::<DatabaseRequest>(request)? {
-            DatabaseRequest::SaveDatabase { json, restart } => {
-                if json {
+            DatabaseRequest::SaveAndRestart { save_json } => {
+                if save_json {
                     self.save_request = 2;
                 } else {
                     self.save_request = self.save_request.max(1);
                 }
-                self.restart_request |= restart;
+
+                for instance in self.instances.values() {
+                    instance.outbound.queue(DatabaseResponse::SaveAllSystems);
+                }
+
+                self.restart_request = Some(Instant::now() + Duration::from_secs(60));
+
                 false
             }
             DatabaseRequest::ClientAuth {
@@ -656,7 +667,7 @@ impl Database {
                         instance
                             .outbound
                             .queue(DatabaseResponse::DatabaseBattlescapeResponse {
-                                from: battlescape_id,
+                                to: battlescape_id,
                                 response: DatabaseBattlescapeResponse::ShipEntered {
                                     ship_id,
                                     save: self.ships[&ship_id].save.clone(),
@@ -723,7 +734,7 @@ impl Database {
 
                 self.instances[&from_instance].outbound.queue(
                     DatabaseResponse::DatabaseBattlescapeResponse {
-                        from: *from,
+                        to: *from,
                         response: DatabaseBattlescapeResponse::ClientShips {
                             client_id: *client_id,
                             client_ships,

@@ -14,7 +14,7 @@ pub fn _start() {
         interval.step();
 
         if state.step() {
-            log::warn!("Database disconnected");
+            log::warn!("Database disconnected. Restarting instance server");
             break;
         }
     }
@@ -103,7 +103,8 @@ impl State {
                 let (connection, battlescape_id) = self
                     .logins
                     .remove(&response_token)
-                    .context("Client should be awaiting login")?;
+                    .context("Login should be there")?;
+
                 if let Some(client_id) = client_id {
                     let sender = self
                         .battlescapes
@@ -143,10 +144,15 @@ impl State {
                     ));
                 });
             }
-            DatabaseResponse::DatabaseBattlescapeResponse { from, response } => {
+            DatabaseResponse::SaveAllSystems => {
+                for sender in self.battlescapes.values() {
+                    let _ = sender.send(BattlescapeInbound::SaveRequest);
+                }
+            }
+            DatabaseResponse::DatabaseBattlescapeResponse { to, response } => {
                 let sender = self
                     .battlescapes
-                    .get(&from)
+                    .get(&to)
                     .context("Battlescape should be there")?;
                 sender.send(BattlescapeInbound::DatabaseBattlescapeResponse(response))?;
             }
