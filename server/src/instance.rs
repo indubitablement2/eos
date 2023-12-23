@@ -78,7 +78,7 @@ impl State {
 
         // Handle database responses.
         let mut database_inbound = self.database_inbound.take().unwrap();
-        let disconencted = loop {
+        let disconnected = loop {
             match database_inbound.recv::<DatabaseResponse>() {
                 Ok(response) => {
                     if let Err(err) = self.handle_database_response(response) {
@@ -91,7 +91,7 @@ impl State {
         };
         self.database_inbound = Some(database_inbound);
 
-        disconencted
+        disconnected
     }
 
     fn handle_database_response(&mut self, response: DatabaseResponse) -> anyhow::Result<()> {
