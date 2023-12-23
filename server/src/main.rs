@@ -29,6 +29,7 @@ use std::time::{Duration, Instant};
 // TODO: Websocket encryption
 
 // TODO: Database:
+// Add starting ship database resquest (if no ship)
 // // Check invariants on startup (armor cell size, username -> client, all battlescapes from data exist)
 // // Do not store encoded value in database
 // // Add global time tracking

@@ -17,6 +17,7 @@ const KEEP_DATABASE_FILES_AMOUNT: usize = 12;
 pub enum DatabaseRequest {
     SaveDatabase {
         json: bool,
+        restart: bool,
     },
     ClientAuth {
         login: ClientLoginType,
@@ -112,6 +113,11 @@ struct Database {
     save_count: u64,
     #[serde(skip)]
     next_save: Instant,
+    /// 0: false, 1: bin, 2: json,
+    #[serde(skip)]
+    save_request: u8,
+    #[serde(skip)]
+    restart_request: bool,
 
     #[serde(skip)]
     mut_requests_writer: Option<BufWriter<File>>,
@@ -165,6 +171,8 @@ impl Default for Database {
         Self {
             save_count: Default::default(),
             next_save: Instant::now(),
+            save_request: 0,
+            restart_request: false,
             mut_requests_writer: None,
             connection_listener: ConnectionListener::bind(data().database_addr).unwrap(),
             instances: Default::default(),
@@ -397,6 +405,10 @@ pub fn _start() {
     loop {
         interval.step();
         db.step();
+
+        if db.restart_request {
+            break;
+        }
     }
 }
 
@@ -476,7 +488,11 @@ impl Database {
         }
 
         if self.next_save < Instant::now() {
-            if let Err(err) = self.save(false) {
+            self.save_request = self.save_request.max(1);
+        }
+
+        if self.save_request > 0 || self.restart_request {
+            if let Err(err) = self.save(self.save_request >= 2) {
                 log::error!("Failed to save database: {}", err);
             }
 
@@ -495,8 +511,13 @@ impl Database {
     #[inline]
     fn handle_request(&mut self, request: &[u8], from: Option<InstanceId>) -> anyhow::Result<()> {
         let save = match bin_decode::<DatabaseRequest>(request)? {
-            DatabaseRequest::SaveDatabase { json } => {
-                self.save(json)?;
+            DatabaseRequest::SaveDatabase { json, restart } => {
+                if json {
+                    self.save_request = 2;
+                } else {
+                    self.save_request = self.save_request.max(1);
+                }
+                self.restart_request |= restart;
                 false
             }
             DatabaseRequest::ClientAuth {
@@ -543,8 +564,6 @@ impl Database {
                         }
                     }
                 };
-
-                // TODO: Add starting ship (if no ship)
 
                 if let Some(from) = from {
                     self.instances[&from]
