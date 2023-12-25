@@ -17,49 +17,57 @@ Run cargo from `server` folder. By default database and instance are merged into
 
 ## Design Document
 
+TODO: 
+* fleet capacity (limit system capacity by team)
+* monetization (never p2w, can only buy extra maximum fleet capacity)
+* Fleet control is deliberately limited as to not overshadow directly controlling a ship.
+* market
+* currency mint and other piracy (pirate themed factions should have access to cheap/bad pirate ship)
+* factions (all player controlled or allow npc?)
+* events (similar to stellaris crisis, which the players can ally to fight back. perhaps do this organically by allowing a few players to find a VERY strong item which makes their faction over powered, but how to make them a global threat other players will want to ally against?)
+* league: new system not connected to main systems which player can join, but have to start from nothing. Good for new players to start on an even playing field. Require that nothing can move between non-connected systems.
+* Player have a bad (slow, no cargo) invincible ship by default, no free cam. can teleport to any system
+* Use drones to move items between ships/station
+* blueprint and ship manufacturing
+
 ##### Table of contents
 
 [User Experience](https://github.com/indubitablement2/eos#user-experience)
 
-[Fleet](https://github.com/indubitablement2/eos#Fleet)
+[Items](https://github.com/indubitablement2/eos#Items)
 
 [World](https://github.com/indubitablement2/eos#World)
-
-[Market](https://github.com/indubitablement2/eos#Market)
-
-[Inspiration](https://github.com/indubitablement2/eos#Inspiration)
 
 ## User Experience
 
 ### Core loop
 
-Explore - Fight - Customize (gradual fleet upgrade)
+Explore - Fight - Improve fleet
 
 ### Decay & entropy
-Ship need to be rebuilt and maintained.
-Storage cost resource. 
+Nothings stay forever without player input.
+Ships and stations need to be maintained and can always be destroyed.
+Storage cost resource.
 
 Reasons:
 Keep the world fresh. New player are not overwhelmingly behind when joining later.
 Push player to utilise their wealt instead of hoarding.
 
-#### Resource storage
-* Fleet cargo: 
-  * Need ship with cargo capacity. 
-  * Ends up being the most expensive. 
-  * Immediately available.
-* Hangar: 
-  * Cost a fee. 
-  * If host station is destroyed, hangar is lootable. 
-  * Items are only available at the station they were stashed in by default. Transport is not safe and cost a fee. 
+#### Storage
+* Ship cargo:
+  * Need ship with cargo capacity.
+  * Ends up being the most expensive.
+* Station cargo:
+  * Cost resource to be built and maintained on a station. Owner may rent hangar for a fee to other player.
+  * Most secure. Host station need to be destroyed before hangar is lootable by other player.
+  * Items are only available at the station they were stashed in. Transport is not safe and cost a fee.
 * Cargo pod:
-  * Free.
-  * Lootable by anyone
-  * Will stay there indefinitely until looted by someone.
-  * High value cargo attracts pirate. Low value cargo gets combined together.
+  * Free. Just drop items out of a ship's inventory.
+  * Lootable by anyone.
+  * Will stay there indefinitely or until looted by someone.
 
 ### Minimal industry flexibility
-When a planet is invested into (for example) ore refining, it is impractical to switch industry in response to market demand.
+When a planet is investing into an industry (eg. by building an ore refinery), it is impractical to switch industry in response to market demand.
 
 This lead to surplus or scarsity increasing player activity:
 * Building new needed industry. 
@@ -68,33 +76,34 @@ This lead to surplus or scarsity increasing player activity:
 * Fight for monopoly.
 
 ### Acquiring ship/weapon/module
-Low tier ship and civilian ship are available everywhere.
+Low tier and civilian ship should be readily available anywhere.
 
-Getting higher tier gear is harder:
+Getting higher tier item is harder:
 * Ranking inside a faction (still need to buy, only give access to this faction's gear).
 * Post battle salvage (needs to be repaired).
 * Random wreck and cargo in space.
-* Quests.
+* Missions.
 
-### Disconnected fleet
-When a played disconnect, his fleets do not disappear.
-It does not consume resources however. 
+### Ship ai autonomy
+Can tell owned ships to perform broad tast similar to colony sim dwarf fortress. 
+This is only for more monotonous task: Salvage and mine in selected system and defend trade route or station.
+Ai handle the fine details eg. which path to take, which asteroid or salvage to mine, flee or fight when attacked. 
+However, a player actively managing his ships should be more efficient. 
 
-It can be assigned to do a number of things:
-* idle near allied planet 
-* idle near last location and flee from enemy 
-* stay still
+### Disconnected client
+When a played disconnect, his fleets does not disappear. Instead, ai takes over and automatically perform assigned tasks.
 
-## Gear & ships
+## Items
 
-### Hull size
-* Fighter: 
+### Ship size
+* Fighter & drone: 
   * 1-2 light weapons.
   * The size of 1 heavy weapon.
   * No ship collision.
   * Depend on carrier to refill ammo and repair.
   * Infinitely produced by carrier for free.
-  * Moves like a plane with poor turn rate and lightning speed.
+  * Fighter have poor turn rate and high speed similar to plane.
+  * Can not be player controlled.
 
 * Frigate: 
   * ~4 light or 1 medium weapons.
@@ -107,20 +116,20 @@ It can be assigned to do a number of things:
 
 * Cruiser: 
   * 4 medium and 2 heavy weapons.
-  * The size of 3 destroyers.
+  * The size of 2 destroyers.
   * Slow turn rate.
 
 * Capital: 
   * 4 heavy and many medium/light weapons.
   * Often has unique built-in weapon.
-  * The size of 3 cruisers or more.
+  * The size of 1.5 cruisers.
   * Extremely expensive to build and maintain.
   * Very slow.
 
 * Experimental
   * 8 heavy and many medium weapons.
   * Has fortress like capability, but is mobile. 
-  * 1.5+ capital
+  * 1+ capital
   * Ludicrously expensive to maintain.
   * Can not be build (no blueprint hence the name). 
 
@@ -130,7 +139,7 @@ Weapon and ship have designer.
 Some ship and weapon mount may have an afinity for a design. 
 Module and weapon mount may only accept a pacticular design.
 
-Design archetype
+Design archetype (names taken from supreme commander)
 * UEF: Brute force. More frontal firepower and defence, but slower. Vulnerable when flanked or isolated. 
   * Theme: bulky, ww1
   * Specialist: Armor, balistic
@@ -163,109 +172,13 @@ Higher quality ship have more.
 
 Damaged ship have negative built-in mods that are expensive to remove.
 
-### Captain
-Captain can be hired and assigned to a ship to provide bonuses. 
+### Ai
+Ai can be installed on a ship to provide powerful bonuses. They can be crafted similar to end-game crafting common in arpg.
 
-They cost a salary based on their rank. 
+Player does not lose them when its ship is destroyed, providing a source of permanent power for the player.
 
-They gain experience by taking part in fight. 
+They can not be traded between players.
 
-## Battlescape 
-Battle between fleets happens on a separate world. 
+Implementation note:
+When its ship is destroyed, perhaps they spawn a small ship/pod (slow, no cargo, invincible) which the player can order to return to a safe station.
 
-### Battle point & lag prevention
-To limit lag, each team can only field a limited number of ship at a time. 
-Each ship has a set bp cost based on strenght.
-The bigger fleet has more bp available. 
-
-A battle can only happen between enemies. 
-A neutral can not interfere. 
-Multiple player can join the same side if they are allied. 
-
-### Ship control
-A player can control any of his ship and change at will. 
-Otherwise he can chose to let the ai control his ship. 
-
-### Fleet control
-Player can give general direction to his fleet. 
-Final action is left to the ai. 
-
-Fleet control is deliberately limited as to not overshadow directly controlling a ship. 
-
-## World
-
-### Joining vs creating faction
-Joining faction:
-* Pros:
-  * Free insurance
-  * Fleet protection in controlled systems
-  * Access to faction market
-  * Vassal colony are supported by parent faction
-* Cons:
-  * Vassal colony pay taxes to parent faction
-* Neutrals:
-  * Inherit faction relation
-
-Creating faction:
-* Pros:
-  * Potentially high passive income from vassal taxe, market taxe and colony production
-* Cons:
-  * Needs to provide costly incentives to vassals (insurance, lower market price)
-  * Needs to sustain a military
-
-### Faction research path
-
-Player can hire (expensive) researcher to upgrade their faction. 
-This is a currency sink. 
-Upgrade are lost when a faction is dismantled. 
-
-* Piratry P
-  * Allow pirating fleet
-  * Default reputation is 0
-  * Enable futher research in pirating 
-* Minting P
-  * Allow building mint
-* Pirate ship 1..5 P
-  * Allow building some very cheap pirate ship
-* Trade 1..5
-  * Can start trade with other ally faction
-  * Better trade price
-* Insurance
-
-### Reputation
-* faction-faction
-  * a.min(b).reputation(a.max(b))
-  * a.default_reputation.min(b.default_reputation)
-* faction-neutral
-  * a.reputation(b)
-  * a.default_reputation.min(b.reputation)
-* neutral-neutral
-  * a.reputation.min(b.reputation)
-
-Reputation 0..100 default 70
-* 80+ ally
-  * help encouraged
-* 60+ neutral
-  * war discouraged
-* 40+ hated
-  * war allowed
-* 0+ enemy
-  * war encouraged
-  * no trade
-
-There is a delay before a faction reputation change take effect. 
-Going up require both faction to agree. 
-
-Reputation trend toward neutral. 
-* It goes down by 
-  * initiating a fight with a neutral or ally 
-  * joining a pirate faction
-* It goes up by
-  * initiating a fight with an enemy
-  * defending an ally
-
-## Market
-
-Player can see the whole market. 
-
-Item bought stay where they are and player need to get them. 
