@@ -1,10 +1,8 @@
 #!/bin/bash
 
 mode="$1"
-branch="$2"
 
-# TODO repo name
-git pull origin $branch
+git pull
 
 # Build server
 cd server/
@@ -14,10 +12,10 @@ cargo build --quiet --release --feature $mode
 cd ../../
 ./ eos/server/target/release/server
 
-# Update one more time in case this script changed
+# Update one more time in case this script changes
 cd eos/
-git pull origin $branch
+git pull
 
 # Repeat
 sleep 2
-exec "$0" $mode $branch
+exec "$0" $mode

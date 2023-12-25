@@ -24,7 +24,7 @@ use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
 // // TODO: add feature for database/instance
-// TODO: Mini app which compile and relauches instance and database if they exit
+// // TODO: Mini app which compile and relauches instance and database if they exit
 // // TODO: Private key taken from file
 // TODO: Websocket encryption
 
