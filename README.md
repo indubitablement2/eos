@@ -1,16 +1,23 @@
 # EOS (working title)
 ![Project Logo](logo.jpg)
 
-## Build
-Lazy command from root folder: `scons -C cpp/godot custom_modules=../custom && ./cpp/godot/bin/godot.linuxbsd.editor.x86_64 --editor --path godot`. Change `godot.linuxbsd.editor.x86_64` to your Godot editor executable if not on linux. 
+## Client Build
+Lazy command from root folder: `scons -C cpp/godot custom_modules=../custom && ./cpp/godot/bin/godot.linuxbsd.editor.x86_64 --editor --path client`. Change `godot.linuxbsd.editor.x86_64` to your Godot editor executable if not on linux.
 
 ### Building the editor
-Run `scons custom_modules=../custom` from `cpp/godot` folder. After building, Godot editor will be in `cpp/godot/bin`. Add `target=release` for better performance at the cost of getting worst error message.
+Run `scons custom_modules=../custom` from `cpp/godot` folder. After building, Godot editor will be in `cpp/godot/bin`. Add `target=release` for better performance at the cost of getting worse error message.
 
 ### compile_commands.json
 If working with clangd add `compiledb=yes` and move `cpp/godot/compile_commands.json` to `cpp/compile_commands.json`.
 
-###### Table of contents
+## Server Build
+This shouldn't be needed. `launch.sh` takes care of building, launching and updating the server. Otherwise, read on:
+
+Run cargo from `server` folder. By default database and instance are merged into a single executable which is only useful for testing. Build for either by adding `--feature database` or `--feature instance`.
+
+## Design Document
+
+##### Table of contents
 
 [User Experience](https://github.com/indubitablement2/eos#user-experience)
 
@@ -21,14 +28,6 @@ If working with clangd add `compiledb=yes` and move `cpp/godot/compile_commands.
 [Market](https://github.com/indubitablement2/eos#Market)
 
 [Inspiration](https://github.com/indubitablement2/eos#Inspiration)
-
-### Dependencies
-
-server (login, db, step metascape)
-metascape
-battlescape
-common (packet, idx, data)
-client (interpolation)
 
 ## User Experience
 
