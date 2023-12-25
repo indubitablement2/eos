@@ -2,13 +2,13 @@
 ![Project Logo](logo.jpg)
 
 ## Client Build
-Lazy command from root folder: `scons -C cpp/godot custom_modules=../custom && ./cpp/godot/bin/godot.linuxbsd.editor.x86_64 --editor --path client`. Change `godot.linuxbsd.editor.x86_64` to your Godot editor executable if not on linux.
+Lazy command from root folder: `scons -C godot custom_modules=godot_module && ./godot/bin/godot.linuxbsd.editor.x86_64 --editor --path client`. Change `godot.linuxbsd.editor.x86_64` to your Godot editor executable if not on linux.
 
 ### Building the editor
-Run `scons custom_modules=../custom` from `cpp/godot` folder. After building, Godot editor will be in `cpp/godot/bin`. Add `target=release` for better performance at the cost of getting worse error message.
+Run `scons custom_modules=../godot_module` from `godot` folder. After building, Godot editor will be in `godot/bin`. Add `target=release` for better performance at the cost of getting worse error message.
 
 ### compile_commands.json
-If working with clangd add `compiledb=yes` and move `cpp/godot/compile_commands.json` to `cpp/compile_commands.json`.
+If working with clangd add `compiledb=yes` and move `godot/compile_commands.json` to root folder.
 
 ## Server Build
 This shouldn't be needed. `launch.sh` takes care of building, launching and updating the server. Otherwise, read on:
