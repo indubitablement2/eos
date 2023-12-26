@@ -30,6 +30,9 @@ use std::time::{Duration, Instant};
 
 // TODO: Database:
 // Add starting ship database resquest (if no ship)
+// keep track of logged-in client
+// only send fleet update to client when something changed
+// only store hashed password
 // // Check invariants on startup (armor cell size, username -> client, all battlescapes from data exist)
 // // Do not store encoded value in database
 // // Add global time tracking
@@ -39,10 +42,13 @@ use std::time::{Duration, Instant};
 // // notify instance ship changes and send to client (subscribtion based)
 
 // TODO: Instance:
+// remove outbound (only battlescape has any)
+// add fast way for client to change battlescape on same instance without reconnect 
 // Keep track of what data client has and send as needed instead of waiting for query
 // add ships to intermitent battlescape save
 
 // TODO: Battlescape:
+// rename to simulation
 // figure out how to handle collisions
 // shield
 

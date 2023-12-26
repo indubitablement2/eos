@@ -10,6 +10,8 @@ Run `scons custom_modules=../godot_custom` from `godot` folder. After building, 
 ### compile_commands.json
 If working with clangd add `compiledb=yes` and move `godot/compile_commands.json` to root folder.
 
+Lazy command from `godot_custom`: scons -C ../godot custom_modules=../godot_custom compiledb=yes && mv ../godot/compile_commands.json ../
+
 ## Server Build
 This shouldn't be needed. `launch.sh` takes care of building, launching and updating the server. Otherwise, read on:
 
