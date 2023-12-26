@@ -2,10 +2,10 @@
 ![Project Logo](logo.jpg)
 
 ## Client Build
-Lazy command from root folder: `scons -C godot custom_modules=godot_module && ./godot/bin/godot.linuxbsd.editor.x86_64 --editor --path client`. Change `godot.linuxbsd.editor.x86_64` to your Godot editor executable if not on linux.
+Lazy command from root folder: `scons -C godot custom_modules=../godot_custom && ./godot/bin/godot.linuxbsd.editor.x86_64 --editor --path client`. Change `godot.linuxbsd.editor.x86_64` to your Godot editor executable if not on linux.
 
 ### Building the editor
-Run `scons custom_modules=../godot_module` from `godot` folder. After building, Godot editor will be in `godot/bin`. Add `target=release` for better performance at the cost of getting worse error message.
+Run `scons custom_modules=../godot_custom` from `godot` folder. After building, Godot editor will be in `godot/bin`. Add `target=release` for better performance at the cost of getting worse error message.
 
 ### compile_commands.json
 If working with clangd add `compiledb=yes` and move `godot/compile_commands.json` to root folder.

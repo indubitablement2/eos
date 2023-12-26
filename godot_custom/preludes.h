@@ -2,10 +2,6 @@
 #define PRELUDES_HPP
 
 #include "core/error/error_macros.h"
-#include "editor/connections_dialog.h"
-#include "godot/core/typedefs.h"
-#include <cstdlib>
-#include <unordered_map>
 #include <vector>
 
 using u8 = uint8_t;
@@ -35,20 +31,17 @@ const i32 MAX_I32 = INT32_MAX;
 const i64 MIN_I64 = INT64_MIN;
 const i64 MAX_I64 = INT64_MAX;
 
+#define TEST_ASSERT(m_cond, m_msg) CRASH_COND_MSG(!(m_cond), m_msg)
+// #define TEST_ASSERT(m_cond, m_msg) ((void)0)
+
 template <typename T>
 inline T swap_remove(std::vector<T> &vec, const u32 i) {
-	assert(i < vec.size());
+	TEST_ASSERT(i < vec.size(), "Index out of bounds");
 
 	auto v = vec[i];
 	vec[i] = vec[vec.size() - 1];
+	vec.pop_back();
 	return v;
 }
-
-#define TEST_ASSERT_ENABLED
-#ifdef TEST_ASSERT_ENABLED
-#define TEST_ASSERT(m_cond, m_msg) CRASH_COND_MSG(!(m_cond), m_msg)
-#else
-#define TEST_ASSERT(m_cond, m_msg) ((void)0)
-#endif
 
 #endif // PRELUDES_HPP

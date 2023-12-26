@@ -2,7 +2,7 @@
 #include "core/object/class_db.h"
 #include "grid.h"
 
-void initialize_custom_module(ModuleInitializationLevel p_level) {
+void initialize_godot_custom_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}
@@ -11,7 +11,7 @@ void initialize_custom_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_abstract_class<Grid>();
 }
 
-void uninitialize_custom_module(ModuleInitializationLevel p_level) {
+void uninitialize_godot_custom_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}
