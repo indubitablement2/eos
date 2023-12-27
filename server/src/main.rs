@@ -1,4 +1,3 @@
-mod battlescape;
 mod connection;
 mod data;
 mod database;
@@ -7,6 +6,7 @@ mod ids;
 mod instance;
 mod interval;
 mod logger;
+mod simulation;
 
 use ahash::{AHashMap, AHashSet, RandomState};
 use anyhow::Context;
@@ -33,29 +33,30 @@ use std::time::{Duration, Instant};
 // keep track of logged-in client
 // only send fleet update to client when something changed
 // only store hashed password
-// // Check invariants on startup (armor cell size, username -> client, all battlescapes from data exist)
+// // Check invariants on startup (armor cell size, username -> client, all simulations from data exist)
 // // Do not store encoded value in database
 // // Add global time tracking
-// // Create battlescape cmd
-// // Balance battlescapes
-// // move ship to battlescape cmd
+// // Create simulation cmd
+// // Balance simulations
+// // move ship to simulation cmd
 // // notify instance ship changes and send to client (subscribtion based)
 
 // TODO: Instance:
-// // remove outbound (only battlescape has any)
-// add fast way for client to change battlescape on same instance without reconnect
+// // remove client outbound (only simulation has any)
+// add fast way for client to change simulation on same instance without reconnect
 // Keep track of what data client has and send as needed instead of waiting for query
-// add ships to intermitent battlescape save
+// add ships to intermitent simulation save
+// simulation packets shouldn't need to pass through instance
 
-// TODO: Battlescape:
-// rename to simulation
+// TODO: Simulation:
+// // rename to simulation
 // figure out how to handle collisions
 // shield
 
 // TODO: Client:
-// add c++
-// impl binary decoder/encoder
-// add packet base class and one child for each packet type
+// // add c++
+// // impl binary decoder/encoder
+// // add packet base class and one child for each packet type
 
 static _TOKIO_RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
 fn tokio() -> &'static tokio::runtime::Runtime {

@@ -1,8 +1,8 @@
 #![allow(unused)]
 
 use super::*;
-use battlescape::entity::EntityData;
 use entity_data_id_err::*;
+use simulation::entity::EntityData;
 use std::{
     num::{NonZeroU32, NonZeroU64},
     ops::Deref,
@@ -115,8 +115,8 @@ impl Default for ShipId {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct BattlescapeId(NonZeroU64);
-impl BattlescapeId {
+pub struct SimulationId(NonZeroU64);
+impl SimulationId {
     pub fn from_u64(id: u64) -> Option<Self> {
         NonZeroU64::new(id).map(Self)
     }
@@ -131,7 +131,7 @@ impl BattlescapeId {
         current
     }
 }
-impl Default for BattlescapeId {
+impl Default for SimulationId {
     fn default() -> Self {
         Self::from_u64(1).unwrap()
     }

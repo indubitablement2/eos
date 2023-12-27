@@ -1,8 +1,8 @@
 use super::*;
-use battlescape::{entity::EntitySave, BattlescapeSave};
 use chrono::{DateTime, FixedOffset, Utc};
 use instance::ClientLoginType;
 use rayon::prelude::*;
+use simulation::{entity::EntitySave, SimulationSave};
 use std::{
     fs::File,
     io::{BufReader, BufWriter, Read, Write},
@@ -22,13 +22,13 @@ pub enum DatabaseRequest {
         login: ClientLoginType,
         response_token: u64,
     },
-    SaveBattlescape {
-        battlescape_id: BattlescapeId,
-        battlescape_save: BattlescapeSave,
+    SaveSimulation {
+        simulation_id: SimulationId,
+        simulation_save: SimulationSave,
     },
     SaveShip {
         ship_id: ShipId,
-        battlescape_id: BattlescapeId,
+        simulation_id: SimulationId,
         save: EntitySave,
     },
     DeleteShip {
@@ -50,10 +50,10 @@ impl Packet for DatabaseRequest {
 /// Batched and processed in parallel.
 #[derive(Serialize, Deserialize)]
 pub enum DatabaseQuery {
-    /// Will respond with [DatabaseBattlescapeResponse::ClientShips].
+    /// Will respond with [DatabaseSimulationResponse::ClientShips].
     ClientShips {
         client_id: ClientId,
-        from: BattlescapeId,
+        from: SimulationId,
     },
 }
 
@@ -63,14 +63,14 @@ pub enum DatabaseResponse {
         client_id: Option<ClientId>,
         response_token: u64,
     },
-    HandleBattlescape {
-        battlescape_id: BattlescapeId,
-        battlescape_save: BattlescapeSave,
+    HandleSimulation {
+        simulation_id: SimulationId,
+        simulation_save: SimulationSave,
     },
     SaveAllSystems,
-    DatabaseBattlescapeResponse {
-        to: BattlescapeId,
-        response: DatabaseBattlescapeResponse,
+    DatabaseSimulationResponse {
+        to: SimulationId,
+        response: DatabaseSimulationResponse,
     },
 }
 impl Packet for DatabaseResponse {
@@ -84,7 +84,7 @@ impl Packet for DatabaseResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-pub enum DatabaseBattlescapeResponse {
+pub enum DatabaseSimulationResponse {
     ClientShips {
         client_id: ClientId,
         /// vec of [ClientShip]
@@ -99,7 +99,7 @@ pub enum DatabaseBattlescapeResponse {
 #[derive(Serialize)]
 struct ClientShip {
     ship_id: ShipId,
-    battlescape_id: BattlescapeId,
+    simulation_id: SimulationId,
     flags: u8,
 }
 
@@ -129,7 +129,7 @@ struct Database {
     #[serde(skip)]
     queries: Vec<(DatabaseQuery, InstanceId)>,
 
-    battlescapes: AHashMap<BattlescapeId, Battlescape>,
+    simulations: AHashMap<SimulationId, Simulation>,
     ships: AHashMap<ShipId, Ship>,
 
     next_client_id: ClientId,
@@ -141,15 +141,15 @@ struct Instance {
 }
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
-struct Battlescape {
-    battlescape_save: BattlescapeSave,
+struct Simulation {
+    simulation_save: SimulationSave,
     #[serde(skip)]
     ships: AHashSet<ShipId>,
 }
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
 struct Ship {
-    battlescape_id: BattlescapeId,
+    simulation_id: SimulationId,
     save: EntitySave,
 }
 #[derive(Serialize, Deserialize, Default)]
@@ -175,7 +175,7 @@ impl Default for Database {
             connection_listener: ConnectionListener::bind(data().database_addr).unwrap(),
             instances: Default::default(),
             queries: Default::default(),
-            battlescapes: Default::default(),
+            simulations: Default::default(),
             ships: Default::default(),
             next_client_id: Default::default(),
             clients: Default::default(),
@@ -191,8 +191,8 @@ impl Default for Database {
 impl Database {
     /// Checks that all data is valid.
     fn prepare(&mut self) {
-        for (battlescape_id, system_data) in data().systems.iter() {
-            self.battlescapes.entry(*battlescape_id).or_default();
+        for (simulation_id, system_data) in data().systems.iter() {
+            self.simulations.entry(*simulation_id).or_default();
         }
 
         for (username, client_id) in self.username.iter() {
@@ -209,8 +209,8 @@ impl Database {
         self.ships.retain(|ship_id, ship| {
             ship.save.verify();
 
-            if let Some(battlescape) = self.battlescapes.get_mut(&ship.battlescape_id) {
-                battlescape.ships.insert(*ship_id);
+            if let Some(simulation) = self.simulations.get_mut(&ship.simulation_id) {
+                simulation.ships.insert(*ship_id);
 
                 if let Some(owner) = ship.save.owner {
                     if let Some(client) = self.clients.get_mut(&owner) {
@@ -228,9 +228,9 @@ impl Database {
                 true
             } else {
                 log::error!(
-                    "{:?}'s battlescape ({:?}) not found. Removing ship",
+                    "{:?}'s simulation ({:?}) not found. Removing ship",
                     ship_id,
-                    ship.battlescape_id
+                    ship.simulation_id
                 );
                 false
             }
@@ -417,27 +417,27 @@ impl Database {
                 continue;
             }
 
-            // Send battlescapes to instance.
-            for &battlescape_id in data()
+            // Send simulations to instance.
+            for &simulation_id in data()
                 .instances
                 .get(&login.instance_id)
                 .unwrap()
                 .systems
                 .iter()
             {
-                let battlescapes = self.battlescapes.get(&battlescape_id).unwrap();
+                let simulations = &self.simulations[&simulation_id];
 
-                connection.queue(DatabaseResponse::HandleBattlescape {
-                    battlescape_id,
-                    battlescape_save: battlescapes.battlescape_save.clone(),
+                connection.queue(DatabaseResponse::HandleSimulation {
+                    simulation_id,
+                    simulation_save: simulations.simulation_save.clone(),
                 });
 
-                for &ship_id in battlescapes.ships.iter() {
+                for &ship_id in simulations.ships.iter() {
                     let ship = self.ships.get(&ship_id).unwrap();
 
-                    connection.queue(DatabaseResponse::DatabaseBattlescapeResponse {
-                        to: battlescape_id,
-                        response: DatabaseBattlescapeResponse::ShipEntered {
+                    connection.queue(DatabaseResponse::DatabaseSimulationResponse {
+                        to: simulation_id,
+                        response: DatabaseSimulationResponse::ShipEntered {
                             ship_id,
                             save: ship.save.clone(),
                         },
@@ -578,33 +578,33 @@ impl Database {
 
                 true
             }
-            DatabaseRequest::SaveBattlescape {
-                battlescape_id,
-                battlescape_save,
+            DatabaseRequest::SaveSimulation {
+                simulation_id,
+                simulation_save,
             } => {
-                self.battlescapes
-                    .get_mut(&battlescape_id)
-                    .context("Battlescape not found")?
-                    .battlescape_save = battlescape_save;
+                self.simulations
+                    .get_mut(&simulation_id)
+                    .context("Simulation not found")?
+                    .simulation_save = simulation_save;
 
                 true
             }
             DatabaseRequest::SaveShip {
                 ship_id,
-                battlescape_id,
+                simulation_id,
                 save,
             } => {
                 let new_owner = save.owner;
 
                 let ship = Ship {
-                    battlescape_id,
+                    simulation_id,
                     save,
                 };
 
                 let mut remove_old_owner = None;
                 let mut add_new_owner = None;
-                let mut remove_new_battlescape = None;
-                let mut add_new_battlescape = None;
+                let mut remove_new_simulation = None;
+                let mut add_new_simulation = None;
 
                 if let Some(old_ship) = self.ships.insert(ship_id, ship) {
                     if old_ship.save.owner != new_owner {
@@ -612,13 +612,13 @@ impl Database {
                         add_new_owner = new_owner;
                     }
 
-                    if old_ship.battlescape_id != battlescape_id {
-                        remove_new_battlescape = Some(old_ship.battlescape_id);
-                        add_new_battlescape = Some(battlescape_id);
+                    if old_ship.simulation_id != simulation_id {
+                        remove_new_simulation = Some(old_ship.simulation_id);
+                        add_new_simulation = Some(simulation_id);
                     }
                 } else {
                     add_new_owner = new_owner;
-                    add_new_battlescape = Some(battlescape_id);
+                    add_new_simulation = Some(simulation_id);
                 }
 
                 if let Some(client_id) = remove_old_owner {
@@ -636,30 +636,30 @@ impl Database {
                         .insert(ship_id);
                 }
 
-                if let Some(battlescape_id) = remove_new_battlescape {
-                    self.battlescapes
-                        .get_mut(&battlescape_id)
-                        .context("Ship's previous battlescape not found")?
+                if let Some(simulation_id) = remove_new_simulation {
+                    self.simulations
+                        .get_mut(&simulation_id)
+                        .context("Ship's previous simulation not found")?
                         .ships
                         .remove(&ship_id);
                 }
-                if let Some(battlescape_id) = add_new_battlescape {
-                    self.battlescapes
-                        .get_mut(&battlescape_id)
-                        .context("Ship's new battlescape not found")?
+                if let Some(simulation_id) = add_new_simulation {
+                    self.simulations
+                        .get_mut(&simulation_id)
+                        .context("Ship's new simulation not found")?
                         .ships
                         .insert(ship_id);
 
-                    // Notify new battlescape
+                    // Notify new simulation
                     if let Some(instance) = self
                         .instances
-                        .get(&data().systems[&battlescape_id].instance_id)
+                        .get(&data().systems[&simulation_id].instance_id)
                     {
                         instance
                             .connection
-                            .queue(DatabaseResponse::DatabaseBattlescapeResponse {
-                                to: battlescape_id,
-                                response: DatabaseBattlescapeResponse::ShipEntered {
+                            .queue(DatabaseResponse::DatabaseSimulationResponse {
+                                to: simulation_id,
+                                response: DatabaseSimulationResponse::ShipEntered {
                                     ship_id,
                                     save: self.ships[&ship_id].save.clone(),
                                 },
@@ -677,8 +677,8 @@ impl Database {
                         }
                     }
 
-                    if let Some(battlescape) = self.battlescapes.get_mut(&ship.battlescape_id) {
-                        battlescape.ships.remove(&ship_id);
+                    if let Some(simulation) = self.simulations.get_mut(&ship.simulation_id) {
+                        simulation.ships.remove(&ship_id);
                     }
                 }
 
@@ -717,7 +717,7 @@ impl Database {
                             let ship = self.ships.get(ship_id).unwrap();
                             ClientShip {
                                 ship_id: *ship_id,
-                                battlescape_id: ship.battlescape_id,
+                                simulation_id: ship.simulation_id,
                                 flags: 0,
                             }
                         })
@@ -725,9 +725,9 @@ impl Database {
                 );
 
                 self.instances[&from_instance].connection.queue(
-                    DatabaseResponse::DatabaseBattlescapeResponse {
+                    DatabaseResponse::DatabaseSimulationResponse {
                         to: *from,
-                        response: DatabaseBattlescapeResponse::ClientShips {
+                        response: DatabaseSimulationResponse::ClientShips {
                             client_id: *client_id,
                             client_ships,
                         },

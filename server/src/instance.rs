@@ -1,8 +1,8 @@
 use super::*;
-use battlescape::client::Client;
-use battlescape::*;
 use connection::*;
 use database::*;
+use simulation::client::Client;
+use simulation::*;
 
 pub fn _start() {
     let mut state = State::new();
@@ -26,10 +26,10 @@ struct State {
     database_outbound: ConnectionOutbound,
 
     client_listener: ConnectionListener<ClientLogin>,
-    logins: AHashMap<u64, (Connection, BattlescapeId)>,
+    logins: AHashMap<u64, (Connection, SimulationId)>,
     next_login_token: u64,
 
-    battlescapes: IndexMap<BattlescapeId, Sender<BattlescapeInbound>, RandomState>,
+    simulations: IndexMap<SimulationId, Sender<SimulationInbound>, RandomState>,
 }
 impl State {
     fn new() -> Self {
@@ -52,7 +52,7 @@ impl State {
             client_listener,
             logins: Default::default(),
             next_login_token: 0,
-            battlescapes: Default::default(),
+            simulations: Default::default(),
         }
     }
 
@@ -60,8 +60,8 @@ impl State {
     fn step(&mut self) -> bool {
         // Get new client connections.
         while let Some((connection, login)) = self.client_listener.recv() {
-            if !self.battlescapes.contains_key(&login.battlescape_id) {
-                connection.close("Instance does not have requested battlescape");
+            if !self.simulations.contains_key(&login.simulation_id) {
+                connection.close("Instance does not have requested simulation");
                 continue;
             }
 
@@ -70,7 +70,7 @@ impl State {
                 response_token: self.next_login_token,
             });
             self.logins
-                .insert(self.next_login_token, (connection, login.battlescape_id));
+                .insert(self.next_login_token, (connection, login.simulation_id));
             self.next_login_token += 1;
         }
 
@@ -100,18 +100,18 @@ impl State {
                 client_id,
                 response_token,
             } => {
-                let (connection, battlescape_id) = self
+                let (connection, simulation_id) = self
                     .logins
                     .remove(&response_token)
                     .context("Login should be there")?;
 
                 if let Some(client_id) = client_id {
                     let sender = self
-                        .battlescapes
-                        .get(&battlescape_id)
-                        .context("Client's requested battlescape should be there")?;
+                        .simulations
+                        .get(&simulation_id)
+                        .context("Client's requested simulation should be there")?;
 
-                    sender.send(BattlescapeInbound::NewClient {
+                    sender.send(SimulationInbound::NewClient {
                         client_id,
                         client: Client::new(connection),
                     })?;
@@ -119,36 +119,35 @@ impl State {
                     connection.close("Failed to authenticate");
                 }
             }
-            DatabaseResponse::HandleBattlescape {
-                battlescape_id,
-                battlescape_save,
+            DatabaseResponse::HandleSimulation {
+                simulation_id,
+                simulation_save,
             } => {
                 let database_outbound = self.database_outbound.clone();
-                let (battlescape_outbound, battlescape_inbound) = unbounded();
+                let (simulation_outbound, simulation_inbound) = unbounded();
 
-                self.battlescapes
-                    .insert(battlescape_id, battlescape_outbound);
+                self.simulations.insert(simulation_id, simulation_outbound);
 
                 std::thread::spawn(move || {
-                    battlescape_loop(Battlescape::new(
-                        battlescape_id,
+                    simulation_loop(Simulation::new(
+                        simulation_id,
                         database_outbound,
-                        battlescape_inbound,
-                        battlescape_save,
+                        simulation_inbound,
+                        simulation_save,
                     ));
                 });
             }
             DatabaseResponse::SaveAllSystems => {
-                for sender in self.battlescapes.values() {
-                    let _ = sender.send(BattlescapeInbound::SaveRequest);
+                for sender in self.simulations.values() {
+                    let _ = sender.send(SimulationInbound::SaveRequest);
                 }
             }
-            DatabaseResponse::DatabaseBattlescapeResponse { to, response } => {
+            DatabaseResponse::DatabaseSimulationResponse { to, response } => {
                 let sender = self
-                    .battlescapes
+                    .simulations
                     .get(&to)
-                    .context("Battlescape should be there")?;
-                sender.send(BattlescapeInbound::DatabaseBattlescapeResponse(response))?;
+                    .context("Simulation should be there")?;
+                sender.send(SimulationInbound::DatabaseSimulationResponse(response))?;
             }
         }
 
@@ -156,17 +155,17 @@ impl State {
     }
 }
 
-fn battlescape_loop(mut battlescape: Battlescape) {
+fn simulation_loop(mut simulation: Simulation) {
     let mut interval = interval::Interval::new(DT_MS, DT_MS * 8);
     loop {
         interval.step();
-        battlescape.step();
+        simulation.step();
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ClientLogin {
-    battlescape_id: BattlescapeId,
+    simulation_id: SimulationId,
     login_type: ClientLoginType,
 }
 impl Packet for ClientLogin {

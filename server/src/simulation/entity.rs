@@ -28,7 +28,7 @@ pub struct Entity {
 impl Entity {
     // TODO: from save
     pub fn new(
-        battlescape: &mut Battlescape,
+        battlescape: &mut Simulation,
 
         mut save: EntitySave,
 
@@ -376,7 +376,7 @@ impl EntitySave {
         }
     }
 
-    pub fn from_entity(entity: &Entity, battlescape: &Battlescape) -> Self {
+    pub fn from_entity(entity: &Entity, battlescape: &Simulation) -> Self {
         let body = battlescape.physics.body(entity.rb);
         Self {
             data: entity.data,

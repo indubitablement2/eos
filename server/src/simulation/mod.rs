@@ -15,21 +15,21 @@ pub const DT: f32 = 1.0 / 20.0;
 pub const DT_MS: u64 = 50;
 const TICK_PER_SECOND: u64 = 1000 / DT_MS;
 
-/// How many tick between battlescape saves. (30 minutes)
+/// How many tick between simulation saves. (30 minutes)
 const SAVE_INTERVAL: u64 = 30 * 60 * TICK_PER_SECOND;
 /// Add some randomness to stagger saves.
 const SAVE_INTERVAL_RANDOMNESS: Range<u64> = 0..4096;
 
 const RADIUS: f32 = 100.0;
 
-pub enum BattlescapeInbound {
-    DatabaseBattlescapeResponse(DatabaseBattlescapeResponse),
+pub enum SimulationInbound {
+    DatabaseSimulationResponse(DatabaseSimulationResponse),
     NewClient { client_id: ClientId, client: Client },
     SaveRequest,
 }
 
-pub struct Battlescape {
-    battlescape_id: BattlescapeId,
+pub struct Simulation {
+    simulation_id: SimulationId,
 
     /// Seconds since unix epoch of current step.
     global_time: f64,
@@ -46,16 +46,16 @@ pub struct Battlescape {
     objects: Vec<Object>,
 
     database_outbound: ConnectionOutbound,
-    battlescape_inbound: Receiver<BattlescapeInbound>,
+    simulation_inbound: Receiver<SimulationInbound>,
 
     clients: IndexMap<ClientId, Client, RandomState>,
 }
-impl Battlescape {
+impl Simulation {
     pub fn new(
-        battlescape_id: BattlescapeId,
+        simulation_id: SimulationId,
         database_outbound: ConnectionOutbound,
-        battlescape_inbound: Receiver<BattlescapeInbound>,
-        save: BattlescapeSave,
+        simulation_inbound: Receiver<SimulationInbound>,
+        save: SimulationSave,
     ) -> Self {
         Self {
             tick: 0,
@@ -65,12 +65,12 @@ impl Battlescape {
             entities: Default::default(),
             objects: Default::default(),
             clients: Default::default(),
-            battlescape_id,
+            simulation_id,
 
             global_time: global_time(),
             next_save_tick: thread_rng().gen_range(SAVE_INTERVAL_RANDOMNESS),
             database_outbound,
-            battlescape_inbound,
+            simulation_inbound,
         }
     }
 
@@ -79,10 +79,10 @@ impl Battlescape {
         self.global_time = global_time();
 
         // Handle inbound.
-        while let Ok(inbound) = self.battlescape_inbound.try_recv() {
+        while let Ok(inbound) = self.simulation_inbound.try_recv() {
             match inbound {
-                BattlescapeInbound::DatabaseBattlescapeResponse(response) => match response {
-                    DatabaseBattlescapeResponse::ClientShips {
+                SimulationInbound::DatabaseSimulationResponse(response) => match response {
+                    DatabaseSimulationResponse::ClientShips {
                         client_id,
                         client_ships,
                     } => {
@@ -92,21 +92,21 @@ impl Battlescape {
                             });
                         }
                     }
-                    DatabaseBattlescapeResponse::ShipEntered {
+                    DatabaseSimulationResponse::ShipEntered {
                         ship_id,
                         save: entity_save,
                     } => {
                         self.spawn_entity(entity_save, None, None, Some(ship_id));
                     }
                 },
-                BattlescapeInbound::NewClient { client_id, client } => {
+                SimulationInbound::NewClient { client_id, client } => {
                     client.connection.queue(ClientOutbound::EnteredSystem {
                         client_id,
-                        system_id: self.battlescape_id,
+                        system_id: self.simulation_id,
                     });
                     self.clients.insert(client_id, client);
                 }
-                BattlescapeInbound::SaveRequest => {
+                SimulationInbound::SaveRequest => {
                     self.save();
                 }
             }
@@ -172,12 +172,12 @@ impl Battlescape {
         self.next_save_tick =
             self.tick + SAVE_INTERVAL + self.rng.gen_range(SAVE_INTERVAL_RANDOMNESS);
 
-        let battlescape_save = BattlescapeSave {};
+        let simulation_save = SimulationSave {};
 
         self.database_outbound
-            .queue(DatabaseRequest::SaveBattlescape {
-                battlescape_id: self.battlescape_id,
-                battlescape_save,
+            .queue(DatabaseRequest::SaveSimulation {
+                simulation_id: self.simulation_id,
+                simulation_save,
             });
         // TODO: Save ships
         // TODO: Save planets?
@@ -236,26 +236,26 @@ impl Object {
     }
 
     // Removed if returning `false`.
-    fn update_retain(&mut self, battlescape: &mut Battlescape) -> bool {
+    fn update_retain(&mut self, simulation: &mut Simulation) -> bool {
         match self {
             Self::Seek { entity_id } => {
-                let Some((entity_idx, _, entity)) = battlescape.entities.get_full(entity_id) else {
+                let Some((entity_idx, _, entity)) = simulation.entities.get_full(entity_id) else {
                     return false;
                 };
 
                 // Map to target's translation.
                 if let Some(target) = entity
                     .target
-                    .and_then(|target| battlescape.entities.get(&target))
-                    .map(|target| *battlescape.physics.body(target.rb).translation())
+                    .and_then(|target| simulation.entities.get(&target))
+                    .map(|target| *simulation.physics.body(target.rb).translation())
                 {
-                    battlescape.entities[entity_idx].wish_angvel = WishAngVel::AimSmooth(target);
+                    simulation.entities[entity_idx].wish_angvel = WishAngVel::AimSmooth(target);
                 }
 
                 true
             }
             Self::Ship { entity_id } => {
-                let Some((entity_idx, _, entity)) = battlescape.entities.get_full(entity_id) else {
+                let Some((entity_idx, _, entity)) = simulation.entities.get_full(entity_id) else {
                     return false;
                 };
 
@@ -273,12 +273,12 @@ impl Object {
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(default)]
-pub struct BattlescapeSave {
+pub struct SimulationSave {
     // TODO: Debris
     // TODO: items
     // TODO: planets state
 }
-impl Default for BattlescapeSave {
+impl Default for SimulationSave {
     fn default() -> Self {
         Self {}
     }

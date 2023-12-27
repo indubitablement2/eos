@@ -35,7 +35,7 @@ impl Packet for ClientInbound {
 pub enum ClientOutbound {
     EnteredSystem {
         client_id: ClientId,
-        system_id: BattlescapeId,
+        system_id: SimulationId,
     },
     ClientShips {
         ships: Vec<u8>,

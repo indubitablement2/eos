@@ -1,5 +1,5 @@
 use super::*;
-use battlescape::entity::{EntityData, EntityDataJson};
+use simulation::entity::{EntityData, EntityDataJson};
 use std::{fs::File, io::BufReader};
 
 const DATA_PATH: &str = "eos/client/tool/data.json";
@@ -17,16 +17,16 @@ pub struct Data {
     pub database_addr: SocketAddr,
     pub database_key: Vec<u8>,
     pub instances: AHashMap<InstanceId, InstanceData>,
-    pub systems: AHashMap<BattlescapeId, SystemData>,
+    pub simulations: AHashMap<SimulationId, SimulationData>,
     pub entities: Vec<EntityData>,
 }
 
 pub struct InstanceData {
     pub addr: SocketAddr,
-    pub systems: Vec<BattlescapeId>,
+    pub simulations: Vec<SimulationId>,
 }
 
-pub struct SystemData {
+pub struct SimulationData {
     pub instance_id: InstanceId,
 }
 
@@ -55,30 +55,31 @@ fn parse_json(config: ConfigJson, json: DataJson) -> Data {
                 instance_id,
                 InstanceData {
                     addr: instance_addr.parse().unwrap(),
-                    systems: Vec::new(),
+                    simulations: Vec::new(),
                 },
             )
         },
     ));
 
-    let systems = AHashMap::from_iter(json.systems.into_iter().map(|(id, system_json)| {
-        instances
-            .get_mut(&system_json.instance)
-            .unwrap()
-            .systems
-            .push(id);
+    let simulations =
+        AHashMap::from_iter(json.simulations.into_iter().map(|(id, simulation_json)| {
+            instances
+                .get_mut(&simulation_json.instance)
+                .unwrap()
+                .simulations
+                .push(id);
 
-        (
-            id,
-            SystemData {
-                instance_id: system_json.instance,
-            },
-        )
-    }));
+            (
+                id,
+                SimulationData {
+                    instance_id: simulation_json.instance,
+                },
+            )
+        }));
 
     instances.retain(|instance_id, instance| {
-        if instance.systems.is_empty() {
-            log::warn!("{:?} does not have any system", instance_id);
+        if instance.simulations.is_empty() {
+            log::warn!("{:?} does not have any simulation", instance_id);
             false
         } else {
             true
@@ -96,7 +97,7 @@ fn parse_json(config: ConfigJson, json: DataJson) -> Data {
         database_addr: config.database_addr.parse().unwrap(),
         database_key: config.database_key.into_bytes(),
         instances,
-        systems,
+        simulations,
         entities,
     }
 }
@@ -115,12 +116,12 @@ struct ConfigJson {
 #[derive(Serialize, Deserialize)]
 struct DataJson {
     instances: AHashMap<InstanceId, String>,
-    systems: AHashMap<BattlescapeId, SystemDataJson>,
+    simulations: AHashMap<SimulationId, SimulationDataJson>,
     entities: Vec<EntityDataJson>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-struct SystemDataJson {
+struct SimulationDataJson {
     instance: InstanceId,
 }
 
@@ -142,7 +143,7 @@ fn json_test() -> DataJson {
         "[::]:3552".to_string(),
     ];
 
-    let system_data_json = SystemDataJson {
+    let simulation_data_json = SimulationDataJson {
         instance: InstanceId::from_u32(1).unwrap(),
     };
 
@@ -153,10 +154,10 @@ fn json_test() -> DataJson {
                 .enumerate()
                 .map(|(i, addr)| (InstanceId::from_u32(i as u32 + 1).unwrap(), addr)),
         ),
-        systems: AHashMap::from_iter((1..4).map(|i| {
+        simulations: AHashMap::from_iter((1..4).map(|i| {
             (
-                BattlescapeId::from_u64(i).unwrap(),
-                system_data_json.clone(),
+                SimulationId::from_u64(i).unwrap(),
+                simulation_data_json.clone(),
             )
         })),
         entities: vec![Default::default()],
