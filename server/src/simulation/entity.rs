@@ -28,16 +28,16 @@ pub struct Entity {
 impl Entity {
     // TODO: from save
     pub fn new(
-        battlescape: &mut Simulation,
+        simulation: &mut Simulation,
 
         mut save: EntitySave,
 
         entity_id: EntityId,
 
-        ignore: Option<EntityId>,
+        group_ignore: u64,
         target: Option<EntityId>,
     ) -> Entity {
-        let rb = battlescape.physics.add_body(
+        let rb = simulation.physics.add_body(
             save.position,
             save.linvel,
             save.angvel,
@@ -45,7 +45,7 @@ impl Entity {
             save.data.groups,
             save.data.mprops,
             entity_id,
-            ignore,
+            group_ignore,
         );
 
         let mut s = Self {
@@ -66,12 +66,10 @@ impl Entity {
         for new_event in save.data.on_new.iter() {
             match new_event {
                 EntityEvent::Ship => {
-                    battlescape.objects.push(Object::Ship { entity_id });
+                    simulation.objects.push(Object::Ship { entity_id });
                 }
                 EntityEvent::Seek => {
-                    battlescape
-                        .objects
-                        .push(Object::new_seek(&mut s, entity_id));
+                    simulation.objects.push(Object::new_seek(&mut s, entity_id));
                 }
             }
         }

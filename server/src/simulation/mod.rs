@@ -9,8 +9,6 @@ use physics::*;
 use rapier2d::prelude::*;
 use std::ops::Range;
 
-type SimRng = rand_xoshiro::Xoshiro128StarStar;
-
 pub const DT: f32 = 1.0 / 20.0;
 pub const DT_MS: u64 = 50;
 const TICK_PER_SECOND: u64 = 1000 / DT_MS;
@@ -35,7 +33,6 @@ pub struct Simulation {
     global_time: f64,
     tick: u64,
     next_save_tick: u64,
-    rng: SimRng,
 
     physics: Physics,
 
@@ -59,7 +56,6 @@ impl Simulation {
     ) -> Self {
         Self {
             tick: 0,
-            rng: SimRng::from_entropy(),
             physics: Default::default(),
             next_entity_id: Default::default(),
             entities: Default::default(),
@@ -170,7 +166,7 @@ impl Simulation {
 
     fn save(&mut self) {
         self.next_save_tick =
-            self.tick + SAVE_INTERVAL + self.rng.gen_range(SAVE_INTERVAL_RANDOMNESS);
+            self.tick + SAVE_INTERVAL + thread_rng().gen_range(SAVE_INTERVAL_RANDOMNESS);
 
         let simulation_save = SimulationSave {};
 
@@ -186,7 +182,7 @@ impl Simulation {
     fn spawn_entity(
         &mut self,
         save: EntitySave,
-        ignore: Option<EntityId>,
+        group_ignore: Option<u64>,
         target: Option<EntityId>,
         ship_id: Option<ShipId>,
     ) -> (EntityId, usize) {
@@ -196,7 +192,13 @@ impl Simulation {
             self.next_entity_id.next()
         };
 
-        let entity = Entity::new(self, save, entity_id, ignore, target);
+        let entity = Entity::new(
+            self,
+            save,
+            entity_id,
+            group_ignore.unwrap_or_else(|| thread_rng().gen()),
+            target,
+        );
         let entity_idx = self.entities.insert_full(entity_id, entity).0;
 
         (entity_id, entity_idx)

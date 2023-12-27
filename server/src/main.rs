@@ -49,6 +49,7 @@ use std::time::{Duration, Instant};
 // simulation packets shouldn't need to pass through instance
 
 // TODO: Simulation:
+// add ignore group (no collision between entities in same group)
 // // rename to simulation
 // figure out how to handle collisions
 // shield

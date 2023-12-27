@@ -58,6 +58,7 @@ pub struct Physics {
     multibody_joints: MultibodyJointSet,
     ccd_solver: CCDSolver,
     pub events: PhysicsEventCollector,
+    next_group_ignore: u64,
 }
 impl Physics {
     pub fn step(&mut self) {
@@ -80,8 +81,7 @@ impl Physics {
         );
     }
 
-    /// ignore: Optional EntityId to ignore collisions with.
-    /// Useful for ignoring collisions with the entity that spawned the body.
+    /// group_ignore: Any entity in the same group ignore will not interact.
     /// Can only have one.
     pub fn add_body(
         &mut self,
@@ -94,13 +94,13 @@ impl Physics {
         mprops: MassProperties,
 
         entity_id: EntityId,
-        ignore: Option<EntityId>,
+        group_ignore: u64,
     ) -> RigidBodyHandle {
         let rb = RigidBodyBuilder::dynamic()
             .position(position)
             .linvel(linvel)
             .angvel(angvel)
-            .user_data(UserData::pack_body(entity_id, ignore))
+            .user_data(UserData::pack_body(entity_id, group_ignore))
             .linear_damping(DEFAULT_LINEAR_DAMPING)
             .angular_damping(DEFAULT_ANGULAR_DAMPING)
             .build();
@@ -149,20 +149,20 @@ impl Physics {
             .unwrap()
     }
 
-    pub fn intersection_with_shape(
-        &self,
-        shape_pos: &Isometry<Real>,
-        shape: &dyn Shape,
-        filter: QueryFilter,
-    ) -> Option<ColliderHandle> {
-        self.query_pipeline.intersection_with_shape(
-            &self.bodies,
-            &self.colliders,
-            shape_pos,
-            shape,
-            filter,
-        )
-    }
+    // pub fn intersection_with_shape(
+    //     &self,
+    //     shape_pos: &Isometry<Real>,
+    //     shape: &dyn Shape,
+    //     filter: QueryFilter,
+    // ) -> Option<ColliderHandle> {
+    //     self.query_pipeline.intersection_with_shape(
+    //         &self.bodies,
+    //         &self.colliders,
+    //         shape_pos,
+    //         shape,
+    //         filter,
+    //     )
+    // }
 
     pub fn body(&self, rb: RigidBodyHandle) -> &RigidBody {
         &self.bodies[rb]
@@ -177,9 +177,8 @@ struct Hooks;
 impl PhysicsHooks for Hooks {
     fn filter_contact_pair(&self, context: &PairFilterContext) -> Option<SolverFlags> {
         if let Some((rb1, rb2)) = context.rigid_body1.zip(context.rigid_body2) {
-            let a = context.bodies[rb1].user_data;
-            let b = context.bodies[rb2].user_data;
-            if Some(a.entity_id()) == b.entity_ignore() || Some(b.entity_id()) == a.entity_ignore()
+            if context.bodies[rb1].user_data.group_ignore()
+                == context.bodies[rb2].user_data.group_ignore()
             {
                 return None;
             }
@@ -266,24 +265,24 @@ impl EventHandler for PhysicsEventCollector {
 
 /// Body:
 /// - EntityId: 64
-/// - EntityId ignore: 64
+/// - Group ignore: 64
 /// Collider:
 /// - EntityId: 64
 /// - Shield: 1
 pub trait UserData {
     const ID_TYPE_OFFSET: u32 = u64::BITS;
     const GROUP_IGNORE_OFFSET: u32 = Self::ID_TYPE_OFFSET + 4;
-    fn pack_body(entity_id: EntityId, ignore: Option<EntityId>) -> Self;
+    fn pack_body(entity_id: EntityId, group_ignore: u64) -> Self;
     fn pack_colider(entity_id: EntityId, shield: bool) -> Self;
     fn entity_id(self) -> EntityId;
     /// Only valid for body.
-    fn entity_ignore(self) -> Option<EntityId>;
+    fn group_ignore(self) -> u64;
     /// Only valid for collider.
     fn shield(self) -> bool;
 }
 impl UserData for u128 {
-    fn pack_body(entity_id: EntityId, ignore: Option<EntityId>) -> Self {
-        entity_id.as_u64() as u128 | (ignore.unwrap_or(entity_id).as_u64() as u128) << 64
+    fn pack_body(entity_id: EntityId, group_ignore: u64) -> Self {
+        entity_id.as_u64() as u128 | (group_ignore as u128) << 64
     }
 
     fn pack_colider(entity_id: EntityId, shield: bool) -> Self {
@@ -294,8 +293,8 @@ impl UserData for u128 {
         EntityId::from_u64(self as u64).unwrap()
     }
 
-    fn entity_ignore(self) -> Option<EntityId> {
-        EntityId::from_u64((self >> 64) as u64)
+    fn group_ignore(self) -> u64 {
+        (self >> 64) as u64
     }
 
     fn shield(self) -> bool {
