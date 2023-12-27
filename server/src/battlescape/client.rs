@@ -33,7 +33,13 @@ impl Packet for ClientInbound {
 
 #[derive(Serialize)]
 pub enum ClientOutbound {
-    ClientShips { ships: Vec<u8> },
+    EnteredSystem {
+        client_id: ClientId,
+        system_id: BattlescapeId,
+    },
+    ClientShips {
+        ships: Vec<u8>,
+    },
 }
 impl Packet for ClientOutbound {
     fn serialize(self) -> Vec<u8> {

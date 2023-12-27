@@ -100,6 +100,10 @@ impl Battlescape {
                     }
                 },
                 BattlescapeInbound::NewClient { client_id, client } => {
+                    client.connection.queue(ClientOutbound::EnteredSystem {
+                        client_id,
+                        system_id: self.battlescape_id,
+                    });
                     self.clients.insert(client_id, client);
                 }
                 BattlescapeInbound::SaveRequest => {

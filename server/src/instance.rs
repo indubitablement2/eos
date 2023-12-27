@@ -111,12 +111,6 @@ impl State {
                         .get(&battlescape_id)
                         .context("Client's requested battlescape should be there")?;
 
-                    connection.queue(ClientLoginSuccess {
-                        client_id,
-                        joined_battlescape_id: battlescape_id,
-                    });
-                    connection.flush();
-
                     sender.send(BattlescapeInbound::NewClient {
                         client_id,
                         client: Client::new(connection),
@@ -189,19 +183,4 @@ impl Packet for ClientLogin {
 pub enum ClientLoginType {
     LoginUsernamePassword { username: String, password: String },
     RegisterUsernamePassword { username: String, password: String },
-}
-
-#[derive(Serialize)]
-struct ClientLoginSuccess {
-    client_id: ClientId,
-    joined_battlescape_id: BattlescapeId,
-}
-impl Packet for ClientLoginSuccess {
-    fn serialize(self) -> Vec<u8> {
-        bin_encode(self)
-    }
-
-    fn parse(_buf: Vec<u8>) -> anyhow::Result<Self> {
-        unimplemented!()
-    }
 }

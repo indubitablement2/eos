@@ -42,8 +42,8 @@ use std::time::{Duration, Instant};
 // // notify instance ship changes and send to client (subscribtion based)
 
 // TODO: Instance:
-// remove outbound (only battlescape has any)
-// add fast way for client to change battlescape on same instance without reconnect 
+// // remove outbound (only battlescape has any)
+// add fast way for client to change battlescape on same instance without reconnect
 // Keep track of what data client has and send as needed instead of waiting for query
 // add ships to intermitent battlescape save
 
