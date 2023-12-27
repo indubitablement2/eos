@@ -1,6 +1,4 @@
 server/target
-common/target
-database/target
 
 .cache/*
 
