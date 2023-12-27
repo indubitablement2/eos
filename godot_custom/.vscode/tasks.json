@@ -1,0 +1,60 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build Editor",
+      "type": "shell",
+      "command": "scons",
+      "args": [
+        "-C",
+        "../godot",
+        "custom_modules=../godot_custom"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Launch Editor",
+      "type": "shell",
+      "problemMatcher": [],
+      "windows": {
+        "command": "..\\godot\\bin\\godot.windows.editor.x86_64.exe",
+        "args": [
+          "--editor",
+          "--path",
+          "../client"
+        ]
+      },
+      "linux": {
+        "command": "../godot/bin/godot.linuxbsd.editor.x86_64",
+        "args": [
+          "--editor",
+          "--path",
+          "../client"
+        ]
+      },
+      "osx": {
+        "command": "../godot/bin/godot.osx.editor.x86_64",
+        "args": [
+          "--editor",
+          "--path",
+          "../client"
+        ]
+      },
+    },
+    {
+      "label": "Build and Launch Editor",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Build Editor",
+        "Launch Editor"
+      ]
+    }
+  ]
+}

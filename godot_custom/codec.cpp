@@ -3,9 +3,9 @@
 #include "core/object/class_db.h"
 
 void ClientCodec::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("cancel_login"), &ClientCodec::cancel_login);
-	ClassDB::bind_method(D_METHOD("login_username_password", "addr", "battlescape_id", "username", "password"), &ClientCodec::login_username_password);
-	ClassDB::bind_method(D_METHOD("register_username_password", "addr", "battlescape_id", "username", "password"), &ClientCodec::register_username_password);
+	ClassDB::bind_method(D_METHOD("c123ancel_login"), &ClientCodec::cancel_login);
+	ClassDB::bind_method(D_METHOD("login_username_password", "url", "battlescape_id", "username", "password"), &ClientCodec::login_username_password);
+	ClassDB::bind_method(D_METHOD("register_username_password", "url", "battlescape_id", "username", "password"), &ClientCodec::register_username_password);
 
 	GDVIRTUAL_BIND(_entered_battlescape, "client_id", "battlescape_id");
 
