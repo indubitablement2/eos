@@ -137,7 +137,7 @@ impl State {
                     ));
                 });
             }
-            DatabaseResponse::SaveAllSystems => {
+            DatabaseResponse::SaveAllSimulations => {
                 for sender in self.simulations.values() {
                     let _ = sender.send(SimulationInbound::SaveRequest);
                 }

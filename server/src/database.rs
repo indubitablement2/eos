@@ -67,7 +67,7 @@ pub enum DatabaseResponse {
         simulation_id: SimulationId,
         simulation_save: SimulationSave,
     },
-    SaveAllSystems,
+    SaveAllSimulations,
     DatabaseSimulationResponse {
         to: SimulationId,
         response: DatabaseSimulationResponse,
@@ -191,7 +191,7 @@ impl Default for Database {
 impl Database {
     /// Checks that all data is valid.
     fn prepare(&mut self) {
-        for (simulation_id, system_data) in data().systems.iter() {
+        for (simulation_id, simulation_data) in data().simulations.iter() {
             self.simulations.entry(*simulation_id).or_default();
         }
 
@@ -422,7 +422,7 @@ impl Database {
                 .instances
                 .get(&login.instance_id)
                 .unwrap()
-                .systems
+                .simulations
                 .iter()
             {
                 let simulations = &self.simulations[&simulation_id];
@@ -515,7 +515,9 @@ impl Database {
                 }
 
                 for instance in self.instances.values() {
-                    instance.connection.queue(DatabaseResponse::SaveAllSystems);
+                    instance
+                        .connection
+                        .queue(DatabaseResponse::SaveAllSimulations);
                 }
 
                 self.restart_request = Some(Instant::now() + Duration::from_secs(60));
@@ -653,7 +655,7 @@ impl Database {
                     // Notify new simulation
                     if let Some(instance) = self
                         .instances
-                        .get(&data().systems[&simulation_id].instance_id)
+                        .get(&data().simulations[&simulation_id].instance_id)
                     {
                         instance
                             .connection
