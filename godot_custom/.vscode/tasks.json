@@ -16,7 +16,45 @@
       },
       "presentation": {
         "reveal": "always",
-        "panel": "new"
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Compiledb",
+      "type": "shell",
+      "hide": true,
+      "command": "scons",
+      "args": [
+        "-C",
+        "../godot",
+        "custom_modules=../godot_custom",
+        "compiledb=yes"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Mv Compiledb",
+      "type": "shell",
+      "hide": true,
+      "command": "mv",
+      "args": [
+        "../godot/compile_commands.json",
+        "../"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
       }
     },
     {
@@ -46,7 +84,7 @@
           "--path",
           "../client"
         ]
-      },
+      }
     },
     {
       "label": "Build and Launch Editor",
@@ -55,6 +93,15 @@
         "Build Editor",
         "Launch Editor"
       ]
+    },
+    {
+      "label": "Update compile_commands.json",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Compiledb",
+        "Mv Compiledb"
+      ],
+      "problemMatcher": []
     }
   ]
 }
