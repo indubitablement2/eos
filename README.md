@@ -1,27 +1,19 @@
 # EOS (working title)
 ![Project Logo](logo.jpg)
 
-## Client Build
-Lazy command from root folder: `scons -C godot custom_modules=../godot_custom && ./godot/bin/godot.linuxbsd.editor.x86_64 --editor --path client`. Change `godot.linuxbsd.editor.x86_64` to your Godot editor executable if not on linux.
+## Editor Build (C++)
+See https://docs.godotengine.org/en/stable/contributing/development/compiling/index.html for requirements.
+Commands to easily build and launch the editor as well as update compile_commands.json (for use with clangd) are in: `godot_custom/.vscode/tasks.json`. These commands are meant to run from `godot_custom/` folder.
 
-### Building the editor
-Run `scons custom_modules=../godot_custom` from `godot` folder. After building, Godot editor will be in `godot/bin`. Add `target=release` for better performance at the cost of getting worse error message.
-
-### compile_commands.json
-If working with clangd add `compiledb=yes` and move `godot/compile_commands.json` to root folder.
-
-Lazy command from `godot_custom`: scons -C ../godot custom_modules=../godot_custom compiledb=yes && mv ../godot/compile_commands.json ../
-
-## Server Build
-This shouldn't be needed. `launch.sh` takes care of building, launching and updating the server. Otherwise, read on:
-
-Run cargo from `server` folder. By default database and instance are merged into a single executable which is only useful for testing. Build for either by adding `--feature database` or `--feature instance`.
+## Server Build (Rust)
+Require cargo and rust (only tested on nightly).
+Run cargo from `server/` folder. By default database and instance are merged into a single executable which is mostly only useful for testing. Build for either by adding `--feature database` or `--feature instance`. See `launch.sh` which handle lauching servers.
 
 ## Design Document
 
 TODO: 
 * fleet capacity (limit system capacity by team)
-* monetization (never p2w, can only buy extra maximum fleet capacity)
+* monetization (never p2w, can only buy extra maximum fleet capacity + maybe replay recording (both cost extra server resources))
 * Fleet control is deliberately limited as to not overshadow directly controlling a ship.
 * market
 * currency mint and other piracy (pirate themed factions should have access to cheap/bad pirate ship)
