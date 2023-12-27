@@ -125,9 +125,7 @@ struct Database {
     #[serde(skip)]
     connection_listener: ConnectionListener<DatabaseLogin>,
     #[serde(skip)]
-    instances: AHashMap<InstanceId, Instance>,
-    #[serde(skip)]
-    instance_inbounds: AHashMap<InstanceId, ConnectionInbound>,
+    instances: IndexMap<InstanceId, Instance, RandomState>,
     #[serde(skip)]
     queries: Vec<(DatabaseQuery, InstanceId)>,
 
@@ -139,7 +137,7 @@ struct Database {
     username: AHashMap<String, ClientId>,
 }
 struct Instance {
-    outbound: ConnectionOutbound,
+    connection: Connection,
 }
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -176,7 +174,6 @@ impl Default for Database {
             mut_requests_writer: None,
             connection_listener: ConnectionListener::bind(data().database_addr).unwrap(),
             instances: Default::default(),
-            instance_inbounds: Default::default(),
             queries: Default::default(),
             battlescapes: Default::default(),
             ships: Default::default(),
@@ -420,8 +417,6 @@ impl Database {
                 continue;
             }
 
-            let (outbound, inbound) = connection.split();
-
             // Send battlescapes to instance.
             for &battlescape_id in data()
                 .instances
@@ -432,7 +427,7 @@ impl Database {
             {
                 let battlescapes = self.battlescapes.get(&battlescape_id).unwrap();
 
-                outbound.queue(DatabaseResponse::HandleBattlescape {
+                connection.queue(DatabaseResponse::HandleBattlescape {
                     battlescape_id,
                     battlescape_save: battlescapes.battlescape_save.clone(),
                 });
@@ -440,7 +435,7 @@ impl Database {
                 for &ship_id in battlescapes.ships.iter() {
                     let ship = self.ships.get(&ship_id).unwrap();
 
-                    outbound.queue(DatabaseResponse::DatabaseBattlescapeResponse {
+                    connection.queue(DatabaseResponse::DatabaseBattlescapeResponse {
                         to: battlescape_id,
                         response: DatabaseBattlescapeResponse::ShipEntered {
                             ship_id,
@@ -450,29 +445,26 @@ impl Database {
                 }
             }
 
-            outbound.flush();
+            connection.flush();
 
             self.instances
-                .insert(login.instance_id, Instance { outbound });
-            self.instance_inbounds.insert(login.instance_id, inbound);
+                .insert(login.instance_id, Instance { connection });
         }
 
-        let mut instance_inbounds = std::mem::take(&mut self.instance_inbounds);
-        instance_inbounds.retain(|&from, inbound| loop {
-            match inbound.recv::<Vec<u8>>() {
+        let mut i = 0;
+        while i < self.instances.len() {
+            match self.instances[i].connection.recv::<Vec<u8>>() {
                 Ok(request) => {
-                    if let Err(err) = self.handle_request(&request, Some(from)) {
+                    if let Err(err) = self.handle_request(&request, Some(i)) {
                         log::error!("Failed to handle request: {}", err);
                     }
                 }
-                Err(TryRecvError::Empty) => break true,
+                Err(TryRecvError::Empty) => i += 1,
                 Err(TryRecvError::Disconnected) => {
-                    self.instances.remove(&from);
-                    break false;
+                    self.instances.swap_remove_index(i);
                 }
             }
-        });
-        self.instance_inbounds = instance_inbounds;
+        }
 
         // Handle queries in parallel.
         self.queries.par_iter().for_each(|(query, from)| {
@@ -483,7 +475,7 @@ impl Database {
         self.queries.clear();
 
         for instance in self.instances.values() {
-            instance.outbound.flush();
+            instance.connection.flush();
         }
 
         if self.next_save < Instant::now() {
@@ -513,8 +505,7 @@ impl Database {
 // ####################################################################################
 
 impl Database {
-    #[inline]
-    fn handle_request(&mut self, request: &[u8], from: Option<InstanceId>) -> anyhow::Result<()> {
+    fn handle_request(&mut self, request: &[u8], from: Option<usize>) -> anyhow::Result<()> {
         let save = match bin_decode::<DatabaseRequest>(request)? {
             DatabaseRequest::SaveAndRestart { save_json } => {
                 if save_json {
@@ -524,7 +515,7 @@ impl Database {
                 }
 
                 for instance in self.instances.values() {
-                    instance.outbound.queue(DatabaseResponse::SaveAllSystems);
+                    instance.connection.queue(DatabaseResponse::SaveAllSystems);
                 }
 
                 self.restart_request = Some(Instant::now() + Duration::from_secs(60));
@@ -577,8 +568,8 @@ impl Database {
                 };
 
                 if let Some(from) = from {
-                    self.instances[&from]
-                        .outbound
+                    self.instances[from]
+                        .connection
                         .queue(DatabaseResponse::ClientAuthResult {
                             client_id,
                             response_token,
@@ -665,7 +656,7 @@ impl Database {
                         .get(&data().systems[&battlescape_id].instance_id)
                     {
                         instance
-                            .outbound
+                            .connection
                             .queue(DatabaseResponse::DatabaseBattlescapeResponse {
                                 to: battlescape_id,
                                 response: DatabaseBattlescapeResponse::ShipEntered {
@@ -695,7 +686,8 @@ impl Database {
             }
             DatabaseRequest::Query(query) => {
                 if let Some(from) = from {
-                    self.queries.push((query, from));
+                    self.queries
+                        .push((query, *self.instances.get_index(from).unwrap().0));
                 }
 
                 false
@@ -732,7 +724,7 @@ impl Database {
                         .collect::<Vec<ClientShip>>(),
                 );
 
-                self.instances[&from_instance].outbound.queue(
+                self.instances[&from_instance].connection.queue(
                     DatabaseResponse::DatabaseBattlescapeResponse {
                         to: *from,
                         response: DatabaseBattlescapeResponse::ClientShips {
