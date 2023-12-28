@@ -39,9 +39,6 @@ pub struct Simulation {
     next_entity_id: EntityId,
     entities: IndexMap<EntityId, Entity, RandomState>,
 
-    /// Objects are processed in the same order they are added.
-    objects: Vec<Object>,
-
     database_outbound: ConnectionOutbound,
     simulation_inbound: Receiver<SimulationInbound>,
 
@@ -59,7 +56,6 @@ impl Simulation {
             physics: Default::default(),
             next_entity_id: Default::default(),
             entities: Default::default(),
-            objects: Default::default(),
             clients: Default::default(),
             simulation_id,
 
@@ -141,17 +137,15 @@ impl Simulation {
         }
 
         // Update entities.
-        self.entities.retain(|_entity_id, entity| {
-            // TODO: Do something with the destroyed entity?
-            !entity.update(&mut self.physics)
-        });
-
-        // Update objects.
-        let mut objs = std::mem::take(&mut self.objects);
-        objs.retain_mut(|obj| obj.update_retain(self));
-        std::mem::swap(&mut self.objects, &mut objs);
-        // Add new objects.
-        self.objects.extend(objs.into_iter());
+        let mut i = 0;
+        while i < self.entities.len() {
+            if update_entity_retain(self, i) {
+                i += 1;
+            } else {
+                // TODO: Do something with the removed entity?
+                self.entities.swap_remove_index(i);
+            }
+        }
 
         // TODO: Send state to clients.
         for client in self.clients.values_mut() {
@@ -216,61 +210,6 @@ fn global_time() -> f64 {
         .elapsed()
         .unwrap_or_default()
         .as_secs_f64()
-}
-
-/// Something that modify the simulation (ai, effect, etc).
-#[derive(Debug, Serialize, Deserialize)]
-enum Object {
-    /// Will try to face entity's target and go forward at max speed.
-    /// If entity has no target just move forward untill a target is set.
-    Seek {
-        entity_id: EntityId,
-    },
-    Ship {
-        entity_id: EntityId,
-    },
-}
-impl Object {
-    fn new_seek(entity: &mut Entity, entity_id: EntityId) -> Self {
-        entity.wish_linvel = WishLinVel::ForceRelative(Vector2::new(1.0, 0.0));
-
-        Self::Seek { entity_id }
-    }
-
-    // Removed if returning `false`.
-    fn update_retain(&mut self, simulation: &mut Simulation) -> bool {
-        match self {
-            Self::Seek { entity_id } => {
-                let Some((entity_idx, _, entity)) = simulation.entities.get_full(entity_id) else {
-                    return false;
-                };
-
-                // Map to target's translation.
-                if let Some(target) = entity
-                    .target
-                    .and_then(|target| simulation.entities.get(&target))
-                    .map(|target| *simulation.physics.body(target.rb).translation())
-                {
-                    simulation.entities[entity_idx].wish_angvel = WishAngVel::AimSmooth(target);
-                }
-
-                true
-            }
-            Self::Ship { entity_id } => {
-                let Some((entity_idx, _, entity)) = simulation.entities.get_full(entity_id) else {
-                    return false;
-                };
-
-                if entity.controlled {
-                    // TODO
-                } else {
-                    // TODO
-                }
-
-                true
-            }
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]

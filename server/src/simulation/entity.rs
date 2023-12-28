@@ -3,6 +3,7 @@ use super::*;
 /// `[0..1]` relative to armor_hp_max.
 type ArmorCells = SmallVec<[u8; 16]>;
 
+// TODO: Events (hit, leaving, death, etc)
 pub struct Entity {
     pub data: EntityDataId,
     owner: Option<ClientId>,
@@ -23,14 +24,14 @@ pub struct Entity {
     pub controlled: bool,
 
     pub target: Option<EntityId>,
-    // TODO: Events (hit, leaving, death, etc)
+
+    modifiers: SmallVec<[Modifier; 4]>,
 }
 impl Entity {
-    // TODO: from save
     pub fn new(
         simulation: &mut Simulation,
 
-        mut save: EntitySave,
+        save: EntitySave,
 
         entity_id: EntityId,
 
@@ -61,15 +62,17 @@ impl Entity {
             wish_linvel: WishLinVel::None,
             controlled: false,
             target,
+            modifiers: SmallVec::new(),
         };
 
         for new_event in save.data.on_new.iter() {
             match new_event {
-                EntityEvent::Ship => {
-                    simulation.objects.push(Object::Ship { entity_id });
+                EntityEvent::AddAiShip => {
+                    s.modifiers.push(Modifier::AiShip);
                 }
-                EntityEvent::Seek => {
-                    simulation.objects.push(Object::new_seek(&mut s, entity_id));
+                EntityEvent::AddAiSeek => {
+                    s.wish_linvel = WishLinVel::ForceRelative(Vector2::new(1.0, 0.0));
+                    s.modifiers.push(Modifier::AiSeek);
                 }
             }
         }
@@ -77,92 +80,152 @@ impl Entity {
         s
     }
 
-    pub fn take_contact_event(&mut self, event: ContactEvent) {
-        // TODO
-    }
+    pub fn save(&self, sim: &Simulation) -> EntitySave {
+        let body = sim.physics.body(self.rb);
 
-    /// Returns `true` if the entity was destroyed.
-    pub fn update(&mut self, physics: &mut Physics) -> bool {
-        let rb = physics.body_mut(self.rb);
-        let angvel = rb.angvel();
-        let linvel = *rb.linvel();
-
-        let wish_angvel = match self.wish_angvel {
-            WishAngVel::None => angvel,
-            WishAngVel::Keep => angvel.clamp(
-                -self.mobility.max_angular_velocity,
-                self.mobility.max_angular_velocity,
-            ),
-            WishAngVel::Stop => 0.0,
-            WishAngVel::AimSmooth(aim_to) => {
-                // TODO: May need to rotate this.
-                // aim_to.angle(other)
-                // let offset = Vec2::from_angle(angle).angle_between(to);
-
-                // let offset = angle_to(rotation.0, *aim_to - position.0);
-                // let wish_dir = offset.signum();
-                // let mut close_smooth = offset.abs().min(0.2) / 0.2;
-                // close_smooth *= close_smooth * close_smooth;
-
-                // if wish_dir == angular.velocity.signum() {
-                //     let time_to_target = (offset / angular.velocity).abs();
-                //     let time_to_stop = (angular.velocity / (angular.acceleration)).abs();
-                //     if time_to_target < time_to_stop {
-                //         close_smooth *= -1.0;
-                //     }
-                // }
-
-                // angular.velocity = integrate_angular_velocity(
-                //     angular.velocity,
-                //     wish_dir * angular.max_velocity * close_smooth,
-                //     angular.acceleration,
-                //     time.dt,
-                // );
-                0.0
+        let mut modifier_saves = SmallVec::new();
+        for modifier in self.modifiers.iter() {
+            match modifier {
+                Modifier::Nothing => {}
+                Modifier::AiShip => {}
+                Modifier::AiSeek => {}
             }
-            WishAngVel::Force(force) => force * self.mobility.max_angular_velocity,
-        };
+        }
 
-        let wish_linvel = match self.wish_linvel {
-            WishLinVel::None => linvel,
-            WishLinVel::Keep => linvel.cap_magnitude(self.mobility.max_linear_velocity),
-            WishLinVel::Cancel => vector![0.0, 0.0],
-            WishLinVel::PositionSmooth(position) => {
-                let to_position = position - rb.translation();
-                if to_position.magnitude_squared() < 0.01 {
-                    vector![0.0, 0.0]
-                } else {
-                    to_position.cap_magnitude(self.mobility.max_linear_velocity)
+        EntitySave {
+            data: self.data,
+            owner: self.owner,
+            position: *body.position(),
+            linvel: *body.linvel(),
+            angvel: body.angvel(),
+            hull: self.hull,
+            armor_cells: self.armor_cells.clone(),
+            modifier_saves,
+        }
+    }
+}
+
+/// Returns if the entity should be retained.
+pub fn update_entity_retain(sim: &mut Simulation, entity_idx: usize) -> bool {
+    // Check if target is still valid.
+    let target_idx = if let Some(target) = sim.entities[entity_idx].target {
+        let target_idx = sim.entities.get_index_of(&target);
+
+        if target_idx.is_none() {
+            sim.entities[entity_idx].target = None;
+        }
+
+        target_idx
+    } else {
+        None
+    };
+
+    // Update modifiers.
+    let mut modifier_idx = 0;
+    while modifier_idx < sim.entities[entity_idx].modifiers.len() {
+        let mut modifier = std::mem::take(&mut sim.entities[entity_idx].modifiers[modifier_idx]);
+
+        match &mut modifier {
+            Modifier::Nothing => {}
+            Modifier::AiSeek => {
+                if let Some(target_idx) = target_idx {
+                    let target = *sim.physics.body(sim.entities[target_idx].rb).translation();
+                    sim.entities[entity_idx].wish_angvel = WishAngVel::AimSmooth(target);
                 }
             }
-            WishLinVel::PositionOvershoot(position) => {
-                (position - rb.translation())
-                    .try_normalize(0.01)
-                    .unwrap_or(vector![0.0, -1.0])
-                    * self.mobility.max_linear_velocity
+            Modifier::AiShip => {
+                // TODO
             }
-            WishLinVel::ForceAbsolute(force) => force * self.mobility.max_linear_velocity,
-            WishLinVel::ForceRelative(force) => {
-                rb.rotation().transform_vector(&force) * self.mobility.max_linear_velocity
-            }
-        };
+        }
 
-        let wake_up = wish_angvel != angvel || wish_linvel != linvel;
-        rb.set_angvel(
-            angvel
-                + (wish_angvel - angvel).clamp(
-                    -self.mobility.angular_acceleration * DT,
-                    self.mobility.angular_acceleration * DT,
-                ),
-            wake_up,
-        );
-        rb.set_linvel(
-            linvel + (wish_linvel - linvel).cap_magnitude(self.mobility.linear_acceleration),
-            wake_up,
-        );
-
-        self.hull < 0.0
+        if let Modifier::Nothing = modifier {
+            sim.entities[entity_idx].modifiers.swap_remove(modifier_idx);
+        } else {
+            sim.entities[entity_idx].modifiers[modifier_idx] = modifier;
+            modifier_idx += 1;
+        }
     }
+
+    let entity = &mut sim.entities[entity_idx];
+    let rb = sim.physics.body_mut(entity.rb);
+    let angvel = rb.angvel();
+    let linvel = *rb.linvel();
+
+    let wish_angvel = match entity.wish_angvel {
+        WishAngVel::None => angvel,
+        WishAngVel::Keep => angvel.clamp(
+            -entity.mobility.max_angular_velocity,
+            entity.mobility.max_angular_velocity,
+        ),
+        WishAngVel::Stop => 0.0,
+        WishAngVel::AimSmooth(aim_to) => {
+            // TODO: May need to rotate this.
+            // aim_to.angle(other)
+            // let offset = Vec2::from_angle(angle).angle_between(to);
+
+            // let offset = angle_to(rotation.0, *aim_to - position.0);
+            // let wish_dir = offset.signum();
+            // let mut close_smooth = offset.abs().min(0.2) / 0.2;
+            // close_smooth *= close_smooth * close_smooth;
+
+            // if wish_dir == angular.velocity.signum() {
+            //     let time_to_target = (offset / angular.velocity).abs();
+            //     let time_to_stop = (angular.velocity / (angular.acceleration)).abs();
+            //     if time_to_target < time_to_stop {
+            //         close_smooth *= -1.0;
+            //     }
+            // }
+
+            // angular.velocity = integrate_angular_velocity(
+            //     angular.velocity,
+            //     wish_dir * angular.max_velocity * close_smooth,
+            //     angular.acceleration,
+            //     time.dt,
+            // );
+            0.0
+        }
+        WishAngVel::Force(force) => force * entity.mobility.max_angular_velocity,
+    };
+
+    let wish_linvel = match entity.wish_linvel {
+        WishLinVel::None => linvel,
+        WishLinVel::Keep => linvel.cap_magnitude(entity.mobility.max_linear_velocity),
+        WishLinVel::Cancel => vector![0.0, 0.0],
+        WishLinVel::PositionSmooth(position) => {
+            let to_position = position - rb.translation();
+            if to_position.magnitude_squared() < 0.01 {
+                vector![0.0, 0.0]
+            } else {
+                to_position.cap_magnitude(entity.mobility.max_linear_velocity)
+            }
+        }
+        WishLinVel::PositionOvershoot(position) => {
+            (position - rb.translation())
+                .try_normalize(0.01)
+                .unwrap_or(vector![0.0, -1.0])
+                * entity.mobility.max_linear_velocity
+        }
+        WishLinVel::ForceAbsolute(force) => force * entity.mobility.max_linear_velocity,
+        WishLinVel::ForceRelative(force) => {
+            rb.rotation().transform_vector(&force) * entity.mobility.max_linear_velocity
+        }
+    };
+
+    let wake_up = wish_angvel != angvel || wish_linvel != linvel;
+    rb.set_angvel(
+        angvel
+            + (wish_angvel - angvel).clamp(
+                -entity.mobility.angular_acceleration * DT,
+                entity.mobility.angular_acceleration * DT,
+            ),
+        wake_up,
+    );
+    rb.set_linvel(
+        linvel + (wish_linvel - linvel).cap_magnitude(entity.mobility.linear_acceleration),
+        wake_up,
+    );
+
+    entity.hull > 0.0
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
@@ -204,10 +267,27 @@ pub enum WishLinVel {
     ForceRelative(Vector2<f32>),
 }
 
+/// Something that modify the entity (ai, buff, etc).
+#[derive(Debug, Default)]
+enum Modifier {
+    /// Does nothing. Modifier will be removed.
+    /// Use this to remove a modifier.
+    #[default]
+    Nothing,
+    AiShip,
+    /// Will try to face entity's target and go forward at max speed.
+    /// If entity has no target just move forward untill a target is set.
+    AiSeek,
+}
+
 // ####################################################################################
 // ################################### DATA ###########################################
 // ####################################################################################
 
+// TODO: weapon slot
+// TODO: built-in weapon (take a slot #)
+// TODO: Engine placement
+// TODO: Shields
 pub struct EntityData {
     pub id: u32,
 
@@ -222,10 +302,6 @@ pub struct EntityData {
     mprops: MassProperties,
     groups: InteractionGroups,
 
-    // TODO: weapon slot
-    // TODO: built-in weapon (take a slot #)
-    // TODO: Engine placement
-    // TODO: Shields
     pub mobility: Mobility,
 
     on_new: Vec<EntityEvent>,
@@ -251,8 +327,8 @@ impl Default for Mobility {
 
 #[derive(Debug, Serialize, Deserialize)]
 enum EntityEvent {
-    Ship,
-    Seek,
+    AddAiShip,
+    AddAiSeek,
 }
 
 // ####################################################################################
@@ -338,6 +414,8 @@ impl Default for HullShapeJson {
 // ################################### SAVE ###########################################
 // ####################################################################################
 
+// TODO: Inventory
+// TODO: Turret
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(default)]
 pub struct EntitySave {
@@ -351,9 +429,8 @@ pub struct EntitySave {
 
     hull: f32,
     armor_cells: ArmorCells,
-    // TODO: Buffs
-    // TODO: Inventory
-    // TODO: Turret
+
+    modifier_saves: SmallVec<[ModifierSave; 4]>,
 }
 impl EntitySave {
     pub fn new(
@@ -371,19 +448,7 @@ impl EntitySave {
             angvel,
             hull: data.hull_max,
             armor_cells: data.armor_cells.clone(),
-        }
-    }
-
-    pub fn from_entity(entity: &Entity, battlescape: &Simulation) -> Self {
-        let body = battlescape.physics.body(entity.rb);
-        Self {
-            data: entity.data,
-            owner: entity.owner,
-            position: *body.position(),
-            linvel: *body.linvel(),
-            angvel: body.angvel(),
-            hull: entity.hull,
-            armor_cells: entity.armor_cells.clone(),
+            modifier_saves: SmallVec::new(),
         }
     }
 
@@ -393,6 +458,13 @@ impl EntitySave {
             0,
         );
     }
+}
+
+// TODO: how to handle bad enum when deserializing?
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+enum ModifierSave {
+    #[default]
+    RemoveThis,
 }
 
 // ####################################################################################
@@ -421,7 +493,7 @@ fn test_serialize_data() {
                 max_linear_velocity: 3.0,
                 max_angular_velocity: 4.0
             },
-            on_new: vec![EntityEvent::Ship, EntityEvent::Seek]
+            on_new: vec![EntityEvent::AddAiShip, EntityEvent::AddAiSeek]
         })
         .unwrap()
     );
@@ -436,6 +508,7 @@ fn test_serialize_data() {
             armor_cells: (0u8..3 * 3).into_iter().collect(),
             data: Default::default(),
             owner: None,
+            modifier_saves: SmallVec::from_iter((0..2).into_iter().map(|_| Default::default()))
         })
         .unwrap()
     );

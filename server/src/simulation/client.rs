@@ -17,25 +17,17 @@ pub struct ClientView {
     zoom: f32,
 }
 
-#[derive(Deserialize)]
-pub enum ClientInbound {
-    Test,
-}
-impl Packet for ClientInbound {
-    fn serialize(self) -> Vec<u8> {
-        unimplemented!()
-    }
-
-    fn parse(buf: Vec<u8>) -> anyhow::Result<Self> {
-        bin_decode(&buf)
-    }
-}
-
 #[derive(Serialize)]
 pub enum ClientOutbound {
     EnteredSystem {
         client_id: ClientId,
         system_id: SimulationId,
+    },
+    State {
+        tick: u64,
+        // entities: Vec<EntitySave>,
+        // objects: Vec<ObjectSave>,
+        // clients: Vec<(ClientId, ClientView)>,
     },
     ClientShips {
         ships: Vec<u8>,
@@ -48,5 +40,19 @@ impl Packet for ClientOutbound {
 
     fn parse(_buf: Vec<u8>) -> anyhow::Result<Self> {
         unimplemented!()
+    }
+}
+
+#[derive(Deserialize)]
+pub enum ClientInbound {
+    Test,
+}
+impl Packet for ClientInbound {
+    fn serialize(self) -> Vec<u8> {
+        unimplemented!()
+    }
+
+    fn parse(buf: Vec<u8>) -> anyhow::Result<Self> {
+        bin_decode(&buf)
     }
 }

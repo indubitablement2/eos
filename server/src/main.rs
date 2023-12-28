@@ -31,7 +31,7 @@ use std::time::{Duration, Instant};
 // TODO: Database:
 // Add starting ship database resquest (if no ship)
 // keep track of logged-in client
-// only send fleet update to client when something changed
+// only send fleet update to client when something changes
 // only store hashed password
 // // Check invariants on startup (armor cell size, username -> client, all simulations from data exist)
 // // Do not store encoded value in database
@@ -49,7 +49,9 @@ use std::time::{Duration, Instant};
 // simulation packets shouldn't need to pass through instance
 
 // TODO: Simulation:
-// add ignore group (no collision between entities in same group)
+// Variable dt (for "sleeping" simulations)
+// add pod ship?
+// // add ignore group (no collision between entities in same group)
 // // rename to simulation
 // figure out how to handle collisions
 // shield
