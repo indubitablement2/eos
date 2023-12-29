@@ -156,7 +156,7 @@ fn json_test() -> DataJson {
         ),
         simulations: AHashMap::from_iter((1..4).map(|i| {
             (
-                SimulationId::from_u64(i).unwrap(),
+                SimulationId::from_u32(i).unwrap(),
                 simulation_data_json.clone(),
             )
         })),

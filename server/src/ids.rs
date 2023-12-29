@@ -56,6 +56,7 @@ impl std::fmt::Debug for EntityDataId {
 
 const ENTITY_ID_START: u64 = 1u64 << 63;
 
+///
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct EntityId(NonZeroU64);
 impl EntityId {
@@ -115,13 +116,13 @@ impl Default for ShipId {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct SimulationId(NonZeroU64);
+pub struct SimulationId(NonZeroU32);
 impl SimulationId {
-    pub fn from_u64(id: u64) -> Option<Self> {
-        NonZeroU64::new(id).map(Self)
+    pub fn from_u32(id: u32) -> Option<Self> {
+        NonZeroU32::new(id).map(Self)
     }
 
-    pub fn as_u64(self) -> u64 {
+    pub fn as_u32(self) -> u32 {
         self.0.get()
     }
 
@@ -133,7 +134,7 @@ impl SimulationId {
 }
 impl Default for SimulationId {
     fn default() -> Self {
-        Self::from_u64(1).unwrap()
+        Self::from_u32(1).unwrap()
     }
 }
 
