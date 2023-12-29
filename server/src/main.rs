@@ -20,6 +20,7 @@ use rand::prelude::*;
 use rapier2d::na::{self, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use std::f32::consts::TAU;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
@@ -44,19 +45,24 @@ use std::time::{Duration, Instant};
 // TODO: Instance:
 // // remove client outbound (only simulation has any)
 // add fast way for client to change simulation on same instance without reconnect
-// Keep track of what data client has and send as needed instead of waiting for query
-// add ships to intermitent simulation save
 // simulation packets shouldn't need to pass through instance
 
 // TODO: Simulation:
+// add ships to intermitent simulation save
+// Keep track of what data client has and send as needed instead of waiting for query
+// Add entity detection and detector range
+// remove uneeded derives
+// has its own id range for entity/ship based on sim id
 // Variable dt (for "sleeping" simulations)
-// add pod ship?
+// change collision groups to an enum
+// projectile: simple vec + manual query. Updated client side
 // // add ignore group (no collision between entities in same group)
 // // rename to simulation
 // figure out how to handle collisions
 // shield
 
 // TODO: Client:
+// socket write do not need memcpy
 // // add c++
 // // impl binary decoder/encoder
 // // add packet base class and one child for each packet type

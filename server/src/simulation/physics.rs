@@ -26,6 +26,7 @@ const INTEGRATION_PARAMETERS: IntegrationParameters = IntegrationParameters {
     max_ccd_substeps: 1,
 };
 
+// TODO: Change this to an enum
 pub mod group {
     use super::*;
 
@@ -43,11 +44,12 @@ pub mod group {
         .union(GROUP_PROJECTILE);
 
     pub const GROUPS_SHIP: InteractionGroups = InteractionGroups::new(GROUP_SHIP, GROUP_ALL);
+    // pub const GROUPS_ENTITY: InteractionGroups = InteractionGroups::new(GROUP_SHIP, GROUP_ALL);
 }
 
 #[derive(Default)]
 pub struct Physics {
-    query_pipeline: QueryPipeline,
+    pub query_pipeline: QueryPipeline,
     physics_pipeline: PhysicsPipeline,
     islands: IslandManager,
     broad_phase: BroadPhase,
@@ -58,7 +60,6 @@ pub struct Physics {
     multibody_joints: MultibodyJointSet,
     ccd_solver: CCDSolver,
     pub events: PhysicsEventCollector,
-    next_group_ignore: u64,
 }
 impl Physics {
     pub fn step(&mut self) {
@@ -149,6 +150,10 @@ impl Physics {
             .unwrap()
     }
 
+    // pub fn intersect_broad(&self, aabb: &Aabb) {
+    //     self.query_pipeline.colliders_with_aabb_intersecting_aabb(aabb, callback)
+    // }
+
     // pub fn intersection_with_shape(
     //     &self,
     //     shape_pos: &Isometry<Real>,
@@ -170,6 +175,10 @@ impl Physics {
 
     pub fn body_mut(&mut self, rb: RigidBodyHandle) -> &mut RigidBody {
         &mut self.bodies[rb]
+    }
+
+    pub fn collider(&self, collider: ColliderHandle) -> &Collider {
+        &self.colliders[collider]
     }
 }
 
@@ -268,7 +277,7 @@ impl EventHandler for PhysicsEventCollector {
 /// - Group ignore: 64
 /// Collider:
 /// - EntityId: 64
-/// - Shield: 1
+/// - Is shield: 1
 pub trait UserData {
     const ID_TYPE_OFFSET: u32 = u64::BITS;
     const GROUP_IGNORE_OFFSET: u32 = Self::ID_TYPE_OFFSET + 4;

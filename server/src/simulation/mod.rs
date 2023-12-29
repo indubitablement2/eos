@@ -3,7 +3,7 @@ pub mod entity;
 pub mod physics;
 
 use super::*;
-use client::*;
+use client::{Client, ClientInbound, ClientOutbound};
 use entity::*;
 use physics::*;
 use rapier2d::prelude::*;
@@ -13,10 +13,9 @@ pub const DT: f32 = 1.0 / 20.0;
 pub const DT_MS: u64 = 50;
 const TICK_PER_SECOND: u64 = 1000 / DT_MS;
 
-/// How many tick between simulation saves. (30 minutes)
-const SAVE_INTERVAL: u64 = 30 * 60 * TICK_PER_SECOND;
+/// How long between simulation saves.
 /// Add some randomness to stagger saves.
-const SAVE_INTERVAL_RANDOMNESS: Range<u64> = 0..4096;
+const SAVE_INTERVAL: Range<f64> = 30.0 * 60.0..40.0 * 60.0;
 
 const RADIUS: f32 = 100.0;
 
@@ -26,13 +25,20 @@ pub enum SimulationInbound {
     SaveRequest,
 }
 
+/// Entities always have 1 rigid body and 1 collider.
+///
+/// Physics bodies are always an entity.
+/// Colliders are either an entity or a shield.
 pub struct Simulation {
     simulation_id: SimulationId,
 
     /// Seconds since unix epoch of current step.
     global_time: f64,
-    tick: u64,
-    next_save_tick: u64,
+    next_save_global_time: f64,
+
+    /// Fixed time step since start of simulation.
+    sim_time: f64,
+    sim_dt: f32,
 
     physics: Physics,
 
@@ -52,22 +58,22 @@ impl Simulation {
         save: SimulationSave,
     ) -> Self {
         Self {
-            tick: 0,
+            sim_time: 0.0,
+            sim_dt: DT,
             physics: Default::default(),
             next_entity_id: Default::default(),
             entities: Default::default(),
             clients: Default::default(),
             simulation_id,
-
             global_time: global_time(),
-            next_save_tick: thread_rng().gen_range(SAVE_INTERVAL_RANDOMNESS),
+            next_save_global_time: thread_rng().gen_range(SAVE_INTERVAL),
             database_outbound,
             simulation_inbound,
         }
     }
 
     pub fn step(&mut self) {
-        self.tick += 1;
+        self.sim_time += self.sim_dt as f64;
         self.global_time = global_time();
 
         // Handle inbound.
@@ -79,7 +85,7 @@ impl Simulation {
                         client_ships,
                     } => {
                         if let Some(client) = self.clients.get(&client_id) {
-                            client.connection.queue(ClientOutbound::ClientShips {
+                            client.queue(ClientOutbound::ClientShips {
                                 ships: client_ships,
                             });
                         }
@@ -92,7 +98,7 @@ impl Simulation {
                     }
                 },
                 SimulationInbound::NewClient { client_id, client } => {
-                    client.connection.queue(ClientOutbound::EnteredSystem {
+                    client.queue(ClientOutbound::EnteredSystem {
                         client_id,
                         system_id: self.simulation_id,
                     });
@@ -106,7 +112,7 @@ impl Simulation {
 
         // Handle client packets.
         self.clients.retain(|client_id, client| loop {
-            match client.connection.recv::<ClientInbound>() {
+            match client.recv() {
                 Ok(packet) => match packet {
                     ClientInbound::Test => {}
                 },
@@ -147,20 +153,20 @@ impl Simulation {
             }
         }
 
-        // TODO: Send state to clients.
-        for client in self.clients.values_mut() {
-            client.connection.flush();
+        // Update clients.
+        i = 0;
+        while i < self.clients.len() {
+            client::update_client(self, i);
         }
 
         // Save.
-        if self.tick > self.next_save_tick {
+        if self.sim_time > self.next_save_global_time {
             self.save();
         }
     }
 
     fn save(&mut self) {
-        self.next_save_tick =
-            self.tick + SAVE_INTERVAL + thread_rng().gen_range(SAVE_INTERVAL_RANDOMNESS);
+        self.next_save_global_time = thread_rng().gen_range(SAVE_INTERVAL);
 
         let simulation_save = SimulationSave {};
 
@@ -200,6 +206,7 @@ impl Simulation {
 
     fn remove_entity(&mut self, entity_id: EntityId) {
         if let Some(entity) = self.entities.swap_remove(&entity_id) {
+            self.physics.remove_body(entity.rb);
             // TODO:
         }
     }

@@ -4,6 +4,9 @@ use super::*;
 type ArmorCells = SmallVec<[u8; 16]>;
 
 // TODO: Events (hit, leaving, death, etc)
+/// A ship, drone, missile or debris.
+///
+/// May only have one shield.
 pub struct Entity {
     pub data: EntityDataId,
     owner: Option<ClientId>,
