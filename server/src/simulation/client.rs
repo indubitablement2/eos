@@ -239,7 +239,10 @@ impl Packet for ClientOutbound {
 
 #[derive(Deserialize)]
 pub enum ClientInbound {
-    Test,
+    SetView {
+        translation: Vector2<f32>,
+        radius: f32,
+    },
 }
 impl Packet for ClientInbound {
     fn serialize(self) -> Vec<u8> {

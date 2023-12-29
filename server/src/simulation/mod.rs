@@ -114,7 +114,14 @@ impl Simulation {
         self.clients.retain(|client_id, client| loop {
             match client.recv() {
                 Ok(packet) => match packet {
-                    ClientInbound::Test => {}
+                    ClientInbound::SetView {
+                        translation,
+                        radius,
+                    } => {
+                        // TODO: Cap this
+                        client.view_translation = translation;
+                        client.view_radius = radius;
+                    }
                 },
                 Err(TryRecvError::Empty) => break true,
                 Err(TryRecvError::Disconnected) => break false,
