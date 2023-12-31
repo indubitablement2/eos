@@ -42,6 +42,7 @@ pub struct Simulation {
 
     physics: Physics,
 
+    next_ship_id: ShipId,
     next_entity_id: EntityId,
     entities: IndexMap<EntityId, Entity, RandomState>,
 
@@ -56,11 +57,13 @@ impl Simulation {
         database_outbound: ConnectionOutbound,
         simulation_inbound: Receiver<SimulationInbound>,
         save: SimulationSave,
+        next_ship_id: ShipId,
     ) -> Self {
         Self {
             sim_time: 0.0,
             sim_dt: DT,
             physics: Default::default(),
+            next_ship_id,
             next_entity_id: Default::default(),
             entities: Default::default(),
             clients: Default::default(),
@@ -215,6 +218,11 @@ impl Simulation {
         if let Some(entity) = self.entities.swap_remove(&entity_id) {
             self.physics.remove_body(entity.rb);
             // TODO:
+
+            if let Some(ship_id) = entity_id.to_ship_id() {
+                self.database_outbound
+                    .queue(DatabaseRequest::DeleteShip { ship_id });
+            }
         }
     }
 }

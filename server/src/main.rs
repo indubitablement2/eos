@@ -52,7 +52,7 @@ use std::time::{Duration, Instant};
 // Keep track of what data client has and send as needed instead of waiting for query
 // Add entity detection and detector range
 // remove uneeded derives
-// has its own id range for entity/ship based on sim id
+// // has its own id range for entity/ship based on sim id
 // Variable dt (for "sleeping" simulations)
 // change collision groups to an enum
 // projectile: simple vec + manual query. Updated client side

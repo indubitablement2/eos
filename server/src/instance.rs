@@ -122,6 +122,7 @@ impl State {
             DatabaseResponse::HandleSimulation {
                 simulation_id,
                 simulation_save,
+                mut last_ship_id,
             } => {
                 let database_outbound = self.database_outbound.clone();
                 let (simulation_outbound, simulation_inbound) = unbounded();
@@ -134,6 +135,7 @@ impl State {
                         database_outbound,
                         simulation_inbound,
                         simulation_save,
+                        last_ship_id.next(),
                     ));
                 });
             }

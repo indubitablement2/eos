@@ -56,7 +56,8 @@ impl std::fmt::Debug for EntityDataId {
 
 const ENTITY_ID_START: u64 = 1u64 << 63;
 
-///
+/// - id: 0..63
+/// - always set: 63 (used to go to/from ship id)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct EntityId(NonZeroU64);
 impl EntityId {
@@ -88,9 +89,16 @@ impl Default for EntityId {
     }
 }
 
+/// - id: 0..43
+/// - origin simulation id: 43..63 (used to give an id range to each simulation)
+/// - always unset: 63 (used to go to/from entity id)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ShipId(NonZeroU64);
 impl ShipId {
+    pub fn new(simulation_id: SimulationId) -> Self {
+        Self::from_u64((simulation_id.as_u32() as u64) << 43).unwrap()
+    }
+
     pub fn from_u64(id: u64) -> Option<Self> {
         NonZeroU64::new(id).map(Self)
     }
@@ -108,10 +116,14 @@ impl ShipId {
     pub fn to_entity_id(self) -> EntityId {
         EntityId(self.0)
     }
+
+    pub fn origin_simulation_id(self) -> SimulationId {
+        SimulationId::from_u32((self.0.get() >> 43) as u32).unwrap()
+    }
 }
 impl Default for ShipId {
     fn default() -> Self {
-        Self::from_u64(1).unwrap()
+        Self::new(SimulationId::default())
     }
 }
 

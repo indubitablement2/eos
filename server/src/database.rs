@@ -66,6 +66,7 @@ pub enum DatabaseResponse {
     HandleSimulation {
         simulation_id: SimulationId,
         simulation_save: SimulationSave,
+        last_ship_id: ShipId,
     },
     SaveAllSimulations,
     DatabaseSimulationResponse {
@@ -145,6 +146,7 @@ struct Simulation {
     simulation_save: SimulationSave,
     #[serde(skip)]
     ships: AHashSet<ShipId>,
+    last_ship_id: ShipId,
 }
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -191,10 +193,18 @@ impl Default for Database {
 impl Database {
     /// Checks that all data is valid.
     fn prepare(&mut self) {
+        // Check that all simulations exist.
         for (simulation_id, simulation_data) in data().simulations.iter() {
-            self.simulations.entry(*simulation_id).or_default();
+            self.simulations
+                .entry(*simulation_id)
+                .or_insert_with(|| Simulation {
+                    simulation_save: Default::default(),
+                    ships: Default::default(),
+                    last_ship_id: ShipId::new(*simulation_id),
+                });
         }
 
+        // Check that all clients exist.
         for (username, client_id) in self.username.iter() {
             if !self.clients.contains_key(client_id) {
                 log::error!(
@@ -206,15 +216,19 @@ impl Database {
             }
         }
 
-        self.ships.retain(|ship_id, ship| {
+        self.ships.retain(|&ship_id, ship| {
+            if let Some(simulation) = self.simulations.get_mut(&ship_id.origin_simulation_id()) {
+                simulation.last_ship_id = simulation.last_ship_id.max(ship_id);
+            }
+
             ship.save.verify();
 
             if let Some(simulation) = self.simulations.get_mut(&ship.simulation_id) {
-                simulation.ships.insert(*ship_id);
+                simulation.ships.insert(ship_id);
 
                 if let Some(owner) = ship.save.owner {
                     if let Some(client) = self.clients.get_mut(&owner) {
-                        client.ships.insert(*ship_id);
+                        client.ships.insert(ship_id);
                     } else {
                         log::error!(
                             "{:?} owner ({:?}) not found. Removing owner",
@@ -430,6 +444,7 @@ impl Database {
                 connection.queue(DatabaseResponse::HandleSimulation {
                     simulation_id,
                     simulation_save: simulations.simulation_save.clone(),
+                    last_ship_id: simulations.last_ship_id,
                 });
 
                 for &ship_id in simulations.ships.iter() {
@@ -621,6 +636,12 @@ impl Database {
                 } else {
                     add_new_owner = new_owner;
                     add_new_simulation = Some(simulation_id);
+
+                    if let Some(simulation) =
+                        self.simulations.get_mut(&ship_id.origin_simulation_id())
+                    {
+                        simulation.last_ship_id = simulation.last_ship_id.max(ship_id);
+                    }
                 }
 
                 if let Some(client_id) = remove_old_owner {
@@ -682,6 +703,8 @@ impl Database {
                     if let Some(simulation) = self.simulations.get_mut(&ship.simulation_id) {
                         simulation.ships.remove(&ship_id);
                     }
+
+                    // Notify client if subscribed.
                 }
 
                 true
