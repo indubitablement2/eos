@@ -73,7 +73,7 @@ This lead to surplus or scarsity increasing player activity:
 Low tier and civilian ship should be readily available anywhere.
 
 Getting higher tier item is harder:
-* Ranking inside a faction (still need to buy, only give access to this faction's gear).
+* Ranking inside a faction (still need to buy, only give access to this faction's items).
 * Post battle salvage (needs to be repaired).
 * Random wreck and cargo in space.
 * Missions.
@@ -100,38 +100,30 @@ When a played disconnect, his fleets does not disappear. Instead, ai takes over 
   * Can not be player controlled.
 
 * Frigate: 
-  * ~4 light or 1 medium weapons.
+  * 1 mediums or equivalent turrets.
   * The size of 4 fighters.
   * High turn rate and speed.
 
 * Destroyer:
-  * 4 medium weapons.
-  * The size of 3 frigates.
+  * 4 mediums or equivalent turrets.
+  * The size of 2 frigates.
 
 * Cruiser: 
-  * 4 medium and 2 heavy weapons.
+  * 3 heavy or equivalent weapons.
   * The size of 2 destroyers.
   * Slow turn rate.
 
-* Capital: 
-  * 4 heavy and many medium/light weapons.
-  * Often has unique built-in weapon.
-  * The size of 1.5 cruisers.
-  * Extremely expensive to build and maintain.
-  * Very slow.
-
 * Experimental
-  * 8 heavy and many medium weapons.
-  * Has fortress like capability, but is mobile. 
-  * 1+ capital
+  * 6 heavy or equivalent weapons.
+  * Often has unique built-in weapon.
+  * Has fortress like capability. 
+  * The size of 2+ cruisers.
+  * Very slow.
   * Ludicrously expensive to maintain.
   * Can not be build (no blueprint hence the name). 
 
-### Design 
+### Design (lore) 
 Weapon and ship have designer.
-
-Some ship and weapon mount may have an afinity for a design. 
-Module and weapon mount may only accept a pacticular design.
 
 Design archetype (names taken from supreme commander)
 * UEF: Brute force. More frontal firepower and defence, but slower. Vulnerable when flanked or isolated. 
@@ -172,7 +164,3 @@ Ai can be installed on a ship to provide powerful bonuses. They can be crafted s
 Player does not lose them when its ship is destroyed, providing a source of permanent power for the player.
 
 They can not be traded between players.
-
-Implementation note:
-When its ship is destroyed, perhaps they spawn a small ship/pod (slow, no cargo, invincible) which the player can order to return to a safe station.
-
