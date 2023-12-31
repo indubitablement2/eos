@@ -34,6 +34,10 @@ pub enum DatabaseRequest {
     DeleteShip {
         ship_id: ShipId,
     },
+    CreateClientFirstShip {
+        ship_id: ShipId,
+        save: EntitySave,
+    },
     Query(DatabaseQuery),
 }
 impl Packet for DatabaseRequest {
@@ -708,6 +712,50 @@ impl Database {
                 }
 
                 true
+            }
+            DatabaseRequest::CreateClientFirstShip { ship_id, save } => {
+                let client_id = save.owner.context("Ship has no owner")?;
+                let client = self
+                    .clients
+                    .get_mut(&client_id)
+                    .context("Client not found")?;
+
+                let simulation_id = ship_id.origin_simulation_id();
+                let simulation = self
+                    .simulations
+                    .get_mut(&simulation_id)
+                    .context("Simulation not found")?;
+
+                if client.ships.is_empty() {
+                    client.ships.insert(ship_id);
+
+                    self.ships.insert(
+                        ship_id,
+                        Ship {
+                            simulation_id,
+                            save: save.clone(),
+                        },
+                    );
+
+                    simulation.ships.insert(ship_id);
+                    simulation.last_ship_id = simulation.last_ship_id.max(ship_id);
+
+                    if let Some(instance) = self
+                        .instances
+                        .get(&data().simulations[&simulation_id].instance_id)
+                    {
+                        instance
+                            .connection
+                            .queue(DatabaseResponse::DatabaseSimulationResponse {
+                                to: simulation_id,
+                                response: DatabaseSimulationResponse::ShipEntered { ship_id, save },
+                            });
+                    }
+
+                    true
+                } else {
+                    false
+                }
             }
             DatabaseRequest::Query(query) => {
                 if let Some(from) = from {

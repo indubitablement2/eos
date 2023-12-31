@@ -243,6 +243,7 @@ pub enum ClientInbound {
         translation: Vector2<f32>,
         radius: f32,
     },
+    CreateFirstShip,
 }
 impl Packet for ClientInbound {
     fn serialize(self) -> Vec<u8> {

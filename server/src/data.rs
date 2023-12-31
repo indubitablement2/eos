@@ -19,6 +19,13 @@ pub struct Data {
     pub instances: AHashMap<InstanceId, InstanceData>,
     pub simulations: AHashMap<SimulationId, SimulationData>,
     pub entities: Vec<EntityData>,
+
+    first_ship: usize,
+}
+impl Data {
+    pub fn first_ship(&'static self) -> EntityDataId {
+        EntityDataId(&self.entities[self.first_ship])
+    }
 }
 
 pub struct InstanceData {
@@ -93,12 +100,16 @@ fn parse_json(config: ConfigJson, json: DataJson) -> Data {
         .map(|(entity_json, id)| entity_json.parse(id))
         .collect::<Vec<_>>();
 
+    let first_ship = json.first_ship;
+    assert!(first_ship < entities.len());
+
     Data {
         database_addr: config.database_addr.parse().unwrap(),
         database_key: config.database_key.into_bytes(),
         instances,
         simulations,
         entities,
+        first_ship,
     }
 }
 
@@ -118,6 +129,7 @@ struct DataJson {
     instances: AHashMap<InstanceId, String>,
     simulations: AHashMap<SimulationId, SimulationDataJson>,
     entities: Vec<EntityDataJson>,
+    first_ship: usize,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -161,6 +173,7 @@ fn json_test() -> DataJson {
             )
         })),
         entities: vec![Default::default()],
+        first_ship: 0,
     }
 }
 

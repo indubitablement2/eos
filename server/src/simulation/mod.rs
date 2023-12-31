@@ -25,10 +25,6 @@ pub enum SimulationInbound {
     SaveRequest,
 }
 
-/// Entities always have 1 rigid body and 1 collider.
-///
-/// Physics bodies are always an entity.
-/// Colliders are either an entity or a shield.
 pub struct Simulation {
     simulation_id: SimulationId,
 
@@ -40,6 +36,10 @@ pub struct Simulation {
     sim_time: f64,
     sim_dt: f32,
 
+    /// Entities always have 1 rigid body and 1 collider.
+    ///
+    /// Physics bodies are always an entity.
+    /// Colliders are either an entity or a shield.
     physics: Physics,
 
     next_ship_id: ShipId,
@@ -114,7 +114,7 @@ impl Simulation {
         }
 
         // Handle client packets.
-        self.clients.retain(|client_id, client| loop {
+        self.clients.retain(|&client_id, client| loop {
             match client.recv() {
                 Ok(packet) => match packet {
                     ClientInbound::SetView {
@@ -124,6 +124,20 @@ impl Simulation {
                         // TODO: Cap this
                         client.view_translation = translation;
                         client.view_radius = radius;
+                    }
+                    ClientInbound::CreateFirstShip => {
+                        // TODO: Find a place to spawn it.
+                        self.database_outbound
+                            .queue(DatabaseRequest::CreateClientFirstShip {
+                                ship_id: self.next_ship_id.next(),
+                                save: EntitySave::new(
+                                    data().first_ship(),
+                                    Some(client_id),
+                                    Default::default(),
+                                    Default::default(),
+                                    Default::default(),
+                                ),
+                            });
                     }
                 },
                 Err(TryRecvError::Empty) => break true,
@@ -170,7 +184,7 @@ impl Simulation {
         }
 
         // Save.
-        if self.sim_time > self.next_save_global_time {
+        if self.global_time > self.next_save_global_time {
             self.save();
         }
     }
