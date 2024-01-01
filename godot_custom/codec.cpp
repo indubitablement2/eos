@@ -1,13 +1,21 @@
 #include "codec.h"
 #include "core/error/error_macros.h"
+#include "core/math/vector2.h"
 #include "core/object/class_db.h"
+#include "core/object/object.h"
+#include "preludes.h"
 
 void ClientCodec::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("c123ancel_login"), &ClientCodec::cancel_login);
-	ClassDB::bind_method(D_METHOD("login_username_password", "url", "battlescape_id", "username", "password"), &ClientCodec::login_username_password);
-	ClassDB::bind_method(D_METHOD("register_username_password", "url", "battlescape_id", "username", "password"), &ClientCodec::register_username_password);
+	ClassDB::bind_method(D_METHOD("cancel_login"), &ClientCodec::cancel_login);
+	ClassDB::bind_method(D_METHOD("login_username_password", "url", "simulation_id", "username", "password"), &ClientCodec::login_username_password);
+	ClassDB::bind_method(D_METHOD("register_username_password", "url", "simulation_id", "username", "password"), &ClientCodec::register_username_password);
 
-	GDVIRTUAL_BIND(_entered_battlescape, "client_id", "battlescape_id");
+	GDVIRTUAL_BIND(_entered_simulation, "client_id", "simulation_id");
+	GDVIRTUAL_BIND(_state, "time", "entity_states");
+	GDVIRTUAL_BIND(_add_entity, "entity_id", "entity_data_id");
+	GDVIRTUAL_BIND(_remove_entity, "entity_id");
+	GDVIRTUAL_BIND(_remove_seen_entity, "entity_id");
+	GDVIRTUAL_BIND(_add_seen_entity, "entity_id");
 
 	ADD_SIGNAL(MethodInfo("connection_closed", PropertyInfo(Variant::STRING, "message")));
 }
@@ -56,7 +64,71 @@ void ClientCodec::_notification(int p_what) {
 void ClientCodec::decode() {
 	switch (get_varint()) {
 		case 0: {
-			GDVIRTUAL_CALL(_entered_battlescape, get_varint(), get_varint());
+			i64 client_id = get_varint();
+			i64 simulation_id = get_varint();
+
+			entity_ids = std::unordered_map<u32, i64>();
+
+			GDVIRTUAL_CALL(_entered_simulation, client_id, simulation_id);
+			break;
+		}
+		case 1: {
+			f64 time = get_f64();
+			Vector2 origin = get_vector2();
+			i64 state_len = get_varint();
+
+			TypedArray<Dictionary> entity_states = TypedArray<Dictionary>();
+			entity_states.resize(state_len);
+			for (i64 i = 0; i < state_len; i++) {
+				u32 network_id = get_varint();
+				Vector2 relative_translation = get_vector2();
+				f32 rotation = get_u16_packed_f32(-f32_PI, f32_PI);
+
+				Dictionary state = Dictionary();
+
+				state[entity_state_entity_id] = entity_ids[network_id];
+				state[entity_state_translation] = origin + relative_translation;
+				state[entity_state_rotation] = rotation;
+
+				entity_states[i] = state;
+			}
+
+			GDVIRTUAL_CALL(_state, time, entity_states);
+			break;
+		}
+		case 2: {
+			i64 entity_id = get_varint();
+			u32 network_id = get_varint();
+			i64 entity_data_id = get_varint();
+
+			entity_ids[network_id] = entity_id;
+
+			GDVIRTUAL_CALL(_add_entity, entity_id, entity_data_id);
+			break;
+		}
+		case 3: {
+			u32 network_id = get_varint();
+
+			i64 entity_id = entity_ids[network_id];
+			entity_ids.erase(network_id);
+
+			GDVIRTUAL_CALL(_remove_entity, entity_id);
+			break;
+		}
+		case 4: {
+			u32 network_id = get_varint();
+
+			i64 entity_id = entity_ids[network_id];
+
+			GDVIRTUAL_CALL(_remove_seen_entity, entity_id);
+			break;
+		}
+		case 5: {
+			u32 network_id = get_varint();
+
+			i64 entity_id = entity_ids[network_id];
+
+			GDVIRTUAL_CALL(_add_seen_entity, entity_id);
 			break;
 		}
 	}
@@ -71,30 +143,38 @@ void ClientCodec::cancel_login() {
 	}
 }
 
-void ClientCodec::login_username_password(String url, i64 battlescape_id, String username, String password) {
+void ClientCodec::login_username_password(String url, i64 simulation_id, String username, String password) {
 	peer = Ref<WebSocketPeer>(WebSocketPeer::create());
 	peer->connect_to_url(url);
 	connecting = true;
 
 	start_write();
 
-	put_varint(battlescape_id);
+	put_varint(simulation_id);
 	put_varint(0);
 	put_string(username);
 	put_string(password);
 }
 
-void ClientCodec::register_username_password(String url, i64 battlescape_id, String username, String password) {
+void ClientCodec::register_username_password(String url, i64 simulation_id, String username, String password) {
 	peer = Ref<WebSocketPeer>(WebSocketPeer::create());
 	peer->connect_to_url(url);
 	connecting = true;
 
 	start_write();
 
-	put_varint(battlescape_id);
+	put_varint(simulation_id);
 	put_varint(1);
 	put_string(username);
 	put_string(password);
+}
+
+void ClientCodec::create_first_ship() {
+	start_write();
+
+	put_varint(1);
+
+	finish_write();
 }
 
 void ClientCodec::start_write() {
@@ -125,6 +205,11 @@ void ClientCodec::put_string(String value) {
 	write_cursor += len;
 }
 
+void ClientCodec::put_f32(f32 value) {
+	memcpy(write_cursor, &value, 4);
+	write_cursor += 4;
+}
+
 void ClientCodec::finish_write() {
 	peer->put_packet(write_buffer, write_cursor - write_buffer);
 }
@@ -132,6 +217,13 @@ void ClientCodec::finish_write() {
 u8 ClientCodec::get_u8() {
 	u8 value = *read_cursor;
 	read_cursor += 1;
+	return value;
+}
+
+u16 ClientCodec::get_u16() {
+	u16 value;
+	memcpy(&value, read_cursor, 2);
+	read_cursor += 2;
 	return value;
 }
 
@@ -154,4 +246,26 @@ String ClientCodec::get_string() {
 	String value = String::utf8((const char *)read_cursor, len);
 	read_cursor += len;
 	return value;
+}
+
+f32 ClientCodec::get_f32() {
+	f32 value;
+	memcpy(&value, read_cursor, 4);
+	read_cursor += 4;
+	return value;
+}
+
+f64 ClientCodec::get_f64() {
+	f64 value;
+	memcpy(&value, read_cursor, 8);
+	read_cursor += 8;
+	return value;
+}
+
+f32 ClientCodec::get_u16_packed_f32(f32 min, f32 max) {
+	return f32(get_u16()) / f32(MAX_U16) * (max - min) + min;
+}
+
+Vector2 ClientCodec::get_vector2() {
+	return Vector2(get_f32(), get_f32());
 }

@@ -7,6 +7,7 @@ mod instance;
 mod interval;
 mod logger;
 mod simulation;
+mod util;
 
 use ahash::{AHashMap, AHashSet, RandomState};
 use anyhow::Context;
@@ -62,7 +63,7 @@ use std::time::{Duration, Instant};
 // shield
 
 // TODO: Client:
-// socket write do not need memcpy
+// // socket write do not need memcpy
 // // add c++
 // // impl binary decoder/encoder
 // // add packet base class and one child for each packet type

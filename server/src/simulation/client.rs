@@ -125,7 +125,7 @@ pub fn update_client(sim: &mut Simulation, client_idx: usize) {
 
             entitie_states.push(EntityState {
                 network_id: known_entity.network_id,
-                translation,
+                relative_translation: translation,
                 rotation,
             });
 
@@ -193,7 +193,7 @@ impl NetworkIdAllocator {
 pub struct EntityState {
     network_id: u32,
     // TODO: Pack tranlation into 2 i16
-    translation: Vector2<f32>,
+    relative_translation: Vector2<f32>,
     rotation: u16,
 }
 
