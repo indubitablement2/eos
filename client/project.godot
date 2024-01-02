@@ -8,6 +8,13 @@
 
 config_version=5
 
+[Hello]
+
+Testing={
+0: "[::1]:12345",
+180: ":::"
+}
+
 [application]
 
 config/name="Eos"

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EntityData" load_steps=3 format=3 uid="uid://c378otfovt5j6"]
+
+[ext_resource type="Texture2D" uid="uid://b06bwxqm01or1" path="res://core/pixel.png" id="1_b7bxa"]
+[ext_resource type="Script" path="res://core/data/entity_data.gd" id="1_pukim"]
+
+[resource]
+script = ExtResource("1_pukim")
+hull = 100.57
+armor_max = 97.95
+armor_cells = ExtResource("1_b7bxa")
+linear_acceleration = 1.335
+angular_acceleration = 1.69
+max_linear_velocity = 2.095
+max_angular_velocity = 1.97

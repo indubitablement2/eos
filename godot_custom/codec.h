@@ -49,33 +49,26 @@ protected:
 	void _notification(int p_what);
 
 public:
-	ClientCodec() {
-		write_buffer = new u8[262144];
-		peer = Ref<WebSocketPeer>(WebSocketPeer::create());
-		connecting = false;
-	}
+	ClientCodec();
+	~ClientCodec();
 
-	~ClientCodec() {
-		delete[] write_buffer;
-	}
+	StringName entity_state_entity_id;
+	StringName entity_state_translation;
+	StringName entity_state_rotation;
 
-	inline static StringName entity_state_entity_id = StringName("entity_id");
-	inline static StringName entity_state_translation = StringName("translation");
-	inline static StringName entity_state_rotation = StringName("rotation");
+	StringName connection_closed;
 
-	inline static StringName connection_closed = StringName("connection_closed");
-
-	inline static StringName _entered_simulation = StringName("_entered_simulation");
+	StringName _entered_simulation;
 	GDVIRTUAL2(_entered_simulation, i64, i64);
-	inline static StringName _state = StringName("_state");
+	StringName _state;
 	GDVIRTUAL2(_state, f64, TypedArray<Dictionary>);
-	inline static StringName _add_entity = StringName("_add_entity");
+	StringName _add_entity;
 	GDVIRTUAL2(_add_entity, i64, i64);
-	inline static StringName _remove_entity = StringName("_remove_entity");
+	StringName _remove_entity;
 	GDVIRTUAL1(_remove_entity, i64);
-	inline static StringName _remove_seen_entity = StringName("_remove_seen_entity");
+	StringName _remove_seen_entity;
 	GDVIRTUAL1(_remove_seen_entity, i64);
-	inline static StringName _add_seen_entity = StringName("_add_seen_entity");
+	StringName _add_seen_entity;
 	GDVIRTUAL1(_add_seen_entity, i64);
 
 	void cancel_login();

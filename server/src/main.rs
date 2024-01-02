@@ -63,6 +63,7 @@ use std::time::{Duration, Instant};
 // shield
 
 // TODO: Client:
+// make sure body center of mass is at (0,0) with new shape translation
 // // socket write do not need memcpy
 // // add c++
 // // impl binary decoder/encoder

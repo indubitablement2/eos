@@ -5,6 +5,29 @@
 #include "core/object/object.h"
 #include "preludes.h"
 
+ClientCodec::ClientCodec() {
+	write_buffer = new u8[262144];
+	peer = Ref<WebSocketPeer>(WebSocketPeer::create());
+	connecting = false;
+
+	entity_state_entity_id = StringName("entity_id");
+	entity_state_translation = StringName("translation");
+	entity_state_rotation = StringName("rotation");
+
+	connection_closed = StringName("connection_closed");
+
+	_entered_simulation = StringName("_entered_simulation");
+	_state = StringName("_state");
+	_add_entity = StringName("_add_entity");
+	_remove_entity = StringName("_remove_entity");
+	_remove_seen_entity = StringName("_remove_seen_entity");
+	_add_seen_entity = StringName("_add_seen_entity");
+}
+
+ClientCodec::~ClientCodec() {
+	delete[] write_buffer;
+}
+
 void ClientCodec::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("cancel_login"), &ClientCodec::cancel_login);
 	ClassDB::bind_method(D_METHOD("login_username_password", "url", "simulation_id", "username", "password"), &ClientCodec::login_username_password);

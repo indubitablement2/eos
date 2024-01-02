@@ -1,6 +1,8 @@
 use super::*;
 
 /// `[0..1]` relative to armor_hp_max.
+///
+/// Minimum 3x3.
 type ArmorCells = SmallVec<[u8; 16]>;
 
 // TODO: Events (hit, leaving, death, etc)
@@ -19,7 +21,10 @@ pub struct Entity {
     armor_max: f32,
     armor_cells: ArmorCells,
 
-    mobility: Mobility,
+    linear_acceleration: f32,
+    angular_acceleration: f32,
+    max_linear_velocity: f32,
+    max_angular_velocity: f32,
 
     pub wish_angvel: WishAngVel,
     pub wish_linvel: WishLinVel,
@@ -45,9 +50,7 @@ impl Entity {
             save.position,
             save.linvel,
             save.angvel,
-            save.data.shape.clone(),
-            save.data.groups,
-            save.data.mprops,
+            save.data,
             entity_id,
             group_ignore,
         );
@@ -60,7 +63,10 @@ impl Entity {
             hull: save.hull,
             armor_max: save.data.armor_max,
             armor_cells: save.armor_cells,
-            mobility: save.data.mobility,
+            linear_acceleration: save.data.linear_acceleration,
+            angular_acceleration: save.data.angular_acceleration,
+            max_linear_velocity: save.data.max_linear_velocity,
+            max_angular_velocity: save.data.max_angular_velocity,
             wish_angvel: WishAngVel::None,
             wish_linvel: WishLinVel::None,
             controlled: false,
@@ -156,10 +162,7 @@ pub fn update_entity_retain(sim: &mut Simulation, entity_idx: usize) -> bool {
 
     let wish_angvel = match entity.wish_angvel {
         WishAngVel::None => angvel,
-        WishAngVel::Keep => angvel.clamp(
-            -entity.mobility.max_angular_velocity,
-            entity.mobility.max_angular_velocity,
-        ),
+        WishAngVel::Keep => angvel.clamp(-entity.max_angular_velocity, entity.max_angular_velocity),
         WishAngVel::Stop => 0.0,
         WishAngVel::AimSmooth(aim_to) => {
             // TODO: May need to rotate this.
@@ -187,30 +190,30 @@ pub fn update_entity_retain(sim: &mut Simulation, entity_idx: usize) -> bool {
             // );
             0.0
         }
-        WishAngVel::Force(force) => force * entity.mobility.max_angular_velocity,
+        WishAngVel::Force(force) => force * entity.max_angular_velocity,
     };
 
     let wish_linvel = match entity.wish_linvel {
         WishLinVel::None => linvel,
-        WishLinVel::Keep => linvel.cap_magnitude(entity.mobility.max_linear_velocity),
+        WishLinVel::Keep => linvel.cap_magnitude(entity.max_linear_velocity),
         WishLinVel::Cancel => vector![0.0, 0.0],
         WishLinVel::PositionSmooth(position) => {
             let to_position = position - rb.translation();
             if to_position.magnitude_squared() < 0.01 {
                 vector![0.0, 0.0]
             } else {
-                to_position.cap_magnitude(entity.mobility.max_linear_velocity)
+                to_position.cap_magnitude(entity.max_linear_velocity)
             }
         }
         WishLinVel::PositionOvershoot(position) => {
             (position - rb.translation())
                 .try_normalize(0.01)
                 .unwrap_or(vector![0.0, -1.0])
-                * entity.mobility.max_linear_velocity
+                * entity.max_linear_velocity
         }
-        WishLinVel::ForceAbsolute(force) => force * entity.mobility.max_linear_velocity,
+        WishLinVel::ForceAbsolute(force) => force * entity.max_linear_velocity,
         WishLinVel::ForceRelative(force) => {
-            rb.rotation().transform_vector(&force) * entity.mobility.max_linear_velocity
+            rb.rotation().transform_vector(&force) * entity.max_linear_velocity
         }
     };
 
@@ -218,13 +221,13 @@ pub fn update_entity_retain(sim: &mut Simulation, entity_idx: usize) -> bool {
     rb.set_angvel(
         angvel
             + (wish_angvel - angvel).clamp(
-                -entity.mobility.angular_acceleration * DT,
-                entity.mobility.angular_acceleration * DT,
+                -entity.angular_acceleration * DT,
+                entity.angular_acceleration * DT,
             ),
         wake_up,
     );
     rb.set_linvel(
-        linvel + (wish_linvel - linvel).cap_magnitude(entity.mobility.linear_acceleration),
+        linvel + (wish_linvel - linvel).cap_magnitude(entity.linear_acceleration),
         wake_up,
     );
 
@@ -297,35 +300,22 @@ pub struct EntityData {
     hull_max: f32,
 
     armor_max: f32,
+    armor_cells_translation: Vector2<f32>,
     armor_cells_size: Vector2<i32>,
     /// The maximum value a cell can have.
     armor_cells: ArmorCells,
 
-    shape: SharedShape,
-    mprops: MassProperties,
-    groups: InteractionGroups,
+    pub shape_translation: Vector2<f32>,
+    pub shape: SharedShape,
+    pub mprops: MassProperties,
+    pub groups: InteractionGroups,
 
-    pub mobility: Mobility,
+    linear_acceleration: f32,
+    angular_acceleration: f32,
+    max_linear_velocity: f32,
+    max_angular_velocity: f32,
 
     on_new: Vec<EntityEvent>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
-pub struct Mobility {
-    pub linear_acceleration: f32,
-    pub angular_acceleration: f32,
-    pub max_linear_velocity: f32,
-    pub max_angular_velocity: f32,
-}
-impl Default for Mobility {
-    fn default() -> Self {
-        Self {
-            linear_acceleration: 1.0,
-            angular_acceleration: 0.5,
-            max_linear_velocity: 7.0,
-            max_angular_velocity: 3.0,
-        }
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -343,19 +333,25 @@ pub struct EntityDataJson {
     hull: f32,
 
     armor_max: f32,
+    armor_cells_translation: Vector2<f32>,
     armor_cells_size: Vector2<i32>,
-    armor_cells: ArmorCells,
+    armor_cells: Vec<f32>,
 
+    shape_translation: Vector2<f32>,
     shape: HullShapeJson,
     mass_radius: f32,
     density: f32,
-    groups: InteractionGroups,
+    memberships: u32,
+    filter: u32,
 
     // TODO: weapon slot
     // TODO: built-in weapon (take a slot #)
     // TODO: Engine placement
     // TODO: Shields
-    mobility: Mobility,
+    linear_acceleration: f32,
+    angular_acceleration: f32,
+    max_linear_velocity: f32,
+    max_angular_velocity: f32,
 
     on_new: Vec<EntityEvent>,
 }
@@ -367,14 +363,29 @@ impl EntityDataJson {
             hull_max: self.hull,
 
             armor_max: self.armor_max,
-            armor_cells_size: self.armor_cells_size,
-            armor_cells: self.armor_cells,
+            armor_cells_translation: self.armor_cells_translation,
+            armor_cells_size: Vector2::new(
+                self.armor_cells_size.x.max(3),
+                self.armor_cells_size.y.max(3),
+            ),
+            armor_cells: self
+                .armor_cells
+                .into_iter()
+                .map(|v| (v * u8::MAX as f32) as u8)
+                .collect(),
 
+            shape_translation: self.shape_translation,
             shape: self.shape.to_shared_shape(),
             mprops: MassProperties::from_ball(self.density, self.mass_radius),
-            groups: self.groups,
+            groups: InteractionGroups {
+                memberships: self.memberships.into(),
+                filter: self.filter.into(),
+            },
 
-            mobility: self.mobility,
+            linear_acceleration: self.linear_acceleration,
+            angular_acceleration: self.angular_acceleration,
+            max_linear_velocity: self.max_linear_velocity,
+            max_angular_velocity: self.max_angular_velocity,
 
             on_new: self.on_new,
         }
@@ -385,7 +396,7 @@ impl EntityDataJson {
 enum HullShapeJson {
     Cuboid { hx: f32, hy: f32 },
     Ball { radius: f32 },
-    Polygon { vertices: Vec<f32> },
+    Polygon { vertices: Vec<Point<f32>> },
 }
 impl HullShapeJson {
     fn to_shared_shape(&self) -> SharedShape {
@@ -393,16 +404,11 @@ impl HullShapeJson {
             HullShapeJson::Cuboid { hx, hy } => SharedShape::cuboid(*hx, *hy),
             HullShapeJson::Ball { radius } => SharedShape::ball(*radius),
             HullShapeJson::Polygon { vertices } => {
-                let vertices = vertices
-                    .chunks_exact(2)
-                    .map(|v| na::point![v[0], v[1]])
-                    .collect::<Vec<_>>();
-
                 let indices = (0..vertices.len() as u32 - 1)
                     .map(|i| [i, i + 1])
                     .chain(std::iter::once([vertices.len() as u32 - 1, 0]))
                     .collect::<Vec<_>>();
-                SharedShape::convex_decomposition(&vertices, indices.as_slice())
+                SharedShape::convex_decomposition(vertices.as_slice(), &indices)
             }
         }
     }
@@ -476,42 +482,32 @@ enum ModifierSave {
 
 // Just to see what data looks like.
 #[test]
-fn test_serialize_data() {
+fn test_serialize_data_json() {
     println!(
-        "{}\n",
+        "{}",
         serde_json::to_string_pretty(&EntityDataJson {
             hull: 456.0,
             armor_max: 123.0,
+            armor_cells_translation: Vector2::new(-1.5, -1.5),
             armor_cells_size: Vector2::new(3, 3),
-            armor_cells: (0u8..3 * 3).into_iter().collect(),
+            armor_cells: (0..3 * 3).into_iter().map(|v| v as f32 * 0.33).collect(),
+            shape_translation: Vector2::new(99.4, 78.81),
             shape: HullShapeJson::Polygon {
-                vertices: vec![0.0, -1.0, 1.0, 1.0, -1.0, 1.0]
+                vertices: vec![
+                    Point::new(0.0, -1.0),
+                    Point::new(-1.0, 1.0),
+                    Point::new(1.0, 1.0)
+                ]
             },
             mass_radius: 2.0,
             density: 3.0,
-            groups: group::GROUPS_SHIP,
-            mobility: Mobility {
-                linear_acceleration: 1.0,
-                angular_acceleration: 2.0,
-                max_linear_velocity: 3.0,
-                max_angular_velocity: 4.0
-            },
+            filter: 123,
+            memberships: 456,
+            linear_acceleration: 1.0,
+            angular_acceleration: 2.0,
+            max_linear_velocity: 3.0,
+            max_angular_velocity: 4.0,
             on_new: vec![EntityEvent::AddAiShip, EntityEvent::AddAiSeek]
-        })
-        .unwrap()
-    );
-
-    println!(
-        "{}\n",
-        serde_json::to_string_pretty(&EntitySave {
-            position: Default::default(),
-            linvel: Default::default(),
-            angvel: Default::default(),
-            hull: 456.0,
-            armor_cells: (0u8..3 * 3).into_iter().collect(),
-            data: Default::default(),
-            owner: None,
-            modifier_saves: SmallVec::from_iter((0..2).into_iter().map(|_| Default::default()))
         })
         .unwrap()
     );

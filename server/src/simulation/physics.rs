@@ -90,9 +90,7 @@ impl Physics {
         linvel: Vector2<f32>,
         angvel: f32,
 
-        shape: SharedShape,
-        groups: InteractionGroups,
-        mprops: MassProperties,
+        data: EntityDataId,
 
         entity_id: EntityId,
         group_ignore: u64,
@@ -107,9 +105,10 @@ impl Physics {
             .build();
         let rb = self.bodies.insert(rb);
 
-        let coll = ColliderBuilder::new(shape)
-            .collision_groups(groups)
-            .mass_properties(mprops)
+        let coll = ColliderBuilder::new(data.shape.clone())
+            .translation(data.shape_translation)
+            .collision_groups(data.groups)
+            .mass_properties(data.mprops)
             .user_data(UserData::pack_colider(entity_id, false))
             .active_hooks(ActiveHooks::FILTER_CONTACT_PAIRS)
             .active_events(ActiveEvents::CONTACT_FORCE_EVENTS)

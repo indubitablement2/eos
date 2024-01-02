@@ -92,7 +92,8 @@
       "dependsOn": [
         "Build Editor",
         "Launch Editor"
-      ]
+      ],
+      "problemMatcher": []
     },
     {
       "label": "Update compile_commands.json",
