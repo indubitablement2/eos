@@ -1,11 +1,24 @@
-[gd_scene load_steps=4 format=3 uid="uid://dyxlx5o2hh1ti"]
+[gd_scene load_steps=4 format=3 uid="uid://d5suxt57a5n2"]
 
-[ext_resource type="Script" path="res://core/singleton/battlescape.gd" id="1_uwp7t"]
 [ext_resource type="Texture2D" uid="uid://cke4taba0wnvh" path="res://icon.svg" id="2_05h1t"]
 [ext_resource type="PackedScene" uid="uid://dmb4ocmtfjt8g" path="res://core/scene/camera/camera.tscn" id="3_ufskd"]
 
+[sub_resource type="GDScript" id="GDScript_peoxm"]
+script/source = "extends Node2D
+
+
+var battlescape_id := 0
+
+
+#func join(battlescape_id: int, addr: String, same_addr: bool) -> void:
+#	pass
+#
+#func leave() -> void:
+#	pass
+"
+
 [node name="Battlescape" type="Node2D"]
-script = ExtResource("1_uwp7t")
+script = SubResource("GDScript_peoxm")
 
 [node name="Camera" parent="." instance=ExtResource("3_ufskd")]
 

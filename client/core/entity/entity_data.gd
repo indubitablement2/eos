@@ -2,6 +2,9 @@ extends Resource
 class_name EntityData
 
 
+var entity_data_id := 0
+
+
 @export var hull := 100.0
 
 @export var armor_max := 100.0

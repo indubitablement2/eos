@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="EntityData" load_steps=3 format=3 uid="uid://c378otfovt5j6"]
 
 [ext_resource type="Texture2D" uid="uid://b06bwxqm01or1" path="res://core/pixel.png" id="1_b7bxa"]
-[ext_resource type="Script" path="res://core/data/entity_data.gd" id="1_pukim"]
+[ext_resource type="Script" path="res://core/entity/entity_data.gd" id="1_pukim"]
 
 [resource]
 script = ExtResource("1_pukim")

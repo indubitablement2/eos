@@ -1,18 +1,21 @@
 [gd_scene load_steps=4 format=3 uid="uid://dw16dlutm0nu2"]
 
-[ext_resource type="Script" path="res://tool/entity_data_editor/entity_data_editor.gd" id="1_5wauc"]
-[ext_resource type="Resource" uid="uid://c378otfovt5j6" path="res://data/entity/ship_gen/gen_data.tres" id="2_d3iuu"]
+[ext_resource type="Script" path="res://tool/entity_editor.gd" id="1_5wauc"]
+[ext_resource type="Resource" uid="uid://c378otfovt5j6" path="res://data/entity/ship_gen/gen.tres" id="2_d3iuu"]
 [ext_resource type="Texture2D" uid="uid://btlel3kcdikj2" path="res://data/entity/ship_gen/spaceship gen.png" id="3_i6023"]
 
 [node name="Gen" type="Node2D" node_paths=PackedStringArray("shape")]
 script = ExtResource("1_5wauc")
 data = ExtResource("2_d3iuu")
+armor_cells_offset = Vector2(0.3, -1)
+armor_cells_grow = Vector2i(-1, 0)
 shape = NodePath("CollisionPolygon2D")
 mass_radius = 0.17
 on_new = Array[int]([0])
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(2.195, 0)
 texture = ExtResource("3_i6023")
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="."]
-polygon = PackedVector2Array(-7, -37, -17, -17, -49, 17, -24, 35, 26, 35, 43, 16, 13, -16, 5, -37)
+polygon = PackedVector2Array(-6, -37, -12, -18, -46, 18, -24, 35, 26, 35, 48, 18, 12, -18, 6, -37)

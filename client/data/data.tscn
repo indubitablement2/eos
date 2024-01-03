@@ -1,0 +1,10 @@
+[gd_scene load_steps=4 format=3 uid="uid://dkaqwsow54v5a"]
+
+[ext_resource type="Script" path="res://core/data.gd" id="1_tfu5i"]
+[ext_resource type="Resource" uid="uid://c378otfovt5j6" path="res://data/entity/ship_gen/gen.tres" id="2_sh7q3"]
+[ext_resource type="JSON" path="res://data/instances.json" id="3_fgxpm"]
+
+[node name="Data" type="Node"]
+script = ExtResource("1_tfu5i")
+entities_data = Array[Resource("res://core/entity/entity_data.gd")]([ExtResource("2_sh7q3")])
+_instances = ExtResource("3_fgxpm")

@@ -29,6 +29,7 @@ use std::time::{Duration, Instant};
 // // TODO: Mini app which compile and relauches instance and database if they exit
 // // TODO: Private key taken from file
 // TODO: Websocket encryption
+// TODO: Find a proper name + rename paths and project
 
 // TODO: Database:
 // Add starting ship database resquest (if no ship)

@@ -2,7 +2,7 @@ use super::*;
 use simulation::entity::{EntityData, EntityDataJson};
 use std::{fs::File, io::BufReader};
 
-const DATA_PATH: &str = "eos/client/tool/data.json";
+const DATA_PATH: &str = "eos/client/tool/server_data.json";
 const CONFIG_PATH: &str = "config.json";
 
 static DATA: std::sync::OnceLock<Data> = std::sync::OnceLock::new();

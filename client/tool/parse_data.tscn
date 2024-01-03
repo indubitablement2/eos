@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://cvxpv3eb1btg7"]
+
+[ext_resource type="Script" path="res://tool/parse_data.gd" id="1_6ina7"]
+
+[node name="ParseData" type="Node"]
+script = ExtResource("1_6ina7")
+server_data_export_path = "res://tool/server_data.json"
+entities_editor_folder = "res://tool/entity_editor"

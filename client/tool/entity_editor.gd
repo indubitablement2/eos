@@ -4,6 +4,11 @@ extends Node2D
 
 @export var data : EntityData
 
+## Transform final armor cells position.
+@export var armor_cells_offset := Vector2()
+## Grow/shrink final armor cells size.
+@export var armor_cells_grow := Vector2i()
+
 @export_category("Physics")
 ## Support position, but not rotation or scale.
 @export var shape : Node2D
@@ -33,7 +38,7 @@ func _process(delta: float) -> void:
 	_t += delta
 	if _t > 1.0:
 		_t = 0.0
-		#queue_redraw()
+		queue_redraw()
 
 
 func _draw() -> void:
@@ -43,8 +48,16 @@ func _draw() -> void:
 		Vector2(Util.RENDER_SCALE, Util.RENDER_SCALE))
 	
 	var armor_rect := compute_armor_rect()
-	armor_rect.size *= Util.ARMOR_CELLS_SIZE
-	draw_rect(armor_rect, Color.AQUA, false)
+	var start := armor_rect.position
+	var end :=  armor_rect.position +  armor_rect.size * Util.ARMOR_CELLS_SIZE
+	for h in armor_rect.size.y + 1:
+		var y := start.y + h * Util.ARMOR_CELLS_SIZE
+		draw_line(Vector2(start.x, y), Vector2(end.x, y), Color.AQUA)
+	for v in armor_rect.size.x + 1:
+		var x := start.x + v * Util.ARMOR_CELLS_SIZE
+		draw_line(Vector2(x, start.y), Vector2(x, end.y), Color.AQUA)
+	#armor_rect.size *= Util.ARMOR_CELLS_SIZE
+	#draw_rect(armor_rect, Color.AQUA, false)
 	
 	draw_arc(
 		Vector2.ZERO,
@@ -79,12 +92,13 @@ func compute_armor_rect() -> Rect2:
 			rect = Rect2(s * -0.5, s)
 	
 	if shape:
-		rect.position += shape.position * Util.SERVER_SCALE
+		rect.position += (shape.position + armor_cells_offset) * Util.SERVER_SCALE
 	
 	rect = rect.grow(Util.ARMOR_CELLS_SIZE)
 	
 	rect.size /= Util.ARMOR_CELLS_SIZE
 	rect.size = rect.size.ceil()
+	rect.size += Vector2(armor_cells_grow)
 	rect.size = rect.size.clamp(Vector2(3, 3), Vector2(INF, INF))
 	
 	return rect
@@ -98,8 +112,16 @@ func entity_data_json() -> Dictionary:
 	json["armor_max"] = data.armor_max
 	var armor_rect := compute_armor_rect()
 	json["armor_cells_translation"] = [armor_rect.position.x, armor_rect.position.y]
-	json["armor_cells_size"] = [armor_rect.size.x, armor_rect.size.y]
-	json["armor_cells"] = null
+	var armor_cells_size := Vector2i(armor_rect.size)
+	json["armor_cells_size"] = [armor_cells_size.x, armor_cells_size.y]
+	var img := data.armor_cells.get_image()
+	img.resize(armor_cells_size.x, armor_cells_size.y)
+	var armor_cells : Array[float] = []
+	armor_cells.resize(armor_cells_size.y * armor_cells_size.x)
+	for y in int(armor_cells_size.y):
+		for x in int(armor_cells_size.x):
+			armor_cells[y * armor_cells_size.x + x] = img.get_pixel(x, y).r
+	json["armor_cells"] = armor_cells
 	
 	var shape_translation := shape.position * Util.SERVER_SCALE
 	json["shape_translation"] = [shape_translation.x, shape_translation.y]

@@ -127,11 +127,17 @@ impl Default for ShipId {
     }
 }
 
+const SIMULATION_ID_MAX: u32 = 1 << 20;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct SimulationId(NonZeroU32);
 impl SimulationId {
     pub fn from_u32(id: u32) -> Option<Self> {
-        NonZeroU32::new(id).map(Self)
+        if id < SIMULATION_ID_MAX {
+            NonZeroU32::new(id).map(Self)
+        } else {
+            None
+        }
     }
 
     pub fn as_u32(self) -> u32 {

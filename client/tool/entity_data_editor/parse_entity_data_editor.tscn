@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://c77ad8832m2fm"]
-
-[ext_resource type="Script" path="res://tool/entity_data_editor/parse_entity_data_editor.gd" id="1_gkcfb"]
-
-[node name="Node" type="Node"]
-script = ExtResource("1_gkcfb")

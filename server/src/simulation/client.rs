@@ -237,6 +237,7 @@ impl Packet for ClientOutbound {
     }
 }
 
+/// Do not use id directly. Instead use int and use try from.
 #[derive(Deserialize)]
 pub enum ClientInbound {
     SetView {
