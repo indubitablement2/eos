@@ -1,3 +1,7 @@
+Status: **On hold.** Will come back to it eventually.
+
+---
+
 # EOS (working title)
 ![Project Logo](logo.jpg)
 
