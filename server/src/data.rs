@@ -2,8 +2,10 @@ use super::*;
 use simulation::entity::{EntityData, EntityDataJson};
 use std::{fs::File, io::BufReader};
 
-const DATA_PATH: &str = "eos/client/tool/server_data.json";
-const CONFIG_PATH: &str = "config.json";
+// const DATA_PATH: &str = "eos/client/tool/server_data.json";
+// const CONFIG_PATH: &str = "config.json";
+const DATA_PATH: &str = "../client/tool/server_data.json";
+const CONFIG_PATH: &str = "../../config.json";
 
 static DATA: std::sync::OnceLock<Data> = std::sync::OnceLock::new();
 pub fn data() -> &'static Data {
@@ -178,6 +180,6 @@ fn json_test() -> DataJson {
 }
 
 #[test]
-fn test_asd() {
+fn test_data_json() {
     println!("{}", serde_json::to_string_pretty(&json_test()).unwrap());
 }

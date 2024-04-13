@@ -377,7 +377,7 @@ fn remove_database_files(keep_amount: usize) -> anyhow::Result<()> {
 impl Database {
     fn save(&mut self, json: bool) -> anyhow::Result<()> {
         let now = Instant::now();
-        log::info!("Saving database. Json: {}", json);
+        log::info!("Saving database as {}", if json { "json" } else { "bin" });
 
         self.save_count += 1;
         self.next_save = now + SAVE_INTERVAL;
@@ -403,7 +403,10 @@ impl Database {
         writer.write_all(&self.save_count.to_le_bytes())?;
         self.mut_requests_writer = Some(writer);
 
-        log::info!("Database saved in {} seconds", now.elapsed().as_secs());
+        log::info!(
+            "Database saved in {:.1} seconds",
+            now.elapsed().as_secs_f64()
+        );
 
         Ok(())
     }
@@ -415,6 +418,8 @@ impl Database {
 
 pub fn _start() {
     let mut db = load_database().unwrap();
+
+    log::info!("Started database server");
 
     let mut interval = interval::Interval::new(50, 50);
     loop {

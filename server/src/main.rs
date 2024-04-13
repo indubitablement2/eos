@@ -31,7 +31,12 @@ use std::time::{Duration, Instant};
 // TODO: Websocket encryption
 // TODO: Find a proper name + rename paths and project
 
+// TODO: mutations.bin is too big
+// mutations are outdated?
+
 // TODO: Database:
+// Replace websocket with tcp
+// simulation packets shouldn't need to pass through instance
 // Add starting ship database resquest (if no ship)
 // keep track of logged-in client
 // only send fleet update to client when something changes
@@ -47,11 +52,10 @@ use std::time::{Duration, Instant};
 // TODO: Instance:
 // // remove client outbound (only simulation has any)
 // add fast way for client to change simulation on same instance without reconnect
-// simulation packets shouldn't need to pass through instance
 
 // TODO: Simulation:
 // add ships to intermitent simulation save
-// Keep track of what data client has and send as needed instead of waiting for query
+// // Keep track of what data client has and send as needed instead of waiting for query
 // Add entity detection and detector range
 // remove uneeded derives
 // // has its own id range for entity/ship based on sim id
