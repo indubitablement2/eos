@@ -1,0 +1,35 @@
+name: 🔗 GHA
+on: [push, pull_request]
+
+concurrency:
+  group: ci-${{github.actor}}-${{github.head_ref || github.run_number}}-${{github.ref}}-runner
+  cancel-in-progress: true
+
+jobs:
+  client-android-build:
+    name: 🤖 Client Android
+    uses: ./.github/workflows/client_android_builds.yml
+  client-ios-build:
+    name: 🍏 Client iOS
+    uses: ./.github/workflows/client_ios_builds.yml
+  client-linux-build:
+    name: 🐧 Client Linux
+    uses: ./.github/workflows/client_linux_builds.yml
+  client-macos-build:
+    name: 🍎 Client macOS
+    uses: ./.github/workflows/client_macos_builds.yml
+  client-windows-build:
+    name: 🏁 Client Windows
+    uses: ./.github/workflows/client_windows_builds.yml
+  client-web-build:
+    name: 🌐 Client Web
+    uses: ./.github/workflows/client_web_builds.yml
+  server-linux-build:
+    name: 🐧 Server Client Linux
+    uses: ./.github/workflows/server_linux_builds.yml
+  server-macos-build:
+    name: 🍎 Server Client macOS
+    uses: ./.github/workflows/server_macos_builds.yml
+  server-windows-build:
+    name: 🏁 Server Client Windows
+    uses: ./.github/workflows/server_windows_builds.yml

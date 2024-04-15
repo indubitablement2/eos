@@ -1,0 +1,12 @@
+name: Test Godot project determinism
+description: Test the Godot project determinism.
+inputs:
+  bin:
+    description: The path to the Godot executable
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Test determinism
+      shell: sh
+      run: ./godot/bin/${{ inputs.bin }} --headless --path ./client --quit-after 1000 --determinism-test=6000

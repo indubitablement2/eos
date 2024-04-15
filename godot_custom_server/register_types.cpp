@@ -2,7 +2,7 @@
 #include "codec.h"
 #include "core/object/class_db.h"
 
-void initialize_godot_custom_module(ModuleInitializationLevel p_level) {
+void initialize_godot_custom_server_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}
@@ -10,7 +10,7 @@ void initialize_godot_custom_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<ClientCodec>();
 }
 
-void uninitialize_godot_custom_module(ModuleInitializationLevel p_level) {
+void uninitialize_godot_custom_server_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}

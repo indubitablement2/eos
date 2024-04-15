@@ -1,7 +1,8 @@
-server/target
-test_api/target
+database/target
+instance/target
 
 .cache/*
+bin/*
 
 # Binaries
 *.o
