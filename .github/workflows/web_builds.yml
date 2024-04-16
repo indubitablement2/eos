@@ -1,4 +1,4 @@
-name: 🌐 Client Web Builds
+name: 🌐 Web Builds
 on:
   workflow_call:
 
@@ -6,7 +6,7 @@ on:
 env:
   # Used for the cache key. Add version suffix to force clean build.
   GODOT_BASE_BRANCH: 4.2
-  SCONSFLAGS: verbose=no warnings=extra werror=no debug_symbols=no lto=full custom_modules=../godot_custom_client
+  SCONSFLAGS: verbose=no warnings=extra werror=no debug_symbols=no lto=full
   EM_VERSION: 3.1.39
   EM_CACHE_FOLDER: "emsdk-cache"
 

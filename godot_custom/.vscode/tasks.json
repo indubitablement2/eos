@@ -9,30 +9,12 @@
       "args": [
         "-C",
         "../godot",
-        "custom_modules=../godot_custom_client",
+        "custom_modules=../godot_custom",
         "compiledb=yes"
       ],
       "group": {
         "kind": "build",
         "isDefault": true
-      },
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared"
-      }
-    },
-    {
-      "label": "Make Directory",
-      "type": "shell",
-      "hide": true,
-      "command": "mkdir",
-      "args": [
-        "-p",
-        "../bin/client"
-      ],
-      "group": {
-        "kind": "build",
-        "isDefault": false
       },
       "presentation": {
         "reveal": "always",
@@ -46,25 +28,7 @@
       "command": "mv",
       "args": [
         "../godot/compile_commands.json",
-        "../godot_custom_client"
-      ],
-      "group": {
-        "kind": "build",
-        "isDefault": false
-      },
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared"
-      }
-    },
-    {
-      "label": "Mv Bin",
-      "type": "shell",
-      "hide": true,
-      "command": "mv",
-      "args": [
-        "../godot/bin/*",
-        "../bin/client/"
+        "../"
       ],
       "group": {
         "kind": "build",
@@ -80,27 +44,27 @@
       "type": "shell",
       "problemMatcher": [],
       "windows": {
-        "command": "..\\bin\\client\\godot.windows.editor.x86_64.exe",
+        "command": "..\\godot\\bin\\godot.windows.editor.x86_64.exe",
         "args": [
           "--editor",
-          "--path",
-          "../client"
+          // "--path",
+          // "../server"
         ]
       },
       "linux": {
-        "command": "../bin/client/godot.linuxbsd.editor.x86_64",
+        "command": "../godot/bin/godot.linuxbsd.editor.x86_64",
         "args": [
           "--editor",
-          "--path",
-          "../client"
+          // "--path",
+          // "../server"
         ]
       },
       "osx": {
-        "command": "../bin/client/godot.osx.editor.x86_64",
+        "command": "../godot/bin/godot.osx.editor.x86_64",
         "args": [
           "--editor",
-          "--path",
-          "../client"
+          // "--path",
+          // "../server"
         ]
       }
     },
@@ -109,8 +73,6 @@
       "dependsOrder": "sequence",
       "dependsOn": [
         "Build Editor Internal",
-        "Make Directory",
-        "Mv Bin",
         "Mv Compiledb"
       ],
       "problemMatcher": []

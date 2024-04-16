@@ -1,33 +1,38 @@
-name: 🍎 Client macOS Builds
+name: 🏁 Windows Builds
 on:
   workflow_call:
 
 # Global Settings
+# SCONS_CACHE for windows must be set in the build environment
 env:
   # Used for the cache key. Add version suffix to force clean build.
   GODOT_BASE_BRANCH: 4.2
-  SCONSFLAGS: verbose=no warnings=extra werror=no lto=full custom_modules=../godot_custom_client
+  SCONSFLAGS: verbose=no warnings=extra werror=no lto=full
+  SCONS_CACHE_MSVC_CONFIG: true
 
 concurrency:
-  group: ci-${{github.actor}}-${{github.head_ref || github.run_number}}-${{github.ref}}-macos
+  group: ci-${{github.actor}}-${{github.head_ref || github.run_number}}-${{github.ref}}-windows
   cancel-in-progress: true
 
 jobs:
-  build-macos:
-    runs-on: "macos-latest"
+  build-windows:
+    runs-on: "windows-latest"
     name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: Editor
-            cache-name: macos-editor
+            cache-name: windows-editor
             target: editor
-            bin: "./bin/godot.macos.editor.x86_64"
+            # Skip debug symbols, they're way too big with MSVC.
+            sconsflags: debug_symbols=no vsproj=yes windows_subsystem=console
+            bin: "godot.windows.editor.x86_64.exe"
 
           - name: Template
-            cache-name: macos-template
+            cache-name: windows-template
             target: template_release
+            tests: false
             sconsflags: debug_symbols=no
 
     steps:
@@ -44,21 +49,19 @@ jobs:
       - name: Setup python and scons
         uses: ./.github/actions/godot-deps
 
-      - name: Setup Vulkan SDK
-        run: |
-          sh godot/misc/scripts/install_vulkan_sdk_macos.sh
+      - name: Setup MSVC problem matcher
+        uses: ammaraskar/msvc-problem-matcher@master
 
       - name: Compilation
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: ${{ env.SCONSFLAGS }}
-          platform: macos
+          sconsflags: ${{ env.SCONSFLAGS }} ${{ matrix.sconsflags }}
+          platform: windows
           target: ${{ matrix.target }}
 
       - name: Prepare artifact
         run: |
-          strip godot/bin/godot.*
-          chmod +x godot/bin/godot.*
+          Remove-Item godot/bin/* -Include *.exp,*.lib,*.pdb -Force
 
       - name: Upload artifact
         uses: ./.github/actions/upload-artifact

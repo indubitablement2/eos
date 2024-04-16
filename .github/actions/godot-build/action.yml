@@ -31,5 +31,5 @@ runs:
         cd godot
         echo "Building with flags:" platform=${{ inputs.platform }} target=${{ inputs.target }} ${{ env.SCONSFLAGS }}
         if [ "${{ inputs.target }}" != "editor" ]; then rm -rf editor; fi  # Ensure we don't include editor code.
-        scons platform=${{ inputs.platform }} target=${{ inputs.target }} ${{ env.SCONSFLAGS }}
+        scons platform=${{ inputs.platform }} target=${{ inputs.target }} custom_modules=../godot_custom ${{ env.SCONSFLAGS }}
         ls -l bin/
