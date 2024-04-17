@@ -1,6 +1,6 @@
 #include "register_types.h"
 #include "core/object/class_db.h"
-#include "hull_base.h"
+#include "hull.h"
 #include "postcard_codec.h"
 
 void initialize_godot_custom_module(ModuleInitializationLevel p_level) {
@@ -9,7 +9,8 @@ void initialize_godot_custom_module(ModuleInitializationLevel p_level) {
 	}
 
 	ClassDB::register_abstract_class<PostcardCodec>();
-	ClassDB::register_class<HullBase>();
+	ClassDB::register_class<HullData>();
+	ClassDB::register_class<Hull>();
 }
 
 void uninitialize_godot_custom_module(ModuleInitializationLevel p_level) {
