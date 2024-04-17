@@ -1,17 +1,5 @@
-Status: **On hold.** Will come back to it eventually.
-
----
-
 # EOS (working title)
 ![Project Logo](logo.jpg)
-
-## Editor Build (C++)
-See https://docs.godotengine.org/en/stable/contributing/development/compiling/index.html for requirements.
-Commands to easily build and launch the editor as well as update compile_commands.json (for use with clangd) are in: `godot_custom/.vscode/tasks.json`. These commands are meant to run from `godot_custom/` folder.
-
-## Server Build (Rust)
-Require cargo and rust (only tested on nightly).
-Run cargo from `server/` folder. By default database and instance are merged into a single executable which is mostly only useful for testing. Build for either by adding `--feature database` or `--feature instance`. See `launch.sh` which handle lauching servers.
 
 ## Design Document
 

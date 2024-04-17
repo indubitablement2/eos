@@ -87,8 +87,8 @@ void PostcardCodec::put_vector2(Vector2 value) {
 
 PostcardCodec::ByteSlice PostcardCodec::finish_encode() {
 	ByteSlice ret{
-		.data = write_buffer,
-		.len = u64(write_cursor - write_buffer)
+		write_buffer,
+		u64(write_cursor - write_buffer)
 	};
 	write_cursor = write_buffer;
 	return ret;
@@ -149,8 +149,8 @@ PostcardCodec::ByteSlice PostcardCodec::get_bytes(u64 max_len) {
 		read_cursor = read_end + 1;
 
 		return ByteSlice{
-			.data = nullptr,
-			.len = 0
+			nullptr,
+			0
 		};
 	}
 
