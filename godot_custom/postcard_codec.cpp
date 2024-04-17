@@ -155,8 +155,8 @@ PostcardCodec::ByteSlice PostcardCodec::get_bytes(u64 max_len) {
 	}
 
 	ByteSlice value{
-		.data = read_cursor,
-		.len = len
+		read_cursor,
+		len
 	};
 	read_cursor += len;
 	return value;
