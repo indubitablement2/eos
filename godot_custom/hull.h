@@ -5,10 +5,8 @@
 #include "core/math/vector2.h"
 #include "core/math/vector3.h"
 #include "core/object/ref_counted.h"
-#include "core/variant/typed_array.h"
 #include "core/variant/variant.h"
 #include "preludes.h"
-#include "scene/2d/node_2d.h"
 #include "scene/2d/physics_body_2d.h"
 #include "servers/physics_server_2d.h"
 
@@ -32,8 +30,8 @@
 	}
 
 #define PROP_DEF(name)                        \
-	i32 name##_flat_increase;                 \
-	i32 name##_percent_increase;              \
+	i32 name##_flat_increase = 0;             \
+	i32 name##_percent_increase = 0;          \
 	f32 name##_get() const;                   \
 	void name##_add_flat_increase(i32 value); \
 	void name##_add_percent_increase(i32 value);
@@ -43,15 +41,15 @@
 	ClassDB::bind_method(D_METHOD(STRINGIFY(name##_add_flat_increase), "value"), &Hull::name##_add_flat_increase); \
 	ClassDB::bind_method(D_METHOD(STRINGIFY(name##_add_percent_increase), "value"), &Hull::name##_add_percent_increase);
 
-#define PROP_IMPL(name)                                                                        \
-	f32 Hull::name##_get() const {                                                             \
-		return (data->name + f32(name##_flat_increase)) * f32(name##_percent_increase) * 0.01; \
-	}                                                                                          \
-	void Hull::name##_add_flat_increase(i32 value) {                                           \
-		name##_flat_increase += value;                                                         \
-	}                                                                                          \
-	void Hull::name##_add_percent_increase(i32 value) {                                        \
-		name##_percent_increase += value;                                                      \
+#define PROP_IMPL(name)                                                                              \
+	f32 Hull::name##_get() const {                                                                   \
+		return (data->name + f32(name##_flat_increase)) * f32(name##_percent_increase + 100) * 0.01; \
+	}                                                                                                \
+	void Hull::name##_add_flat_increase(i32 value) {                                                 \
+		name##_flat_increase += value;                                                               \
+	}                                                                                                \
+	void Hull::name##_add_percent_increase(i32 value) {                                              \
+		name##_percent_increase += value;                                                            \
 	}
 
 #define DATA_PROP_DEF(name, def) \
@@ -73,17 +71,16 @@
 	}
 
 enum WishLinearVelocityType {
-	WISH_LINEAR_VELOCITY_TYPE_NONE,
 	WISH_LINEAR_VELOCITY_TYPE_KEEP,
 	WISH_LINEAR_VELOCITY_TYPE_CANCEL,
 	WISH_LINEAR_VELOCITY_TYPE_POSITION_SMOOTH,
 	WISH_LINEAR_VELOCITY_TYPE_POSITION_OVERSHOOT,
 	WISH_LINEAR_VELOCITY_TYPE_FORCE_ABSOLUTE,
-	WISH_LINEAR_VELOCITY_TYPE_FORCE_RELATIVE
+	WISH_LINEAR_VELOCITY_TYPE_FORCE_RELATIVE,
+	WISH_LINEAR_VELOCITY_TYPE_SAVE_VELOCITY
 };
 
 enum WishAngularVelocityType {
-	WISH_ANGULAR_VELOCITY_TYPE_NONE,
 	WISH_ANGULAR_VELOCITY_TYPE_KEEP,
 	WISH_ANGULAR_VELOCITY_TYPE_CANCEL,
 	WISH_ANGULAR_VELOCITY_TYPE_AIM_SMOOTH,
@@ -98,6 +95,7 @@ protected:
 
 public:
 	SET_GET_DEF(armor_cells_max, PackedByteArray, PackedByteArray());
+	SET_GET_DEF(num_turrets, i32, 0);
 
 	DATA_PROP_DEF(linear_acceleration, 100.0);
 	DATA_PROP_DEF(linear_velocity_max, 100.0);
@@ -114,19 +112,17 @@ protected:
 	static void _bind_methods();
 	void _notification(int p_what);
 
-private:
-	void _apply_wish_movement();
-
 public:
+	void apply_wish_movement(PhysicsDirectBodyState2D *state);
+
 	Vector2 thruster_linear;
 	f32 thruster_angular; // 4
 
 	SET_GET_DEF(data, Ref<HullData>, Ref<HullData>());
-	SET_GET_DEF(wish_linear_velocity_type, WishLinearVelocityType, WISH_LINEAR_VELOCITY_TYPE_NONE);
+	SET_GET_DEF(wish_linear_velocity_type, WishLinearVelocityType, WISH_LINEAR_VELOCITY_TYPE_KEEP);
 	SET_GET_DEF(wish_linear_velocity, Vector2, Vector2());
-	SET_GET_DEF(wish_angular_velocity_type, WishAngularVelocityType, WISH_ANGULAR_VELOCITY_TYPE_NONE);
+	SET_GET_DEF(wish_angular_velocity_type, WishAngularVelocityType, WISH_ANGULAR_VELOCITY_TYPE_KEEP);
 	SET_GET_DEF(wish_angular_velocity, Vector2, Vector2());
-	SET_GET_DEF(turrets, TypedArray<Node2D>, TypedArray<Node2D>());
 	SET_GET_DEF(armor_cells, PackedByteArray, PackedByteArray());
 	SET_GET_DEF(hull_relative, f32, 1.0);
 

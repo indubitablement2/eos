@@ -11,9 +11,30 @@ config_version=5
 [application]
 
 config/name="Simulation"
-config/features=PackedStringArray("4.3", "Mobile")
+config/features=PackedStringArray("4.2", "Mobile")
+run/max_fps=10
+run/delta_smoothing=false
 config/icon="res://icon.svg"
+
+[display]
+
+window/vsync/vsync_mode=0
+
+[physics]
+
+common/physics_ticks_per_second=10
+common/max_physics_steps_per_frame=4
+common/physics_jitter_fix=0.0
+2d/default_gravity=0.0
+2d/default_gravity_vector=Vector2(0, 0)
+2d/default_linear_damp=0.01
+2d/default_angular_damp=0.01
+common/enable_object_picking=false
 
 [rendering]
 
 renderer/rendering_method="mobile"
+
+[threading]
+
+worker_pool/max_threads=0

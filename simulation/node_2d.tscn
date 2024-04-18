@@ -1,0 +1,43 @@
+[gd_scene load_steps=5 format=3 uid="uid://bggv8q6revg4i"]
+
+[ext_resource type="Texture2D" uid="uid://cf0c435cfcy25" path="res://icon.svg" id="1_mb1ly"]
+
+[sub_resource type="HullData" id="HullData_313hc"]
+angular_acceleration = 6.283
+angular_velocity_max = 6.283
+
+[sub_resource type="GDScript" id="GDScript_c0lu0"]
+script/source = "extends Hull
+
+#func _ready() -> void:
+	#set_physics_process(true)
+
+func _physics_process(delta: float) -> void:
+	print(linear_velocity, linear_velocity.length(), \" | \", angular_velocity, \" | \", sleeping)
+"
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_frvfn"]
+
+[node name="Node2D" type="Node2D"]
+
+[node name="Hull" type="Hull" parent="."]
+position = Vector2(57, 68)
+angular_velocity = 12.5664
+data = SubResource("HullData_313hc")
+wish_linear_velocity_type = 1
+wish_linear_velocity = Vector2(100, 0)
+wish_angular_velocity = Vector2(600, 300)
+script = SubResource("GDScript_c0lu0")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hull"]
+shape = SubResource("RectangleShape2D_frvfn")
+
+[node name="Icon2" type="Sprite2D" parent="Hull"]
+position = Vector2(0, -21.005)
+scale = Vector2(0.1, 0.345)
+texture = ExtResource("1_mb1ly")
+
+[node name="Icon" type="Sprite2D" parent="."]
+modulate = Color(1, 1, 1, 0.384314)
+position = Vector2(600, 300)
+texture = ExtResource("1_mb1ly")
