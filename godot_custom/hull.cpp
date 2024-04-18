@@ -10,15 +10,18 @@
 const f32 DT = 0.1;
 
 void HullData::_bind_methods() {
-	DATA_PROP_BIND(linear_acceleration);
-	DATA_PROP_BIND(linear_velocity_max);
-	DATA_PROP_BIND(angular_acceleration);
-	DATA_PROP_BIND(angular_velocity_max);
+	DATA_PROP_BIND(linear_acceleration, "0,1000,or_greater,suffix:p/s²");
+	DATA_PROP_BIND(linear_velocity_max, "0,1000,or_greater,suffix:p/s");
+	DATA_PROP_BIND(angular_acceleration, "0,100,or_greater,suffix:rad/s²");
+	DATA_PROP_BIND(angular_velocity_max, "0,100,or_greater,suffix:rad/s");
+
 	SET_GET_BIND(armor_cells_max, PackedByteArray, HullData);
-	SET_GET_BIND(num_turrets, i32, HullData);
 	ADD_PROPERTY(PropertyInfo(Variant::PACKED_BYTE_ARRAY, "armor_cells_max"), "set_armor_cells_max", "get_armor_cells_max");
-	DATA_PROP_BIND(armor_max);
-	DATA_PROP_BIND(hull_max);
+	DATA_PROP_BIND(armor_max, "");
+	DATA_PROP_BIND(hull_max, "");
+
+	SET_GET_BIND(num_turrets, i32, HullData);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "num_turrets"), "set_num_turrets", "get_num_turrets");
 }
 
 SET_GET_IMPL(armor_cells_max, PackedByteArray, HullData);

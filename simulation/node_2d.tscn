@@ -22,7 +22,6 @@ func _physics_process(delta: float) -> void:
 
 [node name="Hull" type="Hull" parent="."]
 position = Vector2(57, 68)
-angular_velocity = 12.5664
 data = SubResource("HullData_313hc")
 wish_linear_velocity_type = 1
 wish_linear_velocity = Vector2(100, 0)

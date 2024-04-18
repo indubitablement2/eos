@@ -57,10 +57,11 @@
 	void set_##name(f32 value);  \
 	f32 get_##name() const;
 
-#define DATA_PROP_BIND(name)                                                               \
+// "min,max[,step][,or_greater][,or_less][,hide_slider][,radians_as_degrees][,degrees][,exp][,suffix:<keyword>]"
+#define DATA_PROP_BIND(name, hint)                                                         \
 	ClassDB::bind_method(D_METHOD(STRINGIFY(set_##name), "value"), &HullData::set_##name); \
 	ClassDB::bind_method(D_METHOD(STRINGIFY(get_##name)), &HullData::get_##name);          \
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, #name), STRINGIFY(set_##name), STRINGIFY(get_##name));
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, #name, PROPERTY_HINT_RANGE, hint), STRINGIFY(set_##name), STRINGIFY(get_##name));
 
 #define DATA_PROP_IMPL(name)               \
 	void HullData::set_##name(f32 value) { \
