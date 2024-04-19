@@ -1,10 +1,4 @@
-database/target
-simulation_server/target
-
-godot_custom/.cache
-
-.cache
-compile_commands.json
+server/target
 
 # Binaries
 *.o
