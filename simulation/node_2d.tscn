@@ -1,40 +1,27 @@
-[gd_scene load_steps=5 format=3 uid="uid://bggv8q6revg4i"]
+[gd_scene load_steps=4 format=3 uid="uid://bggv8q6revg4i"]
 
 [ext_resource type="Texture2D" uid="uid://cf0c435cfcy25" path="res://icon.svg" id="1_mb1ly"]
 
-[sub_resource type="HullData" id="HullData_313hc"]
-angular_acceleration = 6.283
-angular_velocity_max = 6.283
+[sub_resource type="GDScript" id="GDScript_ijgrm"]
+script/source = "extends Node2D
 
-[sub_resource type="GDScript" id="GDScript_c0lu0"]
-script/source = "extends Hull
 
-#func _ready() -> void:
-	#set_physics_process(true)
-
-func _physics_process(delta: float) -> void:
-	print(linear_velocity, linear_velocity.length(), \" | \", angular_velocity, \" | \", sleeping)
+func _ready() -> void:
+	for i in 1:
+		var h := preload(\"res://hull.tscn\").instantiate()
+		h.position = Vector2(randf(), randf()) * 600.0
+		add_child(h)
 "
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_frvfn"]
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_sk4dl"]
+vertices = PackedVector2Array(536, 484, 347, 459, 427, 365)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2)])
 
 [node name="Node2D" type="Node2D"]
+script = SubResource("GDScript_ijgrm")
 
-[node name="Hull" type="Hull" parent="."]
-position = Vector2(57, 68)
-data = SubResource("HullData_313hc")
-wish_linear_velocity_type = 1
-wish_linear_velocity = Vector2(100, 0)
-wish_angular_velocity = Vector2(600, 300)
-script = SubResource("GDScript_c0lu0")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Hull"]
-shape = SubResource("RectangleShape2D_frvfn")
-
-[node name="Icon2" type="Sprite2D" parent="Hull"]
-position = Vector2(0, -21.005)
-scale = Vector2(0.1, 0.345)
-texture = ExtResource("1_mb1ly")
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+navigation_polygon = SubResource("NavigationPolygon_sk4dl")
 
 [node name="Icon" type="Sprite2D" parent="."]
 modulate = Color(1, 1, 1, 0.384314)

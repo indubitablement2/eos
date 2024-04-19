@@ -17,8 +17,8 @@ void HullData::_bind_methods() {
 
 	SET_GET_BIND(armor_cells_max, PackedByteArray, HullData);
 	ADD_PROPERTY(PropertyInfo(Variant::PACKED_BYTE_ARRAY, "armor_cells_max"), "set_armor_cells_max", "get_armor_cells_max");
-	DATA_PROP_BIND(armor_max, "");
-	DATA_PROP_BIND(hull_max, "");
+	DATA_PROP_BIND(armor_max, "0,2000,or_greater");
+	DATA_PROP_BIND(hull_max, "0,20000,or_greater");
 
 	SET_GET_BIND(num_turrets, i32, HullData);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "num_turrets"), "set_num_turrets", "get_num_turrets");

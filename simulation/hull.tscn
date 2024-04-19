@@ -1,0 +1,61 @@
+[gd_scene load_steps=6 format=3 uid="uid://bc4c821vpohyq"]
+
+[ext_resource type="Texture2D" uid="uid://cf0c435cfcy25" path="res://icon.svg" id="1_80qki"]
+
+[sub_resource type="HullData" id="HullData_313hc"]
+angular_acceleration = 6.283
+angular_velocity_max = 6.283
+
+[sub_resource type="GDScript" id="GDScript_c0lu0"]
+script/source = "extends Hull
+
+@export var agent : NavigationAgent2D
+
+func _physics_process(_delta: float) -> void:
+	if agent.is_navigation_finished():
+		agent.target_position = Vector2(randf_range(50, 1000), randf_range(50, 600)) - position
+		print(agent.target_position)
+		return
+	
+	wish_linear_velocity = agent.get_next_path_position()
+	wish_linear_velocity_type = Hull.WISH_LINEAR_VELOCITY_TYPE_POSITION_OVERSHOOT 
+	#agent.velocity
+	
+	
+	
+	queue_redraw()
+	#print(linear_velocity, linear_velocity.length(), \" | \", angular_velocity, \" | \", sleeping)
+
+func _draw() -> void:
+	draw_line(Vector2.ZERO, agent.target_position, Color.RED)
+"
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_1bc72"]
+radius = 20.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_e0ugl"]
+radius = 32.0
+
+[node name="Hull" type="Hull" node_paths=PackedStringArray("agent")]
+data = SubResource("HullData_313hc")
+script = SubResource("GDScript_c0lu0")
+agent = NodePath("NavigationAgent2D")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_1bc72")
+
+[node name="Icon2" type="Sprite2D" parent="."]
+position = Vector2(0, -21.005)
+scale = Vector2(0.1, 0.345)
+texture = ExtResource("1_80qki")
+
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
+avoidance_enabled = true
+radius = 30.0
+neighbor_distance = 100.0
+
+[node name="ReserverSpace" type="Area2D" parent="."]
+position = Vector2(0, -66)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ReserverSpace"]
+shape = SubResource("CircleShape2D_e0ugl")
