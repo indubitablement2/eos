@@ -1,10 +1,8 @@
 extends Camera2D
 class_name Camera
 
-
 var free_look := true
 var dragging := false
-
 
 func _unhandled_input(event: InputEvent) -> void:
 	if free_look:
