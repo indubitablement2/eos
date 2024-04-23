@@ -434,7 +434,7 @@ impl Database {
     /// Return if disconnected.
     fn step(&mut self) -> bool {
         // Get new instances.
-        while let Some((connection, login)) = self.connection_listener.recv() {
+        while let Some((connection, login)) = self.connection_listener.try_recv() {
             if login.database_key != data().database_key {
                 log::debug!("Refused instance login: Invalid private key");
                 continue;
@@ -477,7 +477,7 @@ impl Database {
 
         let mut i = 0;
         while i < self.instances.len() {
-            match self.instances[i].connection.recv::<Vec<u8>>() {
+            match self.instances[i].connection.try_recv::<Vec<u8>>() {
                 Ok(request) => {
                     if let Err(err) = self.handle_request(&request, Some(i)) {
                         log::error!("Failed to handle request: {}", err);

@@ -1,4 +1,7 @@
 server/target
+common/target
+database/target
+simulation/target
 
 # Binaries
 *.o

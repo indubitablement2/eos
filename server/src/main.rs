@@ -12,14 +12,14 @@ mod util;
 use ahash::{AHashMap, AHashSet, RandomState};
 use anyhow::Context;
 use connection::*;
-use crossbeam_channel::{unbounded, Receiver, Sender, TryRecvError};
 use data::data;
 use database::*;
+use flume::{unbounded, Receiver, Sender, TryRecvError};
 use ids::*;
 use indexmap::IndexMap;
 use rand::prelude::*;
 use rapier2d::na::{self, Isometry2, Point2, Vector2};
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::f32::consts::TAU;
 use std::net::SocketAddr;
@@ -87,7 +87,7 @@ fn tokio() -> &'static tokio::runtime::Runtime {
 fn bin_encode(data: impl Serialize) -> Vec<u8> {
     postcard::to_allocvec(&data).unwrap()
 }
-fn bin_decode<'a, T: Deserialize<'a>>(data: &'a [u8]) -> anyhow::Result<T> {
+fn bin_decode<T: DeserializeOwned>(data: &[u8]) -> anyhow::Result<T> {
     Ok(postcard::from_bytes(data)?)
 }
 

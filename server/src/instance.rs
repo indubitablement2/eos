@@ -59,7 +59,7 @@ impl State {
     /// Return if disconnected.
     fn step(&mut self) -> bool {
         // Get new client connections.
-        while let Some((connection, login)) = self.client_listener.recv() {
+        while let Some((connection, login)) = self.client_listener.try_recv() {
             if !self.simulations.contains_key(&login.simulation_id) {
                 connection.close("Instance does not have requested simulation");
                 continue;
