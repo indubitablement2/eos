@@ -40,10 +40,10 @@ pub struct Hull {
     armor_max: f32,
     armor_cells: (),
 
-    linear_acceleration: f32,
-    angular_acceleration: f32,
-    max_linear_velocity: f32,
-    max_angular_velocity: f32,
+    linacc: f32,
+    angacc: f32,
+    linvel_max: f32,
+    angvel_max: f32,
 
     pub wish_angvel: WishAngVel,
     pub wish_linvel: WishLinVel,
@@ -63,12 +63,10 @@ pub enum RemoveReason {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub enum WishAngVel {
-    /// Do nothing.
     #[default]
     None,
     /// Keep current angvel unless above max.
     Keep,
-    /// Try to reach 0 angvel.
     Stop,
     /// Set angvel to face world space position without overshot.
     AimSmooth(Vector2<f32>),
@@ -78,22 +76,16 @@ pub enum WishAngVel {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub enum WishLinVel {
-    /// Do nothing.
     #[default]
     None,
     /// Keep current linvel unless above max.
     Keep,
-    /// Try to reach 0 linvel.
-    Cancel,
-    /// Cancel our current velocity to reach position as fast as possible.
-    /// Does not overshot.
+    Stop,
     PositionSmooth(Vector2<f32>),
-    /// Move toward target at max velocity.
-    /// When very close to target, goes upward.
     PositionOvershoot(Vector2<f32>),
     /// A force in world space. -y is up.
     ForceAbsolute(Vector2<f32>),
-    /// A force in local space. -y is left, +x is forward.
+    /// A force in local space. +y is forward, +x is right.
     ForceRelative(Vector2<f32>),
 }
 
