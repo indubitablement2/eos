@@ -20,19 +20,18 @@ impl From<HullId> for NonZeroU64 {
 /// May only have one shield.
 pub struct Hull {
     pub data: HullDataId,
-    owner: Option<ClientId>,
+    pub owner: Option<ClientId>,
 
     pub tracking_clients: AHashSet<ClientId>,
 
-    /// Use pos/linvel/angvel here instead.
+    /// See `pos`/`linvel`/`angvel`/`collision_group_ignore`.
+    /// These properties are kept in sync with physics.
     pub rb: RigidBodyHandle,
-
-    /// Copied to physics after updating.
     pub pos: Isometry2<f32>,
-    /// Copied to physics after updating.
     pub linvel: Vector2<f32>,
-    /// Copied to physics after updating.
     pub angvel: f32,
+    /// Ignore collision with hulls in the same group.
+    pub collision_group_ignore: u64,
 
     hull_max: f32,
     hull: f32,
@@ -131,10 +130,10 @@ pub struct HullData {
     /// The maximum value a cell can have.
     armor_cells: (),
 
-    shape_translation: Vector2<f32>,
-    shape: SharedShape,
-    mprops: MassProperties,
-    groups: InteractionGroups,
+    pub shape_translation: Vector2<f32>,
+    pub shape: SharedShape,
+    pub mprops: MassProperties,
+    pub groups: InteractionGroups,
 
     linear_acceleration: f32,
     angular_acceleration: f32,
@@ -231,12 +230,7 @@ enum ModifierSave {
 }
 
 impl Hull {
-    pub fn new(
-        physics: &mut Physics,
-        save: HullSave,
-        group_ignore: u64,
-        target: Option<HullId>,
-    ) -> Self {
+    pub fn new(save: HullSave, group_ignore: u64, target: Option<HullId>) -> Self {
         todo!()
         // let rb = physics.add_body(
         //     save.position,

@@ -31,14 +31,9 @@ pub struct Simulation {
     /// Time since start of simulation.
     sim_time: f64,
 
-    /// Entities always have 1 rigid body and 1 collider.
-    ///
-    /// Physics bodies are always an entity.
-    /// Colliders are either an entity or a shield.
     physics: Physics,
 
     new_client: ConnectionListener,
-    //IndexMap<ClientId, Strong<Client>, RandomState>
     clients: AHashMap<ClientId, Client>,
 
     hulls: Arena<HullId, Hull>,
@@ -92,35 +87,7 @@ impl Simulation {
             .for_each(|(id, client)| client.pre_step(*id, self));
         self.clients = clients;
 
-        self.physics.step();
-
-        // TODO Handle physic events.
-        for (a, event) in self.physics.events.0.try_lock().unwrap().iter().copied() {
-            // if let Some(entity) = self.entities.get_mut(&a) {
-            //     entity.take_contact_event(event);
-            // }
-
-            // let b = event.with_entity_id;
-            // let event = ContactEvent {
-            //     collider_id: event.with_collider_id,
-            //     with_entity_id: a,
-            //     with_collider_id: event.collider_id,
-            //     force_direction: event.force_direction,
-            //     force_magnitude: event.force_magnitude,
-            // };
-            // if let Some(entity) = self.entities.get_mut(&b) {
-            //     entity.take_contact_event(event);
-            // }
-        }
-
-        // Update hulls physics state.
-        for hull_idx in self.hulls_idices.iter() {
-            let hull = self.hulls.get_mut_index(*hull_idx as usize).unwrap();
-            let body = self.physics.get_body(hull.rb);
-            hull.pos = *body.position();
-            hull.linvel = *body.linvel();
-            hull.angvel = body.angvel();
-        }
+        self.physics.step(&mut self.hulls, &self.hulls_idices);
 
         // Update hulls.
         let mut i = 0;
@@ -136,11 +103,6 @@ impl Simulation {
 
                 self.physics.remove_body(hull.rb);
             } else {
-                let body = self.physics.get_body_mut(hull.rb);
-                body.set_position(hull.pos, true);
-                body.set_linvel(hull.linvel, true);
-                body.set_angvel(hull.angvel, true);
-
                 self.hulls.unleak_set_index(idx, hull);
                 i += 1;
             }

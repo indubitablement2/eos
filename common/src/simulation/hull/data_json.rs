@@ -1,7 +1,7 @@
 use super::*;
 
 pub fn load_hull_data() {
-    let read = std::fs::read("../client/tool/server_data.json").unwrap();
+    let read = std::fs::read("../client/tool/server_data/hulls.json").unwrap();
     let json: Vec<EntityDataJson> = serde_json::from_slice(read.as_slice()).unwrap();
     DATA.set(
         json.into_iter()

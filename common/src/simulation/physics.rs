@@ -29,6 +29,10 @@ pub mod group {
     // pub const GROUPS_ENTITY: InteractionGroups = InteractionGroups::new(GROUP_SHIP, GROUP_ALL);
 }
 
+/// Hulls always have 1 rigid body made of 1 collider.
+///
+/// Bodies are always a hull.
+/// Colliders are either a hull or a shield.
 #[derive(Default)]
 pub struct Physics {
     pub query_pipeline: QueryPipeline,
@@ -41,10 +45,21 @@ pub struct Physics {
     impulse_joints: ImpulseJointSet,
     multibody_joints: MultibodyJointSet,
     ccd_solver: CCDSolver,
-    pub events: PhysicsEventCollector,
+    events: PhysicsEventCollector,
 }
 impl Physics {
-    pub fn step(&mut self) {
+    pub fn step(&mut self, hulls: &mut Arena<HullId, Hull>, hulls_idices: &[u32]) {
+        // Sync from hulls.
+        for idx in hulls_idices {
+            let hull = hulls.get_index(*idx as usize).unwrap();
+            let body = &mut self.bodies[hull.rb];
+            body.set_position(hull.pos, true);
+            body.set_linvel(hull.linvel, true);
+            body.set_angvel(hull.angvel, true);
+            // TODO
+            hull.collision_group_ignore;
+        }
+
         self.events.0.try_lock().unwrap().clear();
 
         let integration_parameters = IntegrationParameters {
@@ -68,6 +83,17 @@ impl Physics {
             &Hooks,
             &self.events,
         );
+
+        // Sync back to hulls.
+        for idx in hulls_idices {
+            let hull = hulls.get_mut_index(*idx as usize).unwrap();
+            let body = &self.bodies[hull.rb];
+            hull.pos = *body.position();
+            hull.linvel = *body.linvel();
+            hull.angvel = body.angvel();
+        }
+
+        // TODO Handle physic events.
     }
 
     // /// group_ignore: Any entity in the same group ignore will not interact.
@@ -114,9 +140,7 @@ impl Physics {
     // // TODO: Add/remove/set shield
 
     /// Remove the body and its colliders.
-    /// ## Panic:
-    /// Handle is invalid.
-    pub fn remove_body(&mut self, handle: RigidBodyHandle) -> RigidBody {
+    pub fn remove_body(&mut self, handle: RigidBodyHandle) -> bool {
         self.bodies
             .remove(
                 handle,
@@ -126,7 +150,7 @@ impl Physics {
                 &mut self.multibody_joints,
                 true,
             )
-            .unwrap()
+            .is_some()
     }
 
     // /// ## Panic:
@@ -158,10 +182,6 @@ impl Physics {
 
     pub fn get_body(&self, rb: RigidBodyHandle) -> &RigidBody {
         &self.bodies[rb]
-    }
-
-    pub fn get_body_mut(&mut self, rb: RigidBodyHandle) -> &mut RigidBody {
-        &mut self.bodies[rb]
     }
 
     pub fn get_collider(&self, collider: ColliderHandle) -> &Collider {
