@@ -2,18 +2,13 @@ pub mod data_json;
 pub mod update;
 
 use super::*;
+use nalgebra::UnitComplex;
+use std::num::NonZeroU32;
 
 #[derive(Debug, Clone, Copy)]
-pub struct HullId(pub NonZeroU64);
-impl From<NonZeroU64> for HullId {
-    fn from(id: NonZeroU64) -> Self {
-        Self(id)
-    }
-}
-impl From<HullId> for NonZeroU64 {
-    fn from(id: HullId) -> Self {
-        id.0
-    }
+pub struct HullId {
+    pub generation: NonZeroU32,
+    pub index: u32,
 }
 
 /// A ship, drone, missile or debris.
@@ -27,7 +22,8 @@ pub struct Hull {
     /// See `pos`/`linvel`/`angvel`/`collision_group_ignore`.
     /// These properties are kept in sync with physics.
     pub rb: RigidBodyHandle,
-    pub pos: Isometry2<f32>,
+    pub position: Vector2<f32>,
+    pub rotation: UnitComplex<f32>,
     pub linvel: Vector2<f32>,
     pub angvel: f32,
     /// Ignore collision with hulls in the same group.

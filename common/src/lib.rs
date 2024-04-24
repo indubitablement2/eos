@@ -1,6 +1,4 @@
 pub mod connection;
-// pub mod data;
-pub mod arena;
 pub mod database_packet;
 pub mod ids;
 pub mod logger;
@@ -17,7 +15,7 @@ use rapier2d::na::{self, Isometry2, Point2, Vector2};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::net::SocketAddr;
-use std::num::NonZeroU64;
+use std::num::{NonZeroU32, NonZeroU64};
 use std::time::{Duration, Instant};
 
 static _TOKIO_RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();

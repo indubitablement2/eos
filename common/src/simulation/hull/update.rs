@@ -1,12 +1,7 @@
 use super::*;
 
 impl Hull {
-    pub fn update(
-        &mut self,
-        current: HullId,
-        physics: &Physics,
-        hulls: &mut Arena<HullId, Hull>,
-    ) -> Option<RemoveReason> {
+    pub fn update(&mut self, current: HullId, hulls: &mut Hulls) -> Option<RemoveReason> {
         // TODO: ai, etc
 
         self._apply_wish_angvel();
@@ -21,7 +16,7 @@ impl Hull {
             WishLinVel::Keep => self.linvel.cap_magnitude(self.linvel_max),
             WishLinVel::Stop => Vector2::zeros(),
             WishLinVel::PositionSmooth(target) => {
-                let to_pos = target - self.pos.translation.vector;
+                let to_pos = target - self.position;
                 if to_pos.magnitude_squared() < 0.5 {
                     vector![0.0, 0.0]
                 } else {
@@ -29,15 +24,12 @@ impl Hull {
                 }
             }
             WishLinVel::PositionOvershoot(target) => {
-                let to_pos = target - self.pos.translation.vector;
+                let to_pos = target - self.position;
                 to_pos.try_normalize(0.1).unwrap_or(vector![0.0, 1.0]) * self.linvel_max
             }
             WishLinVel::ForceAbsolute(force) => force.cap_magnitude(1.0) * self.linvel_max,
             WishLinVel::ForceRelative(force) => {
-                self.pos
-                    .rotation
-                    .transform_vector(&force.cap_magnitude(1.0))
-                    * self.linvel_max
+                self.rotation.transform_vector(&force.cap_magnitude(1.0)) * self.linvel_max
             }
         };
 
@@ -56,7 +48,7 @@ impl Hull {
             WishAngVel::Keep => self.angvel.clamp(-self.angvel_max, self.angvel_max),
             WishAngVel::Stop => 0.0,
             WishAngVel::AimSmooth(target) => {
-                let offset = (self.pos.translation.vector - target).angle(&vector![1.0, 0.0]);
+                let offset = (self.position - target).angle(&vector![1.0, 0.0]);
                 let wish_dir = if offset < 0.0 { -1.0 } else { 1.0 };
                 let angvel_dir = if self.angvel < 0.0 { -1.0 } else { 1.0 };
 

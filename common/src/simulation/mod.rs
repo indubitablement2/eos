@@ -1,10 +1,8 @@
 mod client;
-// mod entity;
 pub mod hull;
 mod physics;
 
 use super::*;
-use arena::*;
 use client::Client;
 use hull::*;
 use physics::*;
@@ -36,9 +34,6 @@ pub struct Simulation {
     new_client: ConnectionListener,
     clients: AHashMap<ClientId, Client>,
 
-    hulls: Arena<HullId, Hull>,
-    hulls_idices: Vec<u32>,
-
     // TODO: Use brocoli + vector.
     // Can only query through brocoli
     // Client do not need to keep track of projectiles.
@@ -56,8 +51,6 @@ impl Simulation {
             new_client,
             sim_time: 0.0,
             physics: Default::default(),
-            hulls: Default::default(),
-            hulls_idices: Default::default(),
             clients: Default::default(),
             simulation_id,
             global_time: global_time(),
@@ -87,26 +80,7 @@ impl Simulation {
             .for_each(|(id, client)| client.pre_step(*id, self));
         self.clients = clients;
 
-        self.physics.step(&mut self.hulls, &self.hulls_idices);
-
-        // Update hulls.
-        let mut i = 0;
-        while i < self.hulls_idices.len() {
-            let idx = self.hulls_idices[i] as usize;
-            let (id, mut hull) = self.hulls.leak_take_index(idx);
-
-            if let Some(reason) = hull.update(id, &self.physics, &mut self.hulls) {
-                hull.on_remove(reason);
-
-                self.hulls_idices.swap_remove(i);
-                self.hulls.unleak_remove_index(idx);
-
-                self.physics.remove_body(hull.rb);
-            } else {
-                self.hulls.unleak_set_index(idx, hull);
-                i += 1;
-            }
-        }
+        self.physics.step();
 
         // Update clients.
         clients = std::mem::take(&mut self.clients);
