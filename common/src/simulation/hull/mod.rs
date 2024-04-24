@@ -1,9 +1,8 @@
 pub mod data_json;
+pub mod physics;
 pub mod update;
 
 use super::*;
-use nalgebra::UnitComplex;
-use std::num::NonZeroU32;
 
 #[derive(Debug, Clone, Copy)]
 pub struct HullId {
@@ -19,9 +18,10 @@ pub struct Hull {
 
     pub tracking_clients: AHashSet<ClientId>,
 
+    /// Best not to touch this.
     /// See `pos`/`linvel`/`angvel`/`collision_group_ignore`.
     /// These properties are kept in sync with physics.
-    pub rb: RigidBodyHandle,
+    rb: RigidBodyHandle,
     pub position: Vector2<f32>,
     pub rotation: UnitComplex<f32>,
     pub linvel: Vector2<f32>,

@@ -219,8 +219,6 @@ impl Physics {
     //     rb
     // }
 
-    // // TODO: Add/remove/set shield
-
     // /// ## Panic:
     // /// Handle is invalid.
     // pub fn remove_collider(&mut self, handle: ColliderHandle) -> Collider {

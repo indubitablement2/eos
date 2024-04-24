@@ -9,7 +9,7 @@ enum Bucket {
 /// that would serialize in the least bytes.
 #[derive(Default)]
 pub struct HullArena {
-    /// < 128, < 16384, Rest
+    /// < 128, < 16384, remaining
     heads: [Option<u32>; 3],
     data: Vec<(NonZeroU32, Bucket)>,
 }
@@ -63,32 +63,6 @@ impl HullArena {
         match bucket {
             Bucket::Empty { .. } => None,
             Bucket::Occupied { value } => Some(value),
-        }
-    }
-
-    pub fn remove(&mut self, key: HullId) -> bool {
-        let Some((generation, bucket)) = self.data.get_mut(key.index as usize) else {
-            return false;
-        };
-
-        if key.generation != *generation {
-            return false;
-        }
-
-        match bucket {
-            Bucket::Empty { .. } => false,
-            Bucket::Occupied { .. } => {
-                *generation = generation.checked_add(1).unwrap_or(NonZeroU32::MIN);
-
-                let step = Self::find_step(key.index);
-
-                *bucket = Bucket::Empty {
-                    next_empty: self.heads[step],
-                };
-                self.heads[step] = Some(key.index);
-
-                true
-            }
         }
     }
 

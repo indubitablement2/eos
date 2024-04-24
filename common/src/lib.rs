@@ -11,7 +11,7 @@ use flume::{unbounded, Receiver, Sender, TryRecvError};
 use ids::*;
 use indexmap::IndexMap;
 use rand::prelude::*;
-use rapier2d::na::{self, Isometry2, Point2, Vector2};
+use rapier2d::na::{self, Isometry2, Point2, UnitComplex, Vector2};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::net::SocketAddr;
