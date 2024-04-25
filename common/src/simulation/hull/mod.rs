@@ -5,26 +5,23 @@ pub mod update;
 use super::*;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HullId {
-    pub generation: NonZeroU32,
-    pub index: u32,
-}
+pub struct HullId(pub std::num::NonZeroU64);
 impl Default for HullId {
     fn default() -> Self {
-        todo!()
+        Self(std::num::NonZeroU64::MIN)
     }
 }
 impl Id for HullId {
     fn next(&mut self) {
-        todo!()
+        self.0 = self.0.checked_add(1).unwrap();
     }
 
     fn to_u64(&self) -> u64 {
-        todo!()
+        self.0.get()
     }
 
     fn try_from_u64(value: u64) -> Option<Self> {
-        todo!()
+        std::num::NonZeroU64::new(value).map(Self)
     }
 }
 

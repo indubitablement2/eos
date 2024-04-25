@@ -4,7 +4,10 @@ pub mod hull;
 use super::*;
 use client::Client;
 use hull::*;
+use ids::*;
 use physics::*;
+use rand::prelude::*;
+use rapier2d::na::{self, Isometry2, Point2, UnitComplex, Vector2};
 use rapier2d::prelude::*;
 use std::ops::Range;
 
@@ -18,7 +21,7 @@ const RADIUS: f32 = 100.0;
 
 struct Faction {
     faction_id: (),
-    hulls: AHashSet<HullId>,
+    hulls: HashSet<HullId>,
     tracking_clients: Vec<ClientId>,
 }
 
@@ -37,7 +40,7 @@ pub struct Simulation {
     physics: Physics,
 
     new_client: ConnectionListener,
-    clients: AHashMap<ClientId, Client>,
+    clients: HashMap<ClientId, Client>,
 
     // TODO: Use brocoli + vector.
     // Can only query through brocoli

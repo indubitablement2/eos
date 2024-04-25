@@ -2,7 +2,8 @@ use super::*;
 
 pub struct Client {
     connection: Connection,
-    known_hulls: AHashSet<HullId>,
+    known_hulls: HashSet<HullId>,
+    pub state: (),
 }
 impl Client {
     pub fn new_init(id: ClientId, connection: Connection, sim: &mut Simulation) -> Self {

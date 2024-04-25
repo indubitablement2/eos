@@ -356,19 +356,16 @@ pub trait UserData {
     fn set_group_ignore(&mut self, group_ignore: u64);
 
     fn hull_id(self) -> HullId;
-    fn hull_idx(self) -> u32;
     fn group_ignore(self) -> u64;
     fn is_shield(self) -> bool;
 }
 impl UserData for u128 {
     fn pack_body(hull_id: HullId, group_ignore: u64) -> Self {
-        hull_id.generation.get() as u128
-            | (hull_id.index as u128) << 32
-            | (group_ignore as u128) << 64
+        hull_id.to_u64() as u128 | (group_ignore as u128) << 64
     }
 
     fn pack_colider(hull_id: HullId, shield: bool) -> Self {
-        hull_id.generation.get() as u128 | (hull_id.index as u128) << 32 | (shield as u128) << 64
+        hull_id.to_u64() as u128 | (shield as u128) << 64
     }
 
     fn set_group_ignore(&mut self, group_ignore: u64) {
@@ -376,14 +373,7 @@ impl UserData for u128 {
     }
 
     fn hull_id(self) -> HullId {
-        HullId {
-            index: (self >> 32) as u32,
-            generation: NonZeroU32::new(self as u32).unwrap(),
-        }
-    }
-
-    fn hull_idx(self) -> u32 {
-        (self >> 32) as u32
+        HullId::try_from_u64(self as u64).unwrap()
     }
 
     fn group_ignore(self) -> u64 {
