@@ -16,6 +16,12 @@ const SAVE_INTERVAL: Range<f64> = (20.0 * 60.0)..(30.0 * 60.0);
 
 const RADIUS: f32 = 100.0;
 
+struct Faction {
+    faction_id: (),
+    hulls: AHashSet<HullId>,
+    tracking_clients: Vec<ClientId>,
+}
+
 pub struct Simulation {
     simulation_id: SimulationId,
 
@@ -65,7 +71,7 @@ impl Simulation {
         // Take new clients.
         let mut new_client = self.new_client.clone();
         while let Some((connection, id)) = new_client.try_recv() {
-            let id = ClientId::from_u64(id);
+            let id = ClientId::try_from_u64(id).unwrap();
             let client = Client::new_init(id, connection, self);
             self.clients.insert(id, client);
         }
@@ -74,16 +80,16 @@ impl Simulation {
 
         // Pre-step clients.
         let mut clients = std::mem::take(&mut self.clients);
-        clients
-            .iter_mut()
-            .for_each(|(id, client)| client.pre_step(*id, self));
+        clients.retain(|id, client| client.pre_step_retain(*id, self));
         self.clients = clients;
 
         self.physics.step();
 
         // Update clients.
         clients = std::mem::take(&mut self.clients);
-        clients.retain(|id, client| client.post_step_retain(*id, self));
+        clients
+            .iter_mut()
+            .for_each(|(id, client)| client.post_step(*id, self));
         self.clients = clients;
 
         // Shrink containers.

@@ -2,12 +2,21 @@ use super::*;
 
 impl Hull {
     pub fn update(&mut self, current: HullId, hulls: &mut Hulls) -> Option<RemoveReason> {
-        // TODO: ai, etc
+        let mut remove_reason = None;
+
+        self.modifiers.retain(|modifier| match modifier {
+            Modifier::AiShip => true,
+            Modifier::AiSeek => true,
+        });
 
         self._apply_wish_angvel();
         self._apply_wish_linvel();
 
-        None
+        if self.hull_relative <= 0.0 {
+            Some(RemoveReason::Destroyed)
+        } else {
+            remove_reason
+        }
     }
 
     fn _apply_wish_linvel(&mut self) {

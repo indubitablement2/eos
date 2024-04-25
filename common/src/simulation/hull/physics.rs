@@ -1,11 +1,6 @@
-mod hull_arena;
-mod user_data;
-
-use self::hull_arena::HullArena;
 use super::*;
 use parking_lot::Mutex;
 use std::{num::NonZeroU32, sync::Arc};
-use user_data::*;
 
 const DEFAULT_LINEAR_DAMPING: f32 = 0.01;
 const DEFAULT_ANGULAR_DAMPING: f32 = 0.01;
@@ -36,39 +31,49 @@ pub mod group {
     // pub const GROUPS_ENTITY: InteractionGroups = InteractionGroups::new(GROUP_SHIP, GROUP_ALL);
 }
 
+// TODO: Add query pipeline
 #[derive(Default)]
 pub struct Hulls {
     bodies: RigidBodySet,
     colliders: ColliderSet,
-    arena: HullArena,
-    hull_indices: Vec<u32>,
-    // TODO: Add query pipeline
+    next_collision_group_ignore: u64,
+
+    next_hull_id: HullId,
+    hulls: IndexMap<HullId, Hull>,
 }
 impl Hulls {
-    pub fn insert(&mut self, hull: HullSave) -> (HullId, &mut Hull) {
-        let hull: Hull = todo!();
+    pub fn insert(&mut self, save: HullSave) -> (HullId, &mut Hull) {
+        let mut hull = Hull::new(save);
+        hull.collision_group_ignore = self.next_collision_group_ignore;
+        self.next_collision_group_ignore += 1;
 
-        let ret = self.arena.insert(hull);
+        // TODO: Add body and collider.
 
-        self.hull_indices.push(ret.0.index);
+        let hull_id = self.next_hull_id;
+        self.next_hull_id.next();
+        let hull = self.hulls.entry(hull_id).or_insert(hull);
 
-        ret
+        (hull_id, hull)
     }
 
-    pub fn get(&self, id: HullId) -> Option<&Hull> {
-        self.arena.get(id)
+    pub fn get(&self, hull_id: HullId) -> Option<&Hull> {
+        self.hulls.get(&hull_id)
     }
 
-    pub fn get_mut(&mut self, id: HullId) -> Option<&mut Hull> {
-        self.arena.get_mut(id)
+    pub fn get_mut(&mut self, hull_id: HullId) -> Option<&mut Hull> {
+        self.hulls.get_mut(&hull_id)
     }
 
-    pub fn get_index(&self, index: u32) -> Option<&Hull> {
-        self.arena.get_index(index)
+    pub fn iter(&mut self) -> indexmap::map::Iter<'_, hull::HullId, hull::Hull> {
+        self.hulls.iter()
     }
 
-    pub fn get_index_mut(&mut self, index: u32) -> Option<&mut Hull> {
-        self.arena.get_index_mut(index)
+    pub fn iter_mut(&mut self) -> indexmap::map::IterMut<'_, hull::HullId, hull::Hull> {
+        self.hulls.iter_mut()
+    }
+
+    pub fn len(&self) -> usize {
+        self.hulls.len()
     }
 }
 
@@ -97,8 +102,7 @@ pub struct Physics {
 impl Physics {
     pub fn step(&mut self) {
         // Sync from hulls.
-        for idx in self.hulls.hull_indices.iter().copied() {
-            let hull = self.hulls.arena.get_index(idx).unwrap();
+        for hull in self.hulls.hulls.values() {
             let body = &mut self.hulls.bodies[hull.rb];
             body.set_position(
                 Isometry2::from_parts(
@@ -139,8 +143,7 @@ impl Physics {
         );
 
         // Sync back to hulls.
-        for idx in self.hulls.hull_indices.iter().copied() {
-            let hull = self.hulls.arena.get_index_mut(idx).unwrap();
+        for hull in self.hulls.hulls.values_mut() {
             let body = &self.hulls.bodies[hull.rb];
             hull.position = body.position().translation.vector / PHYSIC_SCALE;
             hull.rotation = body.position().rotation;
@@ -152,15 +155,17 @@ impl Physics {
 
         // Update hulls.
         let mut i = 0;
-        while i < self.hulls.hull_indices.len() {
-            let idx = self.hulls.hull_indices[i];
-            let (id, mut hull) = self.hulls.arena.leak_take_index(idx);
+        let mut hull = Hull::default();
+        while i < self.hulls.hulls.len() {
+            let v = self.hulls.hulls.get_index_mut(i).unwrap();
+            std::mem::swap(&mut hull, v.1);
+            let hull_id = *v.0;
+            drop(v);
 
-            if let Some(reason) = hull.update(id, &mut self.hulls) {
+            if let Some(reason) = hull.update(hull_id, &mut self.hulls) {
                 hull.on_remove(reason);
 
-                self.hulls.hull_indices.swap_remove(i);
-                self.hulls.arena.unleak_remove_index(idx);
+                self.hulls.hulls.swap_remove_index(i);
 
                 // Remove its body and collider.
                 self.hulls.bodies.remove(
@@ -172,7 +177,8 @@ impl Physics {
                     true,
                 );
             } else {
-                self.hulls.arena.unleak_set_index(idx, hull);
+                let v = self.hulls.hulls.get_index_mut(i).unwrap();
+                std::mem::swap(&mut hull, v.1);
                 i += 1;
             }
         }
@@ -334,5 +340,57 @@ impl EventHandler for PhysicsEventCollector {
         // };
 
         // self.0.try_lock().unwrap().push((entity_id, event));
+    }
+}
+
+/// Body:
+/// - HullId: u64
+/// - Group ignore: 64
+/// Collider:
+/// - HullId: u64
+/// - Is shield: 1
+pub trait UserData {
+    fn pack_body(hull_id: HullId, group_ignore: u64) -> Self;
+    fn pack_colider(hull_id: HullId, shield: bool) -> Self;
+
+    fn set_group_ignore(&mut self, group_ignore: u64);
+
+    fn hull_id(self) -> HullId;
+    fn hull_idx(self) -> u32;
+    fn group_ignore(self) -> u64;
+    fn is_shield(self) -> bool;
+}
+impl UserData for u128 {
+    fn pack_body(hull_id: HullId, group_ignore: u64) -> Self {
+        hull_id.generation.get() as u128
+            | (hull_id.index as u128) << 32
+            | (group_ignore as u128) << 64
+    }
+
+    fn pack_colider(hull_id: HullId, shield: bool) -> Self {
+        hull_id.generation.get() as u128 | (hull_id.index as u128) << 32 | (shield as u128) << 64
+    }
+
+    fn set_group_ignore(&mut self, group_ignore: u64) {
+        *self = (*self & u64::MAX as u128) | (group_ignore as u128) << 64;
+    }
+
+    fn hull_id(self) -> HullId {
+        HullId {
+            index: (self >> 32) as u32,
+            generation: NonZeroU32::new(self as u32).unwrap(),
+        }
+    }
+
+    fn hull_idx(self) -> u32 {
+        (self >> 32) as u32
+    }
+
+    fn group_ignore(self) -> u64 {
+        (self >> 64) as u64
+    }
+
+    fn is_shield(self) -> bool {
+        self >> 64 != 0
     }
 }

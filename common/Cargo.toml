@@ -10,7 +10,6 @@ anyhow = "1.0.82"
 broccoli = "6.3.0"
 rapier2d = { version = "0.18.0", features = ["simd-stable"] }
 nalgebra = { version = "0.32.5", features = ["serde-serialize"] }
-approx = "0.5"
 
 ahash = { version = "0.8.11", features = ["serde"] }
 indexmap = { version = "2.2.6", features = [] }

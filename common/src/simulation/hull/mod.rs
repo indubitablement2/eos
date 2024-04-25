@@ -4,19 +4,36 @@ pub mod update;
 
 use super::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HullId {
     pub generation: NonZeroU32,
     pub index: u32,
 }
+impl Default for HullId {
+    fn default() -> Self {
+        todo!()
+    }
+}
+impl Id for HullId {
+    fn next(&mut self) {
+        todo!()
+    }
+
+    fn to_u64(&self) -> u64 {
+        todo!()
+    }
+
+    fn try_from_u64(value: u64) -> Option<Self> {
+        todo!()
+    }
+}
 
 /// A ship, drone, missile or debris.
 /// May only have one shield.
+#[derive(Default)]
 pub struct Hull {
     pub data: HullDataId,
     pub owner: Option<ClientId>,
-
-    pub tracking_clients: AHashSet<ClientId>,
 
     /// Best not to touch this.
     /// See `pos`/`linvel`/`angvel`/`collision_group_ignore`.
@@ -29,8 +46,10 @@ pub struct Hull {
     /// Ignore collision with hulls in the same group.
     pub collision_group_ignore: u64,
 
-    hull_max: f32,
-    hull: f32,
+    hull_max_percent_increase: i32,
+    hull_max_flat_increase: i32,
+    /// Relative to hull max. Usually in the range `0..1`.
+    hull_relative: f32,
 
     armor_max: f32,
     armor_cells: (),
@@ -42,13 +61,20 @@ pub struct Hull {
 
     pub wish_angvel: WishAngVel,
     pub wish_linvel: WishLinVel,
-
     // pub wish_aim: (),
     pub controlled: bool,
 
     pub target: Option<HullId>,
 
-    modifiers: SmallVec<[Modifier; 4]>,
+    modifiers: SmallVec<[Modifier; 2]>,
+}
+impl Hull {
+    pub fn hull(&self) -> f32 {
+        self.hull_relative
+            * (self.data.hull_max + self.hull_max_flat_increase as f32)
+            * (self.hull_max_percent_increase + 100) as f32
+            / 100.0
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -85,12 +111,8 @@ pub enum WishLinVel {
 }
 
 /// Something that modify the hull (ai, buff, etc).
-#[derive(Debug, Default)]
+#[derive(Debug)]
 enum Modifier {
-    /// Does nothing. Modifier will be removed.
-    /// Use this to remove a modifier.
-    #[default]
-    Nothing,
     AiShip,
     /// Will try to face hull's target and go forward at max speed.
     /// If hull has no target just move forward untill a target is set.
@@ -226,7 +248,7 @@ enum ModifierSave {
 }
 
 impl Hull {
-    pub fn new(save: HullSave, group_ignore: u64, target: Option<HullId>) -> Self {
+    pub fn new(save: HullSave) -> Self {
         todo!()
         // let rb = physics.add_body(
         //     save.position,
