@@ -214,11 +214,11 @@ impl Connection {
         let _ = self.outbound.send(Outbound::Close(reason));
     }
 
-    pub fn try_recv<T: DeserializeOwned>(&self) -> Result<Option<T>, ()> {
+    pub fn try_recv<T: DeserializeOwned>(&self) -> Option<Result<T, ()>> {
         match self.inbound.try_recv() {
-            Ok(buf) => bin_decode(&buf).map_err(|_| ()),
-            Err(TryRecvError::Empty) => Ok(None),
-            Err(TryRecvError::Disconnected) => Err(()),
+            Ok(buf) => Some(bin_decode(&buf).map_err(|_| ())),
+            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Disconnected) => Some(Err(())),
         }
     }
 

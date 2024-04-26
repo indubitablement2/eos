@@ -29,18 +29,20 @@ impl Id for HullId {
 /// May only have one shield.
 #[derive(Default)]
 pub struct Hull {
-    pub data: HullDataId,
+    pub hull_data_id: HullDataId,
+
     pub owner: Option<ClientId>,
 
     /// Best not to touch this.
     /// See `pos`/`linvel`/`angvel`/`collision_group_ignore`.
     /// These properties are kept in sync with physics.
+    // TODO: Shield rotation and arc
     rb: RigidBodyHandle,
     pub position: Vector2<f32>,
     pub rotation: UnitComplex<f32>,
     pub linvel: Vector2<f32>,
     pub angvel: f32,
-    /// Ignore collision with hulls in the same group.
+    /// Ignore collision with anything in the same group.
     pub collision_group_ignore: u64,
 
     hull_max_percent_increase: i32,
@@ -68,7 +70,7 @@ pub struct Hull {
 impl Hull {
     pub fn hull(&self) -> f32 {
         self.hull_relative
-            * (self.data.hull_max + self.hull_max_flat_increase as f32)
+            * (self.hull_data_id.hull_max + self.hull_max_flat_increase as f32)
             * (self.hull_max_percent_increase + 100) as f32
             / 100.0
     }
@@ -107,13 +109,9 @@ pub enum WishLinVel {
     ForceRelative(Vector2<f32>),
 }
 
-/// Something that modify the hull (ai, buff, etc).
 #[derive(Debug)]
 enum Modifier {
-    AiShip,
-    /// Will try to face hull's target and go forward at max speed.
-    /// If hull has no target just move forward untill a target is set.
-    AiSeek,
+    RemoveThis,
 }
 
 // ####################################################################################
@@ -121,8 +119,24 @@ enum Modifier {
 // ####################################################################################
 
 impl Hull {
-    pub fn on_remove(&mut self, reason: RemoveReason) {
-        // TODO: Tracking clients notification.
+    fn on_new(&mut self) {
+        for &event in self.hull_data_id.0.on_new.iter() {
+            match event {}
+        }
+
+        match self.hull_data_id.0.ai {
+            HullAi::None => {}
+            HullAi::Ship => {}
+            HullAi::Seek => {
+                self.wish_linvel = WishLinVel::ForceRelative(vector![0.0, 1.0]);
+            }
+        }
+    }
+
+    fn on_remove(&mut self, reason: RemoveReason) {
+        for &event in self.hull_data_id.0.on_remove.iter() {
+            match event {}
+        }
     }
 }
 
@@ -135,7 +149,7 @@ impl Hull {
 // TODO: Engine placement
 // TODO: Shields
 pub struct HullData {
-    pub id: u32,
+    id: u32,
 
     hull_max: f32,
 
@@ -145,23 +159,33 @@ pub struct HullData {
     /// The maximum value a cell can have.
     armor_cells: (),
 
-    pub shape_translation: Vector2<f32>,
-    pub shape: SharedShape,
-    pub mprops: MassProperties,
-    pub groups: InteractionGroups,
+    shape_translation: Vector2<f32>,
+    shape: SharedShape,
+    groups: InteractionGroups,
+    mprops: MassProperties,
 
     linear_acceleration: f32,
     angular_acceleration: f32,
     max_linear_velocity: f32,
     max_angular_velocity: f32,
 
+    ai: HullAi,
+
     on_new: Vec<HullEvent>,
+    on_remove: Vec<HullEvent>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-enum HullEvent {
-    AddAiShip,
-    AddAiSeek,
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+enum HullEvent {}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+enum HullAi {
+    #[default]
+    None,
+    Ship,
+    /// Will try to face hull's target and go forward at max speed.
+    /// If hull has no target just move forward untill a target is set.
+    Seek,
 }
 
 static DATA: std::sync::OnceLock<Vec<HullData>> = std::sync::OnceLock::new();
@@ -223,77 +247,36 @@ impl std::fmt::Display for TryFromHullDataIdError {
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(default)]
 pub struct HullSave {
-    data: u64,
+    pub hull_data_id: HullDataId,
 
-    owner: Option<ClientId>,
+    pub owner: Option<ClientId>,
 
-    position: Isometry2<f32>,
-    linvel: Vector2<f32>,
-    angvel: f32,
+    pub position: Vector2<f32>,
+    pub rotation: f32,
+    pub linvel: Vector2<f32>,
+    pub angvel: f32,
 
-    hull: f32,
-    armor_cells: (),
+    pub hull_relative: f32,
+    pub armor_cells: (),
 
-    modifiers: SmallVec<[ModifierSave; 4]>,
+    pub modifiers: SmallVec<[ModifierSave; 4]>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
-enum ModifierSave {
+pub enum ModifierSave {
     // TODO: This handle bad enum when deserializing?
     #[default]
     RemoveThis,
 }
+impl ModifierSave {
+    fn apply(self, hull: &mut Hull) {
+        match self {
+            ModifierSave::RemoveThis => {}
+        }
+    }
+}
 
 impl Hull {
-    pub fn new(save: HullSave) -> Self {
-        todo!()
-        // let rb = physics.add_body(
-        //     save.position,
-        //     save.linvel,
-        //     save.angvel,
-        //     save.data,
-        //     entity_id,
-        //     group_ignore,
-        // );
-
-        // let mut s = Self {
-        //     data: save.data,
-        //     owner: save.owner,
-        //     tracking_clients: AHashSet::new(),
-        //     rb,
-        //     hull_max: save.data.hull_max,
-        //     hull: save.hull,
-        //     armor_max: save.data.armor_max,
-        //     armor_cells: save.armor_cells,
-        //     linear_acceleration: save.data.linear_acceleration,
-        //     angular_acceleration: save.data.angular_acceleration,
-        //     max_linear_velocity: save.data.max_linear_velocity,
-        //     max_angular_velocity: save.data.max_angular_velocity,
-        //     wish_angvel: WishAngVel::None,
-        //     wish_linvel: WishLinVel::None,
-        //     controlled: false,
-        //     target,
-        //     modifiers: SmallVec::new(),
-        //     pos: todo!(),
-        //     linvel: todo!(),
-        //     angvel: todo!(),
-        // };
-
-        // for new_event in save.data.on_new.iter() {
-        //     match new_event {
-        //         EntityEvent::AddAiShip => {
-        //             s.modifiers.push(Modifier::AiShip);
-        //         }
-        //         EntityEvent::AddAiSeek => {
-        //             s.wish_linvel = WishLinVel::ForceRelative(Vector2::new(1.0, 0.0));
-        //             s.modifiers.push(Modifier::AiSeek);
-        //         }
-        //     }
-        // }
-
-        // s
-    }
-
     pub fn save(&self) -> HullSave {
         todo!()
         // let modifier_saves = self

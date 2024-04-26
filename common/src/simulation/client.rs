@@ -14,8 +14,27 @@ impl Client {
         }
     }
 
-    pub fn step_retain(&mut self, _id: ClientId, _sim: &mut Simulation) -> bool {
-        // TODO: Take client packets
+    pub fn step_retain(&mut self, _id: ClientId, sim: &mut Simulation) -> bool {
+        while let Some(packet) = self.connection.try_recv::<ClientInbound>() {
+            let Ok(packet) = packet else {
+                return false;
+            };
+
+            match packet {
+                ClientInbound::SpawnHull {
+                    hull_data_id,
+                    position,
+                    rotation,
+                } => {
+                    sim.physics.hulls.insert(HullSave {
+                        hull_data_id,
+                        position,
+                        rotation,
+                        ..Default::default()
+                    });
+                }
+            }
+        }
 
         true
     }
@@ -167,4 +186,10 @@ enum ClientOutbound {
 }
 
 #[derive(Deserialize)]
-enum ClientInbound {}
+enum ClientInbound {
+    SpawnHull {
+        hull_data_id: HullDataId,
+        position: Vector2<f32>,
+        rotation: f32,
+    },
+}

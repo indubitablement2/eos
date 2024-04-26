@@ -1,6 +1,6 @@
 use super::*;
 use parking_lot::Mutex;
-use std::{num::NonZeroU32, sync::Arc};
+use std::sync::Arc;
 
 const DEFAULT_LINEAR_DAMPING: f32 = 0.01;
 const DEFAULT_ANGULAR_DAMPING: f32 = 0.01;
@@ -43,17 +43,75 @@ pub struct Hulls {
 }
 impl Hulls {
     pub fn insert(&mut self, save: HullSave) -> (HullId, &mut Hull) {
-        let mut hull = Hull::new(save);
-        hull.collision_group_ignore = self.next_collision_group_ignore;
+        let hull_id = self.next_hull_id;
+        self.next_hull_id.next();
+
+        let collision_group_ignore = self.next_collision_group_ignore;
         self.next_collision_group_ignore += 1;
 
         // TODO: Add body and collider.
+        let rb = RigidBodyBuilder::dynamic()
+            .position(Isometry2::new(save.position * PHYSIC_SCALE, save.rotation))
+            .linvel(save.linvel * PHYSIC_SCALE)
+            .angvel(save.angvel)
+            .user_data(UserData::pack_body(hull_id, collision_group_ignore))
+            .linear_damping(DEFAULT_LINEAR_DAMPING)
+            .angular_damping(DEFAULT_ANGULAR_DAMPING)
+            .build();
+        let rb = self.bodies.insert(rb);
 
-        let hull_id = self.next_hull_id;
-        self.next_hull_id.next();
+        let coll = ColliderBuilder::new(save.hull_data_id.shape.clone())
+            .translation(save.hull_data_id.shape_translation)
+            .collision_groups(save.hull_data_id.groups)
+            .mass_properties(save.hull_data_id.mprops)
+            .user_data(UserData::pack_colider(hull_id, false))
+            .active_hooks(ActiveHooks::FILTER_CONTACT_PAIRS)
+            .active_events(ActiveEvents::CONTACT_FORCE_EVENTS)
+            .contact_force_event_threshold(DEFAULT_CONTACT_FORCE_EVENT_THRESHOLD)
+            .friction(DEFAULT_FRICTION)
+            .restitution(DEFAULT_RESTITUTION)
+            .build();
+        self.colliders
+            .insert_with_parent(coll, rb, &mut self.bodies);
+
+        let hull = Hull {
+            hull_data_id: save.hull_data_id,
+            owner: save.owner,
+            rb,
+            position: save.position,
+            rotation: UnitComplex::from_angle(save.rotation),
+            linvel: save.linvel,
+            angvel: save.angvel,
+            collision_group_ignore,
+            hull_max_percent_increase: 0,
+            hull_max_flat_increase: 0,
+            hull_relative: save.hull_relative,
+            armor_max: todo!(),
+            armor_cells: (),
+            linacc: todo!(),
+            angacc: todo!(),
+            linvel_max: todo!(),
+            angvel_max: todo!(),
+            wish_angvel: todo!(),
+            wish_linvel: todo!(),
+            controlled: false,
+            target: None,
+            modifiers: Default::default(),
+        };
+
         let hull = self.hulls.entry(hull_id).or_insert(hull);
 
+        for modifier in save.modifiers {
+            modifier.apply(hull);
+        }
+
+        hull.on_new();
+
         (hull_id, hull)
+    }
+
+    pub fn contains(&self, hull_id: HullId) -> bool {
+        self.hulls.contains_key(&hull_id)
     }
 
     pub fn get(&self, hull_id: HullId) -> Option<&Hull> {
@@ -162,7 +220,7 @@ impl Physics {
             let hull_id = *v.0;
             drop(v);
 
-            if let Some(reason) = hull.update(hull_id, &mut self.hulls, clients) {
+            if let Some(reason) = hull.on_update(hull_id, &mut self.hulls, clients) {
                 hull.on_remove(reason);
 
                 self.hulls.hulls.swap_remove_index(i);
@@ -183,47 +241,6 @@ impl Physics {
             }
         }
     }
-
-    // /// group_ignore: Any entity in the same group ignore will not interact.
-    // /// Can only have one.
-    // pub fn add_body(
-    //     &mut self,
-    //     position: Isometry2<f32>,
-    //     linvel: Vector2<f32>,
-    //     angvel: f32,
-
-    //     data: EntityDataId,
-
-    //     entity_id: EntityId,
-    //     group_ignore: u64,
-    // ) -> RigidBodyHandle {
-    //     let rb = RigidBodyBuilder::dynamic()
-    //         .position(position)
-    //         .linvel(linvel)
-    //         .angvel(angvel)
-    //         .user_data(UserData::pack_body(entity_id, group_ignore))
-    //         .linear_damping(DEFAULT_LINEAR_DAMPING)
-    //         .angular_damping(DEFAULT_ANGULAR_DAMPING)
-    //         .build();
-    //     let rb = self.bodies.insert(rb);
-
-    //     let coll = ColliderBuilder::new(data.shape.clone())
-    //         .translation(data.shape_translation)
-    //         .collision_groups(data.groups)
-    //         .mass_properties(data.mprops)
-    //         .user_data(UserData::pack_colider(entity_id, false))
-    //         .active_hooks(ActiveHooks::FILTER_CONTACT_PAIRS)
-    //         .active_events(ActiveEvents::CONTACT_FORCE_EVENTS)
-    //         .contact_force_event_threshold(DEFAULT_CONTACT_FORCE_EVENT_THRESHOLD)
-    //         .friction(DEFAULT_FRICTION)
-    //         .restitution(DEFAULT_RESTITUTION)
-    //         .build();
-
-    //     self.colliders
-    //         .insert_with_parent(coll, rb, &mut self.bodies);
-
-    //     rb
-    // }
 
     // /// ## Panic:
     // /// Handle is invalid.

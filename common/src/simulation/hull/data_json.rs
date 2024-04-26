@@ -38,7 +38,10 @@ struct EntityDataJson {
     max_linear_velocity: f32,
     max_angular_velocity: f32,
 
+    ai: HullAi,
+
     on_new: Vec<HullEvent>,
+    on_remove: Vec<HullEvent>,
 }
 impl EntityDataJson {
     fn parse(self, id: u32) -> HullData {
@@ -72,7 +75,10 @@ impl EntityDataJson {
             max_linear_velocity: self.max_linear_velocity,
             max_angular_velocity: self.max_angular_velocity,
 
+            ai: self.ai,
+
             on_new: self.on_new,
+            on_remove: self.on_remove,
         }
     }
 }

@@ -1,18 +1,36 @@
 use super::*;
 
 impl Hull {
-    pub fn update(
+    pub fn on_update(
         &mut self,
         current: HullId,
         hulls: &mut Hulls,
         clients: &mut Clients,
     ) -> Option<RemoveReason> {
+        // Check that target is exist.
+        if let Some(target) = self.target {
+            if !hulls.contains(target) {
+                self.target = None;
+            }
+        }
+
         let mut remove_reason = None;
 
         self.modifiers.retain(|modifier| match modifier {
-            Modifier::AiShip => true,
-            Modifier::AiSeek => true,
+            Modifier::RemoveThis => false,
         });
+
+        match self.hull_data_id.0.ai {
+            HullAi::None => {}
+            HullAi::Ship => {}
+            HullAi::Seek => {
+                if let Some(target) = self.target {
+                    self.wish_angvel = WishAngVel::AimSmooth(hulls.get(target).unwrap().position);
+                } else {
+                    self.wish_angvel = WishAngVel::Stop;
+                }
+            }
+        }
 
         self._apply_wish_angvel();
         self._apply_wish_linvel();
