@@ -8,7 +8,7 @@ use anyhow::Context;
 use connection::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use smallvec::SmallVec;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub type HashMap<K, V> = ahash::AHashMap<K, V>;
 pub type HashSet<K> = ahash::AHashSet<K>;
@@ -26,6 +26,9 @@ fn tokio() -> &'static tokio::runtime::Runtime {
 
 pub fn bin_encode(data: impl Serialize) -> Vec<u8> {
     postcard::to_allocvec(&data).unwrap()
+}
+pub fn bin_encode_into(data: impl Serialize, writer: impl std::io::Write) {
+    postcard::to_io(&data, writer).unwrap();
 }
 pub fn bin_decode<T: DeserializeOwned>(data: &[u8]) -> anyhow::Result<T> {
     Ok(postcard::from_bytes(data)?)

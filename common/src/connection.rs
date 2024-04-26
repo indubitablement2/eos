@@ -198,8 +198,12 @@ impl Connection {
         ))
     }
 
+    pub fn queue_raw(&self, buf: Vec<u8>) {
+        let _ = self.outbound.send(Outbound::Packet(buf));
+    }
+
     pub fn queue(&self, packet: impl Serialize) {
-        let _ = self.outbound.send(Outbound::Packet(bin_encode(packet)));
+        self.queue_raw(bin_encode(packet));
     }
 
     pub fn flush(&self) {

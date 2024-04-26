@@ -4,7 +4,7 @@ pub mod update;
 
 use super::*;
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct HullId(pub std::num::NonZeroU64);
 impl Default for HullId {
     fn default() -> Self {

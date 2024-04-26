@@ -1,87 +1,169 @@
 use super::*;
+use std::f32::consts::PI;
 
 pub struct Client {
     connection: Connection,
-    known_hulls: HashSet<HullId>,
-    pub state: (),
+
+    hulls_state: IndexMap<HullId, HullState>,
 }
 impl Client {
-    pub fn new_init(id: ClientId, connection: Connection, sim: &mut Simulation) -> Self {
+    pub fn new_init(_id: ClientId, connection: Connection, _sim: &mut Simulation) -> Self {
         Self {
             connection,
-            known_hulls: Default::default(),
+            hulls_state: Default::default(),
         }
     }
 
-    pub fn pre_step_retain(&mut self, id: ClientId, sim: &mut Simulation) -> bool {
+    pub fn step_retain(&mut self, _id: ClientId, _sim: &mut Simulation) -> bool {
+        // TODO: Take client packets
+
         true
     }
 
-    pub fn post_step(&mut self, id: ClientId, sim: &mut Simulation) {
-        // TODO: Iterate over what his "team" can see instead
+    pub fn post_step(&mut self, _id: ClientId, sim: &mut Simulation) {
+        self.hulls_state.sort_unstable_keys();
 
-        let mut hull_add = Vec::new();
-        let mut hull_remove = Vec::new();
-        let mut hull_states = Vec::with_capacity(sim.physics.hulls.len());
-        sim.physics.hulls.iter_mut().for_each(|(&hull_id, hull)| {
-            // hull.tr
+        let capacity = self
+            .hulls_state
+            .values()
+            .fold(0, |acc, state| acc + state.serialize_size());
 
-            if self.known_hulls.insert(hull_id) {
-                hull_add.push(HullAdd {
-                    index: hull_id.index,
-                    data_id: hull.data,
-                });
-            }
+        let mut buf = Vec::with_capacity(capacity + 1 + 8);
+        bin_encode_into(ClientOutbound::State, &mut buf);
+        bin_encode_into(sim.sim_time, &mut buf);
 
-            hull_states.push(HullState {
-                index: hull_id.index,
-                position: hull.position.map(|x| x.round() as i32),
-                rotation: (hull.rotation.angle() / std::f32::consts::PI * 8191.0) as i16,
-            });
-        });
+        self.hulls_state
+            .retain(|hull_id, state| state.serialize_into_retain(*hull_id, &mut buf));
 
-        self.connection.queue(ClientOutbound::State {
-            time: sim.sim_time,
-            hull_remove,
-            hull_add,
-            hull_states,
-        });
-
+        self.connection.queue_raw(buf);
         self.connection.flush();
+    }
+
+    pub fn hull_update(&mut self, hull_id: HullId, hull: &Hull) {
+        self.hulls_state
+            .entry(hull_id)
+            .or_default()
+            .new_update(hull);
     }
 }
 
-#[derive(Serialize)]
-struct HullRemove {
-    index: u32,
-    // TODO: Reason
+fn angle_to_i8(angle: f32) -> i8 {
+    (angle / PI * i8::MAX as f32).round() as i8
 }
 
-#[derive(Serialize)]
-struct HullAdd {
-    index: u32,
-    data_id: HullDataId,
-    // TODO: Reason
+fn i8_to_angle(i: i8) -> f32 {
+    i as f32 * PI / i8::MAX as f32
 }
 
-#[derive(Serialize)]
+fn vector_to_i32(v: Vector2<f32>) -> Vector2<i32> {
+    vector![v.x.round() as i32, v.y.round() as i32]
+}
+
+fn i32_to_vector(v: Vector2<i32>) -> Vector2<f32> {
+    vector![v.x as f32, v.y as f32]
+}
+
+/// Bitfield:
+/// - 0: remove
+///     - Doesn't send anything else
+/// - 1: is new
+///     - hull id
+///     - data id
+/// - 2: turret data id
+///     - Send data id for each turret or none (0) for empty turrets
+/// - 3: turret rotation delta
+///     - Send rotation delta for each turret which isn't empty
+/// - 4: turret ammo
+///     - Send ammo for each turret which has any
+/// - 5: armor cells
+///     - Send armor cells for each cell which has changed (cell_id: u8, cell: u8)
+///
+/// Always present:
+/// - position_delta
+/// - rotation_delta
 struct HullState {
-    // 2
-    index: u32,
-    // 4
-    position: Vector2<i32>,
-    // 2
-    rotation: i16,
+    hull_data_id: HullDataId,
+    position: Vector2<f32>,
+    rotation: f32,
+
+    remove: bool,
+    is_new: bool,
+    position_delta: Vector2<i32>,
+    rotation_delta: i8,
+}
+impl Default for HullState {
+    fn default() -> Self {
+        Self {
+            hull_data_id: Default::default(),
+            remove: true,
+            position: vector![0.0, 0.0],
+            rotation: 0.0,
+            is_new: true,
+            position_delta: vector![0, 0],
+            rotation_delta: 0,
+        }
+    }
+}
+impl HullState {
+    fn new_update(&mut self, hull: &Hull) {
+        self.remove = false;
+
+        self.position_delta = vector_to_i32(hull.position - self.position);
+        self.rotation_delta = angle_to_i8(hull.rotation.angle() - self.rotation);
+    }
+
+    fn serialize_size(&self) -> usize {
+        if self.remove {
+            return 1;
+        }
+
+        // bitfield
+        let mut size = 1;
+
+        if self.is_new {
+            // hull_id
+            size += 10;
+            // hull_data_id
+            size += 10;
+        }
+
+        // position delta
+        size += 5 + 5;
+        // rotation delta
+        size += 1;
+
+        size
+    }
+
+    fn serialize_into_retain(&mut self, hull_id: HullId, mut buf: &mut Vec<u8>) -> bool {
+        if self.remove {
+            buf.push(0b1);
+            return false;
+        }
+        self.remove = true;
+
+        let bitfield_idx = buf.len();
+        buf.push(0);
+
+        if self.is_new {
+            buf[bitfield_idx] |= 0b01;
+            bin_encode_into(hull_id, &mut buf);
+            bin_encode_into(self.hull_data_id, &mut buf);
+            self.is_new = false;
+        }
+
+        bin_encode_into(self.position_delta, &mut buf);
+        bin_encode_into(self.rotation_delta, &mut buf);
+        self.position += i32_to_vector(self.position_delta);
+        self.rotation += i8_to_angle(self.rotation_delta);
+
+        true
+    }
 }
 
 #[derive(Serialize)]
 enum ClientOutbound {
-    State {
-        time: f64,
-        hull_remove: Vec<HullRemove>,
-        hull_add: Vec<HullAdd>,
-        hull_states: Vec<HullState>,
-    },
+    State,
 }
 
 #[derive(Deserialize)]

@@ -11,6 +11,8 @@ use rapier2d::na::{self, Isometry2, Point2, UnitComplex, Vector2};
 use rapier2d::prelude::*;
 use std::ops::Range;
 
+type Clients = HashMap<ClientId, Client>;
+
 pub const DT: Duration = Duration::from_millis(100);
 
 /// How long between simulation saves.
@@ -40,7 +42,7 @@ pub struct Simulation {
     physics: Physics,
 
     new_client: ConnectionListener,
-    clients: HashMap<ClientId, Client>,
+    clients: Clients,
 
     // TODO: Use brocoli + vector.
     // Can only query through brocoli
@@ -83,10 +85,10 @@ impl Simulation {
 
         // Pre-step clients.
         let mut clients = std::mem::take(&mut self.clients);
-        clients.retain(|id, client| client.pre_step_retain(*id, self));
+        clients.retain(|id, client| client.step_retain(*id, self));
         self.clients = clients;
 
-        self.physics.step();
+        self.physics.step(&mut self.clients);
 
         // Update clients.
         clients = std::mem::take(&mut self.clients);

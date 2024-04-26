@@ -1,7 +1,12 @@
 use super::*;
 
 impl Hull {
-    pub fn update(&mut self, current: HullId, hulls: &mut Hulls) -> Option<RemoveReason> {
+    pub fn update(
+        &mut self,
+        current: HullId,
+        hulls: &mut Hulls,
+        clients: &mut Clients,
+    ) -> Option<RemoveReason> {
         let mut remove_reason = None;
 
         self.modifiers.retain(|modifier| match modifier {
@@ -11,6 +16,11 @@ impl Hull {
 
         self._apply_wish_angvel();
         self._apply_wish_linvel();
+
+        // TODO: Only update clients which can see this
+        for client in clients.values_mut() {
+            client.hull_update(current, self);
+        }
 
         if self.hull_relative <= 0.0 {
             Some(RemoveReason::Destroyed)

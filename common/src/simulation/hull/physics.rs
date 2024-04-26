@@ -100,7 +100,7 @@ pub struct Physics {
     events: PhysicsEventCollector,
 }
 impl Physics {
-    pub fn step(&mut self) {
+    pub fn step(&mut self, clients: &mut Clients) {
         // Sync from hulls.
         for hull in self.hulls.hulls.values() {
             let body = &mut self.hulls.bodies[hull.rb];
@@ -162,7 +162,7 @@ impl Physics {
             let hull_id = *v.0;
             drop(v);
 
-            if let Some(reason) = hull.update(hull_id, &mut self.hulls) {
+            if let Some(reason) = hull.update(hull_id, &mut self.hulls, clients) {
                 hull.on_remove(reason);
 
                 self.hulls.hulls.swap_remove_index(i);
