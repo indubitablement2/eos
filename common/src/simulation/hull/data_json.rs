@@ -70,10 +70,10 @@ impl EntityDataJson {
                 filter: self.filter.into(),
             },
 
-            linear_acceleration: self.linear_acceleration,
-            angular_acceleration: self.angular_acceleration,
-            max_linear_velocity: self.max_linear_velocity,
-            max_angular_velocity: self.max_angular_velocity,
+            linacc: self.linear_acceleration,
+            angacc: self.angular_acceleration,
+            linvel_max: self.max_linear_velocity,
+            angvel_max: self.max_angular_velocity,
 
             ai: self.ai,
 

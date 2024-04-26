@@ -50,13 +50,18 @@ pub struct Hull {
     /// Relative to hull max. Usually in the range `0..1`.
     hull_relative: f32,
 
-    armor_max: f32,
+    armor_max_percent_increase: i32,
+    armor_max_flat_increase: i32,
     armor_cells: (),
 
-    linacc: f32,
-    angacc: f32,
-    linvel_max: f32,
-    angvel_max: f32,
+    linacc_percent_increase: i32,
+    linacc_flat_increase: i32,
+    angacc_percent_increase: i32,
+    angacc_flat_increase: i32,
+    linvel_max_percent_increase: i32,
+    linvel_max_flat_increase: i32,
+    angvel_max_percent_increase: i32,
+    angvel_max_flat_increase: i32,
 
     pub wish_angvel: WishAngVel,
     pub wish_linvel: WishLinVel,
@@ -67,13 +72,9 @@ pub struct Hull {
 
     modifiers: SmallVec<[Modifier; 2]>,
 }
-impl Hull {
-    pub fn hull(&self) -> f32 {
-        self.hull_relative
-            * (self.hull_data_id.hull_max + self.hull_max_flat_increase as f32)
-            * (self.hull_max_percent_increase + 100) as f32
-            / 100.0
-    }
+
+fn compute_stat(base: f32, flat: i32, percent: i32) -> f32 {
+    (base + flat as f32) * (percent + 100) as f32 / 100.0
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -164,10 +165,10 @@ pub struct HullData {
     groups: InteractionGroups,
     mprops: MassProperties,
 
-    linear_acceleration: f32,
-    angular_acceleration: f32,
-    max_linear_velocity: f32,
-    max_angular_velocity: f32,
+    linacc: f32,
+    angacc: f32,
+    linvel_max: f32,
+    angvel_max: f32,
 
     ai: HullAi,
 
@@ -299,5 +300,63 @@ impl Hull {
         //     armor_cells: self.armor_cells.clone(),
         //     modifiers: modifier_saves,
         // }
+    }
+}
+
+// ####################################################################################
+// ################################### STATS ##########################################
+// ####################################################################################
+
+impl Hull {
+    pub fn hull_max(&self) -> f32 {
+        compute_stat(
+            self.hull_data_id.hull_max,
+            self.hull_max_flat_increase,
+            self.hull_max_percent_increase,
+        )
+    }
+
+    pub fn hull(&self) -> f32 {
+        self.hull_relative * self.hull_max()
+    }
+
+    pub fn armor_max(&self) -> f32 {
+        compute_stat(
+            self.hull_data_id.armor_max,
+            self.armor_max_flat_increase,
+            self.armor_max_percent_increase,
+        )
+    }
+
+    pub fn linacc(&self) -> f32 {
+        compute_stat(
+            self.hull_data_id.linacc,
+            self.linacc_flat_increase,
+            self.linacc_percent_increase,
+        )
+    }
+
+    pub fn angacc(&self) -> f32 {
+        compute_stat(
+            self.hull_data_id.angacc,
+            self.angacc_flat_increase,
+            self.angacc_percent_increase,
+        )
+    }
+
+    pub fn linvel_max(&self) -> f32 {
+        compute_stat(
+            self.hull_data_id.linvel_max,
+            self.linvel_max_flat_increase,
+            self.linvel_max_percent_increase,
+        )
+    }
+
+    pub fn angvel_max(&self) -> f32 {
+        compute_stat(
+            self.hull_data_id.angvel_max,
+            self.angvel_max_flat_increase,
+            self.angvel_max_percent_increase,
+        )
     }
 }
