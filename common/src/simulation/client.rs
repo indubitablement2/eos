@@ -1,13 +1,31 @@
 use super::*;
 use std::f32::consts::PI;
 
+/// Client authentification in progress.
+pub struct ClientAuth {
+    connection: Connection,
+}
+impl ClientAuth {
+    pub fn new(connection: Connection) -> Self {
+        Self { connection }
+    }
+
+    pub fn step(&mut self) -> Option<Result<(ClientId, Client), ()>> {
+        // TODO: Implement client auth
+        Some(Ok((
+            ClientId::default(),
+            Client::new(self.connection.clone()),
+        )))
+    }
+}
+
 pub struct Client {
     connection: Connection,
 
     hulls_state: IndexMap<HullId, HullState>,
 }
 impl Client {
-    pub fn new_init(_id: ClientId, connection: Connection, _sim: &mut Simulation) -> Self {
+    fn new(connection: Connection) -> Self {
         Self {
             connection,
             hulls_state: Default::default(),
@@ -39,7 +57,7 @@ impl Client {
         true
     }
 
-    pub fn post_step(&mut self, _id: ClientId, sim: &mut Simulation) {
+    pub fn post_step(&mut self, sim: &mut Simulation) {
         self.hulls_state.sort_unstable_keys();
 
         let capacity = self

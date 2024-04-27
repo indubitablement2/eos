@@ -18,7 +18,7 @@ struct EntityDataJson {
     hull: f32,
 
     armor_max: f32,
-    armor_cells_translation: Vector2<f32>,
+    armor_cells_offset: Vector2<f32>,
     armor_cells_size: Vector2<i32>,
     armor_cells: Vec<f32>,
 
@@ -51,11 +51,7 @@ impl EntityDataJson {
             hull_max: self.hull,
 
             armor_max: self.armor_max,
-            armor_cells_translation: self.armor_cells_translation,
-            armor_cells_size: Vector2::new(
-                self.armor_cells_size.x.max(3),
-                self.armor_cells_size.y.max(3),
-            ),
+            armor_cells_offset: self.armor_cells_offset,
             armor_cells: (),
             // self
             //     .armor_cells

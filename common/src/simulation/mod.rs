@@ -1,8 +1,9 @@
 mod client;
-pub mod hull;
+mod hull;
 
 use super::*;
-use client::Client;
+use client::*;
+use connection::*;
 use hull::*;
 use ids::*;
 use physics::*;
@@ -19,7 +20,11 @@ pub const DT: Duration = Duration::from_millis(100);
 /// Add some randomness to stagger saves.
 const SAVE_INTERVAL: Range<f64> = (20.0 * 60.0)..(30.0 * 60.0);
 
-const RADIUS: f32 = 100.0;
+const RADIUS: f32 = 10000.0;
+
+pub fn load_data() {
+    hull::data_json::load_hull_data();
+}
 
 struct Faction {
     faction_id: (),
@@ -28,8 +33,6 @@ struct Faction {
 }
 
 pub struct Simulation {
-    simulation_id: SimulationId,
-
     database_connection: Connection,
 
     /// Seconds since unix epoch.
@@ -42,6 +45,7 @@ pub struct Simulation {
     physics: Physics,
 
     new_client: ConnectionListener,
+    clients_auth: Vec<ClientAuth>,
     clients: Clients,
 
     // TODO: Use brocoli + vector.
@@ -51,18 +55,29 @@ pub struct Simulation {
 }
 impl Simulation {
     pub fn new(
-        simulation_id: SimulationId,
         database_connection: Connection,
         new_client: ConnectionListener,
-        save: SimulationSave,
+        save: Option<&[u8]>,
     ) -> Self {
+        let save = if let Some(save) = save {
+            match bin_decode(save) {
+                Ok(save) => save,
+                Err(err) => {
+                    log::error!("Failed to decode save: {}", err);
+                    SimulationSave::default()
+                }
+            }
+        } else {
+            SimulationSave::default()
+        };
+
         Self {
             database_connection,
             new_client,
+            clients_auth: Default::default(),
             sim_time: 0.0,
             physics: Default::default(),
             clients: Default::default(),
-            simulation_id,
             global_time: global_time(),
             next_save_global_time: thread_rng().gen_range(SAVE_INTERVAL),
             projectiles: Default::default(),
@@ -74,14 +89,21 @@ impl Simulation {
         self.global_time = global_time();
 
         // Take new clients.
-        let mut new_client = self.new_client.clone();
-        while let Some((connection, id)) = new_client.try_recv() {
-            let id = ClientId::try_from_u64(id).unwrap();
-            let client = Client::new_init(id, connection, self);
-            self.clients.insert(id, client);
+        while let Some(connection) = self.new_client.try_recv() {
+            self.clients_auth.push(ClientAuth::new(connection));
         }
 
         // todo Handle database packets.
+
+        // Authenticate clients.
+        self.clients_auth.retain_mut(|auth| match auth.step() {
+            Some(Ok((id, client))) => {
+                self.clients.insert(id, client);
+                false
+            }
+            Some(Err(())) => false,
+            None => true,
+        });
 
         // Pre-step clients.
         let mut clients = std::mem::take(&mut self.clients);
@@ -93,8 +115,8 @@ impl Simulation {
         // Update clients.
         clients = std::mem::take(&mut self.clients);
         clients
-            .iter_mut()
-            .for_each(|(id, client)| client.post_step(*id, self));
+            .values_mut()
+            .for_each(|client| client.post_step(self));
         self.clients = clients;
 
         // Shrink containers.
@@ -111,13 +133,14 @@ impl Simulation {
     pub fn save(&mut self) {
         self.next_save_global_time = thread_rng().gen_range(SAVE_INTERVAL);
 
-        let simulation_save = SimulationSave {};
+        // let simulation_save = SimulationSave {};
 
         // self.database_outbound
         //     .queue(DatabaseRequest::SaveSimulation {
         //         simulation_id: self.simulation_id,
         //         simulation_save,
         //     });
+
         // TODO: Save ships
         // TODO: Save planets?
     }
@@ -132,7 +155,7 @@ fn global_time() -> f64 {
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(default)]
-pub struct SimulationSave {
+struct SimulationSave {
     // TODO: Debris
     // TODO: items
     // TODO: planets state

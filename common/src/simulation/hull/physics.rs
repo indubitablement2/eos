@@ -49,7 +49,6 @@ impl Hulls {
         let collision_group_ignore = self.next_collision_group_ignore;
         self.next_collision_group_ignore += 1;
 
-        // TODO: Add body and collider.
         let rb = RigidBodyBuilder::dynamic()
             .position(Isometry2::new(save.position * PHYSIC_SCALE, save.rotation))
             .linvel(save.linvel * PHYSIC_SCALE)

@@ -155,8 +155,7 @@ pub struct HullData {
     hull_max: f32,
 
     armor_max: f32,
-    armor_cells_translation: Vector2<f32>,
-    armor_cells_size: Vector2<i32>,
+    armor_cells_offset: Vector2<f32>,
     /// The maximum value a cell can have.
     armor_cells: (),
 

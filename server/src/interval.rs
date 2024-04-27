@@ -1,4 +1,4 @@
-use super::*;
+use std::time::{Duration, Instant};
 
 pub struct Interval {
     internal_time: Instant,
