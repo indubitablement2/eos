@@ -29,10 +29,10 @@ postcard = { version = "1.0.8", features = [
 parking_lot = { version = "0.12.1", features = ["nightly"] }
 flume = { version = "0.11.0", features = ["async"] }
 
-tokio = { version = "1.37.0", features = ["full"] }
-tokio-tungstenite = "0.21.0"
-tokio-util = { version = "0.7.10", features = ["codec"] }
-futures-util = "0.3.30"
+# tokio = { version = "1.37.0", features = ["full"] }
+# tokio-tungstenite = "0.21.0"
+# tokio-util = { version = "0.7.10", features = ["codec"] }
+# futures-util = "0.3.30"
 # axum = {version = "0.7.5", features = ["ws"]}
 # reqwest = { version = "0.11", features = ["json"] }
 
@@ -40,5 +40,5 @@ futures-util = "0.3.30"
 # codegen-units = 1
 lto = "thin"
 
-[build]
-rustflags = ["-C", "target-cpu=native"]
+# [build]
+# rustflags = ["-C", "target-cpu=native"]

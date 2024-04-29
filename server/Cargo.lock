@@ -915,16 +915,12 @@ dependencies = [
  "anyhow",
  "common",
  "flume",
- "futures-util",
  "indexmap",
  "log",
  "parking_lot",
  "postcard",
  "serde",
  "smallvec",
- "tokio",
- "tokio-tungstenite",
- "tokio-util",
 ]
 
 [[package]]
