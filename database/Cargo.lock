@@ -323,9 +323,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "common",
- "flume",
  "log",
- "parking_lot",
  "rand",
  "rayon",
  "serde",
