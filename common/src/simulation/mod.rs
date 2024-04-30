@@ -11,6 +11,7 @@ use rand::prelude::*;
 use rapier2d::na::{self, Isometry2, Point2, UnitComplex, Vector2};
 use rapier2d::prelude::*;
 use std::ops::Range;
+use system::SystemId;
 
 type Clients = HashMap<ClientId, Client>;
 
@@ -33,7 +34,7 @@ struct Faction {
 }
 
 pub struct Simulation {
-    simulation_id: SimulationId,
+    system_id: SystemId,
 
     database_connection: Connection,
 
@@ -59,7 +60,7 @@ impl Simulation {
     pub fn new(
         database_connection: Connection,
         new_client: ConnectionListener,
-        simulation_id: SimulationId,
+        system_id: SystemId,
         save: Option<&[u8]>,
     ) -> Self {
         let save = if let Some(save) = save {
@@ -75,7 +76,7 @@ impl Simulation {
         };
 
         Self {
-            simulation_id,
+            system_id,
             database_connection,
             new_client,
             clients_auth: Default::default(),

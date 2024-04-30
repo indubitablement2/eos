@@ -111,6 +111,18 @@ impl DatabaseSave {
         Err(match self {
             DatabaseSave::V0 => Self::V1 { next_client_id: 1 },
             DatabaseSave::V1 { next_client_id } => {
+                let systems: HashMap<SystemId, System> = SystemId::systems_data_iter()
+                    .map(|system| {
+                        (
+                            SystemId(&system),
+                            System {
+                                simulation_save: None,
+                                ships: Default::default(),
+                            },
+                        )
+                    })
+                    .collect();
+
                 return Ok(Database {
                     password: std::env::var("DATABASE_PASSWORD").unwrap(),
                     next_save: Instant::now() + SAVE_INTERVAL,
@@ -122,8 +134,8 @@ impl DatabaseSave {
                     mutations: Default::default(),
                     next_server_id: Default::default(),
                     servers: Default::default(),
-                    queued_simulations: Default::default(),
-                    simulations: Default::default(),
+                    queued_systems: systems.into_iter().collect(),
+                    systems: Default::default(),
                     next_ship_id: Default::default(),
                     ships: Default::default(),
                     next_client_id: ClientId::try_from_u64(next_client_id).unwrap(),

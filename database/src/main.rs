@@ -5,6 +5,7 @@ mod save;
 use common::connection::*;
 use common::database_packet::*;
 use common::ids::*;
+use common::system::SystemId;
 use common::{HashMap, HashSet, IndexMap};
 use rayon::prelude::*;
 use sha2::Digest;
@@ -28,8 +29,8 @@ struct Database {
     next_server_id: ServerId,
     servers: IndexMap<ServerId, Server>,
 
-    queued_simulations: Vec<(SimulationId, Simulation)>,
-    simulations: HashMap<SimulationId, (Simulation, SimulationRunner)>,
+    queued_systems: Vec<(SystemId, System)>,
+    systems: HashMap<SystemId, (System, SystemRunner)>,
 
     next_ship_id: ShipId,
     ships: HashMap<ShipId, Ship>,
@@ -44,7 +45,7 @@ enum ConnectionType {
     Auth { num_iter: u32 },
     Client(ClientId),
     Server(ServerId),
-    Simulation(SimulationId),
+    Simulation(SystemId),
 }
 
 struct Server {
@@ -52,22 +53,22 @@ struct Server {
 
     saturation: i32,
 
-    stand_by_simulation_runner: Vec<SimulationRunner>,
-    simulations: HashSet<SimulationId>,
+    stand_by_runner: Vec<SystemRunner>,
+    systems: HashSet<SystemId>,
 }
 
-struct SimulationRunner {
+struct SystemRunner {
     connection: Connection,
     client_address: SocketAddr,
 }
 
-struct Simulation {
-    simulation_save: Vec<u8>,
+struct System {
+    simulation_save: Option<Vec<u8>>,
     ships: HashSet<ShipId>,
 }
 
 struct Ship {
-    simulation_id: SimulationId,
+    system_id: SystemId,
     hull_save: Vec<u8>,
 }
 
@@ -126,18 +127,19 @@ impl Database {
 
         self.handle_save();
 
-        // TODO: Distribute simulations to servers based on saturation and location.
-        while !self.queued_simulations.is_empty() && !self.servers.is_empty() {
+        // TODO: Distribute systems to servers based on saturation and location.
+        while !self.queued_systems.is_empty() && !self.servers.is_empty() {
             let (_, server) = self.servers.first_mut().unwrap();
-            if let Some(runner) = server.stand_by_simulation_runner.pop() {
-                let (simulation_id, simulation) = self.queued_simulations.pop().unwrap();
-                runner.connection.queue(simulation_id);
+            if let Some(runner) = server.stand_by_runner.pop() {
+                let (system_id, system) = self.queued_systems.pop().unwrap();
+                runner.connection.queue(system_id);
 
                 self.connections.push((
-                    ConnectionType::Simulation(simulation_id),
+                    ConnectionType::Simulation(system_id),
                     runner.connection.clone(),
                 ));
-                self.simulations.insert(simulation_id, (simulation, runner));
+                self.systems.insert(system_id, (system, runner));
+                server.systems.insert(system_id);
             }
         }
 

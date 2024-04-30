@@ -94,8 +94,8 @@ impl Database {
             } => {
                 self.servers
                     .get_mut(&server_id)?
-                    .stand_by_simulation_runner
-                    .push(SimulationRunner {
+                    .stand_by_runner
+                    .push(SystemRunner {
                         connection,
                         client_address,
                     });
@@ -113,8 +113,8 @@ impl Database {
                     Server {
                         connection: connection.clone(),
                         saturation: 100,
-                        stand_by_simulation_runner: Default::default(),
-                        simulations: Default::default(),
+                        stand_by_runner: Default::default(),
+                        systems: Default::default(),
                     },
                 );
             }

@@ -1,53 +1,65 @@
 use super::*;
 
 pub struct SystemData {
-    id: u32,
+    id: u64,
 }
-
-static DATA: std::sync::OnceLock<Vec<SystemData>> = std::sync::OnceLock::new();
-
-fn data() -> &'static [SystemData] {
-    DATA.get().unwrap()
-}
-
-#[derive(Clone, Copy, Serialize, Deserialize)]
-#[serde(try_from = "u32")]
-#[serde(into = "u32")]
-pub struct SystemDataId(pub &'static SystemData);
-impl Default for SystemDataId {
-    fn default() -> Self {
-        Self(data().first().unwrap())
+impl SystemData {
+    fn data() -> &'static HashMap<u64, Self> {
+        DATA.get().unwrap()
     }
 }
-impl std::ops::Deref for SystemDataId {
+
+static DATA: std::sync::OnceLock<HashMap<u64, SystemData>> = std::sync::OnceLock::new();
+
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(try_from = "u64")]
+#[serde(into = "u64")]
+pub struct SystemId(pub &'static SystemData);
+impl SystemId {
+    pub fn systems_data_iter() -> std::collections::hash_map::Values<'static, u64, SystemData> {
+        SystemData::data().values()
+    }
+}
+impl std::ops::Deref for SystemId {
     type Target = SystemData;
 
     fn deref(&self) -> &Self::Target {
         self.0
     }
 }
-impl TryFrom<u32> for SystemDataId {
+impl TryFrom<u64> for SystemId {
     type Error = TryFromSystemDataIdError;
 
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
-        data()
-            .get(value as usize)
+    fn try_from(value: u64) -> Result<Self, Self::Error> {
+        SystemData::data()
+            .get(&value)
             .map(Self)
             .ok_or(TryFromSystemDataIdError(value))
     }
 }
-impl From<SystemDataId> for u32 {
-    fn from(idx: SystemDataId) -> Self {
+impl From<SystemId> for u64 {
+    fn from(idx: SystemId) -> Self {
         idx.id
     }
 }
-impl std::fmt::Debug for SystemDataId {
+impl std::fmt::Debug for SystemId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.id.fmt(f)
     }
 }
+impl std::hash::Hash for SystemId {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::ptr::hash(self.0, state);
+    }
+}
+impl PartialEq for SystemId {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(self.0, other.0)
+    }
+}
+impl Eq for SystemId {}
 
-pub struct TryFromSystemDataIdError(pub u32);
+pub struct TryFromSystemDataIdError(pub u64);
 impl std::fmt::Display for TryFromSystemDataIdError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Invalid hull data id: {} out of bound", self.0)
@@ -59,8 +71,7 @@ pub fn load_system_data() {
     let json: Vec<SystemDataJson> = serde_json::from_slice(read.as_slice()).unwrap();
     DATA.set(
         json.into_iter()
-            .zip(0u32..)
-            .map(|(entity_json, id)| entity_json.parse(id))
+            .map(|entity_json| entity_json.parse())
             .collect(),
     )
     .ok()
@@ -68,9 +79,11 @@ pub fn load_system_data() {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-struct SystemDataJson {}
+struct SystemDataJson {
+    id: u64,
+}
 impl SystemDataJson {
-    fn parse(self, id: u32) -> SystemData {
-        SystemData { id }
+    fn parse(self) -> (u64, SystemData) {
+        (self.id, SystemData { id: self.id })
     }
 }
