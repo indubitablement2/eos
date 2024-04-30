@@ -1,6 +1,6 @@
 use super::*;
-use bitcode::{Decode, Encode};
-use common::{bit_decode, bit_encode};
+use common::{bin_decode, bin_encode};
+use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, time::Duration};
 
 const NUM_SAVE_BACKUPS: usize = 100;
@@ -53,7 +53,7 @@ impl Database {
         }
 
         self.save_in_progress = Some(std::thread::spawn(move || {
-            let buf = bit_encode(&save);
+            let buf = bin_encode(&save);
             let name = match std::time::UNIX_EPOCH.elapsed() {
                 Ok(duration) => duration.as_secs() as i64,
                 Err(err) => err.duration().as_secs() as i64 * -1,
@@ -83,7 +83,7 @@ impl Database {
         let mut database_save = if let Some(path) = get_sorted_save_files().last() {
             log::info!("Loading save file: {:?}", path);
             let buf = std::fs::read(path).unwrap();
-            bit_decode(&buf).unwrap()
+            bin_decode(&buf).unwrap()
         } else {
             log::warn!("No save file found, starting new database");
             DatabaseSave::default()
@@ -98,7 +98,7 @@ impl Database {
     }
 }
 
-#[derive(Debug, Encode, Decode, Default)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 enum DatabaseSave {
     #[default]
     V0,

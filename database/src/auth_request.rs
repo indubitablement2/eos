@@ -107,7 +107,7 @@ impl Database {
                 self.next_server_id.next();
 
                 *connection_type = ConnectionType::Server(server_id);
-                connection.queue_bit(server_id);
+                connection.queue(server_id);
                 self.servers.insert(
                     server_id,
                     Server {
@@ -127,14 +127,14 @@ impl Database {
                 let client = self.clients.get_mut(&client_id)?;
 
                 if let Some(prev) = client.connection.take() {
-                    prev.queue_bin(ClientResponse::MultipleLogin);
+                    prev.queue(ClientResponse::MultipleLogin);
                     prev.close();
 
                     return Some(());
                 }
 
                 *connection_type = ConnectionType::Client(client_id);
-                connection.queue_bin(client_id);
+                connection.queue(client_id);
                 client.connection = Some(connection.clone());
             }
             Mutation::ClientRegister {
@@ -161,7 +161,7 @@ impl Database {
                 let hash = hasher.finalize();
 
                 *connection_type = ConnectionType::Client(client_id);
-                connection.queue_bin(client_id);
+                connection.queue(client_id);
                 self.clients.insert(
                     client_id,
                     Client {

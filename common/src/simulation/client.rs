@@ -33,7 +33,7 @@ impl Client {
     }
 
     pub fn step(&mut self, _id: ClientId, sim: &mut Simulation) {
-        while let Some(packet) = self.connection.try_recv_bin::<ClientInbound>() {
+        while let Some(packet) = self.connection.try_recv::<ClientInbound>() {
             match packet {
                 ClientInbound::SpawnHull {
                     hull_data_id,

@@ -4,6 +4,7 @@ pub mod ids;
 pub mod interval;
 pub mod logger;
 pub mod simulation;
+pub mod system;
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -33,13 +34,6 @@ pub fn bin_encode_into(data: impl Serialize, writer: impl std::io::Write) {
 }
 pub fn bin_decode<T: DeserializeOwned>(data: &[u8]) -> anyhow::Result<T> {
     Ok(postcard::from_bytes(data)?)
-}
-
-pub fn bit_encode(data: &impl bitcode::Encode) -> Vec<u8> {
-    bitcode::encode(data)
-}
-pub fn bit_decode<T: bitcode::DecodeOwned>(buf: &[u8]) -> Result<T, bitcode::Error> {
-    bitcode::decode(buf)
 }
 
 pub fn load_data() {
