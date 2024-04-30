@@ -135,7 +135,7 @@ impl Simulation {
         }
     }
 
-    pub fn save(&mut self) {
+    fn save(&mut self) {
         self.next_save_global_time = thread_rng().gen_range(SAVE_INTERVAL);
 
         // let simulation_save = SimulationSave {};

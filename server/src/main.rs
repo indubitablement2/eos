@@ -1,25 +1,40 @@
-mod asd;
-mod interval;
-
-use common::ids::*;
-use flume::{unbounded, Receiver, Sender, TryRecvError};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-
-use common::connection::*;
-use common::{HashMap, HashSet, IndexMap};
-
-// type HashMap<K, V> = ahash::AHashMap<K, V>;
-// type HashSet<K> = ahash::AHashSet<K>;
-// type IndexMap<K, V> = indexmap::IndexMap<K, V, ahash::RandomState>;
+use common::{connection::*, system::SystemId};
 
 fn main() {
     common::logger::Logger::init();
     common::load_data();
 
-    // TODO: Connect with database
     let database_connection = Connection::connect(common::DATABASE_ADDRESS).unwrap();
 
-    // TODO: Database tells us what simulation to run
+    let mut interval = common::interval::Interval::new(1000, 10000);
+    loop {
+        interval.step();
+    }
+}
 
-    let mut sim = common::simulation::Simulation::new(Default::default(), Default::default());
+struct SimulationRunner {}
+impl SimulationRunner {
+    fn start() {
+        std::thread::spawn(move || {
+            let database_connection = Connection::connect(common::DATABASE_ADDRESS).unwrap();
+            let new_client = ConnectionListener::bind("127.0.0.1:0").unwrap();
+
+            let (system_id, save) = database_connection
+                .block_recv::<(SystemId, Option<Vec<u8>>)>()
+                .unwrap();
+
+            let mut sim = common::simulation::Simulation::new(
+                database_connection,
+                new_client,
+                system_id,
+                save.as_deref(),
+            );
+
+            let mut interval = common::interval::Interval::new(100, 500);
+            loop {
+                interval.step();
+                sim.step();
+            }
+        });
+    }
 }

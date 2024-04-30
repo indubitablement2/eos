@@ -9,6 +9,12 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
 };
 
+static BYTES_IN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static PACKETS_IN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+static BYTES_OUT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static PACKETS_OUT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 #[derive(Clone)]
 pub struct ConnectionListener {
     local_addr: SocketAddr,
@@ -94,6 +100,22 @@ pub struct Connection {
     outbound: Sender<Outbound>,
 }
 impl Connection {
+    pub fn packets_out() -> u64 {
+        PACKETS_OUT.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn bytes_out() -> u64 {
+        BYTES_OUT.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn packets_in() -> u64 {
+        PACKETS_IN.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn bytes_in() -> u64 {
+        BYTES_IN.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
     pub fn connect(request: impl IntoClientRequest) -> anyhow::Result<Self> {
         tokio().block_on(Self::connect_async(request))
     }
@@ -114,8 +136,12 @@ impl Connection {
         let (inbound_sender, inbound_receiver) = unbounded();
         let inbound_task = tokio::spawn(async move {
             while let Some(Ok(msg)) = stream.next().await {
+                PACKETS_IN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
                 match msg {
                     Message::Binary(buf) => {
+                        BYTES_IN.fetch_add(buf.len() as u64, std::sync::atomic::Ordering::Relaxed);
+
                         if inbound_sender.send(buf).is_err() {
                             break;
                         }
@@ -131,12 +157,16 @@ impl Connection {
             while let Ok(outbound) = outbound_receiver.recv_async().await {
                 match outbound {
                     Outbound::Flush => {
+                        PACKETS_OUT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
                         if let Err(err) = sink.flush().await {
                             log::debug!("Failed to flush packets: {}", err);
                             break;
                         }
                     }
                     Outbound::Packet(buf) => {
+                        BYTES_OUT.fetch_add(buf.len() as u64, std::sync::atomic::Ordering::Relaxed);
+
                         if let Err(err) = sink.feed(Message::Binary(buf)).await {
                             log::debug!("Failed to feed packet: {}", err);
                             break;
