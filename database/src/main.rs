@@ -7,7 +7,6 @@ use common::database_packet::*;
 use common::ids::*;
 use common::{HashMap, HashSet, IndexMap};
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::net::SocketAddr;
 use std::time::Instant;
@@ -16,9 +15,11 @@ use thread_local::ThreadLocal;
 struct Database {
     password: String,
 
+    next_save: Instant,
+    save_in_progress: Option<std::thread::JoinHandle<()>>,
+
     restart_request: Option<Instant>,
 
-    // mut_requests_writer: Option<BufWriter<File>>,
     connection_listener: ConnectionListener,
     connections: Vec<(ConnectionType, Connection)>,
 
@@ -120,6 +121,8 @@ impl Database {
             }
         }
         self.mutations = mutations;
+
+        self.handle_save();
 
         // TODO: Distribute simulations to servers based on saturation and location.
         while !self.queued_simulations.is_empty() && !self.servers.is_empty() {

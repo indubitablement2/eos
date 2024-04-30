@@ -17,7 +17,8 @@ chrono = "0.4.38"
 
 rand = "0.8.5"
 
-serde = "1.0.198"
+# serde = "1.0.198"
+bitcode = "0.6.0"
 
 rayon = "1.10.0"
 # parking_lot = { version = "0.12.1", features = ["nightly"] }

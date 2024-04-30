@@ -343,12 +343,12 @@ checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
 name = "database"
 version = "0.1.0"
 dependencies = [
+ "bitcode",
  "chrono",
  "common",
  "log",
  "rand",
  "rayon",
- "serde",
  "sha2",
  "thread_local",
 ]
