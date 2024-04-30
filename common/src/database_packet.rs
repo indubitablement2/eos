@@ -1,5 +1,6 @@
 use self::ids::*;
 use super::*;
+use bitcode::{Decode, Encode};
 use std::net::SocketAddr;
 
 #[derive(Serialize, Deserialize)]
@@ -22,11 +23,17 @@ pub enum AuthRequest {
     },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Encode, Decode)]
 pub enum ServerRequest {}
 
-#[derive(Serialize, Deserialize)]
+#[derive(Encode, Decode)]
 pub enum ServerResponse {}
+
+#[derive(Encode, Decode)]
+pub enum SimulationRequest {}
+
+#[derive(Encode, Decode)]
+pub enum SimulationResponse {}
 
 #[derive(Deserialize)]
 pub enum ClientRequest {}

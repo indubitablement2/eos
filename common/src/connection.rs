@@ -167,8 +167,12 @@ impl Connection {
         let _ = self.outbound.send(Outbound::Packet(buf));
     }
 
-    pub fn queue(&self, packet: impl Serialize) {
+    pub fn queue_bin(&self, packet: impl Serialize) {
         self.queue_raw(bin_encode(packet));
+    }
+
+    pub fn queue_bit(&self, packet: impl bitcode::Encode) {
+        self.queue_raw(bit_encode(&packet));
     }
 
     pub fn flush(&self) {
@@ -179,19 +183,24 @@ impl Connection {
         let _ = self.outbound.send(Outbound::Close);
     }
 
-    pub fn try_recv<P: DeserializeOwned>(&self) -> Option<P> {
-        if let Ok(buf) = self.inbound.try_recv() {
-            bin_decode(&buf).ok()
-        } else {
-            None
-        }
+    pub fn try_recv_raw(&self) -> Option<Vec<u8>> {
+        self.inbound.try_recv().ok()
     }
 
-    pub fn block_recv<P: DeserializeOwned>(&self) -> Result<P, ()> {
-        match self.inbound.recv() {
-            Ok(buf) => bin_decode(&buf).map_err(|_| ()),
-            Err(_) => Err(()),
-        }
+    pub fn block_recv_raw(&self) -> Option<Vec<u8>> {
+        self.inbound.recv().ok()
+    }
+
+    pub fn try_recv_bin<P: DeserializeOwned>(&self) -> Option<P> {
+        self.try_recv_raw().and_then(|buf| bin_decode(&buf).ok())
+    }
+
+    pub fn block_recv_bin<P: DeserializeOwned>(&self) -> Option<P> {
+        self.block_recv_raw().and_then(|buf| bin_decode(&buf).ok())
+    }
+
+    pub fn try_recv_bit<P: bitcode::DecodeOwned>(&self) -> Option<P> {
+        self.try_recv_raw().and_then(|buf| bit_decode(&buf).ok())
     }
 
     pub fn is_closed(&self) -> bool {

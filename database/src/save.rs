@@ -1,4 +1,8 @@
 use super::*;
+use std::time::Duration;
+
+const SAVE_INTERVAL: Duration = Duration::from_secs(1 * 60 * 60);
+const SAVE_FOLDER_PATH: &str = "../../database_save/";
 
 impl Database {
     pub fn save(&self) {

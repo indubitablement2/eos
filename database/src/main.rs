@@ -126,7 +126,7 @@ impl Database {
             let (_, server) = self.servers.first_mut().unwrap();
             if let Some(runner) = server.stand_by_simulation_runner.pop() {
                 let (simulation_id, simulation) = self.queued_simulations.pop().unwrap();
-                runner.connection.queue(simulation_id);
+                runner.connection.queue_bit(simulation_id);
 
                 self.connections.push((
                     ConnectionType::Simulation(simulation_id),
@@ -184,7 +184,7 @@ impl Database {
         match connection_type {
             ConnectionType::Remove => {}
             ConnectionType::Auth { num_iter } => {
-                if let Some(request) = connection.try_recv::<AuthRequest>() {
+                if let Some(request) = connection.try_recv_bin::<AuthRequest>() {
                     *num_iter += 1;
                     *connection_type = ConnectionType::Remove;
                     if let Some(mutation) =

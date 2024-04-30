@@ -1,4 +1,5 @@
 use super::*;
+use bitcode::{Decode, Encode};
 use std::num::NonZeroU64;
 
 pub trait Id: Sized {
@@ -21,7 +22,9 @@ impl Id for u64 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Encode, Decode,
+)]
 pub struct ShipId(NonZeroU64);
 impl Default for ShipId {
     fn default() -> Self {
@@ -42,7 +45,9 @@ impl Id for ShipId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Encode, Decode,
+)]
 pub struct SimulationId(NonZeroU64);
 impl Default for SimulationId {
     fn default() -> Self {
@@ -63,7 +68,9 @@ impl Id for SimulationId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Encode, Decode,
+)]
 pub struct ClientId(NonZeroU64);
 impl Default for ClientId {
     fn default() -> Self {
@@ -84,7 +91,9 @@ impl Id for ClientId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Encode, Decode,
+)]
 pub struct ServerId(NonZeroU64);
 impl Default for ServerId {
     fn default() -> Self {
@@ -105,7 +114,9 @@ impl Id for ServerId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Encode, Decode,
+)]
 pub struct FactionId(NonZeroU64);
 impl Default for FactionId {
     fn default() -> Self {

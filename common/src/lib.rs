@@ -35,6 +35,13 @@ pub fn bin_decode<T: DeserializeOwned>(data: &[u8]) -> anyhow::Result<T> {
     Ok(postcard::from_bytes(data)?)
 }
 
+pub fn bit_encode(data: &impl bitcode::Encode) -> Vec<u8> {
+    bitcode::encode(data)
+}
+pub fn bit_decode<T: bitcode::DecodeOwned>(buf: &[u8]) -> Result<T, bitcode::Error> {
+    bitcode::decode(buf)
+}
+
 pub fn load_data() {
     simulation::load_data();
 }
