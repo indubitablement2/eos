@@ -13,7 +13,7 @@ pub type HashMap<K, V> = ahash::AHashMap<K, V>;
 pub type HashSet<K> = ahash::AHashSet<K>;
 pub type IndexMap<K, V> = indexmap::IndexMap<K, V, ahash::RandomState>;
 
-pub const DATABASE_ADDRESS: &str = "127.0.0.1:43598";
+pub const DATABASE_ADDRESS: &str = "ws://127.0.0.1:43598";
 
 static _TOKIO_RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
 pub fn tokio() -> &'static tokio::runtime::Runtime {

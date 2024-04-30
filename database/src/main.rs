@@ -1,22 +1,31 @@
+mod auth_request;
+mod mutation;
+mod save;
+
 use common::connection::*;
+use common::database_packet::*;
 use common::ids::*;
 use common::{HashMap, HashSet, IndexMap};
-use flume::{unbounded, Receiver, Sender, TryRecvError};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
+use std::net::SocketAddr;
 use std::time::Instant;
 
-#[derive(Debug, Serialize, Deserialize)]
-enum DatabaseMutation {}
-
 struct Database {
+    password: String,
+
     restart_request: Option<Instant>,
 
     // mut_requests_writer: Option<BufWriter<File>>,
     connection_listener: ConnectionListener,
     connections: Vec<(ConnectionType, Connection)>,
 
-    instances: IndexMap<InstanceId, Instance>,
-    simulations: HashMap<SimulationId, Simulation>,
+    next_server_id: ServerId,
+    servers: IndexMap<ServerId, Server>,
+
+    queued_simulations: Vec<(SimulationId, Simulation)>,
+    simulations: HashMap<SimulationId, (Simulation, SimulationRunner)>,
 
     next_ship_id: ShipId,
     ships: HashMap<ShipId, Ship>,
@@ -27,20 +36,30 @@ struct Database {
 }
 
 enum ConnectionType {
+    Remove,
+    Auth { num_iter: u32 },
     Client(ClientId),
-    Instance(InstanceId),
+    Server(ServerId),
     Simulation(SimulationId),
 }
 
-struct Instance {
+struct Server {
     connection: Connection,
-    // TODO: perf
+
+    saturation: i32,
+
+    stand_by_simulation_runner: Vec<SimulationRunner>,
+    simulations: HashSet<SimulationId>,
+}
+
+struct SimulationRunner {
+    connection: Connection,
+    client_address: SocketAddr,
 }
 
 struct Simulation {
     simulation_save: Vec<u8>,
     ships: HashSet<ShipId>,
-    connection: Option<Connection>,
 }
 
 struct Ship {
@@ -49,26 +68,18 @@ struct Ship {
 }
 
 struct Client {
+    password_salt: [u8; 8],
     password_sha256: Option<Vec<u8>>,
     ships: HashSet<ShipId>,
     connection: Option<Connection>,
 }
 
-impl Database {
-    fn step(&mut self) -> bool {
-        self.restart_request
-            .is_some_and(|instant| !instant.saturating_duration_since(Instant::now()).is_zero())
-    }
-
-    fn apply_mutation(&mut self, mutation: &mut DatabaseMutation) {
-        match mutation {
-            _ => todo!(),
-        }
-    }
-}
+// ####################################################################################
+// ################################### MAIN LOOP ######################################
+// ####################################################################################
 
 fn main() {
-    let mut database = DatabaseSave::load_database();
+    let mut database = Database::load();
 
     let mut interval = common::interval::Interval::new(100, 500);
     loop {
@@ -81,53 +92,113 @@ fn main() {
     database.save();
 }
 
-// ####################################################################################
-// ################################### SAVE ###########################################
-// ####################################################################################
-
 impl Database {
-    fn save(&self) {
-        let save = DatabaseSave::V0;
+    fn step(&mut self) -> bool {
+        // Take new connections.
+        while let Some(new_connection) = self.connection_listener.try_recv() {
+            self.connections
+                .push((ConnectionType::Auth { num_iter: 0 }, new_connection));
+        }
 
-        // TODO: Save save to file
-    }
-}
+        // Handle incoming packets.
+        let mut connections = std::mem::take(&mut self.connections);
+        let mutations = connections
+            .par_iter_mut()
+            .enumerate()
+            .filter_map(|(connection_idx, (connection_type, connection))| {
+                let mut ret = Vec::new();
+                self.handle_connection(&mut ret, connection_idx, connection_type, connection);
+                ret.is_empty().then(|| ret)
+            })
+            .collect_vec_list();
+        self.connections = connections;
 
-#[derive(Debug, Serialize, Deserialize, Default)]
-enum DatabaseSave {
-    #[default]
-    V0,
-    V1 {},
-}
-impl DatabaseSave {
-    fn to_database(self) -> Result<Database, Self> {
-        Err(match self {
-            DatabaseSave::V0 => Self::V1 {},
-            DatabaseSave::V1 {} => {
-                return Ok(Database {
-                    restart_request: todo!(),
-                    connection_listener: todo!(),
-                    connections: todo!(),
-                    instances: todo!(),
-                    simulations: todo!(),
-                    next_ship_id: todo!(),
-                    ships: todo!(),
-                    next_client_id: todo!(),
-                    clients: todo!(),
-                    username: todo!(),
-                })
+        // Apply mutations.
+        for m in mutations {
+            for m in m {
+                for m in m {
+                    self.apply_mutation(m);
+                }
             }
-        })
+        }
+
+        // TODO: Distribute simulations to servers based on saturation and location.
+        while !self.queued_simulations.is_empty() && !self.servers.is_empty() {
+            let (_, server) = self.servers.first_mut().unwrap();
+            if let Some(runner) = server.stand_by_simulation_runner.pop() {
+                let (simulation_id, simulation) = self.queued_simulations.pop().unwrap();
+                runner.connection.queue(simulation_id);
+
+                self.connections.push((
+                    ConnectionType::Simulation(simulation_id),
+                    runner.connection.clone(),
+                ));
+                self.simulations.insert(simulation_id, (simulation, runner));
+            }
+        }
+
+        // Flush connections.
+        self.connections
+            .retain(|(connection_type, connection)| match connection_type {
+                ConnectionType::Remove => false,
+                ConnectionType::Auth { num_iter } => *num_iter < 256,
+                ConnectionType::Client(_) => {
+                    connection.flush();
+                    if connection.is_closed() {
+                        // TODO:
+                        false
+                    } else {
+                        true
+                    }
+                }
+                ConnectionType::Server(_) => {
+                    connection.flush();
+                    if connection.is_closed() {
+                        // TODO:
+                        false
+                    } else {
+                        true
+                    }
+                }
+                ConnectionType::Simulation(_) => {
+                    connection.flush();
+                    if connection.is_closed() {
+                        // TODO:
+                        false
+                    } else {
+                        true
+                    }
+                }
+            });
+
+        // TODO: wait for all simulation to close and save
+        self.restart_request
+            .is_some_and(|instant| !instant.saturating_duration_since(Instant::now()).is_zero())
     }
 
-    fn load_database() -> Database {
-        // TODO: Load save from file
-        let mut database_save = DatabaseSave::default();
-        loop {
-            match database_save.to_database() {
-                Ok(db) => return db,
-                Err(save) => database_save = save,
+    fn handle_connection(
+        &self,
+        ret: &mut Vec<mutation::Mutation>,
+        connection_idx: usize,
+        connection_type: &mut ConnectionType,
+        connection: &Connection,
+    ) {
+        match connection_type {
+            ConnectionType::Remove => {}
+            ConnectionType::Auth { num_iter } => {
+                if let Some(request) = connection.try_recv::<AuthRequest>() {
+                    *num_iter += 1;
+                    *connection_type = ConnectionType::Remove;
+                    if let Some(mutation) =
+                        self.handle_auth_request(request, connection_idx, connection)
+                    {
+                        ret.push(mutation::Mutation::Auth(mutation));
+                    }
+                }
             }
+            ConnectionType::Client(id) => todo!(),
+            ConnectionType::Server(id) => todo!(),
+            ConnectionType::Simulation(id) => todo!(),
         }
     }
 }

@@ -1,5 +1,7 @@
+use std::net::SocketAddr;
+
 use super::*;
-use flume::{unbounded, Receiver, Sender, TryRecvError};
+use flume::{unbounded, Receiver, Sender};
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tokio_tungstenite::{
@@ -9,6 +11,7 @@ use tokio_tungstenite::{
 
 #[derive(Clone)]
 pub struct ConnectionListener {
+    local_addr: SocketAddr,
     new_connection_receiver: Receiver<Connection>,
 }
 impl ConnectionListener {
@@ -18,6 +21,7 @@ impl ConnectionListener {
 
     pub async fn bind_async(addr: impl ToSocketAddrs) -> anyhow::Result<Self> {
         let listener = TcpListener::bind(addr).await?;
+        let local_addr = listener.local_addr()?;
 
         let (new_connection_sender, new_connection_receiver) = unbounded();
 
@@ -63,12 +67,17 @@ impl ConnectionListener {
         });
 
         Ok(Self {
+            local_addr,
             new_connection_receiver,
         })
     }
 
     pub fn try_recv(&mut self) -> Option<Connection> {
         self.new_connection_receiver.try_recv().ok()
+    }
+
+    pub fn local_addr(&self) -> SocketAddr {
+        self.local_addr
     }
 }
 
@@ -145,7 +154,7 @@ impl Connection {
 
             inbound_task.abort();
 
-            log::debug!("Connection with closed");
+            log::debug!("Connection closed");
         });
 
         Ok(Self {
@@ -166,18 +175,33 @@ impl Connection {
         let _ = self.outbound.send(Outbound::Flush);
     }
 
-    pub fn try_recv<P: DeserializeOwned>(&self) -> Option<Result<P, ()>> {
-        match self.inbound.try_recv() {
-            Ok(buf) => Some(bin_decode(&buf).map_err(|_| ())),
-            Err(TryRecvError::Empty) => None,
-            Err(TryRecvError::Disconnected) => Some(Err(())),
+    pub fn close(&self) {
+        let _ = self.outbound.send(Outbound::Close);
+    }
+
+    pub fn try_recv<P: DeserializeOwned>(&self) -> Option<P> {
+        if let Ok(buf) = self.inbound.try_recv() {
+            bin_decode(&buf).ok()
+        } else {
+            None
         }
+    }
+
+    pub fn block_recv<P: DeserializeOwned>(&self) -> Result<P, ()> {
+        match self.inbound.recv() {
+            Ok(buf) => bin_decode(&buf).map_err(|_| ()),
+            Err(_) => Err(()),
+        }
+    }
+
+    pub fn is_closed(&self) -> bool {
+        self.inbound.is_disconnected()
     }
 }
 impl Drop for Connection {
     fn drop(&mut self) {
         if self.inbound.receiver_count() == 1 {
-            let _ = self.outbound.send(Outbound::Close);
+            self.close();
         }
     }
 }

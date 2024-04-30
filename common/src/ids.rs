@@ -85,13 +85,13 @@ impl Id for ClientId {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct InstanceId(NonZeroU64);
-impl Default for InstanceId {
+pub struct ServerId(NonZeroU64);
+impl Default for ServerId {
     fn default() -> Self {
         Self(NonZeroU64::MIN)
     }
 }
-impl Id for InstanceId {
+impl Id for ServerId {
     fn next(&mut self) {
         self.0 = self.0.checked_add(1).unwrap();
     }

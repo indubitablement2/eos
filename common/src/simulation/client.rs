@@ -32,12 +32,8 @@ impl Client {
         }
     }
 
-    pub fn step_retain(&mut self, _id: ClientId, sim: &mut Simulation) -> bool {
+    pub fn step(&mut self, _id: ClientId, sim: &mut Simulation) {
         while let Some(packet) = self.connection.try_recv::<ClientInbound>() {
-            let Ok(packet) = packet else {
-                return false;
-            };
-
             match packet {
                 ClientInbound::SpawnHull {
                     hull_data_id,
@@ -53,11 +49,9 @@ impl Client {
                 }
             }
         }
-
-        true
     }
 
-    pub fn post_step(&mut self, sim: &mut Simulation) {
+    pub fn post_step_retain(&mut self, sim: &mut Simulation) -> bool {
         self.hulls_state.sort_unstable_keys();
 
         let capacity = self
@@ -74,6 +68,8 @@ impl Client {
 
         self.connection.queue_raw(buf);
         self.connection.flush();
+
+        self.connection.is_closed()
     }
 
     pub fn hull_update(&mut self, hull_id: HullId, hull: &Hull) {

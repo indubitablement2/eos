@@ -111,16 +111,16 @@ impl Simulation {
 
         // Pre-step clients.
         let mut clients = std::mem::take(&mut self.clients);
-        clients.retain(|id, client| client.step_retain(*id, self));
+        clients
+            .iter_mut()
+            .for_each(|(id, client)| client.step(*id, self));
         self.clients = clients;
 
         self.physics.step(&mut self.clients);
 
         // Update clients.
         clients = std::mem::take(&mut self.clients);
-        clients
-            .values_mut()
-            .for_each(|client| client.post_step(self));
+        clients.retain(|_, client| client.post_step_retain(self));
         self.clients = clients;
 
         // Shrink containers.
