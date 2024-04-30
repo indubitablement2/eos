@@ -83,6 +83,8 @@ struct Client {
 // ####################################################################################
 
 fn main() {
+    common::logger::Logger::init();
+    common::load_data();
     let mut database = Database::load();
 
     let mut interval = common::interval::Interval::new(100, 500);

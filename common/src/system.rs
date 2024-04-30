@@ -53,3 +53,24 @@ impl std::fmt::Display for TryFromSystemDataIdError {
         write!(f, "Invalid hull data id: {} out of bound", self.0)
     }
 }
+
+pub fn load_system_data() {
+    let read = std::fs::read("../client/tool/server_data/systems.json").unwrap();
+    let json: Vec<SystemDataJson> = serde_json::from_slice(read.as_slice()).unwrap();
+    DATA.set(
+        json.into_iter()
+            .zip(0u32..)
+            .map(|(entity_json, id)| entity_json.parse(id))
+            .collect(),
+    )
+    .ok()
+    .unwrap();
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+struct SystemDataJson {}
+impl SystemDataJson {
+    fn parse(self, id: u32) -> SystemData {
+        SystemData { id }
+    }
+}

@@ -38,4 +38,5 @@ pub fn bin_decode<T: DeserializeOwned>(data: &[u8]) -> anyhow::Result<T> {
 
 pub fn load_data() {
     simulation::load_data();
+    system::load_system_data();
 }
