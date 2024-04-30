@@ -38,6 +38,7 @@ impl DatabaseSave {
                     connection_listener: ConnectionListener::bind(common::DATABASE_ADDRESS)
                         .unwrap(),
                     connections: Default::default(),
+                    mutations: Default::default(),
                     next_server_id: Default::default(),
                     servers: Default::default(),
                     queued_simulations: Default::default(),

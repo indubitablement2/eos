@@ -22,6 +22,7 @@ serde = "1.0.198"
 rayon = "1.10.0"
 parking_lot = { version = "0.12.1", features = ["nightly"] }
 flume = { version = "0.11.0", features = ["async"] }
+thread_local = "1.1.8"
 
 [profile.release]
 # codegen-units = 1

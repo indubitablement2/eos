@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::net::SocketAddr;
 use std::time::Instant;
+use thread_local::ThreadLocal;
 
 struct Database {
     password: String,
@@ -20,6 +21,8 @@ struct Database {
     // mut_requests_writer: Option<BufWriter<File>>,
     connection_listener: ConnectionListener,
     connections: Vec<(ConnectionType, Connection)>,
+
+    mutations: ThreadLocal<std::cell::RefCell<Vec<mutation::Mutation>>>,
 
     next_server_id: ServerId,
     servers: IndexMap<ServerId, Server>,
@@ -102,25 +105,21 @@ impl Database {
 
         // Handle incoming packets.
         let mut connections = std::mem::take(&mut self.connections);
-        let mutations = connections
-            .par_iter_mut()
-            .enumerate()
-            .filter_map(|(connection_idx, (connection_type, connection))| {
-                let mut ret = Vec::new();
-                self.handle_connection(&mut ret, connection_idx, connection_type, connection);
-                ret.is_empty().then(|| ret)
-            })
-            .collect_vec_list();
+        connections.par_iter_mut().enumerate().for_each(
+            |(connection_idx, (connection_type, connection))| {
+                self.handle_connection(connection_idx, connection_type, connection);
+            },
+        );
         self.connections = connections;
 
         // Apply mutations.
-        for m in mutations {
-            for m in m {
-                for m in m {
-                    self.apply_mutation(m);
-                }
+        let mut mutations = std::mem::take(&mut self.mutations);
+        for mutations in mutations.iter_mut() {
+            for mutation in mutations.get_mut().drain(..) {
+                self.apply_mutation(mutation);
             }
         }
+        self.mutations = mutations;
 
         // TODO: Distribute simulations to servers based on saturation and location.
         while !self.queued_simulations.is_empty() && !self.servers.is_empty() {
@@ -178,7 +177,6 @@ impl Database {
 
     fn handle_connection(
         &self,
-        ret: &mut Vec<mutation::Mutation>,
         connection_idx: usize,
         connection_type: &mut ConnectionType,
         connection: &Connection,
@@ -192,7 +190,7 @@ impl Database {
                     if let Some(mutation) =
                         self.handle_auth_request(request, connection_idx, connection)
                     {
-                        ret.push(mutation::Mutation::Auth(mutation));
+                        self.push_mutation(mutation);
                     }
                 }
             }
