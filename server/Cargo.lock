@@ -948,8 +948,8 @@ name = "server"
 version = "0.1.0"
 dependencies = [
  "common",
+ "flume",
  "log",
- "parking_lot",
  "sysinfo",
 ]
 

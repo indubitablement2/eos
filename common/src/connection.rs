@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use super::*;
 use flume::{unbounded, Receiver, Sender};
 use futures_util::{SinkExt, StreamExt};
@@ -17,7 +15,6 @@ static PACKETS_OUT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64:
 
 #[derive(Clone)]
 pub struct ConnectionListener {
-    local_addr: SocketAddr,
     new_connection_receiver: Receiver<Connection>,
 }
 impl ConnectionListener {
@@ -27,7 +24,6 @@ impl ConnectionListener {
 
     pub async fn bind_async(addr: impl ToSocketAddrs) -> anyhow::Result<Self> {
         let listener = TcpListener::bind(addr).await?;
-        let local_addr = listener.local_addr()?;
 
         let (new_connection_sender, new_connection_receiver) = unbounded();
 
@@ -73,17 +69,12 @@ impl ConnectionListener {
         });
 
         Ok(Self {
-            local_addr,
             new_connection_receiver,
         })
     }
 
-    pub fn try_recv(&mut self) -> Option<Connection> {
+    pub fn try_recv(&self) -> Option<Connection> {
         self.new_connection_receiver.try_recv().ok()
-    }
-
-    pub fn local_addr(&self) -> SocketAddr {
-        self.local_addr
     }
 }
 

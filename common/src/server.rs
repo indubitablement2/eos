@@ -2,8 +2,8 @@ use super::*;
 
 pub struct ServerData {
     pub idx: usize,
+    /// Where clients connect to.
     pub ws_addr: String,
-    pub ip: std::net::IpAddr,
 }
 
 static DATA: std::sync::OnceLock<Vec<ServerData>> = std::sync::OnceLock::new();
@@ -13,7 +13,7 @@ static DATA: std::sync::OnceLock<Vec<ServerData>> = std::sync::OnceLock::new();
 #[serde(into = "u32")]
 pub struct ServerId(pub &'static ServerData);
 impl ServerId {
-    fn data() -> &'static [ServerData] {
+    pub fn data() -> &'static [ServerData] {
         DATA.get().unwrap()
     }
 }
@@ -80,14 +80,12 @@ pub fn load_server_data() {
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct ServerDataJson {
     ws_addr: String,
-    ip: String,
 }
 impl ServerDataJson {
     fn parse(self, idx: usize) -> ServerData {
         ServerData {
             idx,
             ws_addr: self.ws_addr,
-            ip: self.ip.parse().unwrap(),
         }
     }
 }

@@ -1,47 +1,12 @@
+use std::sync::{atomic::AtomicBool, Arc};
+
 use self::{connection::Connection, ids::*, server::ServerId, system::SystemId};
 use super::*;
 use flume::Receiver;
 
-pub struct SimulationConnection {
-    system_id: SystemId,
-    connection: Connection,
-    receiver: Receiver<SimulationResponse>,
-    new_client: Receiver<(ClientId, Connection)>,
-}
-impl SimulationConnection {
-    pub fn new(
-        system_id: SystemId,
-        connection: Connection,
-        receiver: Receiver<SimulationResponse>,
-        new_client: Receiver<(ClientId, Connection)>,
-    ) -> Self {
-        Self {
-            system_id,
-            connection,
-            receiver,
-            new_client,
-        }
-    }
-
-    pub fn queue(&self, request: SimulationRequest) {
-        self.connection.queue(ServerRequest::SimulationRequest {
-            system_id: self.system_id,
-            request,
-        })
-    }
-
-    pub fn try_recv(&self) -> Option<SimulationResponse> {
-        self.receiver.try_recv().ok()
-    }
-
-    pub fn new_client(&self) -> Option<(ClientId, Connection)> {
-        self.new_client.try_recv().ok()
-    }
-
-    pub fn system_id(&self) -> SystemId {
-        self.system_id
-    }
-}
+// ####################################################################################
+// ################################### SERVER AUTH ####################################
+// ####################################################################################
 
 #[derive(Serialize, Deserialize)]
 pub struct ServerAuthRequest {
@@ -51,20 +16,17 @@ pub struct ServerAuthRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct ServerAuthResponse {
-    pub password: String,
     pub system_saves: Vec<(SystemId, Option<Vec<u8>>)>,
 }
+
+// ####################################################################################
+// ################################### SERVER #########################################
+// ####################################################################################
 
 #[derive(Serialize, Deserialize)]
 pub enum ServerRequest {
     ClientLogin {
-        username: String,
-        password: String,
-        token: u64,
-    },
-    ClientRegister {
-        username: String,
-        password: String,
+        request: ClientLogin,
         token: u64,
     },
     PerfStats {},
@@ -75,17 +37,32 @@ pub enum ServerRequest {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct ClientLogin {
+    /// None -> join any system handled by this server.
+    /// Preferably one with an owned ship.
+    pub join_system: Option<SystemId>,
+    pub username: String,
+    pub password: String,
+    pub register: bool,
+}
+
+#[derive(Serialize, Deserialize)]
 pub enum ServerResponse {
     ClientLogin {
         token: u64,
+        join_system: SystemId,
         client_id: Option<ClientId>,
-        fail_reason: Option<String>,
     },
     SimulationResponse {
         system_id: SystemId,
         request: SimulationResponse,
     },
+    Restart,
 }
+
+// ####################################################################################
+// ################################### SIMULATION #####################################
+// ####################################################################################
 
 #[derive(Serialize, Deserialize)]
 pub enum SimulationRequest {}
@@ -101,4 +78,54 @@ pub enum SimulationResponse {
 #[derive(Serialize, Deserialize)]
 pub struct ClientUpdate {
     pub ships_delta: Vec<()>,
+}
+
+pub struct SimulationConnection {
+    system_id: SystemId,
+    /// Used to send requests only.
+    database_connection: Connection,
+    database_response_receiver: Receiver<SimulationResponse>,
+    new_client_receiver: Receiver<(ClientId, Connection)>,
+    restart: Arc<AtomicBool>,
+}
+impl SimulationConnection {
+    pub fn new(
+        system_id: SystemId,
+        database_connection: Connection,
+        database_response_receiver: Receiver<SimulationResponse>,
+        new_client_receiver: Receiver<(ClientId, Connection)>,
+        restart: Arc<AtomicBool>,
+    ) -> Self {
+        Self {
+            system_id,
+            database_connection,
+            database_response_receiver,
+            new_client_receiver,
+            restart,
+        }
+    }
+
+    pub fn queue(&self, request: SimulationRequest) {
+        self.database_connection
+            .queue(ServerRequest::SimulationRequest {
+                system_id: self.system_id,
+                request,
+            })
+    }
+
+    pub fn try_recv(&self) -> Option<SimulationResponse> {
+        self.database_response_receiver.try_recv().ok()
+    }
+
+    pub fn new_client(&self) -> Option<(ClientId, Connection)> {
+        self.new_client_receiver.try_recv().ok()
+    }
+
+    pub fn system_id(&self) -> SystemId {
+        self.system_id
+    }
+
+    pub fn restart(&self) -> bool {
+        self.restart.load(std::sync::atomic::Ordering::Relaxed)
+    }
 }
