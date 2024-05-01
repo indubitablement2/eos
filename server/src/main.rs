@@ -109,19 +109,15 @@ fn main() {
 
         while let Some(response) = database_connection.try_recv::<ServerResponse>() {
             match response {
-                ServerResponse::ClientLogin {
-                    token,
-                    join_system,
-                    client_id,
-                } => {
+                ServerResponse::ClientLogin { token, result } => {
                     let Some(connection) = client_auth.remove(&token) else {
                         log::warn!("Invalid token {}", token);
                         continue;
                     };
-                    let Some(client_id) = client_id else {
+                    let Some((client_id, system_id)) = result else {
                         continue;
                     };
-                    let Some(simulation) = simulations.get(&join_system) else {
+                    let Some(simulation) = simulations.get(&system_id) else {
                         log::warn!("System not run by this server");
                         continue;
                     };
@@ -131,10 +127,13 @@ fn main() {
                         log::error!("Failed to send new client to simulation: {}", err);
                     };
                 }
-                ServerResponse::SimulationResponse { system_id, request } => {
+                ServerResponse::SimulationResponse {
+                    system_id,
+                    response,
+                } => {
                     let _ = simulations[&system_id]
                         .database_response_serder
-                        .send(request);
+                        .send(response);
                 }
                 ServerResponse::Restart => {
                     log::info!("Restart started");
@@ -166,6 +165,11 @@ fn main() {
         // sys.global_cpu_info().cpu_usage()
 
         database_connection.flush();
+
+        if database_connection.is_closed() {
+            log::error!("Database connection closed");
+            break;
+        }
     }
 }
 
