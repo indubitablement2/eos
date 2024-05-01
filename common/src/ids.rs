@@ -91,28 +91,28 @@ impl Id for ClientId {
     }
 }
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Encode, Decode,
-)]
-pub struct ServerId(NonZeroU64);
-impl Default for ServerId {
-    fn default() -> Self {
-        Self(NonZeroU64::MIN)
-    }
-}
-impl Id for ServerId {
-    fn next(&mut self) {
-        self.0 = self.0.checked_add(1).unwrap();
-    }
+// #[derive(
+//     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Encode, Decode,
+// )]
+// pub struct ServerId(NonZeroU64);
+// impl Default for ServerId {
+//     fn default() -> Self {
+//         Self(NonZeroU64::MIN)
+//     }
+// }
+// impl Id for ServerId {
+//     fn next(&mut self) {
+//         self.0 = self.0.checked_add(1).unwrap();
+//     }
 
-    fn to_u64(&self) -> u64 {
-        self.0.get()
-    }
+//     fn to_u64(&self) -> u64 {
+//         self.0.get()
+//     }
 
-    fn try_from_u64(value: u64) -> Option<Self> {
-        NonZeroU64::new(value).map(Self)
-    }
-}
+//     fn try_from_u64(value: u64) -> Option<Self> {
+//         NonZeroU64::new(value).map(Self)
+//     }
+// }
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Encode, Decode,

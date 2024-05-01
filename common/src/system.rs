@@ -1,15 +1,15 @@
 use super::*;
+use server::ServerId;
 
 pub struct SystemData {
     id: u64,
-}
-impl SystemData {
-    fn data() -> &'static HashMap<u64, Self> {
-        DATA.get().unwrap()
-    }
+    pub server_id: ServerId,
 }
 
 static DATA: std::sync::OnceLock<HashMap<u64, SystemData>> = std::sync::OnceLock::new();
+fn data() -> &'static HashMap<u64, SystemData> {
+    DATA.get().unwrap()
+}
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 #[serde(try_from = "u64")]
@@ -17,7 +17,7 @@ static DATA: std::sync::OnceLock<HashMap<u64, SystemData>> = std::sync::OnceLock
 pub struct SystemId(pub &'static SystemData);
 impl SystemId {
     pub fn systems_data_iter() -> std::collections::hash_map::Values<'static, u64, SystemData> {
-        SystemData::data().values()
+        data().values()
     }
 }
 impl std::ops::Deref for SystemId {
@@ -31,7 +31,7 @@ impl TryFrom<u64> for SystemId {
     type Error = TryFromSystemDataIdError;
 
     fn try_from(value: u64) -> Result<Self, Self::Error> {
-        SystemData::data()
+        data()
             .get(&value)
             .map(Self)
             .ok_or(TryFromSystemDataIdError(value))
@@ -81,9 +81,16 @@ pub fn load_system_data() {
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct SystemDataJson {
     id: u64,
+    server_idx: u32,
 }
 impl SystemDataJson {
     fn parse(self) -> (u64, SystemData) {
-        (self.id, SystemData { id: self.id })
+        (
+            self.id,
+            SystemData {
+                id: self.id,
+                server_id: ServerId::try_from(self.server_idx).unwrap(),
+            },
+        )
     }
 }

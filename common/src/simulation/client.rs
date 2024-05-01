@@ -1,31 +1,13 @@
 use super::*;
 use std::f32::consts::PI;
 
-/// Client authentification in progress.
-pub struct ClientAuth {
-    connection: Connection,
-}
-impl ClientAuth {
-    pub fn new(connection: Connection) -> Self {
-        Self { connection }
-    }
-
-    pub fn step(&mut self) -> Option<Result<(ClientId, Client), ()>> {
-        // TODO: Implement client auth
-        Some(Ok((
-            ClientId::default(),
-            Client::new(self.connection.clone()),
-        )))
-    }
-}
-
 pub struct Client {
     connection: Connection,
 
     hulls_state: IndexMap<HullId, HullState>,
 }
 impl Client {
-    fn new(connection: Connection) -> Self {
+    pub fn new(connection: Connection) -> Self {
         Self {
             connection,
             hulls_state: Default::default(),

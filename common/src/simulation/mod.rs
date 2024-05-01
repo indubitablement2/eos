@@ -4,6 +4,7 @@ mod hull;
 use super::*;
 use client::*;
 use connection::*;
+use database_packet::{ClientUpdate, SimulationConnection, SimulationRequest, SimulationResponse};
 use hull::*;
 use ids::*;
 use physics::*;
@@ -11,7 +12,6 @@ use rand::prelude::*;
 use rapier2d::na::{self, Isometry2, Point2, UnitComplex, Vector2};
 use rapier2d::prelude::*;
 use std::ops::Range;
-use system::SystemId;
 
 type Clients = HashMap<ClientId, Client>;
 
@@ -34,9 +34,7 @@ struct Faction {
 }
 
 pub struct Simulation {
-    system_id: SystemId,
-
-    database_connection: Connection,
+    connection: SimulationConnection,
 
     /// Seconds since unix epoch.
     global_time: f64,
@@ -47,8 +45,6 @@ pub struct Simulation {
 
     physics: Physics,
 
-    new_client: ConnectionListener,
-    clients_auth: Vec<ClientAuth>,
     clients: Clients,
 
     // TODO: Use brocoli + vector.
@@ -57,12 +53,7 @@ pub struct Simulation {
     projectiles: Vec<()>,
 }
 impl Simulation {
-    pub fn new(
-        database_connection: Connection,
-        new_client: ConnectionListener,
-        system_id: SystemId,
-        save: Option<&[u8]>,
-    ) -> Self {
+    pub fn new(connection: SimulationConnection, save: Option<&[u8]>) -> Self {
         let save = if let Some(save) = save {
             match bin_decode(save) {
                 Ok(save) => save,
@@ -76,10 +67,7 @@ impl Simulation {
         };
 
         Self {
-            system_id,
-            database_connection,
-            new_client,
-            clients_auth: Default::default(),
+            connection,
             sim_time: 0.0,
             physics: Default::default(),
             clients: Default::default(),
@@ -94,21 +82,16 @@ impl Simulation {
         self.global_time = global_time();
 
         // Take new clients.
-        while let Some(connection) = self.new_client.try_recv() {
-            self.clients_auth.push(ClientAuth::new(connection));
+        while let Some((client_id, connection)) = self.connection.new_client() {
+            self.clients.insert(client_id, Client::new(connection));
         }
 
-        // todo Handle database packets.
-
-        // Authenticate clients.
-        self.clients_auth.retain_mut(|auth| match auth.step() {
-            Some(Ok((id, client))) => {
-                self.clients.insert(id, client);
-                false
+        // TODO: Handle database packets.
+        while let Some(response) = self.connection.try_recv() {
+            match response {
+                SimulationResponse::ClientUpdate { client_id, update } => todo!(),
             }
-            Some(Err(())) => false,
-            None => true,
-        });
+        }
 
         // Pre-step clients.
         let mut clients = std::mem::take(&mut self.clients);
