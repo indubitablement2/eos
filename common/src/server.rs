@@ -1,5 +1,9 @@
-use super::*;
+use self::system::SystemId;
 
+use super::*;
+use std::ops::{Index, IndexMut};
+
+// Loaded before system data.
 pub struct ServerData {
     pub idx: usize,
     /// Where clients connect to.
@@ -15,6 +19,19 @@ pub struct ServerId(pub &'static ServerData);
 impl ServerId {
     pub fn data() -> &'static [ServerData] {
         DATA.get().unwrap()
+    }
+
+    /// Returns the systems that are handled by this server.
+    pub fn systems(self) -> Vec<SystemId> {
+        SystemId::systems_data_iter()
+            .filter_map(|systems| {
+                if systems.server_id == self {
+                    Some(SystemId(systems))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 impl std::ops::Deref for ServerId {
@@ -55,6 +72,30 @@ impl PartialEq for ServerId {
     }
 }
 impl Eq for ServerId {}
+impl<T> Index<ServerId> for Vec<T> {
+    type Output = T;
+
+    fn index(&self, index: ServerId) -> &Self::Output {
+        &self[index.idx]
+    }
+}
+impl<T> IndexMut<ServerId> for Vec<T> {
+    fn index_mut(&mut self, index: ServerId) -> &mut Self::Output {
+        &mut self[index.idx]
+    }
+}
+impl<T> Index<ServerId> for [T] {
+    type Output = T;
+
+    fn index(&self, index: ServerId) -> &Self::Output {
+        &self[index.idx]
+    }
+}
+impl<T> IndexMut<ServerId> for [T] {
+    fn index_mut(&mut self, index: ServerId) -> &mut Self::Output {
+        &mut self[index.idx]
+    }
+}
 
 #[derive(Debug)]
 pub struct TryFromServerDataIdError(pub u32);

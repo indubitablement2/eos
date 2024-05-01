@@ -1,27 +1,188 @@
 use super::*;
 
 pub enum Mutation {
-    Auth(auth_request::Mutation),
-}
-impl From<auth_request::Mutation> for Mutation {
-    fn from(mutation: auth_request::Mutation) -> Self {
-        Self::Auth(mutation)
-    }
+    ServerMutation(ServerId, ServerMutation),
+    SimulationMutation(SystemId, SimulationMutation),
 }
 
+pub enum ServerMutation {
+    ClientLogin {
+        token: u64,
+        client_id: ClientId,
+    },
+    ClientRegister {
+        token: u64,
+        username: String,
+        password: String,
+    },
+}
+
+pub enum SimulationMutation {}
+
 impl Database {
-    pub fn push_mutation(&self, mutation: impl Into<mutation::Mutation>) {
-        self.mutations
-            .get_or_default()
-            .borrow_mut()
-            .push(mutation.into());
+    pub fn handle_request(&self, server_id: ServerId, request: ServerRequest) {
+        if let Some(mutation) = self._handle_request(server_id, request) {
+            self.mutations.get_or_default().borrow_mut().push(mutation);
+        }
+    }
+
+    fn _handle_request(&self, server_id: ServerId, request: ServerRequest) -> Option<Mutation> {
+        let server_mutation = match request {
+            ServerRequest::ClientLogin { request, token } => {
+                if request.register {
+                    let client_id = self.username.get(&request.username)?;
+                    let client = self.clients.get(client_id)?;
+
+                    let mut hasher = sha2::Sha256::new();
+                    hasher.update(&client.password_salt);
+                    hasher.update(request.password.as_bytes());
+                    let hash = hasher.finalize();
+                    if client.password_sha256.as_deref() != Some(hash.as_slice()) {
+                        return None;
+                    }
+
+                    Some(ServerMutation::ClientLogin {
+                        token,
+                        client_id: *client_id,
+                    })
+                } else {
+                    if self.username.contains_key(&request.username) {
+                        return None;
+                    }
+
+                    if request.password.len() < 8 {
+                        return None;
+                    }
+
+                    Some(ServerMutation::ClientRegister {
+                        token,
+                        username: request.username,
+                        password: request.password,
+                    })
+                }
+            }
+            ServerRequest::PerfStats {} => None,
+            ServerRequest::SimulationRequest { system_id, request } => {
+                return self
+                    .handle_simulation_request(system_id, request)
+                    .map(|mutation| Mutation::SimulationMutation(system_id, mutation));
+            }
+        };
+
+        server_mutation.map(|mutation| Mutation::ServerMutation(server_id, mutation))
+    }
+
+    fn handle_simulation_request(
+        &self,
+        system_id: SystemId,
+        request: SimulationRequest,
+    ) -> Option<SimulationMutation> {
+        match request {}
+    }
+
+    fn apply_server_mutation(
+        &mut self,
+        server_id: ServerId,
+        mutation: ServerMutation,
+    ) -> Option<ServerResponse> {
+        match mutation {
+            ServerMutation::ClientLogin { token, client_id } => {
+                let client = self.clients.get_mut(&client_id)?;
+
+                if let Some(prev) = client.connected.take() {
+                    // TODO: Notify system of disconnect.
+                }
+
+                // TODO: Find suitable system.
+                let system_id = todo!();
+
+                client.connected = Some(system_id);
+
+                Some(ServerResponse::ClientLogin {
+                    token,
+                    result: Some((client_id, system_id)),
+                })
+            }
+            ServerMutation::ClientRegister {
+                token,
+                username,
+                password,
+            } => {
+                let failure = Some(ServerResponse::ClientLogin {
+                    token,
+                    result: None,
+                });
+
+                if self.username.contains_key(&username) {
+                    return failure;
+                }
+
+                let client_id = self.next_client_id;
+                self.next_client_id.next();
+
+                self.username.insert(username, client_id);
+
+                let password_salt: [u8; 8] = rand::random();
+
+                let mut hasher = sha2::Sha256::new();
+                hasher.update(&password_salt);
+                hasher.update(password.as_bytes());
+                let hash = hasher.finalize();
+
+                self.clients.insert(
+                    client_id,
+                    Client {
+                        password_salt,
+                        password_sha256: Some(hash.to_vec()),
+                        ships: Default::default(),
+                        connected: None,
+                    },
+                );
+
+                self.apply_server_mutation(
+                    server_id,
+                    ServerMutation::ClientLogin { token, client_id },
+                )
+            }
+        }
+    }
+
+    fn apply_simulation_mutation(
+        &mut self,
+        system_id: SystemId,
+        mutation: SimulationMutation,
+    ) -> Option<SimulationResponse> {
+        match mutation {}
     }
 
     pub fn apply_mutation(&mut self, mutation: Mutation) {
         match mutation {
-            Mutation::Auth(mutation) => {
-                self.apply_auth_mutation(mutation);
+            Mutation::ServerMutation(server_id, mutation) => {
+                if let Some(response) = self.apply_server_mutation(server_id, mutation) {
+                    self.queue_server_response(server_id, response);
+                }
+            }
+            Mutation::SimulationMutation(system_id, mutation) => {
+                if let Some(response) = self.apply_simulation_mutation(system_id, mutation) {
+                    self.queue_simulation_response(system_id, response);
+                }
             }
         }
+    }
+
+    pub fn queue_server_response(&self, server_id: ServerId, response: ServerResponse) {
+        if let Some(server) = &self.servers[server_id] {
+            server.connection.queue(response);
+        }
+    }
+
+    pub fn queue_simulation_response(&self, system_id: SystemId, response: SimulationResponse) {
+        self.queue_server_response(
+            system_id.server_id,
+            ServerResponse::SimulationResponse {
+                system_id,
+                response,
+            },
+        );
     }
 }

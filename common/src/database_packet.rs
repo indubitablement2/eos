@@ -50,12 +50,11 @@ pub struct ClientLogin {
 pub enum ServerResponse {
     ClientLogin {
         token: u64,
-        join_system: SystemId,
-        client_id: Option<ClientId>,
+        result: Option<(ClientId, SystemId)>,
     },
     SimulationResponse {
         system_id: SystemId,
-        request: SimulationResponse,
+        response: SimulationResponse,
     },
     Restart,
 }
