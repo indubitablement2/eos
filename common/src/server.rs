@@ -130,3 +130,17 @@ impl ServerDataJson {
         }
     }
 }
+
+#[test]
+fn print_json_sample() {
+    let data = vec![
+        ServerDataJson {
+            ws_addr: "ws://localhost:8080".to_string(),
+        },
+        ServerDataJson {
+            ws_addr: "ws://localhost:8080".to_string(),
+        },
+    ];
+
+    println!("{}", serde_json::to_string_pretty(&data).unwrap());
+}

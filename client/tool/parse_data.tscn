@@ -1,0 +1,22 @@
+[gd_scene load_steps=2 format=3 uid="uid://bsocfw54siqtu"]
+
+[sub_resource type="GDScript" id="GDScript_gnhmc"]
+script/source = "extends Node
+
+func _ready() -> void:
+	_servers()
+	get_tree().quit.call_deferred()
+
+func _servers() -> void:
+	var ret := []
+	for server in Data.SERVERS:
+		ret.push_back({
+			\"ws_addr\" : server.ws_addr
+		})
+	
+	var fs := FileAccess.open(\"res://tool/server_data/servers.json\", FileAccess.WRITE)
+	fs.store_string(JSON.stringify(ret, \"\\t\", false))
+"
+
+[node name="ParseData" type="Node"]
+script = SubResource("GDScript_gnhmc")
