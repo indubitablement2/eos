@@ -8,25 +8,12 @@
 
 config_version=5
 
-[Hello]
-
-Testing={
-0: "[::1]:12345",
-180: ":::"
-}
-
 [application]
 
 config/name="Eos"
-run/main_scene="res://core/scene/main.tscn"
+run/main_scene="res://entry.tscn"
 config/features=PackedStringArray("4.2", "GL Compatibility")
 config/icon="res://icon.svg"
-
-[autoload]
-
-Util="*res://core/singleton/util.gd"
-Data="*res://data/data.tscn"
-SimulationsMap="*res://data/simulations_map.tscn"
 
 [filesystem]
 

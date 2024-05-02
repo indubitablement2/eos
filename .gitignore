@@ -3,6 +3,8 @@ common/target
 database/target
 simulation/target
 
+client/.godot
+
 # Binaries
 *.o
 *.os
