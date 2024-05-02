@@ -15,10 +15,10 @@ static func start_encode():
 static func finish_encode() -> PackedByteArray:
 	return _write.data_array.slice(0, _write.get_position())
 
-static func put_u8(value: int):
+static func put_u8(value: int) -> void:
 	_write.put_8(value)
 
-static func put_u64(value: int):
+static func put_u64(value: int) -> void:
 	while true:
 		var byte := value & 0x7F
 		value >>= 7
@@ -28,28 +28,32 @@ static func put_u64(value: int):
 			break
 		_write.put_8(byte | 0x80)
 
-static func put_i64(value: int):
+static func put_i64(value: int) -> void:
 	put_u64((value << 1) ^ (value >> 63));
 
 static func put_bytes(value: PackedByteArray):
 	put_u64(value.size())
 	_write.put_data(value)
 
-static func put_string(value: String):
+static func put_string(value: String) -> void:
 	put_bytes(value.to_utf8_buffer())
 
-static func put_f32(value: float):
+static func put_f32(value: float) -> void:
 	_write.put_float(value)
 
-static func put_f64(value: float):
+static func put_f64(value: float) -> void:
 	_write.put_double(value)
 
-static func put_vector2(value: Vector2):
+static func put_vector2(value: Vector2) -> void:
 	_write.put_float(value.x)
 	_write.put_float(value.y)
 
+static func put_vector2i(value: Vector2i) -> void:
+	put_i64(value.x)
+	put_i64(value.y)
 
-static func start_decode(packet: PackedByteArray):
+
+static func start_decode(packet: PackedByteArray) -> void:
 	_read.data_array = packet
 	_read.big_endian = false
 
@@ -86,7 +90,10 @@ static func get_f64() -> float:
 static func get_vector2() -> Vector2:
 	return Vector2(_read.get_float(), _read.get_float())
 
-static func _test():
+static func get_vector2i() -> Vector2i:
+	return Vector2(get_i64(), get_i64())
+
+static func _test() -> void:
 	start_encode()
 	put_u8(123)
 	put_u64(65000)

@@ -106,7 +106,7 @@ impl std::fmt::Display for TryFromServerDataIdError {
 }
 
 pub fn load_server_data() {
-    let read = std::fs::read("../client/tool/server_data/systems.json").unwrap();
+    let read = std::fs::read("../client/tool/server_data/servers.json").unwrap();
     let json: Vec<ServerDataJson> = serde_json::from_slice(read.as_slice()).unwrap();
     DATA.set(
         json.into_iter()
