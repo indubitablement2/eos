@@ -2,5 +2,7 @@ extends Object
 class_name Data
 
 const SERVERS : Array[ServerData] = [
-	preload("res://data/server/0.tres"),
+	preload("res://server/0.tres"),
 ]
+
+const SYSTEMS_SCENE := preload("res://system/systems.tscn")

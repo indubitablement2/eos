@@ -5,6 +5,7 @@ script/source = "extends Node
 
 func _ready() -> void:
 	_servers()
+	_systems()
 	get_tree().quit.call_deferred()
 
 func _servers() -> void:
@@ -15,6 +16,22 @@ func _servers() -> void:
 		})
 	
 	var fs := FileAccess.open(\"res://tool/server_data/servers.json\", FileAccess.WRITE)
+	fs.store_string(JSON.stringify(ret, \"\\t\", false))
+
+func _systems() -> void:
+	var sytems := Data.SYSTEMS_SCENE.instantiate()
+	
+	var ret := []
+	for child in sytems.get_children():
+		var system := child as System
+		if !system:
+			continue
+		ret.push_back({
+			\"id\" : system.name.to_int(),
+			\"server_idx\" : system.server.idx
+		})
+	
+	var fs := FileAccess.open(\"res://tool/server_data/systems.json\", FileAccess.WRITE)
 	fs.store_string(JSON.stringify(ret, \"\\t\", false))
 "
 
