@@ -105,3 +105,34 @@ impl Default for HullShapeJson {
         Self::Ball { radius: 0.5 }
     }
 }
+
+#[test]
+fn print_json_sample() {
+    let json = EntityDataJson {
+        hull: 100.0,
+
+        armor_max: 100.0,
+        armor_cells_offset: Vector2::new(0.0, 0.0),
+        armor_cells_size: Vector2::new(1, 1),
+        armor_cells: vec![1.0],
+
+        shape_translation: Vector2::new(0.0, 0.0),
+        shape: HullShapeJson::Ball { radius: 0.5 },
+        mass_radius: 0.5,
+        density: 1.0,
+        memberships: 0,
+        filter: 0,
+
+        linear_acceleration: 1.0,
+        angular_acceleration: 1.0,
+        max_linear_velocity: 1.0,
+        max_angular_velocity: 1.0,
+
+        ai: HullAi::default(),
+
+        on_new: vec![],
+        on_remove: vec![],
+    };
+
+    println!("{}", serde_json::to_string_pretty(&json).unwrap());
+}

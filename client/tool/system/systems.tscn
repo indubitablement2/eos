@@ -1,0 +1,31 @@
+[gd_scene load_steps=2 format=3 uid="uid://cspl4vctogkwa"]
+
+[ext_resource type="Script" path="res://tool/system/system.gd" id="1_7vkgk"]
+
+[node name="Systems" type="Node2D"]
+
+[node name="0" type="Node2D" parent="."]
+position = Vector2(-173, -12)
+script = ExtResource("1_7vkgk")
+server_idx = null
+links = Array[int]([1, 2])
+
+[node name="1" type="Node2D" parent="."]
+position = Vector2(142, -121)
+script = ExtResource("1_7vkgk")
+server_idx = null
+links = Array[int]([0, 2])
+
+[node name="2" type="Node2D" parent="."]
+position = Vector2(111, 123)
+script = ExtResource("1_7vkgk")
+server_idx = null
+links = Array[int]([0, 1])
+_other = 1
+
+[node name="3" type="Node2D" parent="."]
+position = Vector2(-86, -256)
+script = ExtResource("1_7vkgk")
+server_idx = null
+links = Array[int]([0, 1])
+_other = 1
