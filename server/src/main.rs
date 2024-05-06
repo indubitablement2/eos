@@ -25,7 +25,7 @@ fn main() {
     let new_client = ConnectionListener::bind(ws_addr).unwrap();
 
     // Connect to database.
-    let database_connection = Connection::connect(common::DATABASE_ADDRESS).unwrap();
+    let database_connection = Connection::connect(common::DATABASE_WS_ADDRESS).unwrap();
     database_connection.queue(ServerAuthRequest {
         password: std::env::var("DATABASE_PASSWORD").unwrap(),
         server_id,
