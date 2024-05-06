@@ -25,8 +25,8 @@ impl Id for HullId {
     }
 }
 
+// TODO: Shield(s) rotation and arc
 /// A ship, drone, missile or debris.
-/// May only have one shield.
 #[derive(Default)]
 pub struct Hull {
     pub hull_data_id: HullDataId,
@@ -36,11 +36,10 @@ pub struct Hull {
     /// Best not to touch this.
     /// See `pos`/`linvel`/`angvel`/`collision_group_ignore`.
     /// These properties are kept in sync with physics.
-    // TODO: Shield rotation and arc
-    rb: RigidBodyHandle,
-    pub position: Vector2<f32>,
-    pub rotation: UnitComplex<f32>,
-    pub linvel: Vector2<f32>,
+    rb: rapier2d::dynamics::RigidBodyHandle,
+    pub position: Vec2,
+    pub rotation: f32,
+    pub linvel: Vec2,
     pub angvel: f32,
     /// Ignore collision with anything in the same group.
     pub collision_group_ignore: u64,
@@ -73,10 +72,6 @@ pub struct Hull {
     modifiers: SmallVec<[Modifier; 2]>,
 }
 
-fn compute_stat(base: f32, flat: i32, percent: i32) -> f32 {
-    (base + flat as f32) * (percent + 100) as f32 / 100.0
-}
-
 #[derive(Debug, Clone, Copy)]
 pub enum RemoveReason {
     Destroyed,
@@ -90,7 +85,7 @@ pub enum WishAngVel {
     Keep,
     Stop,
     /// Set angvel to face world space position without overshot.
-    AimSmooth(Vector2<f32>),
+    AimSmooth(Vec2),
     /// Turn left or right.
     Force(f32),
 }
@@ -102,12 +97,12 @@ pub enum WishLinVel {
     /// Keep current linvel unless above max.
     Keep,
     Stop,
-    PositionSmooth(Vector2<f32>),
-    PositionOvershoot(Vector2<f32>),
+    PositionSmooth(Vec2),
+    PositionOvershoot(Vec2),
     /// A force in world space. -y is up.
-    ForceAbsolute(Vector2<f32>),
-    /// A force in local space. +y is forward, +x is right.
-    ForceRelative(Vector2<f32>),
+    ForceAbsolute(Vec2),
+    /// A force in local space. +x is forward, +y is right.
+    ForceRelative(Vec2),
 }
 
 #[derive(Debug)]
@@ -129,7 +124,7 @@ impl Hull {
             HullAi::None => {}
             HullAi::Ship => {}
             HullAi::Seek => {
-                self.wish_linvel = WishLinVel::ForceRelative(vector![0.0, 1.0]);
+                self.wish_linvel = WishLinVel::ForceRelative(Vec2::X);
             }
         }
     }
@@ -138,6 +133,19 @@ impl Hull {
         for &event in self.hull_data_id.0.on_remove.iter() {
             match event {}
         }
+    }
+
+    fn on_hit(&mut self, mut dmg: f32, local_pos: Vec2) {
+        let hit_direction = local_pos.normalize_or(Vec2::Y);
+        for arc in self.hull_data_id.damage_modifier_arcs.iter() {
+            if arc.arc_direction.dot(hit_direction) > arc.arc_dot {
+                match arc.modifier {
+                    DamageModifier::EngineDamage1_5 => dmg *= 1.5,
+                }
+            }
+        }
+
+        self.hull_relative -= dmg / self.hull_max();
     }
 }
 
@@ -155,14 +163,13 @@ pub struct HullData {
     hull_max: f32,
 
     armor_max: f32,
-    armor_cells_offset: Vector2<f32>,
-    /// The maximum value a cell can have.
-    armor_cells: (),
 
-    shape_translation: Vector2<f32>,
-    shape: SharedShape,
-    groups: InteractionGroups,
-    mprops: MassProperties,
+    damage_modifier_arcs: Vec<DamageModifierArc>,
+
+    shape_position: rapier2d::math::Isometry<f32>,
+    shape: rapier2d::geometry::SharedShape,
+    groups: rapier2d::geometry::InteractionGroups,
+    mprops: rapier2d::dynamics::MassProperties,
 
     linacc: f32,
     angacc: f32,
@@ -173,6 +180,21 @@ pub struct HullData {
 
     on_new: Vec<HullEvent>,
     on_remove: Vec<HullEvent>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+enum DamageModifier {
+    /// Hit engine + 1.5 damage multiplier.
+    EngineDamage1_5,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+struct DamageModifierArc {
+    /// Unit vector.
+    arc_direction: Vec2,
+    /// Dot product with hit direction.
+    arc_dot: f32,
+    modifier: DamageModifier,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -244,6 +266,7 @@ impl std::fmt::Display for TryFromHullDataIdError {
 
 // TODO: Inventory
 // TODO: Turret
+// TODO: Armor cells
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(default)]
 pub struct HullSave {
@@ -251,9 +274,9 @@ pub struct HullSave {
 
     pub owner: Option<ClientId>,
 
-    pub position: Vector2<f32>,
+    pub position: Vec2,
     pub rotation: f32,
-    pub linvel: Vector2<f32>,
+    pub linvel: Vec2,
     pub angvel: f32,
 
     pub hull_relative: f32,
@@ -303,8 +326,16 @@ impl Hull {
 }
 
 // ####################################################################################
+// ################################### UTIL ###########################################
+// ####################################################################################
+
+// ####################################################################################
 // ################################### STATS ##########################################
 // ####################################################################################
+
+fn compute_stat(base: f32, flat: i32, percent: i32) -> f32 {
+    (base + flat as f32) * (percent + 100) as f32 / 100.0
+}
 
 impl Hull {
     pub fn hull_max(&self) -> f32 {
@@ -359,3 +390,7 @@ impl Hull {
         )
     }
 }
+
+// ####################################################################################
+// ################################### TESTS ##########################################
+// ####################################################################################

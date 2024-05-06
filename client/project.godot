@@ -45,6 +45,18 @@ camera_zoom_out={
 ]
 }
 
+[layer_names]
+
+2d_physics/layer_1="Ship"
+2d_physics/layer_2="Debris"
+2d_physics/layer_3="Missile"
+2d_physics/layer_4="Fighter"
+2d_physics/layer_9="Avoidance S"
+2d_physics/layer_10="Avoidance M"
+2d_physics/layer_11="Avoidance L"
+2d_physics/layer_12="Avoidance XL"
+2d_physics/layer_13="Avoidance XXL"
+
 [physics]
 
 common/physics_ticks_per_second=10
@@ -52,5 +64,6 @@ common/physics_ticks_per_second=10
 
 [rendering]
 
+textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"

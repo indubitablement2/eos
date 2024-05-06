@@ -5,27 +5,21 @@
 [node name="Systems" type="Node2D"]
 
 [node name="0" type="Node2D" parent="."]
-position = Vector2(-173, -12)
+position = Vector2(-86, -90)
 script = ExtResource("1_7vkgk")
-server_idx = null
 links = Array[int]([1, 2])
 
 [node name="1" type="Node2D" parent="."]
-position = Vector2(142, -121)
+position = Vector2(150, -114)
 script = ExtResource("1_7vkgk")
-server_idx = null
-links = Array[int]([0, 2])
+links = Array[int]([0, 3])
 
 [node name="2" type="Node2D" parent="."]
-position = Vector2(111, 123)
+position = Vector2(-74, 112)
 script = ExtResource("1_7vkgk")
-server_idx = null
-links = Array[int]([0, 1])
-_other = 1
+links = Array[int]([3, 0])
 
 [node name="3" type="Node2D" parent="."]
-position = Vector2(-86, -256)
+position = Vector2(183, 127)
 script = ExtResource("1_7vkgk")
-server_idx = null
-links = Array[int]([0, 1])
-_other = 1
+links = Array[int]([1, 2])

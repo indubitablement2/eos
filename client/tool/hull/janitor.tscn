@@ -1,0 +1,22 @@
+[gd_scene load_steps=3 format=3 uid="uid://b2njafq6umn3w"]
+
+[ext_resource type="Script" path="res://tool/hull/hull.gd" id="1_77sqb"]
+[ext_resource type="Texture2D" uid="uid://bg1wxoq37borr" path="res://hull/janitor/albedo.png" id="4_0bebm"]
+
+[node name="Hull" type="Node2D"]
+script = ExtResource("1_77sqb")
+hull_max = 2000.0
+armor_max = 100.0
+damage_modifier_arcs = [1.571, 0.765, "EngineDamage1_5"]
+memberships = 257
+filter = 15
+ai = "Ship"
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture = ExtResource("4_0bebm")
+offset = Vector2(1.5, -20)
+
+[node name="Collider" type="CollisionPolygon2D" parent="."]
+visible = false
+position = Vector2(2.47, -4.355)
+polygon = PackedVector2Array(-21, -108, 10, -108, 61, 16, 39, 84, -42, 84, -60, -21)

@@ -7,11 +7,12 @@ use connection::*;
 use database_packet::{ClientUpdate, SimulationConnection, SimulationRequest, SimulationResponse};
 use hull::*;
 use ids::*;
-use physics::*;
+use physics::{Hulls, Physics};
 use rand::prelude::*;
-use rapier2d::na::{self, Isometry2, Point2, UnitComplex, Vector2};
-use rapier2d::prelude::*;
-use std::ops::Range;
+use std::{
+    f32::consts::{PI, TAU},
+    ops::Range,
+};
 
 type Clients = HashMap<ClientId, Client>;
 
@@ -151,5 +152,21 @@ struct SimulationSave {
 impl Default for SimulationSave {
     fn default() -> Self {
         Self {}
+    }
+}
+
+trait AngleTo {
+    fn angle_to(self, other: Self) -> f32;
+}
+impl AngleTo for f32 {
+    fn angle_to(self, other: Self) -> f32 {
+        let diff = other - self;
+        if diff > PI {
+            diff - TAU
+        } else if diff < -PI {
+            diff + TAU
+        } else {
+            diff
+        }
     }
 }

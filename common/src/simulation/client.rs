@@ -62,20 +62,20 @@ impl Client {
     }
 }
 
-fn angle_to_i8(angle: f32) -> i8 {
-    (angle / PI * i8::MAX as f32).round() as i8
+fn angle_to_i32(angle: f32) -> i32 {
+    (angle / PI * 512.0).round() as i32
 }
 
-fn i8_to_angle(i: i8) -> f32 {
-    i as f32 * PI / i8::MAX as f32
+fn i32_to_angle(i: i32) -> f32 {
+    i as f32 * PI / 512.0
 }
 
-fn vector_to_i32(v: Vector2<f32>) -> Vector2<i32> {
-    vector![v.x.round() as i32, v.y.round() as i32]
+fn vector_to_i32(v: Vec2) -> IVec2 {
+    IVec2::new(v.x.round() as i32, v.y.round() as i32)
 }
 
-fn i32_to_vector(v: Vector2<i32>) -> Vector2<f32> {
-    vector![v.x as f32, v.y as f32]
+fn i32_to_vector(v: IVec2) -> Vec2 {
+    Vec2::new(v.x as f32, v.y as f32)
 }
 
 /// Bitfield:
@@ -98,23 +98,23 @@ fn i32_to_vector(v: Vector2<i32>) -> Vector2<f32> {
 /// - rotation_delta
 struct HullState {
     hull_data_id: HullDataId,
-    position: Vector2<f32>,
+    position: Vec2,
     rotation: f32,
 
     remove: bool,
     is_new: bool,
-    position_delta: Vector2<i32>,
-    rotation_delta: i8,
+    position_delta: IVec2,
+    rotation_delta: i32,
 }
 impl Default for HullState {
     fn default() -> Self {
         Self {
             hull_data_id: Default::default(),
             remove: true,
-            position: vector![0.0, 0.0],
+            position: Vec2::ZERO,
             rotation: 0.0,
             is_new: true,
-            position_delta: vector![0, 0],
+            position_delta: IVec2::ZERO,
             rotation_delta: 0,
         }
     }
@@ -124,7 +124,7 @@ impl HullState {
         self.remove = false;
 
         self.position_delta = vector_to_i32(hull.position - self.position);
-        self.rotation_delta = angle_to_i8(hull.rotation.angle() - self.rotation);
+        self.rotation_delta = angle_to_i32(self.rotation.angle_to(hull.rotation));
     }
 
     fn serialize_size(&self) -> usize {
@@ -170,7 +170,7 @@ impl HullState {
         bin_encode_into(self.position_delta, &mut buf);
         bin_encode_into(self.rotation_delta, &mut buf);
         self.position += i32_to_vector(self.position_delta);
-        self.rotation += i8_to_angle(self.rotation_delta);
+        self.rotation += i32_to_angle(self.rotation_delta);
 
         true
     }
@@ -185,7 +185,7 @@ enum ClientOutbound {
 enum ClientInbound {
     SpawnHull {
         hull_data_id: HullDataId,
-        position: Vector2<f32>,
+        position: Vec2,
         rotation: f32,
     },
 }

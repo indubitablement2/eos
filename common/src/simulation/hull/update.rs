@@ -50,28 +50,31 @@ impl Hull {
     fn _apply_wish_linvel(&mut self) {
         let wish_linvel = match self.wish_linvel {
             WishLinVel::None => return,
-            WishLinVel::Keep => self.linvel.cap_magnitude(self.linvel_max()),
-            WishLinVel::Stop => Vector2::zeros(),
+            WishLinVel::Keep => self.linvel.clamp_length_max(self.linvel_max()),
+            WishLinVel::Stop => Vec2::ZERO,
             WishLinVel::PositionSmooth(target) => {
                 let to_pos = target - self.position;
-                if to_pos.magnitude_squared() < 0.5 {
-                    vector![0.0, 0.0]
+                if to_pos.length_squared() < 0.5 {
+                    Vec2::ZERO
                 } else {
-                    to_pos.cap_magnitude(self.linvel_max())
+                    to_pos.clamp_length_max(self.linvel_max())
                 }
             }
             WishLinVel::PositionOvershoot(target) => {
                 let to_pos = target - self.position;
-                to_pos.try_normalize(0.1).unwrap_or(vector![0.0, 1.0]) * self.linvel_max()
+                to_pos.try_normalize().unwrap_or(Vec2::Y) * self.linvel_max()
             }
-            WishLinVel::ForceAbsolute(force) => force.cap_magnitude(1.0) * self.linvel_max(),
+            WishLinVel::ForceAbsolute(force) => force.clamp_length_max(1.0) * self.linvel_max(),
             WishLinVel::ForceRelative(force) => {
-                self.rotation.transform_vector(&force.cap_magnitude(1.0)) * self.linvel_max()
+                force
+                    .clamp_length_max(1.0)
+                    .rotate(Vec2::from_angle(self.rotation))
+                    * self.linvel_max()
             }
         };
 
         let linvel_change =
-            (wish_linvel - self.linvel).cap_magnitude(self.linacc() * DT.as_secs_f32());
+            (wish_linvel - self.linvel).clamp_length_max(self.linacc() * DT.as_secs_f32());
         if linvel_change.x.abs() > 0.001 || linvel_change.y.abs() > 0.001 {
             self.linvel += linvel_change;
         }
@@ -85,7 +88,10 @@ impl Hull {
             WishAngVel::Keep => self.angvel.clamp(-self.angvel_max(), self.angvel_max()),
             WishAngVel::Stop => 0.0,
             WishAngVel::AimSmooth(target) => {
-                let offset = (self.position - target).angle(&vector![1.0, 0.0]);
+                let mut offset = (self.position - target).to_angle();
+                if !f32::is_normal(offset) {
+                    offset = 0.0;
+                }
                 let wish_dir = if offset < 0.0 { -1.0 } else { 1.0 };
                 let angvel_dir = if self.angvel < 0.0 { -1.0 } else { 1.0 };
 

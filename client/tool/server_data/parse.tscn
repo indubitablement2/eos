@@ -6,6 +6,7 @@ script/source = "extends Node
 func _ready() -> void:
 	_servers()
 	_systems()
+	_hulls()
 	get_tree().quit.call_deferred()
 
 func _servers() -> void:
@@ -30,6 +31,14 @@ func _systems() -> void:
 		})
 	
 	var fs := FileAccess.open(\"res://tool/server_data/systems.json\", FileAccess.WRITE)
+	fs.store_string(JSON.stringify(ret, \"\\t\", false))
+
+func _hulls() -> void:
+	var ret := []
+	for scn in Hull.HULL_SCENES:
+		ret.push_back(load(\"res://tool/hull/\" + scn.resource_path.get_file()).instantiate().to_server_data())
+	
+	var fs := FileAccess.open(\"res://tool/server_data/hulls.json\", FileAccess.WRITE)
 	fs.store_string(JSON.stringify(ret, \"\\t\", false))
 "
 

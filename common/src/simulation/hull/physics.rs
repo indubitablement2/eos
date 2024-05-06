@@ -1,5 +1,7 @@
 use super::*;
 use parking_lot::Mutex;
+use rapier2d::na::{self, Isometry2, Point2, UnitComplex, Vector2};
+use rapier2d::prelude::*;
 use std::sync::Arc;
 
 const DEFAULT_LINEAR_DAMPING: f32 = 0.01;
@@ -8,30 +10,26 @@ const DEFAULT_FRICTION: f32 = 0.3;
 const DEFAULT_RESTITUTION: f32 = 0.2;
 const DEFAULT_CONTACT_FORCE_EVENT_THRESHOLD: f32 = 0.0;
 
-const PHYSIC_SCALE: f32 = 1.0 / 64.0;
+/// Shouldn't have to use this.
+/// Everything is automatically scaled.
+pub const PHYSIC_SCALE: f32 = 1.0 / 64.0;
 
-// TODO: Change this to an enum
 pub mod group {
     use super::*;
 
     pub const GROUP_SHIP: Group = Group::GROUP_1;
-    pub const GROUP_SHIELD: Group = Group::GROUP_2;
-    pub const GROUP_DEBRIS: Group = Group::GROUP_3;
-    pub const GROUP_MISSILE: Group = Group::GROUP_4;
-    pub const GROUP_FIGHTER: Group = Group::GROUP_5;
-    pub const GROUP_PROJECTILE: Group = Group::GROUP_6;
-    pub const GROUP_ALL: Group = GROUP_SHIP
-        .union(GROUP_SHIELD)
-        .union(GROUP_DEBRIS)
-        .union(GROUP_MISSILE)
-        .union(GROUP_FIGHTER)
-        .union(GROUP_PROJECTILE);
+    pub const GROUP_DEBRIS: Group = Group::GROUP_2;
+    pub const GROUP_MISSILE: Group = Group::GROUP_3;
+    pub const GROUP_FIGHTER: Group = Group::GROUP_4;
 
-    pub const GROUPS_SHIP: InteractionGroups = InteractionGroups::new(GROUP_SHIP, GROUP_ALL);
-    // pub const GROUPS_ENTITY: InteractionGroups = InteractionGroups::new(GROUP_SHIP, GROUP_ALL);
+    pub const GROUP_AVOIDANCE_S: Group = Group::GROUP_9;
+    pub const GROUP_AVOIDANCE_M: Group = Group::GROUP_10;
+    pub const GROUP_AVOIDANCE_L: Group = Group::GROUP_11;
+    pub const GROUP_AVOIDANCE_XL: Group = Group::GROUP_12;
+    pub const GROUP_AVOIDANCE_XXL: Group = Group::GROUP_13;
 }
 
-// TODO: Add query pipeline
+// TODO: Move query pipeline here
 #[derive(Default)]
 pub struct Hulls {
     bodies: RigidBodySet,
@@ -50,8 +48,11 @@ impl Hulls {
         self.next_collision_group_ignore += 1;
 
         let rb = RigidBodyBuilder::dynamic()
-            .position(Isometry2::new(save.position * PHYSIC_SCALE, save.rotation))
-            .linvel(save.linvel * PHYSIC_SCALE)
+            .position(Isometry2::new(
+                save.position.to_na() * PHYSIC_SCALE,
+                save.rotation,
+            ))
+            .linvel(save.linvel.to_na() * PHYSIC_SCALE)
             .angvel(save.angvel)
             .user_data(UserData::pack_body(hull_id, collision_group_ignore))
             .linear_damping(DEFAULT_LINEAR_DAMPING)
@@ -60,7 +61,7 @@ impl Hulls {
         let rb = self.bodies.insert(rb);
 
         let coll = ColliderBuilder::new(save.hull_data_id.shape.clone())
-            .translation(save.hull_data_id.shape_translation)
+            .position(save.hull_data_id.shape_position)
             .collision_groups(save.hull_data_id.groups)
             .mass_properties(save.hull_data_id.mprops)
             .user_data(UserData::pack_colider(hull_id, false))
@@ -78,7 +79,7 @@ impl Hulls {
             owner: save.owner,
             rb,
             position: save.position,
-            rotation: UnitComplex::from_angle(save.rotation),
+            rotation: save.rotation,
             linvel: save.linvel,
             angvel: save.angvel,
             collision_group_ignore,
@@ -139,10 +140,8 @@ impl Hulls {
     }
 }
 
-/// Hulls always have 1 rigid body made of 1 collider.
-///
-/// Bodies are always a hull.
-/// Colliders are either a hull or a shield.
+// TODO: Remove shield from physics. use broccoli
+/// All bodies/colliders are hulls. 1 collider per body.
 #[derive(Default)]
 pub struct Physics {
     pub hulls: Hulls,
@@ -154,7 +153,7 @@ pub struct Physics {
     query_pipeline: QueryPipeline,
     physics_pipeline: PhysicsPipeline,
     islands: IslandManager,
-    broad_phase: BroadPhase,
+    broad_phase: DefaultBroadPhase,
     narrow_phase: NarrowPhase,
     impulse_joints: ImpulseJointSet,
     multibody_joints: MultibodyJointSet,
@@ -167,15 +166,10 @@ impl Physics {
         for hull in self.hulls.hulls.values() {
             let body = &mut self.hulls.bodies[hull.rb];
             body.set_position(
-                Isometry2::from_parts(
-                    na::Translation {
-                        vector: hull.position * PHYSIC_SCALE,
-                    },
-                    hull.rotation,
-                ),
+                Isometry2::new(hull.position.to_na() * PHYSIC_SCALE, hull.rotation),
                 true,
             );
-            body.set_linvel(hull.linvel * PHYSIC_SCALE, true);
+            body.set_linvel(hull.linvel.to_na() * PHYSIC_SCALE, true);
             body.set_angvel(hull.angvel, true);
             body.user_data.set_group_ignore(hull.collision_group_ignore);
         }
@@ -207,9 +201,9 @@ impl Physics {
         // Sync back to hulls.
         for hull in self.hulls.hulls.values_mut() {
             let body = &self.hulls.bodies[hull.rb];
-            hull.position = body.position().translation.vector / PHYSIC_SCALE;
-            hull.rotation = body.position().rotation;
-            hull.linvel = *body.linvel() / PHYSIC_SCALE;
+            hull.position = body.position().translation.vector.to_glam() / PHYSIC_SCALE;
+            hull.rotation = body.position().rotation.angle();
+            hull.linvel = body.linvel().to_glam() / PHYSIC_SCALE;
             hull.angvel = body.angvel();
         }
 
@@ -361,6 +355,24 @@ impl EventHandler for PhysicsEventCollector {
         // };
 
         // self.0.try_lock().unwrap().push((entity_id, event));
+    }
+}
+
+pub trait Vec2ToNa {
+    fn to_na(self) -> Vector2<f32>;
+}
+impl Vec2ToNa for Vec2 {
+    fn to_na(self) -> Vector2<f32> {
+        Vector2::new(self.x, self.y)
+    }
+}
+
+trait Vec2ToGlam {
+    fn to_glam(self) -> Vec2;
+}
+impl Vec2ToGlam for Vector2<f32> {
+    fn to_glam(self) -> Vec2 {
+        Vec2::new(self.x, self.y)
     }
 }
 

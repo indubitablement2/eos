@@ -1,4 +1,5 @@
 use super::*;
+use physics::{Vec2ToNa, PHYSIC_SCALE};
 
 pub fn load_hull_data() {
     let read = std::fs::read("../client/tool/server_data/hulls.json").unwrap();
@@ -13,16 +14,16 @@ pub fn load_hull_data() {
     .unwrap();
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize)]
 struct EntityDataJson {
-    hull: f32,
+    hull_max: f32,
 
     armor_max: f32,
-    armor_cells_offset: Vector2<f32>,
-    armor_cells_size: Vector2<i32>,
-    armor_cells: Vec<f32>,
 
-    shape_translation: Vector2<f32>,
+    damage_modifier_arcs: Vec<DamageModifierArc>,
+
+    shape_position: Vec2,
+    shape_rotation: f32,
     shape: HullShapeJson,
     mass_radius: f32,
     density: f32,
@@ -48,20 +49,22 @@ impl EntityDataJson {
         HullData {
             id,
 
-            hull_max: self.hull,
+            hull_max: self.hull_max,
 
             armor_max: self.armor_max,
-            armor_cells_offset: self.armor_cells_offset,
-            armor_cells: (),
-            // self
-            //     .armor_cells
-            //     .into_iter()
-            //     .map(|v| (v * u8::MAX as f32) as u8)
-            //     .collect(),
-            shape_translation: self.shape_translation,
+
+            damage_modifier_arcs: self.damage_modifier_arcs,
+
+            shape_position: rapier2d::na::Isometry2::new(
+                self.shape_position.to_na() * PHYSIC_SCALE,
+                self.shape_rotation,
+            ),
             shape: self.shape.to_shared_shape(),
-            mprops: MassProperties::from_ball(self.density, self.mass_radius),
-            groups: InteractionGroups {
+            mprops: rapier2d::dynamics::MassProperties::from_ball(
+                self.density,
+                self.mass_radius * PHYSIC_SCALE,
+            ),
+            groups: rapier2d::geometry::InteractionGroups {
                 memberships: self.memberships.into(),
                 filter: self.filter.into(),
             },
@@ -83,41 +86,50 @@ impl EntityDataJson {
 enum HullShapeJson {
     Cuboid { hx: f32, hy: f32 },
     Ball { radius: f32 },
-    Polygon { vertices: Vec<Point<f32>> },
+    Polygon { vertices: Vec<Vec2> },
 }
 impl HullShapeJson {
-    fn to_shared_shape(&self) -> SharedShape {
+    fn to_shared_shape(&self) -> rapier2d::geometry::SharedShape {
         match self {
-            HullShapeJson::Cuboid { hx, hy } => SharedShape::cuboid(*hx, *hy),
-            HullShapeJson::Ball { radius } => SharedShape::ball(*radius),
+            HullShapeJson::Cuboid { hx, hy } => {
+                rapier2d::geometry::SharedShape::cuboid(*hx * PHYSIC_SCALE, *hy * PHYSIC_SCALE)
+            }
+            HullShapeJson::Ball { radius } => {
+                rapier2d::geometry::SharedShape::ball(*radius * PHYSIC_SCALE)
+            }
             HullShapeJson::Polygon { vertices } => {
                 let indices = (0..vertices.len() as u32 - 1)
                     .map(|i| [i, i + 1])
                     .chain(std::iter::once([vertices.len() as u32 - 1, 0]))
                     .collect::<Vec<_>>();
-                SharedShape::convex_decomposition(vertices.as_slice(), &indices)
+                let vertices = vertices
+                    .iter()
+                    .map(|p| rapier2d::na::Point2::new(p.x * PHYSIC_SCALE, p.y * PHYSIC_SCALE))
+                    .collect::<Vec<_>>();
+                rapier2d::geometry::SharedShape::convex_decomposition(vertices.as_slice(), &indices)
             }
         }
-    }
-}
-impl Default for HullShapeJson {
-    fn default() -> Self {
-        Self::Ball { radius: 0.5 }
     }
 }
 
 #[test]
 fn print_json_sample() {
     let json = EntityDataJson {
-        hull: 100.0,
+        hull_max: 100.0,
 
         armor_max: 100.0,
-        armor_cells_offset: Vector2::new(0.0, 0.0),
-        armor_cells_size: Vector2::new(1, 1),
-        armor_cells: vec![1.0],
 
-        shape_translation: Vector2::new(0.0, 0.0),
-        shape: HullShapeJson::Ball { radius: 0.5 },
+        damage_modifier_arcs: vec![DamageModifierArc {
+            arc_direction: Vec2::Y,
+            arc_dot: 1.0,
+            modifier: DamageModifier::EngineDamage1_5,
+        }],
+
+        shape_position: Vec2::new(123.0, -123.0),
+        shape_rotation: 0.5,
+        shape: HullShapeJson::Polygon {
+            vertices: vec![Vec2::new(-0.5, 1.0), Vec2::new(0.0, -0.5)],
+        },
         mass_radius: 0.5,
         density: 1.0,
         memberships: 0,
