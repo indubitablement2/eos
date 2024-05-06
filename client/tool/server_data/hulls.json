@@ -4,7 +4,10 @@
 		"armor_max": 100,
 		"damage_modifier_arcs": [
 			{
-				"arc_direction": "(-0.000204, 1)",
+				"arc_direction": [
+					-0.00020365318051,
+					1
+				],
 				"arc_dot": 0.765,
 				"modifier": "EngineDamage1_5"
 			}

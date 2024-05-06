@@ -92,13 +92,13 @@ func _damage_modifier_arcs_server_data() -> Array:
 	
 	var i := 0
 	while i + 2 < damage_modifier_arcs.size():
-		var dir := damage_modifier_arcs[i] as float
+		var dir := Vector2.RIGHT.rotated(damage_modifier_arcs[i] as float)
 		var arc := damage_modifier_arcs[i + 1] as float
 		var mod := damage_modifier_arcs[i + 2] as String
 		i += 3
 		
 		ret.push_back({
-			"arc_direction" : Vector2.RIGHT.rotated(dir),
+			"arc_direction" : [dir.x, dir.y],
 			"arc_dot" : arc,
 			"modifier" : mod
 		})
