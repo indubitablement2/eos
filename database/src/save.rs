@@ -33,9 +33,8 @@ impl Database {
             }
         }
 
-        if self
-            .next_save
-            .checked_duration_since(Instant::now())
+        if Instant::now()
+            .checked_duration_since(self.next_save)
             .is_some()
             && self.save_in_progress.is_none()
         {
