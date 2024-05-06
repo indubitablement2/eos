@@ -73,7 +73,6 @@ fn main() {
     let mut database = Database::load();
 
     log::info!("Database started");
-
     let mut interval = common::interval::Interval::new(100, 500);
     loop {
         interval.step();

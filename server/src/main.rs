@@ -12,7 +12,8 @@ fn main() {
     common::logger::Logger::init();
     common::load_data();
 
-    let ws_addr = std::env::var("SERVER_IP_ADDR").unwrap();
+    let addr = std::env::var("SERVER_ADDR").unwrap();
+    let ws_addr = format!("ws://{}", addr);
     log::info!("Server address {}", ws_addr);
 
     let server_id = ServerId(
@@ -22,7 +23,7 @@ fn main() {
             .unwrap(),
     );
 
-    let new_client = ConnectionListener::bind(ws_addr).unwrap();
+    let new_client = ConnectionListener::bind(addr).unwrap();
 
     // Connect to database.
     let database_connection = Connection::connect(common::DATABASE_WS_ADDRESS).unwrap();
@@ -55,7 +56,6 @@ fn main() {
             let mut sim = common::simulation::Simulation::new(connection, save.as_deref());
 
             log::info!("Simulation started: {:?}", system_id);
-
             let mut interval = common::interval::Interval::new(100, 500);
             loop {
                 interval.step();
@@ -83,7 +83,6 @@ fn main() {
     let mut client_auth = HashMap::new();
 
     log::info!("Server started");
-
     let mut interval = common::interval::Interval::new(10, 50);
     loop {
         interval.step();
