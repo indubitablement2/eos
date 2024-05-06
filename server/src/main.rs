@@ -54,6 +54,8 @@ fn main() {
         let join_handle = std::thread::spawn(move || {
             let mut sim = common::simulation::Simulation::new(connection, save.as_deref());
 
+            log::info!("Simulation started: {:?}", system_id);
+
             let mut interval = common::interval::Interval::new(100, 500);
             loop {
                 interval.step();
@@ -79,6 +81,8 @@ fn main() {
 
     let mut next_client_auth_token = 0;
     let mut client_auth = HashMap::new();
+
+    log::info!("Server started");
 
     let mut interval = common::interval::Interval::new(10, 50);
     loop {
