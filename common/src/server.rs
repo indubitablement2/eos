@@ -62,7 +62,7 @@ impl From<ServerId> for u32 {
 }
 impl std::fmt::Debug for ServerId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.idx.fmt(f)
+        format!("ServerId({})", self.idx).fmt(f)
     }
 }
 impl std::hash::Hash for ServerId {

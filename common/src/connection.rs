@@ -223,6 +223,7 @@ impl Connection {
 impl Drop for Connection {
     fn drop(&mut self) {
         if self.inbound.receiver_count() == 1 {
+            log::debug!("Last connection dropped. Sending close packet.");
             self.close();
         }
     }
