@@ -90,8 +90,6 @@ fn i32_to_vector(v: IVec2) -> Vec2 {
 ///     - Send rotation delta for each turret which isn't empty
 /// - 4: turret ammo
 ///     - Send ammo for each turret which has any
-/// - 5: armor cells
-///     - Send armor cells for each cell which has changed (cell_id: u8, cell: u8)
 ///
 /// Always present:
 /// - position_delta

@@ -39,7 +39,6 @@ pub enum ServerRequest {
 #[derive(Serialize, Deserialize)]
 pub struct ClientLogin {
     /// None -> join any system handled by this server.
-    /// Preferably one with an owned ship.
     pub join_system: Option<SystemId>,
     pub username: String,
     pub password: String,
@@ -64,13 +63,18 @@ pub enum ServerResponse {
 // ####################################################################################
 
 #[derive(Serialize, Deserialize)]
-pub enum SimulationRequest {}
+pub enum SimulationRequest {
+    ClientLogoff { client_id: ClientId },
+}
 
 #[derive(Serialize, Deserialize)]
 pub enum SimulationResponse {
     ClientUpdate {
         client_id: ClientId,
         update: ClientUpdate,
+    },
+    ClientLogoff {
+        client_id: ClientId,
     },
 }
 

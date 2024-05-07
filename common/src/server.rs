@@ -8,6 +8,23 @@ pub struct ServerData {
     pub idx: usize,
     /// Where clients connect to.
     pub ws_addr: String,
+    systems: std::sync::OnceLock<Vec<SystemId>>,
+}
+impl ServerData {
+    /// Returns the systems that are handled by this server.
+    pub fn systems(&self) -> &[SystemId] {
+        self.systems.get_or_init(|| {
+            SystemId::systems_data_iter()
+                .filter_map(|systems| {
+                    if systems.server_id.idx == self.idx {
+                        Some(SystemId(systems))
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        })
+    }
 }
 
 static DATA: std::sync::OnceLock<Vec<ServerData>> = std::sync::OnceLock::new();
@@ -19,19 +36,6 @@ pub struct ServerId(pub &'static ServerData);
 impl ServerId {
     pub fn data() -> &'static [ServerData] {
         DATA.get().unwrap()
-    }
-
-    /// Returns the systems that are handled by this server.
-    pub fn systems(self) -> Vec<SystemId> {
-        SystemId::systems_data_iter()
-            .filter_map(|systems| {
-                if systems.server_id == self {
-                    Some(SystemId(systems))
-                } else {
-                    None
-                }
-            })
-            .collect()
     }
 }
 impl std::ops::Deref for ServerId {
@@ -127,6 +131,7 @@ impl ServerDataJson {
         ServerData {
             idx,
             ws_addr: self.ws_addr,
+            systems: std::sync::OnceLock::new(),
         }
     }
 }

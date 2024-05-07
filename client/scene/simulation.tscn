@@ -1,0 +1,23 @@
+[gd_scene load_steps=2 format=3 uid="uid://bq1t8fnufcmh0"]
+
+[sub_resource type="GDScript" id="GDScript_d4ojm"]
+script/source = "extends Node2D
+
+var ws := WebSocketPeer.new()
+
+func _ready() -> void:
+	ws.connect_to_url(ServerData.SERVERS[0].ws_addr)
+
+func _process(_delta: float) -> void:
+	ws.poll()
+	
+	
+	match ws.get_ready_state():
+		WebSocketPeer.STATE_OPEN:
+			pass
+		WebSocketPeer.STATE_CLOSED:
+			pass
+"
+
+[node name="Simulation" type="Node2D"]
+script = SubResource("GDScript_d4ojm")

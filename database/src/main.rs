@@ -108,7 +108,7 @@ impl Database {
                         .systems()
                         .into_iter()
                         .map(|system_id| {
-                            (system_id, self.systems[&system_id].simulation_save.clone())
+                            (*system_id, self.systems[&system_id].simulation_save.clone())
                         })
                         .collect();
 

@@ -91,6 +91,9 @@ impl Simulation {
         while let Some(response) = self.connection.try_recv() {
             match response {
                 SimulationResponse::ClientUpdate { client_id, update } => todo!(),
+                SimulationResponse::ClientLogoff { client_id } => {
+                    self.clients.remove(&client_id);
+                }
             }
         }
 
