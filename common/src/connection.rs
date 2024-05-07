@@ -29,43 +29,43 @@ impl ConnectionListener {
 
         tokio::spawn(async move {
             // TODO: Tls
-            let (stream, addr) = match listener.accept().await {
-                Ok(ok) => ok,
-                Err(err) => {
-                    log::error!("Failed to accept connection: {}", err);
-                    return;
-                }
-            };
-            if let Err(err) = stream.set_nodelay(true) {
-                log::debug!("Failed to set nodelay: {}", err);
-            }
-            let stream = MaybeTlsStream::Plain(stream);
-
-            let new_connection_sender = new_connection_sender.clone();
-            tokio::spawn(async move {
-                log::debug!("New connection attempt from {}", addr);
-
-                let ws = match tokio_tungstenite::accept_async(stream).await {
-                    Ok(ws) => ws,
+            loop {
+                let (stream, addr) = match listener.accept().await {
+                    Ok(ok) => ok,
                     Err(err) => {
-                        log::debug!("Failed to upgrade connection from {}: {}", addr, err);
-                        return;
+                        log::error!("Failed to accept connection: {}", err);
+                        continue;
                     }
                 };
+                if let Err(err) = stream.set_nodelay(true) {
+                    log::debug!("Failed to set nodelay: {}", err);
+                }
+                let stream = MaybeTlsStream::Plain(stream);
 
-                match Connection::accept(ws).await {
-                    Ok(connection) => {
-                        if let Err(err) = new_connection_sender.send(connection) {
-                            log::debug!("Failed to send connection to main thread: {}", err);
+                let new_connection_sender = new_connection_sender.clone();
+                tokio::spawn(async move {
+                    log::debug!("New connection attempt from {}", addr);
+
+                    let ws = match tokio_tungstenite::accept_async(stream).await {
+                        Ok(ws) => ws,
+                        Err(err) => {
+                            log::debug!("Failed to upgrade connection from {}: {}", addr, err);
+                            return;
+                        }
+                    };
+
+                    match Connection::accept(ws).await {
+                        Ok(connection) => {
+                            if let Err(err) = new_connection_sender.send(connection) {
+                                log::debug!("Failed to send connection to main thread: {}", err);
+                            }
+                        }
+                        Err(err) => {
+                            log::debug!("Failed to accept connection from {}: {}", addr, err);
                         }
                     }
-                    Err(err) => {
-                        log::debug!("Failed to accept connection from {}: {}", addr, err);
-                    }
-                }
-            });
-
-            log::debug!("Connection listener closed");
+                });
+            }
         });
 
         Ok(Self {
