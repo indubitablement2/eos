@@ -44,7 +44,7 @@ impl From<SystemId> for u64 {
 }
 impl std::fmt::Debug for SystemId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        format!("SystemId({})", self.id).fmt(f)
+        write!(f, "SystemId({})", self.id)
     }
 }
 impl std::hash::Hash for SystemId {

@@ -51,7 +51,7 @@ impl Client {
         self.connection.queue_raw(buf);
         self.connection.flush();
 
-        self.connection.is_closed()
+        !self.connection.is_closed()
     }
 
     pub fn hull_update(&mut self, hull_id: HullId, hull: &Hull) {
