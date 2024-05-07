@@ -42,6 +42,8 @@ pub struct ClientLogin {
     pub join_system: Option<SystemId>,
     pub username: String,
     pub password: String,
+    /// Try to register if the username does not exist.
+    /// Otherwise try to login.
     pub register: bool,
 }
 

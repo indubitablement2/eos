@@ -21,8 +21,7 @@ impl Database {
     fn _handle_request(&self, server_id: ServerId, request: ServerRequest) -> Option<Mutation> {
         let server_mutation = match request {
             ServerRequest::ClientLogin { request, token } => {
-                if request.register {
-                    let client_id = self.username.get(&request.username)?;
+                if let Some(client_id) = self.username.get(&request.username) {
                     let client = self.clients.get(client_id)?;
 
                     let mut hasher = sha2::Sha256::new();
@@ -37,11 +36,7 @@ impl Database {
                         token,
                         client_id: *client_id,
                     })
-                } else {
-                    if self.username.contains_key(&request.username) {
-                        return None;
-                    }
-
+                } else if request.register {
                     if request.password.len() < 8 {
                         return None;
                     }
@@ -51,6 +46,8 @@ impl Database {
                         username: request.username,
                         password: request.password,
                     })
+                } else {
+                    None
                 }
             }
             ServerRequest::PerfStats {} => None,
