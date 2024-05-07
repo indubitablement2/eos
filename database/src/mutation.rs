@@ -5,6 +5,7 @@ use rand::prelude::*;
 // ################################### SERVER #########################################
 // ####################################################################################
 
+#[derive(Debug)]
 pub enum ServerMutation {
     ClientLogin {
         token: u64,
@@ -137,6 +138,7 @@ impl Database {
 // ################################### SIMULATION #####################################
 // ####################################################################################
 
+#[derive(Debug)]
 pub enum SimulationMutation {
     ClientLogoff { client_id: ClientId },
 }
@@ -198,6 +200,7 @@ impl Database {
 // ################################### BOILERPLATE ####################################
 // ####################################################################################
 
+#[derive(Debug)]
 pub enum Mutation {
     ServerMutation(ServerId, ServerMutation),
     SimulationMutation(SystemId, SimulationMutation),
@@ -205,12 +208,14 @@ pub enum Mutation {
 
 impl Database {
     pub fn handle_request(&self, server_id: ServerId, request: ServerRequest) {
+        log::debug!("{:?} -> {:?}", server_id, &request);
         if let Some(mutation) = self._handle_request(server_id, request) {
             self.mutations.get_or_default().borrow_mut().push(mutation);
         }
     }
 
     pub fn apply_mutation(&mut self, mutation: Mutation) {
+        log::debug!("{:?}", &mutation);
         match mutation {
             Mutation::ServerMutation(server_id, mutation) => {
                 if let Some(response) = self.apply_server_mutation(server_id, mutation) {

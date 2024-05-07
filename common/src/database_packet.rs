@@ -23,7 +23,7 @@ pub struct ServerAuthResponse {
 // ################################### SERVER #########################################
 // ####################################################################################
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ServerRequest {
     ClientLogin {
         request: ClientLogin,
@@ -36,7 +36,7 @@ pub enum ServerRequest {
     },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ClientLogin {
     /// None -> join any system handled by this server.
     pub join_system: Option<SystemId>,
@@ -47,7 +47,7 @@ pub struct ClientLogin {
     pub register: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ServerResponse {
     ClientLogin {
         token: u64,
@@ -64,12 +64,12 @@ pub enum ServerResponse {
 // ################################### SIMULATION #####################################
 // ####################################################################################
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum SimulationRequest {
     ClientLogoff { client_id: ClientId },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum SimulationResponse {
     ClientUpdate {
         client_id: ClientId,
@@ -80,7 +80,7 @@ pub enum SimulationResponse {
     },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ClientUpdate {
     pub ships_delta: Vec<()>,
 }
@@ -111,6 +111,7 @@ impl SimulationConnection {
     }
 
     pub fn queue(&self, request: SimulationRequest) {
+        log::debug!("{:?} -> {:?}", self.system_id, request);
         self.database_connection
             .queue(ServerRequest::SimulationRequest {
                 system_id: self.system_id,
@@ -119,11 +120,21 @@ impl SimulationConnection {
     }
 
     pub fn try_recv(&self) -> Option<SimulationResponse> {
-        self.database_response_receiver.try_recv().ok()
+        if let Ok(response) = self.database_response_receiver.try_recv() {
+            log::debug!("{:?} <- {:?}", self.system_id, &response);
+            Some(response)
+        } else {
+            None
+        }
     }
 
     pub fn new_client(&self) -> Option<(ClientId, Connection)> {
-        self.new_client_receiver.try_recv().ok()
+        if let Ok(new_client) = self.new_client_receiver.try_recv() {
+            log::debug!("{:?} <- {:?}", self.system_id, new_client.0);
+            Some(new_client)
+        } else {
+            None
+        }
     }
 
     pub fn system_id(&self) -> SystemId {
