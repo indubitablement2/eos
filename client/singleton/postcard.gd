@@ -15,6 +15,9 @@ static func start_encode():
 static func finish_encode() -> PackedByteArray:
 	return _write.data_array.slice(0, _write.get_position())
 
+static func put_bool(value: bool) -> void:
+	_write.put_8(value as int)
+
 static func put_u8(value: int) -> void:
 	_write.put_8(value)
 
@@ -56,6 +59,9 @@ static func put_vector2i(value: Vector2i) -> void:
 static func start_decode(packet: PackedByteArray) -> void:
 	_read.data_array = packet
 	_read.big_endian = false
+
+static func get_bool() -> bool:
+	return _read.get_u8() as bool
 
 static func get_u8() -> int:
 	return _read.get_u8()

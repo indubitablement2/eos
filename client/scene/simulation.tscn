@@ -7,6 +7,9 @@ var ws := WebSocketPeer.new()
 
 func _ready() -> void:
 	ws.connect_to_url(ServerData.SERVERS[0].ws_addr)
+	Postcard.start_encode()
+	
+	#ws.send()
 
 func _process(_delta: float) -> void:
 	ws.poll()
