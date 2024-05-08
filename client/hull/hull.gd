@@ -1,9 +1,11 @@
 extends Sprite2D
 class_name Hull
 
+## Never remove a hull after is it added.
 static var HULL_SCENES : Array[PackedScene] = [
 	load("res://hull/janitor/janitor.tscn"),
 ]
+
 
 var hull_id : int
 

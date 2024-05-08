@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ShipData" load_steps=2 format=3 uid="uid://dkpqpi34ym4v4"]
+
+[ext_resource type="Script" path="res://ship/ship_data.gd" id="1_nxbvr"]
+
+[resource]
+script = ExtResource("1_nxbvr")
+hull_idx = 0
+description = "hola senor"
