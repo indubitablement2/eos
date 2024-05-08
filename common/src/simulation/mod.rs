@@ -1,5 +1,6 @@
 mod client;
 mod hull;
+mod save;
 
 use super::*;
 use client::*;
@@ -55,16 +56,16 @@ pub struct Simulation {
 }
 impl Simulation {
     pub fn new(connection: SimulationConnection, save: Option<&[u8]>) -> Self {
-        let save = if let Some(save) = save {
-            match bin_decode(save) {
-                Ok(save) => save,
+        let builder = if let Some(save) = save {
+            match bin_decode::<save::SimulationSave>(save) {
+                Ok(save) => save.to_builder(),
                 Err(err) => {
-                    log::error!("Failed to decode save: {}", err);
-                    SimulationSave::default()
+                    log::error!("Failed to decode simulation save: {}", err);
+                    save::SimulationBuilder::default()
                 }
             }
         } else {
-            SimulationSave::default()
+            save::SimulationBuilder::default()
         };
 
         Self {
@@ -143,19 +144,6 @@ fn global_time() -> f64 {
         .elapsed()
         .unwrap_or_default()
         .as_secs_f64()
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(default)]
-struct SimulationSave {
-    // TODO: Debris
-    // TODO: items
-    // TODO: planets state
-}
-impl Default for SimulationSave {
-    fn default() -> Self {
-        Self {}
-    }
 }
 
 trait AngleTo {
