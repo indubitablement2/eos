@@ -22,7 +22,7 @@ impl Client {
                     position,
                     rotation,
                 } => {
-                    sim.physics.hulls.insert(HullSave {
+                    sim.physics.hulls.insert(HullBuilder {
                         hull_data_id,
                         position,
                         rotation,

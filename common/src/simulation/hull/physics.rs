@@ -40,7 +40,7 @@ pub struct Hulls {
     hulls: IndexMap<HullId, Hull>,
 }
 impl Hulls {
-    pub fn insert(&mut self, save: HullSave) -> (HullId, &mut Hull) {
+    pub fn insert(&mut self, save: HullBuilder) -> (HullId, &mut Hull) {
         let hull_id = self.next_hull_id;
         self.next_hull_id.next();
 

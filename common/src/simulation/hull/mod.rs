@@ -1,5 +1,6 @@
 pub mod data_json;
 pub mod physics;
+pub mod save;
 pub mod update;
 
 use super::*;
@@ -261,15 +262,14 @@ impl std::fmt::Display for TryFromHullDataIdError {
 }
 
 // ####################################################################################
-// ################################### SAVE ###########################################
+// ################################### BUILDER ########################################
 // ####################################################################################
 
 // TODO: Inventory
 // TODO: Turret
 // TODO: Armor cells
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
-#[serde(default)]
-pub struct HullSave {
+#[derive(Debug, Default, Clone)]
+pub struct HullBuilder {
     pub hull_data_id: HullDataId,
 
     pub owner: Option<ClientId>,
@@ -280,27 +280,25 @@ pub struct HullSave {
     pub angvel: f32,
 
     pub hull_relative: f32,
-    pub armor_cells: (),
 
-    pub modifiers: SmallVec<[ModifierSave; 4]>,
+    pub modifiers: SmallVec<[HullBuilderModifier; 4]>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
-pub enum ModifierSave {
-    // TODO: This handle bad enum when deserializing?
+#[derive(Debug, Default, Clone)]
+pub enum HullBuilderModifier {
     #[default]
     RemoveThis,
 }
-impl ModifierSave {
+impl HullBuilderModifier {
     fn apply(self, hull: &mut Hull) {
         match self {
-            ModifierSave::RemoveThis => {}
+            HullBuilderModifier::RemoveThis => {}
         }
     }
 }
 
 impl Hull {
-    pub fn save(&self) -> HullSave {
+    pub fn save(&self) -> HullBuilder {
         todo!()
         // let modifier_saves = self
         //     .modifiers
