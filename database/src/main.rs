@@ -131,6 +131,8 @@ impl Database {
             while let Some(request) = connection.try_recv::<ServerRequest>() {
                 self.handle_request(server_id, request);
             }
+
+            i += 1;
         }
 
         self.handle_save();
