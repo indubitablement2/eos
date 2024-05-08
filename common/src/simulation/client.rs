@@ -22,12 +22,9 @@ impl Client {
                     position,
                     rotation,
                 } => {
-                    sim.physics.hulls.insert(HullBuilder {
-                        hull_data_id,
-                        position,
-                        rotation,
-                        ..Default::default()
-                    });
+                    let hull = sim.physics.hulls.insert(hull_data_id).1;
+                    hull.position = position;
+                    hull.rotation = rotation;
                 }
             }
         }
@@ -36,6 +33,7 @@ impl Client {
     pub fn post_step_retain(&mut self, sim: &mut Simulation) -> bool {
         if sim.physics.hulls.len() < 4 {
             sim.connection.queue(SimulationRequest::CreateShip {
+                ship_data_id: ShipDataId::default(),
                 hull_save: bin_encode(hull::save::HullSave::default()),
             });
         }

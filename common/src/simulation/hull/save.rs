@@ -1,5 +1,7 @@
 use super::*;
 
+// TODO: Inventory
+// TODO: Turret
 #[derive(Serialize, Deserialize, Default)]
 pub enum HullSave {
     #[default]
@@ -7,24 +9,14 @@ pub enum HullSave {
     // V1 {}
 }
 impl HullSave {
-    pub fn to_hull_builder(mut self) -> HullBuilder {
-        loop {
-            match self._to_hull_builder() {
-                Ok(builder) => return builder,
-                Err(save) => self = save,
-            }
+    pub fn apply(self, hull: &mut Hull) {
+        match self {
+            HullSave::V0 => (),
         }
     }
 
     pub fn from_hull(hull: &Hull) -> Self {
         // TODO: Saving hull!
         Self::V0
-    }
-
-    fn _to_hull_builder(self) -> Result<HullBuilder, Self> {
-        Err(match self {
-            HullSave::V0 => return Ok(HullBuilder::default()),
-            // HullSave::V1 {} => HullBuilder::default(),
-        })
     }
 }

@@ -5,6 +5,7 @@ use common::connection::*;
 use common::database_packet::*;
 use common::ids::*;
 use common::server::ServerId;
+use common::ship::{ShipDataId, ShipId};
 use common::system::SystemId;
 use common::{HashMap, HashSet, IndexMap};
 use sha2::Digest;
@@ -45,8 +46,10 @@ struct System {
 }
 
 struct Ship {
-    system_id: SystemId,
+    ship_data_id: ShipDataId,
     hull_save: Vec<u8>,
+
+    system_id: SystemId,
 }
 
 #[derive(Default)]

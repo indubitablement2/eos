@@ -111,7 +111,6 @@ fn main() {
         });
 
         while let Some(response) = database_connection.try_recv::<ServerResponse>() {
-            log::debug!("{:?}", &response);
             match response {
                 ServerResponse::ClientLogin { token, result } => {
                     let Some(connection) = client_auth.remove(&token) else {

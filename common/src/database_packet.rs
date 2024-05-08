@@ -1,8 +1,13 @@
-use std::sync::{atomic::AtomicBool, Arc};
-
-use self::{connection::Connection, ids::*, server::ServerId, system::SystemId};
+use self::{
+    connection::Connection,
+    ids::*,
+    server::ServerId,
+    ship::{ShipDataId, ShipId},
+    system::SystemId,
+};
 use super::*;
 use flume::Receiver;
+use std::sync::{atomic::AtomicBool, Arc};
 
 // ####################################################################################
 // ################################### SERVER AUTH ####################################
@@ -66,9 +71,17 @@ pub enum ServerResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum SimulationRequest {
-    ClientLogoff { client_id: ClientId },
-    Save { simulation_save: Vec<u8> },
-    CreateShip { hull_save: Vec<u8> },
+    ClientLogoff {
+        client_id: ClientId,
+    },
+    Save {
+        simulation_save: Vec<u8>,
+        ship_saves: Vec<(ShipId, Vec<u8>)>,
+    },
+    CreateShip {
+        ship_data_id: ShipDataId,
+        hull_save: Vec<u8>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -82,6 +95,7 @@ pub enum SimulationResponse {
     },
     ShipEnter {
         ship_id: ShipId,
+        ship_data_id: ShipDataId,
         hull_save: Vec<u8>,
     },
 }

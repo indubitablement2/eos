@@ -28,13 +28,10 @@ impl std::ops::Deref for SystemId {
     }
 }
 impl TryFrom<u64> for SystemId {
-    type Error = TryFromSystemDataIdError;
+    type Error = u64;
 
     fn try_from(value: u64) -> Result<Self, Self::Error> {
-        data()
-            .get(&value)
-            .map(Self)
-            .ok_or(TryFromSystemDataIdError(value))
+        data().get(&value).map(Self).ok_or(value)
     }
 }
 impl From<SystemId> for u64 {
@@ -59,23 +56,12 @@ impl PartialEq for SystemId {
 }
 impl Eq for SystemId {}
 
-pub struct TryFromSystemDataIdError(pub u64);
-impl std::fmt::Display for TryFromSystemDataIdError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Invalid hull data id: {} out of bound", self.0)
-    }
-}
-
 pub fn load_system_data() {
     let read = std::fs::read("../client/tool/server_data/systems.json").unwrap();
     let json: Vec<SystemDataJson> = serde_json::from_slice(read.as_slice()).unwrap();
-    DATA.set(
-        json.into_iter()
-            .map(|entity_json| entity_json.parse())
-            .collect(),
-    )
-    .ok()
-    .unwrap();
+    DATA.set(json.into_iter().map(|json| json.parse()).collect())
+        .ok()
+        .unwrap();
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

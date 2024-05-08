@@ -1,5 +1,4 @@
 use self::system::SystemId;
-
 use super::*;
 use std::ops::{Index, IndexMut};
 
@@ -46,13 +45,10 @@ impl std::ops::Deref for ServerId {
     }
 }
 impl TryFrom<u32> for ServerId {
-    type Error = TryFromServerDataIdError;
+    type Error = u32;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        Self::data()
-            .get(value as usize)
-            .map(Self)
-            .ok_or(TryFromServerDataIdError(value))
+        Self::data().get(value as usize).map(Self).ok_or(value)
     }
 }
 impl From<ServerId> for u32 {
@@ -101,21 +97,13 @@ impl<T> IndexMut<ServerId> for [T] {
     }
 }
 
-#[derive(Debug)]
-pub struct TryFromServerDataIdError(pub u32);
-impl std::fmt::Display for TryFromServerDataIdError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Invalid hull data id: {} out of bound", self.0)
-    }
-}
-
-pub fn load_server_data() {
+pub fn load_data() {
     let read = std::fs::read("../client/tool/server_data/servers.json").unwrap();
     let json: Vec<ServerDataJson> = serde_json::from_slice(read.as_slice()).unwrap();
     DATA.set(
         json.into_iter()
             .zip(0..)
-            .map(|(entity_json, id)| entity_json.parse(id))
+            .map(|(json, id)| json.parse(id))
             .collect(),
     )
     .ok()

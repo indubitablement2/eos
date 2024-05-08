@@ -1,6 +1,16 @@
 use super::*;
 use rand::prelude::*;
 
+impl Database {
+    pub fn handle_request(&mut self, server_id: ServerId, request: ServerRequest) {
+        log::debug!("{:?} -> {:?}", server_id, &request);
+
+        if let Some(response) = self._handle_request(server_id, request) {
+            self.queue_server_response(server_id, response);
+        }
+    }
+}
+
 // ####################################################################################
 // ################################### SERVER #########################################
 // ####################################################################################
@@ -107,24 +117,39 @@ impl Database {
                 }
                 None
             }
-            SimulationRequest::Save { simulation_save } => {
+            SimulationRequest::Save {
+                simulation_save,
+                ship_saves,
+            } => {
                 self.systems.get_mut(&system_id)?.simulation_save = Some(simulation_save);
+                for (ship_id, hull_save) in ship_saves {
+                    let ship = self.ships.get_mut(&ship_id)?;
+                    ship.hull_save = hull_save;
+                }
                 None
             }
-            SimulationRequest::CreateShip { hull_save } => {
+            SimulationRequest::CreateShip {
+                ship_data_id,
+                hull_save,
+            } => {
                 let ship_id = self.next_ship_id.next();
 
                 self.ships.insert(
                     ship_id,
                     Ship {
-                        system_id,
+                        ship_data_id,
                         hull_save: hull_save.clone(),
+                        system_id,
                     },
                 );
 
                 self.systems.get_mut(&system_id)?.ships.insert(ship_id);
 
-                Some(SimulationResponse::ShipEnter { ship_id, hull_save })
+                Some(SimulationResponse::ShipEnter {
+                    ship_id,
+                    ship_data_id,
+                    hull_save,
+                })
             }
         }
     }
@@ -152,19 +177,5 @@ impl Database {
                 response,
             },
         );
-    }
-}
-
-// ####################################################################################
-// ################################### BOILERPLATE ####################################
-// ####################################################################################
-
-impl Database {
-    pub fn handle_request(&mut self, server_id: ServerId, request: ServerRequest) {
-        log::debug!("{:?} -> {:?}", server_id, &request);
-
-        if let Some(response) = self._handle_request(server_id, request) {
-            self.queue_server_response(server_id, response);
-        }
     }
 }

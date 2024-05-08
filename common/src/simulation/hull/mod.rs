@@ -119,6 +119,8 @@ enum Modifier {
 // ####################################################################################
 
 impl Hull {
+    /// Called as soon as the hull is created.
+    /// All properties are still set to their default value at this point.
     fn on_new(&mut self) {
         for &event in self.hull_data_id.0.on_new.iter() {
             match event {}
@@ -134,6 +136,8 @@ impl Hull {
     }
 
     fn on_remove(&mut self, reason: RemoveReason) {
+        log::debug!("Hull removed: {:?}", reason);
+
         for &event in self.hull_data_id.0.on_remove.iter() {
             match event {}
         }
@@ -237,67 +241,20 @@ impl std::ops::Deref for HullDataId {
     }
 }
 impl TryFrom<u32> for HullDataId {
-    type Error = TryFromHullDataIdError;
+    type Error = u32;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        data()
-            .get(value as usize)
-            .map(Self)
-            .ok_or(TryFromHullDataIdError(value))
+        data().get(value as usize).map(Self).ok_or(value)
     }
 }
 impl From<HullDataId> for u32 {
-    fn from(idx: HullDataId) -> Self {
-        idx.id
+    fn from(id: HullDataId) -> Self {
+        id.id
     }
 }
 impl std::fmt::Debug for HullDataId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.id.fmt(f)
-    }
-}
-
-pub struct TryFromHullDataIdError(pub u32);
-impl std::fmt::Display for TryFromHullDataIdError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Invalid hull data id: {} out of bound", self.0)
-    }
-}
-
-// ####################################################################################
-// ################################### BUILDER ########################################
-// ####################################################################################
-
-// TODO: Inventory
-// TODO: Turret
-// TODO: Armor cells
-#[derive(Debug, Default, Clone)]
-pub struct HullBuilder {
-    pub hull_data_id: HullDataId,
-
-    pub ship_id: Option<ShipId>,
-    pub owner: Option<ClientId>,
-
-    pub position: Vec2,
-    pub rotation: f32,
-    pub linvel: Vec2,
-    pub angvel: f32,
-
-    pub hull_relative: f32,
-
-    pub modifiers: SmallVec<[HullBuilderModifier; 4]>,
-}
-
-#[derive(Debug, Default, Clone)]
-pub enum HullBuilderModifier {
-    #[default]
-    RemoveThis,
-}
-impl HullBuilderModifier {
-    fn apply(self, hull: &mut Hull) {
-        match self {
-            HullBuilderModifier::RemoveThis => {}
-        }
     }
 }
 
@@ -362,7 +319,3 @@ impl Hull {
         )
     }
 }
-
-// ####################################################################################
-// ################################### TESTS ##########################################
-// ####################################################################################

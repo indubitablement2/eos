@@ -3,11 +3,11 @@ use physics::{Vec2ToNa, PHYSIC_SCALE};
 
 pub fn load_hull_data() {
     let read = std::fs::read("../client/tool/server_data/hulls.json").unwrap();
-    let json: Vec<EntityDataJson> = serde_json::from_slice(read.as_slice()).unwrap();
+    let json: Vec<HullDataJson> = serde_json::from_slice(read.as_slice()).unwrap();
     DATA.set(
         json.into_iter()
             .zip(0u32..)
-            .map(|(entity_json, id)| entity_json.parse(id))
+            .map(|(json, id)| json.parse(id))
             .collect(),
     )
     .ok()
@@ -15,7 +15,7 @@ pub fn load_hull_data() {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct EntityDataJson {
+struct HullDataJson {
     hull_max: f32,
 
     armor_max: f32,
@@ -44,7 +44,7 @@ struct EntityDataJson {
     on_new: Vec<HullEvent>,
     on_remove: Vec<HullEvent>,
 }
-impl EntityDataJson {
+impl HullDataJson {
     fn parse(self, id: u32) -> HullData {
         HullData {
             id,
@@ -114,7 +114,7 @@ impl HullShapeJson {
 
 #[test]
 fn print_json_sample() {
-    let json = EntityDataJson {
+    let json = HullDataJson {
         hull_max: 100.0,
 
         armor_max: 100.0,

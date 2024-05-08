@@ -10,10 +10,13 @@ use hull::*;
 use ids::*;
 use physics::{Hulls, Physics};
 use rand::prelude::*;
+use ship::{ShipDataId, ShipId};
 use std::{
     f32::consts::{PI, TAU},
     ops::Range,
 };
+
+pub use hull::HullDataId;
 
 type Clients = HashMap<ClientId, Client>;
 
@@ -95,13 +98,17 @@ impl Simulation {
                 SimulationResponse::ClientLogoff { client_id } => {
                     self.clients.remove(&client_id);
                 }
-                SimulationResponse::ShipEnter { ship_id, hull_save } => {
-                    let mut builder = bin_decode::<hull::save::HullSave>(&hull_save)
-                        .unwrap_or_default()
-                        .to_hull_builder();
-                    builder.ship_id = Some(ship_id);
+                SimulationResponse::ShipEnter {
+                    ship_id,
+                    ship_data_id,
+                    hull_save,
+                } => {
+                    let hull = self.physics.hulls.insert(ship_data_id.hull_data_id).1;
+                    hull.ship_id = Some(ship_id);
 
-                    self.physics.hulls.insert(builder);
+                    bin_decode::<hull::save::HullSave>(&hull_save)
+                        .unwrap_or_default()
+                        .apply(hull);
                 }
             }
         }
@@ -134,8 +141,22 @@ impl Simulation {
     fn save(&mut self) {
         self.next_save_global_time = self.global_time + thread_rng().gen_range(SAVE_INTERVAL);
 
+        let ship_saves = self
+            .physics
+            .hulls
+            .iter()
+            .filter_map(|(_, hull)| {
+                if let Some(ship_id) = hull.ship_id {
+                    Some((ship_id, bin_encode(hull::save::HullSave::from_hull(hull))))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
         self.connection.queue(SimulationRequest::Save {
             simulation_save: bin_encode(save::SimulationSave::from_sim(self)),
+            ship_saves,
         });
     }
 }
