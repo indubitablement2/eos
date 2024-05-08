@@ -82,13 +82,14 @@ fn i32_to_vector(v: IVec2) -> Vec2 {
 /// - 0: remove
 ///     - Doesn't send anything else
 /// - 1: is new
-///     - hull id
 ///     - data id
-/// - 2: turret data id
+///     - hull id
+/// - 2: (unused)
+/// - 3: turret data id
 ///     - Send data id for each turret or none (0) for empty turrets
-/// - 3: turret rotation delta
+/// - 4: turret rotation delta
 ///     - Send rotation delta for each turret which isn't empty
-/// - 4: turret ammo
+/// - 5: turret ammo
 ///     - Send ammo for each turret which has any
 ///
 /// Always present:
@@ -159,9 +160,9 @@ impl HullState {
         buf.push(0);
 
         if self.is_new {
-            buf[bitfield_idx] |= 0b01;
-            bin_encode_into(hull_id, &mut buf);
+            buf[bitfield_idx] |= 0b10;
             bin_encode_into(self.hull_data_id, &mut buf);
+            bin_encode_into(hull_id, &mut buf);
             self.is_new = false;
         }
 

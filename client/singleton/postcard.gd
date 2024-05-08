@@ -99,6 +99,10 @@ static func get_vector2() -> Vector2:
 static func get_vector2i() -> Vector2i:
 	return Vector2(get_i64(), get_i64())
 
+static func get_remaining_bytes() -> int:
+	return _read.get_available_bytes()
+
+
 static func _test() -> void:
 	start_encode()
 	put_u8(123)
