@@ -67,7 +67,8 @@ pub enum ServerResponse {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum SimulationRequest {
     ClientLogoff { client_id: ClientId },
-    Save { save: Vec<u8> },
+    Save { simulation_save: Vec<u8> },
+    CreateShip { hull_save: Vec<u8> },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -78,6 +79,10 @@ pub enum SimulationResponse {
     },
     ClientLogoff {
         client_id: ClientId,
+    },
+    ShipEnter {
+        ship_id: ShipId,
+        hull_save: Vec<u8>,
     },
 }
 

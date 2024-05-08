@@ -88,12 +88,20 @@ impl Simulation {
             self.clients.insert(client_id, Client::new(connection));
         }
 
-        // TODO: Handle database packets.
+        // Handle database packets.
         while let Some(response) = self.connection.try_recv() {
             match response {
                 SimulationResponse::ClientUpdate { client_id, update } => todo!(),
                 SimulationResponse::ClientLogoff { client_id } => {
                     self.clients.remove(&client_id);
+                }
+                SimulationResponse::ShipEnter { ship_id, hull_save } => {
+                    let mut builder = bin_decode::<hull::save::HullSave>(&hull_save)
+                        .unwrap_or_default()
+                        .to_hull_builder();
+                    builder.ship_id = Some(ship_id);
+
+                    self.physics.hulls.insert(builder);
                 }
             }
         }
@@ -127,7 +135,7 @@ impl Simulation {
         self.next_save_global_time = thread_rng().gen_range(SAVE_INTERVAL);
 
         self.connection.queue(SimulationRequest::Save {
-            save: bin_encode(save::SimulationSave::from_sim(self)),
+            simulation_save: bin_encode(save::SimulationSave::from_sim(self)),
         });
     }
 }

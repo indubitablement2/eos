@@ -107,9 +107,24 @@ impl Database {
                 }
                 None
             }
-            SimulationRequest::Save { save } => {
-                self.systems.get_mut(&system_id)?.simulation_save = Some(save);
+            SimulationRequest::Save { simulation_save } => {
+                self.systems.get_mut(&system_id)?.simulation_save = Some(simulation_save);
                 None
+            }
+            SimulationRequest::CreateShip { hull_save } => {
+                let ship_id = self.next_ship_id.next();
+
+                self.ships.insert(
+                    ship_id,
+                    Ship {
+                        system_id,
+                        hull_save: hull_save.clone(),
+                    },
+                );
+
+                self.systems.get_mut(&system_id)?.ships.insert(ship_id);
+
+                Some(SimulationResponse::ShipEnter { ship_id, hull_save })
             }
         }
     }

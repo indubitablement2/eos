@@ -13,8 +13,10 @@ impl Default for HullId {
     }
 }
 impl Id for HullId {
-    fn next(&mut self) {
+    fn next(&mut self) -> Self {
+        let ret = *self;
         self.0 = self.0.checked_add(1).unwrap();
+        ret
     }
 
     fn to_u64(&self) -> u64 {
@@ -32,6 +34,7 @@ impl Id for HullId {
 pub struct Hull {
     pub hull_data_id: HullDataId,
 
+    pub ship_id: Option<ShipId>,
     pub owner: Option<ClientId>,
 
     /// Best not to touch this.
@@ -272,6 +275,7 @@ impl std::fmt::Display for TryFromHullDataIdError {
 pub struct HullBuilder {
     pub hull_data_id: HullDataId,
 
+    pub ship_id: Option<ShipId>,
     pub owner: Option<ClientId>,
 
     pub position: Vec2,
@@ -296,36 +300,6 @@ impl HullBuilderModifier {
         }
     }
 }
-
-impl Hull {
-    pub fn save(&self) -> HullBuilder {
-        todo!()
-        // let modifier_saves = self
-        //     .modifiers
-        //     .iter()
-        //     .filter_map(|m| match m {
-        //         Modifier::Nothing => None,
-        //         Modifier::AiShip => None,
-        //         Modifier::AiSeek => None,
-        //     })
-        //     .collect();
-
-        // EntitySave {
-        //     data: self.data.id,
-        //     owner: self.owner,
-        //     position: self.position(),
-        //     linvel: self.linvel(),
-        //     angvel: self.angvel(),
-        //     hull: self.hull,
-        //     armor_cells: self.armor_cells.clone(),
-        //     modifiers: modifier_saves,
-        // }
-    }
-}
-
-// ####################################################################################
-// ################################### UTIL ###########################################
-// ####################################################################################
 
 // ####################################################################################
 // ################################### STATS ##########################################

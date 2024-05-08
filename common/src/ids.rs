@@ -2,14 +2,16 @@ use super::*;
 use std::num::NonZeroU64;
 
 pub trait Id: Sized {
-    fn next(&mut self);
+    fn next(&mut self) -> Self;
     fn to_u64(&self) -> u64;
     // May panic if value is out of bounds.
     fn try_from_u64(value: u64) -> Option<Self>;
 }
 impl Id for u64 {
-    fn next(&mut self) {
+    fn next(&mut self) -> Self {
+        let ret = *self;
         *self += 1;
+        ret
     }
 
     fn to_u64(&self) -> u64 {
@@ -29,8 +31,10 @@ impl Default for ShipId {
     }
 }
 impl Id for ShipId {
-    fn next(&mut self) {
+    fn next(&mut self) -> Self {
+        let ret = *self;
         self.0 = self.0.checked_add(1).unwrap();
+        ret
     }
 
     fn to_u64(&self) -> u64 {
@@ -73,8 +77,10 @@ impl Default for ClientId {
     }
 }
 impl Id for ClientId {
-    fn next(&mut self) {
+    fn next(&mut self) -> Self {
+        let ret = *self;
         self.0 = self.0.checked_add(1).unwrap();
+        ret
     }
 
     fn to_u64(&self) -> u64 {
@@ -117,8 +123,10 @@ impl Default for FactionId {
     }
 }
 impl Id for FactionId {
-    fn next(&mut self) {
+    fn next(&mut self) -> Self {
+        let ret = *self;
         self.0 = self.0.checked_add(1).unwrap();
+        ret
     }
 
     fn to_u64(&self) -> u64 {

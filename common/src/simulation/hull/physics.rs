@@ -40,30 +40,29 @@ pub struct Hulls {
     hulls: IndexMap<HullId, Hull>,
 }
 impl Hulls {
-    pub fn insert(&mut self, save: HullBuilder) -> (HullId, &mut Hull) {
-        let hull_id = self.next_hull_id;
-        self.next_hull_id.next();
+    pub fn insert(&mut self, builder: HullBuilder) -> (HullId, &mut Hull) {
+        let hull_id = self.next_hull_id.next();
 
         let collision_group_ignore = self.next_collision_group_ignore;
         self.next_collision_group_ignore += 1;
 
         let rb = RigidBodyBuilder::dynamic()
             .position(Isometry2::new(
-                save.position.to_na() * PHYSIC_SCALE,
-                save.rotation,
+                builder.position.to_na() * PHYSIC_SCALE,
+                builder.rotation,
             ))
-            .linvel(save.linvel.to_na() * PHYSIC_SCALE)
-            .angvel(save.angvel)
+            .linvel(builder.linvel.to_na() * PHYSIC_SCALE)
+            .angvel(builder.angvel)
             .user_data(UserData::pack_body(hull_id, collision_group_ignore))
             .linear_damping(DEFAULT_LINEAR_DAMPING)
             .angular_damping(DEFAULT_ANGULAR_DAMPING)
             .build();
         let rb = self.bodies.insert(rb);
 
-        let coll = ColliderBuilder::new(save.hull_data_id.shape.clone())
-            .position(save.hull_data_id.shape_position)
-            .collision_groups(save.hull_data_id.groups)
-            .mass_properties(save.hull_data_id.mprops)
+        let coll = ColliderBuilder::new(builder.hull_data_id.shape.clone())
+            .position(builder.hull_data_id.shape_position)
+            .collision_groups(builder.hull_data_id.groups)
+            .mass_properties(builder.hull_data_id.mprops)
             .user_data(UserData::pack_colider(hull_id, false))
             .active_hooks(ActiveHooks::FILTER_CONTACT_PAIRS)
             .active_events(ActiveEvents::CONTACT_FORCE_EVENTS)
@@ -75,17 +74,18 @@ impl Hulls {
             .insert_with_parent(coll, rb, &mut self.bodies);
 
         let hull = Hull {
-            hull_data_id: save.hull_data_id,
-            owner: save.owner,
+            hull_data_id: builder.hull_data_id,
+            ship_id: builder.ship_id,
+            owner: builder.owner,
             rb,
-            position: save.position,
-            rotation: save.rotation,
-            linvel: save.linvel,
-            angvel: save.angvel,
+            position: builder.position,
+            rotation: builder.rotation,
+            linvel: builder.linvel,
+            angvel: builder.angvel,
             collision_group_ignore,
             hull_max_percent_increase: 0,
             hull_max_flat_increase: 0,
-            hull_relative: save.hull_relative,
+            hull_relative: builder.hull_relative,
             armor_max_percent_increase: 0,
             armor_max_flat_increase: 0,
             armor_cells: (),
@@ -106,7 +106,7 @@ impl Hulls {
 
         let hull = self.hulls.entry(hull_id).or_insert(hull);
 
-        for modifier in save.modifiers {
+        for modifier in builder.modifiers {
             modifier.apply(hull);
         }
 
