@@ -34,6 +34,12 @@ impl Client {
     }
 
     pub fn post_step_retain(&mut self, sim: &mut Simulation) -> bool {
+        if sim.physics.hulls.len() < 4 {
+            sim.connection.queue(SimulationRequest::CreateShip {
+                hull_save: bin_encode(hull::save::HullSave::default()),
+            });
+        }
+
         self.hulls_state.sort_unstable_keys();
 
         let capacity = self
