@@ -107,6 +107,10 @@ impl Database {
                 }
                 None
             }
+            SimulationRequest::Save { save } => {
+                self.systems.get_mut(&system_id)?.simulation_save = Some(save);
+                None
+            }
         }
     }
 }

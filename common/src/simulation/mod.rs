@@ -126,16 +126,9 @@ impl Simulation {
     fn save(&mut self) {
         self.next_save_global_time = thread_rng().gen_range(SAVE_INTERVAL);
 
-        // let simulation_save = SimulationSave {};
-
-        // self.database_outbound
-        //     .queue(DatabaseRequest::SaveSimulation {
-        //         simulation_id: self.simulation_id,
-        //         simulation_save,
-        //     });
-
-        // TODO: Save ships
-        // TODO: Save planets?
+        self.connection.queue(SimulationRequest::Save {
+            save: bin_encode(save::SimulationSave::from_sim(self)),
+        });
     }
 }
 
