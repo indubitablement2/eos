@@ -146,7 +146,6 @@ impl DatabaseSave {
                     connection_listener: ConnectionListener::bind(common::DATABASE_ADDRESS)
                         .unwrap(),
                     auth_connections: Default::default(),
-                    mutations: Default::default(),
                     servers,
                     systems,
                     next_ship_id,

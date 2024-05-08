@@ -1,4 +1,4 @@
-mod mutation;
+mod request;
 mod save;
 
 use common::connection::*;
@@ -7,11 +7,8 @@ use common::ids::*;
 use common::server::ServerId;
 use common::system::SystemId;
 use common::{HashMap, HashSet, IndexMap};
-use mutation::Mutation;
-use rayon::prelude::*;
 use sha2::Digest;
 use std::time::Instant;
-use thread_local::ThreadLocal;
 
 struct Database {
     password: String,
@@ -23,8 +20,6 @@ struct Database {
 
     connection_listener: ConnectionListener,
     auth_connections: Vec<(Connection, u64)>,
-
-    mutations: ThreadLocal<std::cell::RefCell<Vec<Mutation>>>,
 
     /// Indexed by ServerId.
     servers: Vec<Option<Server>>,
@@ -54,8 +49,8 @@ struct Ship {
     hull_save: Vec<u8>,
 }
 
+#[derive(Default)]
 struct Client {
-    password_salt: [u8; 8],
     password_sha256: Option<Vec<u8>>,
 
     ships: HashSet<ShipId>,
@@ -121,31 +116,22 @@ impl Database {
         });
 
         // Handle requests.
-        self.servers
-            .par_iter()
-            .enumerate()
-            .for_each(|(idx, server)| {
-                if let Some(server) = server {
-                    while let Some(request) = server.connection.try_recv::<ServerRequest>() {
-                        self.handle_request(ServerId(&ServerId::data()[idx]), request);
-                    }
-                }
-            });
+        let mut i = 0;
+        while i < self.servers.len() {
+            let Some(connection) = self.servers[i]
+                .as_mut()
+                .map(|server| server.connection.clone())
+            else {
+                i += 1;
+                continue;
+            };
 
-        // Apply mutations.
-        let mut mutations = std::mem::take(&mut self.mutations);
-        for mutations in mutations.iter_mut() {
-            for mutation in mutations.get_mut().drain(..) {
-                self.apply_mutation(mutation);
+            let server_id = ServerId::try_from(i as u32).unwrap();
+
+            while let Some(request) = connection.try_recv::<ServerRequest>() {
+                self.handle_request(server_id, request);
             }
         }
-        for tmp_mutations in self.mutations.iter_mut() {
-            mutations
-                .get_or_default()
-                .borrow_mut()
-                .extend(tmp_mutations.borrow_mut().drain(..));
-        }
-        self.mutations = mutations;
 
         self.handle_save();
 
