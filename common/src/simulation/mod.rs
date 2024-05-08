@@ -132,7 +132,7 @@ impl Simulation {
     }
 
     fn save(&mut self) {
-        self.next_save_global_time = thread_rng().gen_range(SAVE_INTERVAL);
+        self.next_save_global_time = self.global_time + thread_rng().gen_range(SAVE_INTERVAL);
 
         self.connection.queue(SimulationRequest::Save {
             simulation_save: bin_encode(save::SimulationSave::from_sim(self)),
