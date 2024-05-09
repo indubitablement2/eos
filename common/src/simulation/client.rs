@@ -88,11 +88,11 @@ impl Client {
 }
 
 fn angle_to_i32(angle: f32) -> i32 {
-    (angle / PI * 512.0) as i32
+    (angle / PI * 1024.0) as i32
 }
 
 fn i32_to_angle(i: i32) -> f32 {
-    i as f32 * PI / 512.0
+    i as f32 * PI / 1024.0
 }
 
 fn vector_to_i32(v: Vec2) -> IVec2 {

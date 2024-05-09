@@ -106,7 +106,7 @@ func _apply_state() -> bool:
 		hulls[hull_idx].apply_state(
 			resync,
 			Vector2(Postcard.get_vector2i()) / 8.0,
-			float(Postcard.get_i64()) * PI / 512.0
+			float(Postcard.get_i64()) * PI / 1024.0
 		)
 		
 		hull_idx += 1
