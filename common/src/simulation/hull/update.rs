@@ -35,11 +35,6 @@ impl Hull {
         self._apply_wish_angvel();
         self._apply_wish_linvel();
 
-        // TODO: Only update clients which can see this
-        for client in clients.values_mut() {
-            client.hull_update(current, self);
-        }
-
         if self.hull_relative <= 0.0 {
             Some(RemoveReason::Destroyed)
         } else {

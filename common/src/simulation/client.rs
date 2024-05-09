@@ -4,12 +4,14 @@ use std::f32::consts::PI;
 pub struct Client {
     connection: Connection,
 
+    next_hull_resync: i32,
     hulls_state: IndexMap<HullId, HullState>,
 }
 impl Client {
     pub fn new(connection: Connection) -> Self {
         Self {
             connection,
+            next_hull_resync: 0,
             hulls_state: Default::default(),
         }
     }
@@ -31,11 +33,28 @@ impl Client {
     }
 
     pub fn post_step_retain(&mut self, client_id: ClientId, sim: &mut Simulation) -> bool {
+        // TODO: Remove this
         if sim.physics.hulls.len() < 4 {
             sim.connection.queue(SimulationRequest::CreateShip {
                 ship_data_id: ShipDataId::default(),
                 hull_save: bin_encode(hull::save::HullSave::default()),
             });
+        }
+
+        let mut bitfield = 0u8;
+
+        self.next_hull_resync -= 1;
+        if self.next_hull_resync < 0 {
+            bitfield |= 0b1;
+            self.next_hull_resync = 600;
+            for hull_state in self.hulls_state.values_mut() {
+                hull_state.resync();
+            }
+        }
+
+        // TODO: Only update hulls which this client can see
+        for (&hull_id, hull) in sim.physics.hulls.iter_mut() {
+            self.hulls_state.entry(hull_id).or_default().update(hull);
         }
 
         self.hulls_state.sort_unstable_keys();
@@ -45,8 +64,9 @@ impl Client {
             .values()
             .fold(0, |acc, state| acc + state.serialize_size());
 
-        let mut buf = Vec::with_capacity(capacity + 1 + 8);
+        let mut buf = Vec::with_capacity(1 + 1 + 8 + capacity);
         bin_encode_into(ClientOutbound::State, &mut buf);
+        bin_encode_into(bitfield, &mut buf);
         bin_encode_into(sim.sim_time, &mut buf);
 
         self.hulls_state
@@ -64,29 +84,22 @@ impl Client {
             true
         }
     }
-
-    pub fn hull_update(&mut self, hull_id: HullId, hull: &Hull) {
-        self.hulls_state
-            .entry(hull_id)
-            .or_default()
-            .new_update(hull);
-    }
 }
 
 fn angle_to_i32(angle: f32) -> i32 {
-    (angle / PI * 512.0).round() as i32
+    (angle / PI * 1024.0) as i32
 }
 
 fn i32_to_angle(i: i32) -> f32 {
-    i as f32 * PI / 512.0
+    i as f32 * PI / 1024.0
 }
 
 fn vector_to_i32(v: Vec2) -> IVec2 {
-    IVec2::new(v.x.round() as i32, v.y.round() as i32)
+    (v * 8.0).as_ivec2()
 }
 
 fn i32_to_vector(v: IVec2) -> Vec2 {
-    Vec2::new(v.x as f32, v.y as f32)
+    v.as_vec2() / 8.0
 }
 
 /// Bitfield:
@@ -95,7 +108,7 @@ fn i32_to_vector(v: IVec2) -> Vec2 {
 /// - 1: is new
 ///     - data id
 ///     - hull id
-/// - 2: (unused)
+/// - 2: unused
 /// - 3: turret data id
 ///     - Send data id for each turret or none (0) for empty turrets
 /// - 4: turret rotation delta
@@ -130,7 +143,12 @@ impl Default for HullState {
     }
 }
 impl HullState {
-    fn new_update(&mut self, hull: &Hull) {
+    fn resync(&mut self) {
+        self.position = Vec2::ZERO;
+        self.rotation = 0.0;
+    }
+
+    fn update(&mut self, hull: &Hull) {
         self.remove = false;
 
         self.position_delta = vector_to_i32(hull.position - self.position);

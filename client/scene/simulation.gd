@@ -88,6 +88,11 @@ func _apply_state() -> bool:
 	Postcard.start_decode(_states.pop_front())
 	
 	Postcard.get_u64()
+	var global_bitfield := Postcard.get_u8()
+	if global_bitfield & 0b1:  # Resync
+		for hull in hulls:
+			hull.resync()
+	
 	next_sim_time = Postcard.get_f64()
 	
 	var hull_idx := 0
@@ -104,8 +109,8 @@ func _apply_state() -> bool:
 			hulls.insert(hull_idx, hull)
 		
 		hulls[hull_idx].apply_state(
-			Vector2(Postcard.get_vector2i()),
-			float(Postcard.get_i64()) * PI / 512.0
+			Vector2(Postcard.get_vector2i()) / 8.0,
+			float(Postcard.get_i64()) * PI / 1024.0
 		)
 		
 		hull_idx += 1

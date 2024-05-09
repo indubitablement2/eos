@@ -35,5 +35,8 @@ func apply_state(
 		_next_rotation = rotation_delta
 	
 
+func resync() -> void:
+	_next_position = Vector2.ZERO
+	_next_rotation = 0.0
 
 
