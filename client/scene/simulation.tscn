@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3 uid="uid://bq1t8fnufcmh0"]
+[gd_scene load_steps=5 format=3 uid="uid://bq1t8fnufcmh0"]
 
 [ext_resource type="Script" path="res://scene/simulation.gd" id="1_xpnlf"]
 [ext_resource type="Texture2D" uid="uid://cke4taba0wnvh" path="res://icon.svg" id="2_tv4lh"]
@@ -22,6 +22,20 @@ func _unhandled_input(event: InputEvent) -> void:
 			zoom = (zoom / 1.2).clamp(_MIN_ZOOM, _MAX_ZOOM)
 "
 
+[sub_resource type="GDScript" id="GDScript_vqtjr"]
+script/source = "extends Label
+
+var _prev := 0
+var timer := 0.0
+
+func _ready() -> void:
+	_prev = Postcard.rx
+
+func _on_timer_timeout() -> void:
+	text = String.humanize_size(Postcard.rx - _prev)
+	_prev = Postcard.rx
+"
+
 [node name="Simulation" type="Node2D"]
 script = ExtResource("1_xpnlf")
 
@@ -30,3 +44,15 @@ script = SubResource("GDScript_yhbbm")
 
 [node name="Icon" type="Sprite2D" parent="."]
 texture = ExtResource("2_tv4lh")
+
+[node name="Rx" type="Label" parent="."]
+offset_left = -223.0
+offset_top = -85.0
+offset_right = -183.0
+offset_bottom = -62.0
+script = SubResource("GDScript_vqtjr")
+
+[node name="Timer" type="Timer" parent="Rx"]
+autostart = true
+
+[connection signal="timeout" from="Rx/Timer" to="Rx" method="_on_timer_timeout"]

@@ -89,9 +89,7 @@ func _apply_state() -> bool:
 	
 	Postcard.get_u64()
 	var global_bitfield := Postcard.get_u8()
-	if global_bitfield & 0b1:  # Resync
-		for hull in hulls:
-			hull.resync()
+	var resync := global_bitfield & 0b1 != 0
 	
 	next_sim_time = Postcard.get_f64()
 	
@@ -109,6 +107,7 @@ func _apply_state() -> bool:
 			hulls.insert(hull_idx, hull)
 		
 		hulls[hull_idx].apply_state(
+			resync,
 			Vector2(Postcard.get_vector2i()) / 8.0,
 			float(Postcard.get_i64()) * PI / 1024.0
 		)

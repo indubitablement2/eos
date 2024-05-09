@@ -21,13 +21,18 @@ func _process(_delta: float) -> void:
 
 
 func apply_state(
+	resync: bool,
 	position_delta: Vector2,
 	rotation_delta: float) -> void:
 	if _next_position.is_finite():
 		_prev_position = _next_position
 		_prev_rotation = _next_rotation
-		_next_position = _prev_position + position_delta
-		_next_rotation = _prev_rotation + rotation_delta
+		if resync:
+			_next_position = _prev_position
+			_next_rotation = _prev_rotation
+		else:
+			_next_position = _prev_position + position_delta
+			_next_rotation = _prev_rotation + rotation_delta
 	else:
 		_prev_position = position_delta
 		_prev_rotation = rotation_delta
@@ -35,8 +40,5 @@ func apply_state(
 		_next_rotation = rotation_delta
 	
 
-func resync() -> void:
-	_next_position = Vector2.ZERO
-	_next_rotation = 0.0
 
 

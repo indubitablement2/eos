@@ -5,6 +5,10 @@ const WRITE_SIZE := 65535
 static var _write := StreamPeerBuffer.new()
 static var _read := StreamPeerBuffer.new()
 
+static var rx := 0
+static var tx := 0
+
+
 static func start_encode():
 	if _write.get_size() != WRITE_SIZE:
 		_write.resize(WRITE_SIZE)
@@ -13,6 +17,7 @@ static func start_encode():
 	_write.seek(0)
 
 static func finish_encode() -> PackedByteArray:
+	tx += _write.get_position()
 	return _write.data_array.slice(0, _write.get_position())
 
 static func put_bool(value: bool) -> void:
@@ -57,6 +62,7 @@ static func put_vector2i(value: Vector2i) -> void:
 
 
 static func start_decode(packet: PackedByteArray) -> void:
+	rx += packet.size()
 	_read.data_array = packet
 	_read.big_endian = false
 
