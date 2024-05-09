@@ -18,7 +18,6 @@ var _ws_state := 0
 var hulls : Array[Hull] = []
 ## Delta toward next state.
 var sim_dt := 0.0
-var next_sim_time := 0.0
 var _states : Array[PackedByteArray] = []
 
 func _ready() -> void:
@@ -91,8 +90,6 @@ func _apply_state() -> bool:
 	var global_bitfield := Postcard.get_u8()
 	var resync := global_bitfield & 0b1 != 0
 	
-	next_sim_time = Postcard.get_f64()
-	
 	var hull_idx := 0
 	while Postcard.get_remaining_bytes() > 0:
 		var bitfield := Postcard.get_u8()
@@ -108,8 +105,8 @@ func _apply_state() -> bool:
 		
 		hulls[hull_idx].apply_state(
 			resync,
-			Vector2(Postcard.get_vector2i()) / 8.0,
-			float(Postcard.get_i64()) * PI / 1024.0
+			Vector2(Postcard.get_vector2i()) / 4.0,
+			float(Postcard.get_i64()) * PI / 512.0
 		)
 		
 		hull_idx += 1

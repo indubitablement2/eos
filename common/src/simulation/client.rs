@@ -1,6 +1,8 @@
 use super::*;
 use std::f32::consts::PI;
 
+const RESYNC_INTERVAL: i32 = 1200;
+
 pub struct Client {
     connection: Connection,
 
@@ -46,7 +48,7 @@ impl Client {
         self.next_hull_resync -= 1;
         if self.next_hull_resync < 0 {
             bitfield |= 0b1;
-            self.next_hull_resync = 600;
+            self.next_hull_resync = RESYNC_INTERVAL;
             for hull_state in self.hulls_state.values_mut() {
                 hull_state.resync();
             }
@@ -64,10 +66,9 @@ impl Client {
             .values()
             .fold(0, |acc, state| acc + state.serialize_size());
 
-        let mut buf = Vec::with_capacity(1 + 1 + 8 + capacity);
+        let mut buf = Vec::with_capacity(1 + 1 + capacity);
         bin_encode_into(ClientOutbound::State, &mut buf);
         bin_encode_into(bitfield, &mut buf);
-        bin_encode_into(sim.sim_time, &mut buf);
 
         self.hulls_state
             .retain(|hull_id, state| state.serialize_into_retain(*hull_id, &mut buf));
@@ -87,19 +88,19 @@ impl Client {
 }
 
 fn angle_to_i32(angle: f32) -> i32 {
-    (angle / PI * 1024.0) as i32
+    (angle / PI * 512.0) as i32
 }
 
 fn i32_to_angle(i: i32) -> f32 {
-    i as f32 * PI / 1024.0
+    i as f32 * PI / 512.0
 }
 
 fn vector_to_i32(v: Vec2) -> IVec2 {
-    (v * 8.0).as_ivec2()
+    (v * 4.0).as_ivec2()
 }
 
 fn i32_to_vector(v: IVec2) -> Vec2 {
-    v.as_vec2() / 8.0
+    v.as_vec2() / 4.0
 }
 
 /// Bitfield:

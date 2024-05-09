@@ -45,9 +45,6 @@ pub struct Simulation {
     global_time: f64,
     next_save_global_time: f64,
 
-    /// Time since start of simulation.
-    sim_time: f64,
-
     physics: Physics,
 
     clients: Clients,
@@ -73,7 +70,6 @@ impl Simulation {
 
         Self {
             connection,
-            sim_time: 0.0,
             physics: Default::default(),
             clients: Default::default(),
             global_time: global_time(),
@@ -83,7 +79,6 @@ impl Simulation {
     }
 
     pub fn step(&mut self) {
-        self.sim_time += DT.as_secs_f64();
         self.global_time = global_time();
 
         // Take new clients.
