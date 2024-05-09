@@ -124,7 +124,7 @@ impl Simulation {
 
         // Update clients.
         clients = std::mem::take(&mut self.clients);
-        clients.retain(|_, client| client.post_step_retain(self));
+        clients.retain(|&client_id, client| client.post_step_retain(client_id, self));
         self.clients = clients;
 
         // Shrink containers.

@@ -30,7 +30,7 @@ impl Client {
         }
     }
 
-    pub fn post_step_retain(&mut self, sim: &mut Simulation) -> bool {
+    pub fn post_step_retain(&mut self, client_id: ClientId, sim: &mut Simulation) -> bool {
         if sim.physics.hulls.len() < 4 {
             sim.connection.queue(SimulationRequest::CreateShip {
                 ship_data_id: ShipDataId::default(),
@@ -55,7 +55,14 @@ impl Client {
         self.connection.queue_raw(buf);
         self.connection.flush();
 
-        !self.connection.is_closed()
+        if self.connection.is_closed() {
+            sim.connection
+                .queue(SimulationRequest::ClientLogoff { client_id });
+
+            false
+        } else {
+            true
+        }
     }
 
     pub fn hull_update(&mut self, hull_id: HullId, hull: &Hull) {
