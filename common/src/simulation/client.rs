@@ -96,11 +96,11 @@ fn i32_to_angle(i: i32) -> f32 {
 }
 
 fn vector_to_i32(v: Vec2) -> IVec2 {
-    (v * 4.0).as_ivec2()
+    (v * 8.0).as_ivec2()
 }
 
 fn i32_to_vector(v: IVec2) -> Vec2 {
-    v.as_vec2() / 4.0
+    v.as_vec2() / 8.0
 }
 
 /// Bitfield:
