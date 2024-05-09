@@ -29,7 +29,7 @@ func _ready() -> void:
 		print(error_string(err))
 	_ws_state = 0
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	ws.poll()
 	
 	if ws.get_ready_state() == WebSocketPeer.STATE_CLOSED:
@@ -58,7 +58,17 @@ func _process(_delta: float) -> void:
 			while ws.get_available_packet_count() > 0:
 				_handle_packet(ws.get_packet())
 	
-	_apply_state()
+	sim_dt += delta / DT
+	if sim_dt > 1.0:
+		if _states.is_empty():
+			sim_dt = 1.0
+			push_warning("out of state")
+		else:
+			_apply_state()
+			sim_dt -= 1.0
+			if sim_dt > 0.5:
+				push_warning("too fast")
+				sim_dt = 0.5
 
 
 func _handle_packet(packet: PackedByteArray) -> void:

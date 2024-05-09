@@ -7,7 +7,7 @@
 script/source = "extends Camera2D
 
 const _MIN_ZOOM := Vector2(0.5, 0.5)
-const _MAX_ZOOM := Vector2(8.0, 8.0)
+const _MAX_ZOOM := Vector2(2.0, 2.0)
 
 var _dragging := false
 
@@ -15,7 +15,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action(\"camera_drag\"):
 		_dragging = event.is_pressed()
 	elif event is InputEventMouseMotion && _dragging:
-		position -= event.relative
+		position -= event.relative / zoom.x
 	elif event.is_action_pressed(\"camera_zoom_in\"):
 		zoom = (zoom * 1.2).clamp(_MIN_ZOOM, _MAX_ZOOM)
 	elif event.is_action_pressed(\"camera_zoom_out\"):
