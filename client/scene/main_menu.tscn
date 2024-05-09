@@ -5,8 +5,8 @@ script/source = "extends Control
 
 
 func _ready() -> void:
-	add_child(Simulation.new())
-	pass
+	queue_free()
+	get_parent().add_child.call_deferred(load(\"res://scene/simulation.tscn\").instantiate())
 "
 
 [node name="MainMenu" type="Control"]

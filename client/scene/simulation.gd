@@ -33,8 +33,9 @@ func _process(_delta: float) -> void:
 	ws.poll()
 	
 	if ws.get_ready_state() == WebSocketPeer.STATE_CLOSED:
-		push_warning(ws.get_close_code())
-		queue_free()
+		#push_warning(ws.get_close_code())
+		#queue_free()
+		return
 	
 	if ws.get_ready_state() != WebSocketPeer.STATE_OPEN:
 		return

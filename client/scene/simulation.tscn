@@ -1,6 +1,32 @@
-[gd_scene load_steps=2 format=3 uid="uid://bq1t8fnufcmh0"]
+[gd_scene load_steps=4 format=3 uid="uid://bq1t8fnufcmh0"]
 
 [ext_resource type="Script" path="res://scene/simulation.gd" id="1_xpnlf"]
+[ext_resource type="Texture2D" uid="uid://cke4taba0wnvh" path="res://icon.svg" id="2_tv4lh"]
+
+[sub_resource type="GDScript" id="GDScript_yhbbm"]
+script/source = "extends Camera2D
+
+const _MIN_ZOOM := Vector2(0.5, 0.5)
+const _MAX_ZOOM := Vector2(8.0, 8.0)
+
+var _dragging := false
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action(\"camera_drag\"):
+		_dragging = event.is_pressed()
+	elif event is InputEventMouseMotion && _dragging:
+		position -= event.relative
+	elif event.is_action_pressed(\"camera_zoom_in\"):
+		zoom = (zoom * 1.2).clamp(_MIN_ZOOM, _MAX_ZOOM)
+	elif event.is_action_pressed(\"camera_zoom_out\"):
+			zoom = (zoom / 1.2).clamp(_MIN_ZOOM, _MAX_ZOOM)
+"
 
 [node name="Simulation" type="Node2D"]
 script = ExtResource("1_xpnlf")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+script = SubResource("GDScript_yhbbm")
+
+[node name="Icon" type="Sprite2D" parent="."]
+texture = ExtResource("2_tv4lh")
