@@ -32,12 +32,6 @@ pub fn load_data() {
     hull::data_json::load_hull_data();
 }
 
-struct Faction {
-    faction_id: (),
-    hulls: HashSet<HullId>,
-    tracking_clients: Vec<ClientId>,
-}
-
 pub struct Simulation {
     connection: SimulationConnection,
 
