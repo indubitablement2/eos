@@ -82,7 +82,7 @@ impl Hulls {
             hull_relative: 1.0,
             armor_max_percent_increase: 0,
             armor_max_flat_increase: 0,
-            armor_cells: (),
+            armor_relative: 1.0,
             linacc_percent_increase: 0,
             linacc_flat_increase: 0,
             angacc_percent_increase: 0,

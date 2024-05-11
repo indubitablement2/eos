@@ -55,7 +55,7 @@ pub struct Hull {
 
     armor_max_percent_increase: i32,
     armor_max_flat_increase: i32,
-    armor_cells: (),
+    armor_relative: f32,
 
     linacc_percent_increase: i32,
     linacc_flat_increase: i32,
@@ -285,6 +285,10 @@ impl Hull {
             self.armor_max_flat_increase,
             self.armor_max_percent_increase,
         )
+    }
+
+    pub fn armor(&self) -> f32 {
+        self.armor_relative * self.armor_max()
     }
 
     pub fn linacc(&self) -> f32 {
