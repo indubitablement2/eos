@@ -1,70 +1,58 @@
 use super::*;
-use std::num::NonZeroU64;
 
-pub trait Id: Sized {
-    fn next(&mut self) -> Self;
-    fn to_u64(&self) -> u64;
-    // May panic if value is out of bounds.
-    fn try_from_u64(value: u64) -> Option<Self>;
-}
-impl Id for u64 {
+pub trait Id: Sized + Copy {
+    fn inner(&mut self) -> &mut InnerId;
     fn next(&mut self) -> Self {
         let ret = *self;
-        *self += 1;
+        self.inner().0 = self.inner().0.checked_add(1).unwrap();
         ret
-    }
-
-    fn to_u64(&self) -> u64 {
-        *self
-    }
-
-    fn try_from_u64(value: u64) -> Option<Self> {
-        Some(value)
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ClientId(NonZeroU64);
-impl Default for ClientId {
+pub struct InnerId(std::num::NonZeroU64);
+impl Default for InnerId {
     fn default() -> Self {
-        Self(NonZeroU64::MIN)
+        Self(std::num::NonZeroU64::MIN)
     }
 }
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
+)]
+pub struct ClientId(InnerId);
 impl Id for ClientId {
-    fn next(&mut self) -> Self {
-        let ret = *self;
-        self.0 = self.0.checked_add(1).unwrap();
-        ret
-    }
-
-    fn to_u64(&self) -> u64 {
-        self.0.get()
-    }
-
-    fn try_from_u64(value: u64) -> Option<Self> {
-        NonZeroU64::new(value).map(Self)
+    fn inner(&mut self) -> &mut InnerId {
+        &mut self.0
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct FactionId(NonZeroU64);
-impl Default for FactionId {
-    fn default() -> Self {
-        Self(NonZeroU64::MIN)
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
+)]
+pub struct LeagueId(InnerId);
+impl Id for LeagueId {
+    fn inner(&mut self) -> &mut InnerId {
+        &mut self.0
     }
 }
-impl Id for FactionId {
-    fn next(&mut self) -> Self {
-        let ret = *self;
-        self.0 = self.0.checked_add(1).unwrap();
-        ret
-    }
 
-    fn to_u64(&self) -> u64 {
-        self.0.get()
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
+)]
+pub struct ClientCharacterId(InnerId);
+impl Id for ClientCharacterId {
+    fn inner(&mut self) -> &mut InnerId {
+        &mut self.0
     }
+}
 
-    fn try_from_u64(value: u64) -> Option<Self> {
-        NonZeroU64::new(value).map(Self)
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
+)]
+pub struct ServerId(InnerId);
+impl Id for ServerId {
+    fn inner(&mut self) -> &mut InnerId {
+        &mut self.0
     }
 }
