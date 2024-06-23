@@ -13,8 +13,6 @@ log = { version = "0.4.21", features = [
 
 sha2 = "0.10.8"
 
-# chrono = "0.4.38"
-
 rand = "0.8.5"
 
 serde = "1.0.198"

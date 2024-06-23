@@ -15,6 +15,7 @@ glam = { version = "0.27.0", features = ["serde", "scalar-math"] }
 ahash = { version = "0.8.11", features = ["serde"] }
 indexmap = { version = "2.2.6", features = [] }
 smallvec = { version = "1.13.2", features = ["serde", "union"] }
+# dashmap = "5.5.3"
 # heapless = "0.8.0"
 # slotmap = "1.0.7"
 

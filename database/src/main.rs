@@ -9,13 +9,14 @@ use common::ship::{ShipDataId, ShipId};
 use common::system::SystemId;
 use common::{HashMap, HashSet, IndexMap};
 use sha2::Digest;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+
+const SAVE_INTERVAL: Duration = Duration::from_secs(1 * 60 * 60);
 
 struct Database {
     password: String,
 
     next_save: Instant,
-    save_in_progress: Option<std::thread::JoinHandle<()>>,
 
     restart_request: Option<Instant>,
 
@@ -138,7 +139,15 @@ impl Database {
             i += 1;
         }
 
-        self.handle_save();
+        // Save sometime.
+        if self
+            .next_save
+            .checked_duration_since(Instant::now())
+            .is_some()
+        {
+            self.save();
+            self.next_save = Instant::now() + SAVE_INTERVAL;
+        }
 
         // Flush connections.
         self.servers.iter_mut().for_each(|maybe_server| {

@@ -1,99 +1,8 @@
 use super::*;
-use common::{bin_decode, bin_encode};
+use common::{bin_decode, bin_encode_into};
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, time::Duration};
 
-const NUM_SAVE_BACKUPS: usize = 100;
-const SAVE_INTERVAL: Duration = Duration::from_secs(1 * 60 * 60);
-const SAVE_FOLDER_PATH: &str = "../../database_save/";
-
-fn get_sorted_save_files() -> Vec<PathBuf> {
-    let mut ret: Vec<PathBuf> = match std::fs::read_dir(SAVE_FOLDER_PATH) {
-        Ok(iter) => iter.filter_map(|v| v.ok().map(|v| v.path())).collect(),
-        Err(err) => {
-            log::error!("Failed to read save folder: {}", err);
-            return vec![];
-        }
-    };
-
-    ret.sort_by_cached_key(|path| {
-        path.file_name()
-            .map(|s| s.to_string_lossy().parse::<i64>().unwrap_or(i64::MIN))
-            .unwrap_or(i64::MIN)
-    });
-
-    ret
-}
-
-impl Database {
-    pub fn handle_save(&mut self) {
-        if let Some(handle) = &self.save_in_progress {
-            if handle.is_finished() {
-                self.save_in_progress = None;
-            }
-        }
-
-        if Instant::now()
-            .checked_duration_since(self.next_save)
-            .is_some()
-            && self.save_in_progress.is_none()
-        {
-            self.save();
-        }
-    }
-
-    pub fn save(&mut self) {
-        let save = self.to_save();
-
-        if let Some(handle) = self.save_in_progress.take() {
-            let _ = handle.join();
-        }
-
-        self.save_in_progress = Some(std::thread::spawn(move || {
-            let buf = bin_encode(&save);
-            let name = match std::time::UNIX_EPOCH.elapsed() {
-                Ok(duration) => duration.as_secs() as i64,
-                Err(err) => err.duration().as_secs() as i64 * -1,
-            };
-            if let Err(err) = std::fs::create_dir_all(SAVE_FOLDER_PATH) {
-                log::error!("Failed to create save folder: {}", err);
-            }
-            if let Err(err) = std::fs::write(format!("{}{}", SAVE_FOLDER_PATH, name), buf) {
-                log::error!("Failed to save database: {}", err);
-            }
-
-            log::info!("Saved database to {}", name);
-
-            let mut save_files = get_sorted_save_files();
-            while save_files.len() > NUM_SAVE_BACKUPS {
-                if let Err(err) = std::fs::remove_file(save_files.remove(0)) {
-                    log::error!("Failed to remove old save file: {}", err);
-                    break;
-                }
-            }
-        }));
-
-        self.next_save = Instant::now() + SAVE_INTERVAL;
-    }
-
-    pub fn load() -> Self {
-        let mut database_save = if let Some(path) = get_sorted_save_files().last() {
-            log::info!("Loading save file: {:?}", path);
-            let buf = std::fs::read(path).unwrap();
-            bin_decode(&buf).unwrap()
-        } else {
-            log::warn!("No save file found, starting new database");
-            DatabaseSave::default()
-        };
-
-        loop {
-            match database_save.to_database() {
-                Ok(db) => return db,
-                Err(save) => database_save = save,
-            }
-        }
-    }
-}
+const SAVE_FILE_PATH: &str = "../../database_save";
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 enum DatabaseSave {
@@ -141,7 +50,6 @@ impl DatabaseSave {
                 return Ok(Database {
                     password: std::env::var("DATABASE_PASSWORD").unwrap(),
                     next_save: Instant::now() + SAVE_INTERVAL,
-                    save_in_progress: None,
                     restart_request: None,
                     connection_listener: ConnectionListener::bind(common::DATABASE_ADDRESS)
                         .unwrap(),
@@ -157,17 +65,58 @@ impl DatabaseSave {
             }
         })
     }
-}
-impl Database {
-    fn to_save(&self) -> DatabaseSave {
+    fn from_database(db: &Database) -> Self {
         DatabaseSave::V1 {
-            next_client_id: self.next_client_id,
-            simulation_saves: self
+            next_client_id: db.next_client_id,
+            simulation_saves: db
                 .systems
                 .iter()
                 .map(|(id, system)| (*id, system.simulation_save.clone()))
                 .collect(),
-            next_ship_id: self.next_ship_id,
+            next_ship_id: db.next_ship_id,
         }
+    }
+}
+
+impl Database {
+    pub fn load() -> Database {
+        let mut save: DatabaseSave = match std::fs::read(SAVE_FILE_PATH) {
+            Ok(buf) => match bin_decode(&buf) {
+                Ok(save) => save,
+                Err(err) => {
+                    log::error!("Failed to decode database save file: {}", err);
+                    Default::default()
+                }
+            },
+            Err(err) => {
+                log::error!("Failed to open database save file: {}", err);
+                Default::default()
+            }
+        };
+
+        loop {
+            match save.to_database() {
+                Ok(db) => return db,
+                Err(new_save) => save = new_save,
+            }
+        }
+    }
+
+    pub fn save(&self) {
+        let temp_path = format!("{}_{}", SAVE_FILE_PATH, rand::random::<u64>());
+        let file = match std::fs::File::create_new(&temp_path) {
+            Ok(file) => file,
+            Err(err) => {
+                log::error!("Failed to create save file: {}", err);
+                return;
+            }
+        };
+        let file = std::io::BufWriter::new(file);
+        bin_encode_into(DatabaseSave::from_database(self), file);
+        if let Err(err) = std::fs::rename(temp_path, SAVE_FILE_PATH) {
+            log::error!("Failed to rename temporary database save: {}", err);
+        }
+        log::info!("Database saved");
+        // TODO: Send to backup storage.
     }
 }
