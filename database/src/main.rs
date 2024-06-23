@@ -1,159 +1,34 @@
-mod request;
-mod save;
+mod client;
+mod database;
+mod ids;
+mod listener;
 
-use common::connection::*;
-use common::database_packet::*;
-use common::ids::*;
-use common::server::ServerId;
-use common::ship::{ShipDataId, ShipId};
-use common::system::SystemId;
-use common::{HashMap, HashSet, IndexMap};
-use sha2::Digest;
-use std::time::Instant;
+use database::Database;
+use ids::*;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-struct Database {
-    password: String,
+type HashMap<K, V> = ahash::AHashMap<K, V>;
+type HashSet<K> = ahash::AHashSet<K>;
+type IndexMap<K, V> = indexmap::IndexMap<K, V, ahash::RandomState>;
+type DashMap<K, V> = dashmap::DashMap<K, V, ahash::RandomState>;
 
-    next_save: Instant,
-    save_in_progress: Option<std::thread::JoinHandle<()>>,
-
-    restart_request: Option<Instant>,
-
-    connection_listener: ConnectionListener,
-    auth_connections: Vec<(Connection, u64)>,
-
-    /// Indexed by ServerId.
-    servers: Vec<Option<Server>>,
-
-    systems: HashMap<SystemId, System>,
-
-    next_ship_id: ShipId,
-    ships: HashMap<ShipId, Ship>,
-
-    next_client_id: ClientId,
-    clients: HashMap<ClientId, Client>,
-    username: HashMap<String, ClientId>,
+fn bin_encode(data: impl Serialize) -> Vec<u8> {
+    postcard::to_allocvec(&data).unwrap()
+}
+fn bin_encode_into(data: impl Serialize, writer: impl std::io::Write) {
+    postcard::to_io(&data, writer).unwrap();
+}
+fn bin_decode<T: DeserializeOwned>(data: &[u8]) -> anyhow::Result<T> {
+    Ok(postcard::from_bytes(data)?)
 }
 
-struct Server {
-    connection: Connection,
-    // performance: (),
-}
+#[tokio::main(flavor = "multi_thread")]
+async fn main() {
+    log::info!("Server starting");
+    Database::_load();
 
-struct System {
-    simulation_save: Option<Vec<u8>>,
-    ships: HashSet<ShipId>,
-}
+    log::info!("Server started");
+    listener::listener_loop("addr").await;
 
-struct Ship {
-    ship_data_id: ShipDataId,
-    hull_save: Vec<u8>,
-
-    system_id: SystemId,
-}
-
-#[derive(Default)]
-struct Client {
-    password_sha256: Option<Vec<u8>>,
-
-    ships: HashSet<ShipId>,
-    connected: Option<SystemId>,
-}
-
-// ####################################################################################
-// ################################### MAIN LOOP ######################################
-// ####################################################################################
-
-fn main() {
-    common::logger::Logger::init();
-    common::load_data();
-
-    let mut database = Database::load();
-
-    log::info!("Database started");
-    let mut interval = common::interval::Interval::new(100, 500);
-    loop {
-        interval.step();
-        if database.step() {
-            break;
-        }
-    }
-
-    database.save();
-}
-
-impl Database {
-    fn step(&mut self) -> bool {
-        // Take new connections.
-        while let Some(connection) = self.connection_listener.try_recv() {
-            self.auth_connections.push((connection, 0));
-        }
-
-        // Handle server authentication.
-        self.auth_connections.retain_mut(|(connection, counter)| {
-            *counter += 1;
-            if *counter > 100 {
-                false
-            } else if let Some(request) = connection.try_recv::<ServerAuthRequest>() {
-                if request.password == self.password {
-                    log::info!("Server authenticated: {}", request.server_id.ws_addr);
-                    self.servers[request.server_id] = Some(Server {
-                        connection: connection.clone(),
-                    });
-
-                    let system_saves = request
-                        .server_id
-                        .systems()
-                        .into_iter()
-                        .map(|system_id| {
-                            (*system_id, self.systems[&system_id].simulation_save.clone())
-                        })
-                        .collect();
-
-                    connection.queue(ServerAuthResponse { system_saves });
-                }
-                false
-            } else {
-                true
-            }
-        });
-
-        // Handle requests.
-        let mut i = 0;
-        while i < self.servers.len() {
-            let Some(connection) = self.servers[i]
-                .as_mut()
-                .map(|server| server.connection.clone())
-            else {
-                i += 1;
-                continue;
-            };
-
-            let server_id = ServerId::try_from(i as u32).unwrap();
-
-            while let Some(request) = connection.try_recv::<ServerRequest>() {
-                self.handle_request(server_id, request);
-            }
-
-            i += 1;
-        }
-
-        self.handle_save();
-
-        // Flush connections.
-        self.servers.iter_mut().for_each(|maybe_server| {
-            if let Some(server) = maybe_server {
-                server.connection.flush();
-
-                if server.connection.is_closed() {
-                    *maybe_server = None;
-                    log::warn!("Server connection closed");
-                }
-            }
-        });
-
-        // TODO: wait for all simulation to close and save
-        self.restart_request
-            .is_some_and(|instant| !instant.saturating_duration_since(Instant::now()).is_zero())
-    }
+    // database.save();
 }
