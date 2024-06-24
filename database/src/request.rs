@@ -117,20 +117,23 @@ impl Database {
                 }
                 None
             }
-            SimulationRequest::Save {
-                simulation_save,
-                ship_saves,
-            } => {
-                self.systems.get_mut(&system_id)?.simulation_save = Some(simulation_save);
-                for (ship_id, hull_save) in ship_saves {
-                    let ship = self.ships.get_mut(&ship_id)?;
-                    ship.hull_save = hull_save;
+            SimulationRequest::Save { ship_saves } => {
+                for (ship_id, position) in ship_saves {
+                    self.handle_simulation_request(
+                        system_id,
+                        SimulationRequest::SaveShip { ship_id, position },
+                    );
                 }
+                None
+            }
+            SimulationRequest::SaveShip { ship_id, position } => {
+                let ship = self.ships.get_mut(&ship_id)?;
+                ship.position = position;
                 None
             }
             SimulationRequest::CreateShip {
                 ship_data_id,
-                hull_save,
+                position,
             } => {
                 let ship_id = self.next_ship_id.next();
 
@@ -138,7 +141,7 @@ impl Database {
                     ship_id,
                     Ship {
                         ship_data_id,
-                        hull_save: hull_save.clone(),
+                        position,
                         system_id,
                     },
                 );
@@ -148,7 +151,7 @@ impl Database {
                 Some(SimulationResponse::ShipEnter {
                     ship_id,
                     ship_data_id,
-                    hull_save,
+                    position,
                 })
             }
         }

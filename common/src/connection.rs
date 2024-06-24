@@ -28,7 +28,6 @@ impl ConnectionListener {
         let (new_connection_sender, new_connection_receiver) = unbounded();
 
         tokio::spawn(async move {
-            // TODO: Tls
             loop {
                 let (stream, addr) = match listener.accept().await {
                     Ok(ok) => ok,
@@ -40,6 +39,7 @@ impl ConnectionListener {
                 if let Err(err) = stream.set_nodelay(true) {
                     log::debug!("Failed to set nodelay: {}", err);
                 }
+                // TODO: Tls
                 let stream = MaybeTlsStream::Plain(stream);
 
                 let new_connection_sender = new_connection_sender.clone();

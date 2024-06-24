@@ -40,7 +40,7 @@ fn main() {
     let restart = Arc::new(AtomicBool::new(false));
 
     // Start simulations.
-    for (system_id, save) in response.system_saves {
+    for (system_id, save) in response.simulations {
         let (database_response_serder, database_response_receiver) = flume::unbounded();
         let (new_client_serder, new_client_receiver) = flume::unbounded();
 
@@ -53,7 +53,7 @@ fn main() {
         );
 
         let join_handle = std::thread::spawn(move || {
-            let mut sim = common::simulation::Simulation::new(connection, save.as_deref());
+            let mut sim = common::simulation::Simulation::new(connection);
 
             log::info!("Simulation started: {:?}", system_id);
             let mut interval = common::interval::Interval::new(100, 500);

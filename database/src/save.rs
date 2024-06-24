@@ -10,7 +10,7 @@ enum DatabaseSave {
     V0,
     V1 {
         next_client_id: ClientId,
-        simulation_saves: Vec<(SystemId, Option<Vec<u8>>)>,
+        systems: HashMap<SystemId, ()>,
         next_ship_id: ShipId,
     },
 }
@@ -19,12 +19,12 @@ impl DatabaseSave {
         Err(match self {
             DatabaseSave::V0 => Self::V1 {
                 next_client_id: Default::default(),
-                simulation_saves: Default::default(),
+                systems: Default::default(),
                 next_ship_id: Default::default(),
             },
             DatabaseSave::V1 {
                 next_client_id,
-                simulation_saves,
+                systems,
                 next_ship_id,
             } => {
                 let mut servers = Vec::new();
@@ -32,20 +32,18 @@ impl DatabaseSave {
 
                 let mut systems: HashMap<SystemId, System> = SystemId::systems_data_iter()
                     .map(|system| {
-                        (
-                            SystemId(&system),
-                            System {
-                                simulation_save: None,
-                                ships: Default::default(),
-                            },
-                        )
+                        let system_id = SystemId(&system);
+                        let mut system = System {
+                            ships: Default::default(),
+                        };
+
+                        if let Some(data) = systems.get(&system_id) {
+                            // TODO: use saved data
+                        }
+
+                        (system_id, system)
                     })
                     .collect();
-                for (system_id, save) in simulation_saves {
-                    if let Some(system) = systems.get_mut(&system_id) {
-                        system.simulation_save = save;
-                    }
-                }
 
                 return Ok(Database {
                     password: std::env::var("DATABASE_PASSWORD").unwrap(),
@@ -68,11 +66,7 @@ impl DatabaseSave {
     fn from_database(db: &Database) -> Self {
         DatabaseSave::V1 {
             next_client_id: db.next_client_id,
-            simulation_saves: db
-                .systems
-                .iter()
-                .map(|(id, system)| (*id, system.simulation_save.clone()))
-                .collect(),
+            systems: db.systems.iter().map(|(id, system)| (*id, ())).collect(),
             next_ship_id: db.next_ship_id,
         }
     }

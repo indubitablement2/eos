@@ -39,7 +39,7 @@ impl Client {
         if sim.physics.hulls.len() < 4 {
             sim.connection.queue(SimulationRequest::CreateShip {
                 ship_data_id: ShipDataId::default(),
-                hull_save: bin_encode(hull::save::HullSave::default()),
+                position: Vec2::new(0.0, 0.0),
             });
         }
 

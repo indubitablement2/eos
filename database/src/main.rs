@@ -7,7 +7,7 @@ use common::ids::*;
 use common::server::ServerId;
 use common::ship::{ShipDataId, ShipId};
 use common::system::SystemId;
-use common::{HashMap, HashSet, IndexMap};
+use common::*;
 use sha2::Digest;
 use std::time::{Duration, Instant};
 
@@ -42,15 +42,17 @@ struct Server {
 }
 
 struct System {
-    simulation_save: Option<Vec<u8>>,
     ships: HashSet<ShipId>,
+    // TODO: Debris
+    // TODO: items
+    // TODO: planets state
 }
 
 struct Ship {
     ship_data_id: ShipDataId,
-    hull_save: Vec<u8>,
 
     system_id: SystemId,
+    position: Vec2,
 }
 
 #[derive(Default)]
@@ -102,16 +104,15 @@ impl Database {
                         connection: connection.clone(),
                     });
 
-                    let system_saves = request
+                    let simulations = request
                         .server_id
                         .systems()
                         .into_iter()
-                        .map(|system_id| {
-                            (*system_id, self.systems[&system_id].simulation_save.clone())
-                        })
+                        .map(|system_id| (*system_id, ()))
                         .collect();
+                    connection.queue(ServerAuthResponse { simulations });
 
-                    connection.queue(ServerAuthResponse { system_saves });
+                    // TODO: Send ships
                 }
                 false
             } else {
@@ -163,6 +164,6 @@ impl Database {
 
         // TODO: wait for all simulation to close and save
         self.restart_request
-            .is_some_and(|instant| !instant.saturating_duration_since(Instant::now()).is_zero())
+            .is_some_and(|instant| instant.checked_duration_since(Instant::now()).is_some())
     }
 }

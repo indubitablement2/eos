@@ -21,7 +21,7 @@ pub struct ServerAuthRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct ServerAuthResponse {
-    pub system_saves: Vec<(SystemId, Option<Vec<u8>>)>,
+    pub simulations: Vec<(SystemId, ())>,
 }
 
 // ####################################################################################
@@ -75,12 +75,18 @@ pub enum SimulationRequest {
         client_id: ClientId,
     },
     Save {
-        simulation_save: Vec<u8>,
-        ship_saves: Vec<(ShipId, Vec<u8>)>,
+        // simulation_save: Vec<u8>,
+        ship_saves: Vec<(ShipId, Vec2)>,
     },
+    SaveShip {
+        ship_id: ShipId,
+        position: Vec2,
+    },
+    // TODO: ShipChangeSystem
+    // TODO: ShipDestroyed
     CreateShip {
         ship_data_id: ShipDataId,
-        hull_save: Vec<u8>,
+        position: Vec2,
     },
 }
 
@@ -96,7 +102,7 @@ pub enum SimulationResponse {
     ShipEnter {
         ship_id: ShipId,
         ship_data_id: ShipDataId,
-        hull_save: Vec<u8>,
+        position: Vec2,
     },
 }
 

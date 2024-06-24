@@ -1,6 +1,5 @@
 mod client;
 mod hull;
-mod save;
 
 use super::*;
 use client::*;
@@ -49,19 +48,7 @@ pub struct Simulation {
     projectiles: Vec<()>,
 }
 impl Simulation {
-    pub fn new(connection: SimulationConnection, save: Option<&[u8]>) -> Self {
-        let builder = if let Some(save) = save {
-            match bin_decode::<save::SimulationSave>(save) {
-                Ok(save) => save.to_builder(),
-                Err(err) => {
-                    log::error!("Failed to decode simulation save: {}", err);
-                    save::SimulationBuilder::default()
-                }
-            }
-        } else {
-            save::SimulationBuilder::default()
-        };
-
+    pub fn new(connection: SimulationConnection) -> Self {
         Self {
             connection,
             physics: Default::default(),
@@ -90,14 +77,11 @@ impl Simulation {
                 SimulationResponse::ShipEnter {
                     ship_id,
                     ship_data_id,
-                    hull_save,
+                    position,
                 } => {
                     let hull = self.physics.hulls.insert(ship_data_id.hull_data_id).1;
                     hull.ship_id = Some(ship_id);
-
-                    bin_decode::<hull::save::HullSave>(&hull_save)
-                        .unwrap_or_default()
-                        .apply(hull);
+                    hull.position = position;
                 }
             }
         }
@@ -136,17 +120,15 @@ impl Simulation {
             .iter()
             .filter_map(|(_, hull)| {
                 if let Some(ship_id) = hull.ship_id {
-                    Some((ship_id, bin_encode(hull::save::HullSave::from_hull(hull))))
+                    Some((ship_id, hull.position))
                 } else {
                     None
                 }
             })
             .collect();
 
-        self.connection.queue(SimulationRequest::Save {
-            simulation_save: bin_encode(save::SimulationSave::from_sim(self)),
-            ship_saves,
-        });
+        self.connection
+            .queue(SimulationRequest::Save { ship_saves });
     }
 }
 
