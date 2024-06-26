@@ -1,77 +1,39 @@
 use common::connection::*;
 use common::database_packet::*;
-use common::ids::ClientId;
-use common::server::ServerId;
+use common::ids::*;
+use common::*;
 use flume::Sender;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use std::time::Duration;
 
 fn main() {
     common::logger::Logger::init();
     common::load_data();
 
-    let addr = std::env::var("SERVER_ADDR").unwrap();
-    let ws_addr = format!("ws://{}", addr);
-    log::info!("Server address {}", ws_addr);
+    let server_address = std::env::var("SERVER_ADDRESS").unwrap();
+    let simulation_capacity = std::thread::available_parallelism().unwrap().get() as f32 * 16.0;
 
-    let server_id = ServerId(
-        ServerId::data()
-            .into_iter()
-            .find(|x| x.ws_addr == ws_addr)
-            .unwrap(),
+    log::info!(
+        "Server starting:\n\tserver_address: {}\n\tsimulation_capacity: {}",
+        server_address,
+        simulation_capacity
     );
 
-    let new_client = ConnectionListener::bind(addr).unwrap();
+    let new_client = ConnectionListener::bind(&server_address).unwrap();
 
     // Connect to database.
-    let database_connection = Connection::connect(common::DATABASE_WS_ADDRESS).unwrap();
-    database_connection.queue(ServerAuthRequest {
-        password: std::env::var("DATABASE_PASSWORD").unwrap(),
-        server_id,
+    let database_connection = Connection::connect(format!("ws://{}", database_address())).unwrap();
+    database_connection.queue(AuthRequest::Server {
+        database_password: database_password(),
+        server_address,
+        simulation_capacity,
     });
     database_connection.flush();
-    let response = database_connection
-        .block_recv::<ServerAuthResponse>()
-        .unwrap();
+    let _server_id = database_connection.block_recv::<ServerId>().unwrap();
 
-    let mut simulations = HashMap::new();
+    let mut simulations: HashMap<SimulationId, Simulation> = HashMap::new();
     let restart = Arc::new(AtomicBool::new(false));
-
-    // Start simulations.
-    for (system_id, save) in response.simulations {
-        let (database_response_serder, database_response_receiver) = flume::unbounded();
-        let (new_client_serder, new_client_receiver) = flume::unbounded();
-
-        let connection = SimulationConnection::new(
-            system_id,
-            database_connection.clone(),
-            database_response_receiver,
-            new_client_receiver,
-            restart.clone(),
-        );
-
-        let join_handle = std::thread::spawn(move || {
-            let mut sim = common::simulation::Simulation::new(connection);
-
-            log::info!("Simulation started: {:?}", system_id);
-            let mut interval = common::interval::Interval::new(100, 500);
-            loop {
-                interval.step();
-                sim.step();
-            }
-        });
-
-        simulations.insert(
-            system_id,
-            Simulation {
-                database_response_serder,
-                new_client_serder,
-                join_handle,
-            },
-        );
-    }
 
     let mut sys = sysinfo::System::new();
     sys.refresh_cpu_usage();
@@ -79,64 +41,83 @@ fn main() {
 
     let mut client_first_packet = Vec::new();
 
-    let mut next_client_auth_token = 0;
-    let mut client_auth = HashMap::new();
-
     log::info!("Server started");
-    let mut interval = common::interval::Interval::new(10, 50);
+    let mut interval = common::interval::Interval::new(100, 500);
     loop {
         interval.step();
 
-        // Receive new clients
+        // Receive new clients.
         while let Some(connection) = new_client.try_recv() {
-            client_first_packet.push((connection, 0u32));
+            client_first_packet.push((connection, 0u64));
         }
 
-        // Auth clients
+        // Handle client's first packet.
         client_first_packet.retain_mut(|(connection, counter)| {
             *counter += 1;
-            if *counter > 1000 {
-                false
-            } else if let Some(request) = connection.try_recv::<ClientLogin>() {
-                let token = next_client_auth_token;
-                next_client_auth_token += 1;
-
-                client_auth.insert(token, connection.clone());
-                database_connection.queue(ServerRequest::ClientLogin { request, token });
-
+            if let Some((client_id, token, simulation_id)) =
+                connection.try_recv::<(ClientId, u64, SimulationId)>()
+            {
+                if let Some(simulation) = simulations.get(&simulation_id) {
+                    let _ =
+                        simulation
+                            .new_client_serder
+                            .send((client_id, token, connection.clone()));
+                }
                 false
             } else {
-                true
+                *counter < 100
             }
         });
 
+        // Handle database packets.
         while let Some(response) = database_connection.try_recv::<ServerResponse>() {
             match response {
-                ServerResponse::ClientLogin { token, result } => {
-                    let Some(connection) = client_auth.remove(&token) else {
-                        log::warn!("Invalid token {}", token);
+                ServerResponse::StartSimulation { simulation_id } => {
+                    if simulations.contains_key(&simulation_id) {
+                        log::error!("Simulation already started: {:?}", simulation_id);
                         continue;
-                    };
-                    let Some((client_id, system_id)) = result else {
-                        continue;
-                    };
-                    let Some(simulation) = simulations.get(&system_id) else {
-                        log::warn!("System not run by this server");
-                        continue;
-                    };
+                    }
 
-                    connection.queue(client_id);
-                    if let Err(err) = simulation.new_client_serder.send((client_id, connection)) {
-                        log::error!("Failed to send new client to simulation: {}", err);
-                    };
+                    let (database_response_serder, database_response_receiver) = flume::unbounded();
+                    let (new_client_serder, new_client_receiver) = flume::unbounded();
+
+                    let connection = SimulationConnection::new(
+                        simulation_id,
+                        database_connection.clone(),
+                        database_response_receiver,
+                        new_client_receiver,
+                        restart.clone(),
+                    );
+
+                    let join_handle = std::thread::spawn(move || {
+                        let mut sim = common::simulation::Simulation::new(connection);
+
+                        log::info!("{:?} started", simulation_id);
+                        let mut interval = common::interval::Interval::new(100, 500);
+                        loop {
+                            interval.step();
+                            sim.step();
+                        }
+                    });
+
+                    simulations.insert(
+                        simulation_id,
+                        Simulation {
+                            database_response_serder,
+                            new_client_serder,
+                            join_handle,
+                        },
+                    );
                 }
                 ServerResponse::SimulationResponse {
-                    system_id,
+                    simulation_id,
                     response,
                 } => {
-                    let _ = simulations[&system_id]
-                        .database_response_serder
-                        .send(response);
+                    if let Some(simulation) = simulations.get(&simulation_id) {
+                        let _ = simulation.database_response_serder.send(response);
+                    } else {
+                        log::warn!("Simulation not found: {:?}", simulation_id);
+                    }
                 }
                 ServerResponse::Restart => {
                     log::info!("Restart started");
@@ -144,15 +125,15 @@ fn main() {
                     restart.store(true, std::sync::atomic::Ordering::Relaxed);
 
                     loop {
-                        std::thread::sleep(Duration::from_millis(100));
+                        interval.step();
                         database_connection.flush();
 
                         if simulations
                             .values()
                             .all(|simulation| simulation.join_handle.is_finished())
                         {
-                            for _ in 0..1000 {
-                                std::thread::sleep(Duration::from_millis(100));
+                            for _ in 0..600 {
+                                interval.step();
                                 database_connection.flush();
                             }
                             return;
@@ -178,6 +159,6 @@ fn main() {
 
 struct Simulation {
     database_response_serder: Sender<SimulationResponse>,
-    new_client_serder: Sender<(ClientId, Connection)>,
+    new_client_serder: Sender<(ClientId, u64, Connection)>,
     join_handle: std::thread::JoinHandle<()>,
 }

@@ -30,10 +30,10 @@ impl DatabaseSave {
                 let mut servers = Vec::new();
                 servers.resize_with(ServerId::data().len(), || None);
 
-                let mut systems: HashMap<SystemId, System> = SystemId::systems_data_iter()
+                let mut systems: HashMap<SystemId, Simulation> = SystemId::systems_data_iter()
                     .map(|system| {
                         let system_id = SystemId(&system);
-                        let mut system = System {
+                        let mut system = Simulation {
                             ships: Default::default(),
                         };
 
@@ -46,14 +46,11 @@ impl DatabaseSave {
                     .collect();
 
                 return Ok(Database {
-                    password: std::env::var("DATABASE_PASSWORD").unwrap(),
                     next_save: Instant::now() + SAVE_INTERVAL,
                     restart_request: None,
-                    connection_listener: ConnectionListener::bind(common::DATABASE_ADDRESS)
-                        .unwrap(),
-                    auth_connections: Default::default(),
+                    new_connection_hanlder: Default::default(),
                     servers,
-                    systems,
+                    simulations: systems,
                     next_ship_id,
                     ships: Default::default(),
                     next_client_id,
@@ -66,7 +63,11 @@ impl DatabaseSave {
     fn from_database(db: &Database) -> Self {
         DatabaseSave::V1 {
             next_client_id: db.next_client_id,
-            systems: db.systems.iter().map(|(id, system)| (*id, ())).collect(),
+            systems: db
+                .simulations
+                .iter()
+                .map(|(id, system)| (*id, ()))
+                .collect(),
             next_ship_id: db.next_ship_id,
         }
     }

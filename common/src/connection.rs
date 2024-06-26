@@ -1,3 +1,5 @@
+use std::sync::{atomic::AtomicBool, Arc};
+
 use super::*;
 use flume::{unbounded, Receiver, Sender};
 use futures_util::{SinkExt, StreamExt};
@@ -89,6 +91,7 @@ enum Outbound {
 pub struct Connection {
     inbound: Receiver<Vec<u8>>,
     outbound: Sender<Outbound>,
+    has_queue: Arc<AtomicBool>,
 }
 impl Connection {
     pub fn packets_out() -> u64 {
@@ -181,11 +184,14 @@ impl Connection {
         Ok(Self {
             inbound: inbound_receiver,
             outbound: outbound_sender,
+            has_queue: Arc::new(AtomicBool::new(false)),
         })
     }
 
     pub fn queue_raw(&self, buf: Vec<u8>) {
         let _ = self.outbound.send(Outbound::Packet(buf));
+        self.has_queue
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub fn queue(&self, packet: impl Serialize) {
@@ -193,7 +199,12 @@ impl Connection {
     }
 
     pub fn flush(&self) {
-        let _ = self.outbound.send(Outbound::Flush);
+        if self
+            .has_queue
+            .swap(false, std::sync::atomic::Ordering::Relaxed)
+        {
+            let _ = self.outbound.send(Outbound::Flush);
+        }
     }
 
     pub fn close(&self) {

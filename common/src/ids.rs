@@ -68,3 +68,49 @@ impl Id for FactionId {
         NonZeroU64::new(value).map(Self)
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct ServerId(NonZeroU64);
+impl Default for ServerId {
+    fn default() -> Self {
+        Self(NonZeroU64::MIN)
+    }
+}
+impl Id for ServerId {
+    fn next(&mut self) -> Self {
+        let ret = *self;
+        self.0 = self.0.checked_add(1).unwrap();
+        ret
+    }
+
+    fn to_u64(&self) -> u64 {
+        self.0.get()
+    }
+
+    fn try_from_u64(value: u64) -> Option<Self> {
+        NonZeroU64::new(value).map(Self)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct SimulationId(NonZeroU64);
+impl Default for SimulationId {
+    fn default() -> Self {
+        Self(NonZeroU64::MIN)
+    }
+}
+impl Id for SimulationId {
+    fn next(&mut self) -> Self {
+        let ret = *self;
+        self.0 = self.0.checked_add(1).unwrap();
+        ret
+    }
+
+    fn to_u64(&self) -> u64 {
+        self.0.get()
+    }
+
+    fn try_from_u64(value: u64) -> Option<Self> {
+        NonZeroU64::new(value).map(Self)
+    }
+}

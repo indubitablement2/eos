@@ -3,10 +3,8 @@ pub mod database_packet;
 pub mod ids;
 pub mod interval;
 pub mod logger;
-pub mod server;
 pub mod ship;
 pub mod simulation;
-pub mod system;
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -17,9 +15,6 @@ pub type IVec2 = glam::i32::IVec2;
 pub type HashMap<K, V> = ahash::AHashMap<K, V>;
 pub type HashSet<K> = ahash::AHashSet<K>;
 pub type IndexMap<K, V> = indexmap::IndexMap<K, V, ahash::RandomState>;
-
-pub const DATABASE_ADDRESS: &str = "127.0.0.1:43598";
-pub const DATABASE_WS_ADDRESS: &str = "ws://127.0.0.1:43598";
 
 static _TOKIO_RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
 pub fn tokio() -> &'static tokio::runtime::Runtime {
@@ -41,9 +36,14 @@ pub fn bin_decode<T: DeserializeOwned>(data: &[u8]) -> anyhow::Result<T> {
     Ok(postcard::from_bytes(data)?)
 }
 
+pub fn database_password() -> String {
+    std::env::var("DATABASE_PASSWORD").unwrap()
+}
+pub fn database_address() -> String {
+    std::env::var("DATABASE_ADDRESS").unwrap()
+}
+
 pub fn load_data() {
-    server::load_data();
-    system::load_system_data();
     simulation::load_data();
     ship::load_data();
 }

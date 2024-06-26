@@ -63,17 +63,16 @@ impl Simulation {
         self.global_time = global_time();
 
         // Take new clients.
-        while let Some((client_id, connection)) = self.connection.new_client() {
+        // TODO: Verify client is added to simulation.
+        while let Some((client_id, token, connection)) = self.connection.new_client() {
             self.clients.insert(client_id, Client::new(connection));
         }
 
         // Handle database packets.
         while let Some(response) = self.connection.try_recv() {
             match response {
-                SimulationResponse::ClientUpdate { client_id, update } => todo!(),
-                SimulationResponse::ClientLogoff { client_id } => {
-                    self.clients.remove(&client_id);
-                }
+                SimulationResponse::ClientAuthorisationAdd { client_id, token } => {}
+                SimulationResponse::ClientAuthorisationRemove { client_id } => {}
                 SimulationResponse::ShipEnter {
                     ship_id,
                     ship_data_id,

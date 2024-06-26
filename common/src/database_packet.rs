@@ -1,9 +1,7 @@
 use self::{
     connection::Connection,
     ids::*,
-    server::ServerId,
     ship::{ShipDataId, ShipId},
-    system::SystemId,
 };
 use super::*;
 use flume::Receiver;
@@ -13,15 +11,20 @@ use std::sync::{atomic::AtomicBool, Arc};
 // ################################### SERVER AUTH ####################################
 // ####################################################################################
 
-#[derive(Serialize, Deserialize)]
-pub struct ServerAuthRequest {
-    pub server_id: ServerId,
-    pub password: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ServerAuthResponse {
-    pub simulations: Vec<(SystemId, ())>,
+#[derive(Debug, Serialize, Deserialize)]
+pub enum AuthRequest {
+    Server {
+        database_password: String,
+        server_address: String,
+        simulation_capacity: f32,
+    },
+    Client {
+        username: String,
+        password: String,
+        /// Try to register if the username does not exist.
+        /// Otherwise try to login.
+        register: bool,
+    },
 }
 
 // ####################################################################################
@@ -30,36 +33,21 @@ pub struct ServerAuthResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ServerRequest {
-    ClientLogin {
-        request: ClientLogin,
-        token: u64,
-    },
     PerfStats {},
     SimulationRequest {
-        system_id: SystemId,
+        simulation_id: SimulationId,
         request: SimulationRequest,
     },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ClientLogin {
-    /// None -> join any system handled by this server.
-    pub join_system: Option<SystemId>,
-    pub username: String,
-    pub password: String,
-    /// Try to register if the username does not exist.
-    /// Otherwise try to login.
-    pub register: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub enum ServerResponse {
-    ClientLogin {
-        token: u64,
-        result: Option<(ClientId, SystemId)>,
+    StartSimulation {
+        simulation_id: SimulationId,
+        // TODO: planets, ships, etc.
     },
     SimulationResponse {
-        system_id: SystemId,
+        simulation_id: SimulationId,
         response: SimulationResponse,
     },
     Restart,
@@ -92,11 +80,11 @@ pub enum SimulationRequest {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum SimulationResponse {
-    ClientUpdate {
+    ClientAuthorisationAdd {
         client_id: ClientId,
-        update: ClientUpdate,
+        token: u64,
     },
-    ClientLogoff {
+    ClientAuthorisationRemove {
         client_id: ClientId,
     },
     ShipEnter {
@@ -112,23 +100,23 @@ pub struct ClientUpdate {
 }
 
 pub struct SimulationConnection {
-    system_id: SystemId,
+    simulation_id: SimulationId,
     /// Used to send requests only.
     database_connection: Connection,
     database_response_receiver: Receiver<SimulationResponse>,
-    new_client_receiver: Receiver<(ClientId, Connection)>,
+    new_client_receiver: Receiver<(ClientId, u64, Connection)>,
     restart: Arc<AtomicBool>,
 }
 impl SimulationConnection {
     pub fn new(
-        system_id: SystemId,
+        simulation_id: SimulationId,
         database_connection: Connection,
         database_response_receiver: Receiver<SimulationResponse>,
-        new_client_receiver: Receiver<(ClientId, Connection)>,
+        new_client_receiver: Receiver<(ClientId, u64, Connection)>,
         restart: Arc<AtomicBool>,
     ) -> Self {
         Self {
-            system_id,
+            simulation_id,
             database_connection,
             database_response_receiver,
             new_client_receiver,
@@ -137,34 +125,34 @@ impl SimulationConnection {
     }
 
     pub fn queue(&self, request: SimulationRequest) {
-        log::debug!("{:?} -> {:?}", self.system_id, request);
+        log::debug!("{:?} -> {:?}", self.simulation_id, request);
         self.database_connection
             .queue(ServerRequest::SimulationRequest {
-                system_id: self.system_id,
+                simulation_id: self.simulation_id,
                 request,
             })
     }
 
     pub fn try_recv(&self) -> Option<SimulationResponse> {
         if let Ok(response) = self.database_response_receiver.try_recv() {
-            log::debug!("{:?} <- {:?}", self.system_id, &response);
+            log::debug!("{:?} <- {:?}", self.simulation_id, &response);
             Some(response)
         } else {
             None
         }
     }
 
-    pub fn new_client(&self) -> Option<(ClientId, Connection)> {
+    pub fn new_client(&self) -> Option<(ClientId, u64, Connection)> {
         if let Ok(new_client) = self.new_client_receiver.try_recv() {
-            log::debug!("{:?} <- {:?}", self.system_id, new_client.0);
+            log::debug!("{:?} <- {:?}", self.simulation_id, new_client.0);
             Some(new_client)
         } else {
             None
         }
     }
 
-    pub fn system_id(&self) -> SystemId {
-        self.system_id
+    pub fn simulation_id(&self) -> SimulationId {
+        self.simulation_id
     }
 
     pub fn restart(&self) -> bool {
