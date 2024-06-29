@@ -11,11 +11,16 @@ use common::ship::{ShipDataId, ShipId};
 use common::*;
 use rand::random;
 use save::*;
+use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::time::{Duration, Instant};
 
 const MAX_SERVER_BEFORE_START: usize = 1;
 const MAX_DURATION_BEFORE_START: Duration = Duration::from_secs(200);
+
+pub const fn database_password() -> &'static str {
+    std::env!("DATABASE_PASSWORD")
+}
 
 pub struct Database {
     restart_request: Option<Instant>,
@@ -57,12 +62,22 @@ pub struct Server {
 
 #[derive(Default)]
 pub struct Client {
+    pub auth_level: ClientAuthLevel,
+    username: String,
     password_sha256: [u8; 32],
     ships: HashSet<ShipId>,
 
     connection: Option<Connection>,
     simulation: Option<SimulationId>,
     connection_generation: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
+pub enum ClientAuthLevel {
+    #[default]
+    User,
+    Admin,
+    SuperAdmin,
 }
 
 pub struct Simulation {

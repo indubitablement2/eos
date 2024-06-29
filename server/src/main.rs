@@ -25,7 +25,7 @@ fn main() {
     // Connect to database.
     let database_connection = Connection::connect(format!("ws://{}", database_address())).unwrap();
     database_connection.queue(AuthRequest::Server {
-        database_password: database_password(),
+        database_password: std::env::var("DATABASE_PASSWORD").unwrap(),
         server_address,
         simulation_capacity,
     });

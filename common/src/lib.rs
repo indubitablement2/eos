@@ -36,9 +36,6 @@ pub fn bin_decode<T: DeserializeOwned>(data: &[u8]) -> anyhow::Result<T> {
     Ok(postcard::from_bytes(data)?)
 }
 
-pub fn database_password() -> String {
-    std::env::var("DATABASE_PASSWORD").unwrap()
-}
 pub fn database_address() -> String {
     std::env::var("DATABASE_ADDRESS").unwrap()
 }

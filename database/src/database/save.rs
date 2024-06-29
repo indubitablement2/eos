@@ -210,20 +210,28 @@ enum ClientSave {
     #[default]
     V0,
     V1 {
+        auth_level: ClientAuthLevel,
+        username: String,
         password_sha256: [u8; 32],
     },
 }
 impl ClientSave {
     fn save(client: &Client) -> Self {
         Self::V1 {
+            auth_level: client.auth_level,
+            username: client.username.clone(),
             password_sha256: client.password_sha256,
         }
     }
 
     fn apply(self, client_id: ClientId, db: &mut Database) {
         match self {
-            Self::V1 { password_sha256 } => {
-                db.insert_client(client_id, password_sha256);
+            Self::V1 {
+                auth_level,
+                username,
+                password_sha256,
+            } => {
+                db.insert_client(username, client_id, password_sha256, auth_level);
             }
             _ => {
                 panic!("Unhandled ClientSave version");

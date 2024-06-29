@@ -16,21 +16,40 @@ impl Database {
             return None;
         }
 
-        let client_id = match self.username.entry(username) {
-            std::collections::hash_map::Entry::Occupied(_) => return None,
-            std::collections::hash_map::Entry::Vacant(entry) => {
-                entry.insert(self.next_client_id.next()).clone()
-            }
+        if self.username.contains_key(&username) {
+            return None;
+        }
+
+        let client_id = self.next_client_id.next();
+
+        let auth_level = if password == database_password() {
+            ClientAuthLevel::SuperAdmin
+        } else {
+            ClientAuthLevel::User
         };
 
-        self.insert_client(client_id, hash_password(password.as_bytes()));
+        self.insert_client(
+            username,
+            client_id,
+            hash_password(password.as_bytes()),
+            auth_level,
+        );
 
         log::debug!("{:?} registered", client_id);
         Some(client_id)
     }
 
-    pub fn insert_client(&mut self, client_id: ClientId, password_sha256: [u8; 32]) {
+    pub fn insert_client(
+        &mut self,
+        username: String,
+        client_id: ClientId,
+        password_sha256: [u8; 32],
+        auth_level: ClientAuthLevel,
+    ) {
+        self.username.insert(username.clone(), client_id);
         let client = Client {
+            auth_level,
+            username,
             password_sha256,
             ships: Default::default(),
             connection: None,
