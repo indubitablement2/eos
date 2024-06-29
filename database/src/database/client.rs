@@ -11,7 +11,7 @@ fn hash_password(password: &[u8]) -> [u8; 32] {
 }
 
 impl Database {
-    pub fn register_client(&mut self, username: String, password: String) -> Option<ClientId> {
+    pub fn register_client(&mut self, username: String, password: &str) -> Option<ClientId> {
         if password.len() < 6 || password.len() > 32 || username.len() < 4 || username.len() > 32 {
             return None;
         }
@@ -47,7 +47,7 @@ impl Database {
     pub fn connect_client(
         &mut self,
         client_id: ClientId,
-        password: String,
+        password: &str,
         connection: Connection,
     ) -> Option<()> {
         let client = self.clients.get(&client_id)?;

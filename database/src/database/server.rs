@@ -64,7 +64,7 @@ impl Database {
                     }
                 }
 
-                self.connect_simulation(*simulation_id, simulation);
+                self.insert_simulation(*simulation_id, simulation);
             }
         }
 

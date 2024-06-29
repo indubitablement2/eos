@@ -1,3 +1,4 @@
+mod client_request;
 mod database;
 mod server_request;
 

@@ -256,16 +256,18 @@ enum ShipSave {
     #[default]
     V0,
     V1 {
-        simulation_id: SimulationId,
         ship_data_id: ShipDataId,
+        simulation_id: SimulationId,
+        owner: Option<ClientId>,
         position: Vec2,
     },
 }
 impl ShipSave {
     fn save(ship: &Ship) -> Self {
         Self::V1 {
-            simulation_id: ship.simulation_id,
             ship_data_id: ship.ship_data_id,
+            simulation_id: ship.simulation_id,
+            owner: ship.owner,
             position: ship.position,
         }
     }
@@ -273,11 +275,12 @@ impl ShipSave {
     fn apply(self, ship_id: ShipId, db: &mut Database) {
         match self {
             Self::V1 {
-                simulation_id,
                 ship_data_id,
+                simulation_id,
+                owner,
                 position,
             } => {
-                db.insert_ship(ship_id, simulation_id, ship_data_id, position);
+                db.insert_ship(ship_id, ship_data_id, simulation_id, owner, position);
             }
             _ => {
                 panic!("Unhandled ShipSave version");

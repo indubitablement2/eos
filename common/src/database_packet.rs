@@ -74,6 +74,7 @@ pub enum SimulationRequest {
     // TODO: ShipDestroyed
     CreateShip {
         ship_data_id: ShipDataId,
+        owner: Option<ClientId>,
         position: Vec2,
     },
 }

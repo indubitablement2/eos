@@ -38,9 +38,10 @@ impl Database {
             }
             SimulationRequest::CreateShip {
                 ship_data_id,
+                owner,
                 position,
             } => {
-                self.create_ship(simulation_id, ship_data_id, position);
+                self.create_ship(ship_data_id, simulation_id, owner, position);
             }
         }
     }

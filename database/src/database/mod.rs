@@ -30,19 +30,19 @@ pub struct Database {
     server_connections: Vec<(ServerId, Connection, u64)>,
     server_zones: HashMap<u64, Vec<ServerId>>,
 
+    next_client_id: ClientId,
+    clients: HashMap<ClientId, Client>,
+    client_connections: Vec<(ClientId, Connection, u64)>,
+    username: HashMap<String, ClientId>,
+
     next_simulation_id: SimulationId,
     simulations: HashMap<SimulationId, Simulation>,
 
     next_ship_id: ShipId,
     ships: HashMap<ShipId, Ship>,
-
-    next_client_id: ClientId,
-    clients: HashMap<ClientId, Client>,
-    client_connections: Vec<(ClientId, Connection, u64)>,
-    username: HashMap<String, ClientId>,
 }
 
-struct Server {
+pub struct Server {
     connection: Connection,
     connection_rand_generation: u64,
 
@@ -55,33 +55,33 @@ struct Server {
     // performance: (),
 }
 
-struct Simulation {
-    handling_server: ServerId,
-
-    ships: HashSet<ShipId>,
-    // TODO: Debris
-    // TODO: items
-    // TODO: planets state
-    connected_clients: HashSet<ClientId>,
-}
-
-struct Ship {
-    ship_data_id: ShipDataId,
-
-    // TODO
-    // owner: Option<ClientId>,
-    simulation_id: SimulationId,
-    position: Vec2,
-}
-
 #[derive(Default)]
-struct Client {
+pub struct Client {
     password_sha256: [u8; 32],
     ships: HashSet<ShipId>,
 
     connection: Option<Connection>,
     simulation: Option<SimulationId>,
     connection_generation: u64,
+}
+
+pub struct Simulation {
+    handling_server: ServerId,
+
+    ships: HashSet<ShipId>,
+    // TODO: Debris
+    // TODO: items
+    // TODO: planets
+    connected_clients: HashSet<ClientId>,
+}
+
+pub struct Ship {
+    ship_data_id: ShipDataId,
+
+    owner: Option<ClientId>,
+
+    simulation_id: SimulationId,
+    position: Vec2,
 }
 
 impl Database {
@@ -95,6 +95,7 @@ impl Database {
             servers: Default::default(),
             server_connections: Default::default(),
             server_zones: Default::default(),
+            next_simulation_id: Default::default(),
             simulations: Default::default(),
             next_ship_id: Default::default(),
             ships: Default::default(),
@@ -163,12 +164,10 @@ impl Database {
                     } => {
                         if !server_only {
                             if let Some(&client_id) = self.username.get(&username) {
-                                self.connect_client(client_id, password, connection.clone());
+                                self.connect_client(client_id, &password, connection.clone());
                             } else if register {
-                                if let Some(client_id) =
-                                    self.register_client(username, password.clone())
-                                {
-                                    self.connect_client(client_id, password, connection.clone());
+                                if let Some(client_id) = self.register_client(username, &password) {
+                                    self.connect_client(client_id, &password, connection.clone());
                                 }
                             }
                         }
@@ -195,9 +194,10 @@ impl Database {
                 return false;
             }
 
-            // while let Some(request) = connection.try_recv::<ServerRequest>() {
-            //     self.handle_request(*client_id, request);
-            // }
+            while let Some(request) = connection.try_recv::<super::client_request::ClientRequest>()
+            {
+                self.handle_client_request(*client_id, request);
+            }
 
             connection.flush();
             if connection.is_closed() {

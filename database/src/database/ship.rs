@@ -3,25 +3,37 @@ use super::*;
 impl Database {
     pub fn create_ship(
         &mut self,
-        simulation_id: SimulationId,
         ship_data_id: ShipDataId,
+        simulation_id: SimulationId,
+        owner: Option<ClientId>,
         position: Vec2,
     ) -> Option<ShipId> {
         let ship_id = self.next_ship_id.next();
-        self.insert_ship(ship_id, simulation_id, ship_data_id, position)
+        self.insert_ship(ship_id, ship_data_id, simulation_id, owner, position)
     }
 
     pub fn insert_ship(
         &mut self,
         ship_id: ShipId,
-        simulation_id: SimulationId,
         ship_data_id: ShipDataId,
+        simulation_id: SimulationId,
+        mut owner: Option<ClientId>,
         position: Vec2,
     ) -> Option<ShipId> {
         let simulation = self.simulations.get_mut(&simulation_id)?;
 
+        if let Some(client_id) = owner.take() {
+            if let Some(client) = self.clients.get_mut(&client_id) {
+                client.ships.insert(ship_id);
+                owner = Some(client_id);
+            } else {
+                log::warn!("{:?} does not exist", client_id);
+            }
+        }
+
         let ship = Ship {
             ship_data_id,
+            owner,
             simulation_id,
             position,
         };
