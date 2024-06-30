@@ -52,19 +52,20 @@ impl Database {
             if let Some(idx) = server_zones.iter().position(|&id| id == server_id) {
                 server_zones.swap_remove(idx);
             }
+            if server_zones.is_empty() {
+                self.server_zones.remove(&server.zone);
+            }
         }
 
         for simulation_id in &server.simulations {
-            if let Some(mut simulation) = self.simulations.remove(simulation_id) {
-                simulation.handling_server = Default::default();
-
-                for client_id in simulation.connected_clients.drain() {
+            if let Some(simulation) = self.simulations.get(simulation_id) {
+                for client_id in simulation.connected_clients.iter() {
                     if let Some(client) = self.clients.get_mut(&client_id) {
                         client.simulation = None;
                     }
                 }
 
-                self.insert_simulation(*simulation_id, simulation);
+                self.insert_simulation(*simulation_id, simulation.position, simulation.zone);
             }
         }
 

@@ -55,12 +55,11 @@ pub struct Server {
     server_address: String,
 
     simulations: HashSet<SimulationId>,
-    simulation_capacity: f32,
-    current_simulation_cost: f32,
+    simulation_capacity: u32,
+    current_simulation_cost: u32,
     // performance: (),
 }
 
-#[derive(Default)]
 pub struct Client {
     pub auth_level: ClientAuthLevel,
     username: String,
@@ -82,12 +81,15 @@ pub enum ClientAuthLevel {
 
 pub struct Simulation {
     handling_server: ServerId,
+    connected_clients: HashSet<ClientId>,
+
+    position: Vec2,
+    zone: u64,
 
     ships: HashSet<ShipId>,
     // TODO: Debris
     // TODO: items
     // TODO: planets
-    connected_clients: HashSet<ClientId>,
 }
 
 pub struct Ship {
