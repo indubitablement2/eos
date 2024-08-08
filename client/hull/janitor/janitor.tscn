@@ -1,9 +1,0 @@
-[gd_scene load_steps=3 format=3 uid="uid://0devgq4natjw"]
-
-[ext_resource type="Texture2D" uid="uid://bg1wxoq37borr" path="res://hull/janitor/albedo.png" id="1_dfs72"]
-[ext_resource type="Script" path="res://hull/hull.gd" id="2_23huw"]
-
-[node name="Janitor" type="Sprite2D"]
-texture = ExtResource("1_dfs72")
-offset = Vector2(1.5, -20)
-script = ExtResource("2_23huw")

@@ -1,7 +1,7 @@
 [gd_scene load_steps=5 format=3 uid="uid://bq1t8fnufcmh0"]
 
-[ext_resource type="Script" path="res://scene/simulation.gd" id="1_xpnlf"]
-[ext_resource type="Texture2D" uid="uid://cke4taba0wnvh" path="res://icon.svg" id="2_tv4lh"]
+[ext_resource type="Script" path="res://client/simulation/simulation_client.gd" id="1_7n8jv"]
+[ext_resource type="Texture2D" uid="uid://cke4taba0wnvh" path="res://icon.svg" id="2_hd3u1"]
 
 [sub_resource type="GDScript" id="GDScript_yhbbm"]
 script/source = "extends Camera2D
@@ -37,13 +37,13 @@ func _on_timer_timeout() -> void:
 "
 
 [node name="Simulation" type="Node2D"]
-script = ExtResource("1_xpnlf")
+script = ExtResource("1_7n8jv")
 
 [node name="Camera2D" type="Camera2D" parent="."]
 script = SubResource("GDScript_yhbbm")
 
 [node name="Icon" type="Sprite2D" parent="."]
-texture = ExtResource("2_tv4lh")
+texture = ExtResource("2_hd3u1")
 
 [node name="Rx" type="Label" parent="."]
 offset_left = -223.0

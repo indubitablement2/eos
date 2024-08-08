@@ -1,0 +1,35 @@
+[gd_scene load_steps=6 format=3 uid="uid://b2njafq6umn3w"]
+
+[ext_resource type="Script" path="res://common/hull/hull.gd" id="1_tq658"]
+[ext_resource type="Texture2D" uid="uid://bg1wxoq37borr" path="res://common/hull/janitor/albedo.png" id="2_7j60f"]
+[ext_resource type="Script" path="res://client/hull_client.gd" id="3_l1x3y"]
+[ext_resource type="Script" path="res://server/hull_server.gd" id="4_50vdg"]
+[ext_resource type="Script" path="res://tool/hull_tool.gd" id="5_a4f1v"]
+
+[node name="Hull" type="RigidBody2D"]
+center_of_mass_mode = 1
+max_contacts_reported = 8
+contact_monitor = true
+script = ExtResource("1_tq658")
+rear_arc = 0.84
+ai = "Ship"
+
+[node name="Sprite" type="Sprite2D" parent="."]
+rotation = 1.5708
+texture = ExtResource("2_7j60f")
+offset = Vector2(1.5, -20)
+
+[node name="Collider" type="CollisionPolygon2D" parent="."]
+position = Vector2(4.355, 2.47)
+rotation = 1.5708
+polygon = PackedVector2Array(-21, -108, 10, -108, 61, 16, 39, 84, -42, 84, -60, -21)
+
+[node name="HullClient" type="Node" parent="."]
+script = ExtResource("3_l1x3y")
+
+[node name="HullServer" type="Node" parent="."]
+script = ExtResource("4_50vdg")
+
+[node name="HullTool" type="Node2D" parent="."]
+visible = false
+script = ExtResource("5_a4f1v")

@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Eos"
-run/main_scene="res://scene/entry.tscn"
+run/main_scene="res://client/scene/entry.tscn"
 config/features=PackedStringArray("4.2", "GL Compatibility")
 config/icon="res://icon.svg"
 
@@ -47,15 +47,13 @@ camera_zoom_out={
 2d_physics/layer_2="Debris"
 2d_physics/layer_3="Missile"
 2d_physics/layer_4="Fighter"
-2d_physics/layer_9="Avoidance S"
-2d_physics/layer_10="Avoidance M"
-2d_physics/layer_11="Avoidance L"
-2d_physics/layer_12="Avoidance XL"
-2d_physics/layer_13="Avoidance XXL"
+2d_physics/layer_5="Projectile"
 
 [physics]
 
 common/physics_ticks_per_second=10
+common/max_physics_steps_per_frame=3
+common/physics_jitter_fix=0.0
 2d/default_gravity=0.0
 
 [rendering]

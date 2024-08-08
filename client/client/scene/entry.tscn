@@ -4,10 +4,14 @@
 script/source = "extends Node
 
 func _ready() -> void:
-	Postcard._test()
+	#Postcard._test()
+	
+	if FileAccess.file_exists(\"res://server/hull_server.gd\"):
+		Global.is_server = true
 	
 	queue_free()
-	get_parent().add_child.call_deferred(preload(\"res://scene/main_menu.tscn\").instantiate())
+	push_error(\"todo\")
+	#get_parent().add_child.call_deferred(preload(\"res://scene/main_menu.tscn\").instantiate())
 "
 
 [node name="Entry" type="Node"]
