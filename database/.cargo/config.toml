@@ -1,4 +1,0 @@
-
-[env]
-CLIENT_PASSWORD_SALT = ""
-DATABASE_PASSWORD = ""
