@@ -1,0 +1,16 @@
+[gd_resource type="Resource" load_steps=2 format=3 uid="uid://bv7yo18rogbqa"]
+
+[sub_resource type="GDScript" id="GDScript_avwib"]
+script/source = "extends Modifiers
+
+func apply_hull(hull: Hull) -> void:
+	hull.linear_acceleration *= 1.3
+	hull.linear_velocity_max *= 1.3
+	hull.angular_acceleration *= 1.3
+	hull.angular_velocity_max *= 1.3
+"
+
+[resource]
+resource_name = "banana"
+script = SubResource("GDScript_avwib")
+description = "Increase control by [color=forest_green]30%[/color]."
