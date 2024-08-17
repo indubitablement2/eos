@@ -1,22 +1,16 @@
-[gd_scene load_steps=7 format=3 uid="uid://dpy525nvkhsuw"]
+[gd_scene load_steps=6 format=3 uid="uid://dpy525nvkhsuw"]
 
 [ext_resource type="Script" path="res://core/hull/hull.gd" id="1_4yia2"]
 [ext_resource type="Script" path="res://core/hull/hull_armor.gd" id="2_se1qy"]
 [ext_resource type="Script" path="res://core/hull/hull_simple_armor.gd" id="3_4hxlh"]
 [ext_resource type="Texture2D" uid="uid://dlinek54dbn17" path="res://icon.svg" id="4_un2x5"]
-[ext_resource type="Script" path="res://core/hull/ship_ai.gd" id="5_188mo"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_sit7q"]
 radius = 75.2396
 
 [node name="RigidBody2D" type="RigidBody2D"]
 position = Vector2(306, 237)
-collision_mask = 268435473
-center_of_mass_mode = 1
-can_sleep = false
-custom_integrator = true
-max_contacts_reported = 8
-contact_monitor = true
+collision_mask = 4026533775
 script = ExtResource("1_4yia2")
 
 [node name="HullArmor" type="CollisionPolygon2D" parent="."]
@@ -32,8 +26,4 @@ script = ExtResource("3_4hxlh")
 position = Vector2(3, -5)
 texture = ExtResource("4_un2x5")
 
-[node name="ShipAI" type="NavigationAgent2D" parent="."]
-avoidance_enabled = true
-radius = 159.56
-debug_enabled = true
-script = ExtResource("5_188mo")
+[node name="Node" type="Node" parent="."]

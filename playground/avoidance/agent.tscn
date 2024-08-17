@@ -1,0 +1,122 @@
+[gd_scene load_steps=4 format=3 uid="uid://xy0f71k8lsev"]
+
+[sub_resource type="GDScript" id="GDScript_8krbv"]
+script/source = "extends Node2D
+
+const RADIUS := 50.0
+const N_DISTANCE := 250.0
+
+var acceleration := 100.0
+var vel_max := 100.0
+var vel := Vector2.ZERO
+
+var target: Vector2
+
+var away_dir: Vector2
+var wish_dir: Vector2
+
+var agent: RID
+
+func _enter_tree() -> void:
+	target = Vector2(randf_range(0.0, 1000.0), randf_range(0.0, 600.0))
+	position = Vector2(randf_range(0.0, 1000.0), randf_range(0.0, 600.0))
+	
+	#agent = NavigationServer2D.agent_create()
+	#NavigationServer2D.agent_set_avoidance_enabled(agent, true)
+	#NavigationServer2D.agent_set_avoidance_callback(agent, _on_safe_velocity_computed)
+	#NavigationServer2D.agent_set_avoidance_priority(agent, 1.0)
+	#NavigationServer2D.agent_set_map(agent, get_world_2d().get_navigation_map())
+	#NavigationServer2D.agent_set_neighbor_distance(agent, N_DISTANCE)
+	#NavigationServer2D.agent_set_radius(agent, RADIUS)
+
+#func _exit_tree() -> void:
+	#NavigationServer2D.free_rid(agent)
+
+func _draw() -> void:
+	#draw_arc(Vector2.ZERO,  RADIUS, 0.0, INF, 32, Color.ALICE_BLUE)
+	draw_line(Vector2.ZERO, target - position, Color.ALICE_BLUE)
+	
+	draw_line(Vector2.ZERO, wish_dir, Color.RED)
+	if away_dir != Vector2.ONE:
+		draw_line(Vector2.ZERO, away_dir * 100.0, Color.GREEN)
+
+func _physics_process(delta: float) -> void:
+	var to_position := target - position
+	wish_dir = to_position.normalized()
+	
+	away_dir = Vector2.ZERO
+	var away_strength := 0.0
+	for other: Area2D in $Sensor.get_overlapping_areas():
+		if other == $Agent:
+			continue
+		var strength = minf(1.05 - position.distance_to(other.global_position) / N_DISTANCE, 1.0)
+		away_dir += (position - other.global_position).normalized() * strength
+		away_strength += strength
+	if away_dir.is_zero_approx():
+		var time_to_target := to_position.length() / vel.length()
+		var time_to_stop := vel.length() / acceleration
+		wish_dir = wish_dir * vel_max * minf(time_to_target / time_to_stop, 1.0)
+	else:
+		away_dir = away_dir.normalized()
+		wish_dir = wish_dir.slerp(away_dir, minf(away_strength, 1.0)) * vel_max
+		#wish_dir = (wish_dir + away_dir).normalized() * vel_max
+	
+	vel += (wish_dir - vel).limit_length(acceleration * delta)
+	
+	position += vel * delta
+	
+	if target.distance_squared_to(position) < 500.0:
+		# We are on target.
+		target = Vector2(randf_range(0.0, 1000.0), randf_range(0.0, 600.0))
+	
+	#NavigationServer2D.agent_set_position(agent, position)
+	#NavigationServer2D.agent_set_max_speed(agent, vel_max)
+	#NavigationServer2D.agent_set_time_horizon_agents(agent, 1.0)
+	
+	#NavigationServer2D.agent_set_velocity(agent, wish_vel)
+	#NavigationServer2D.agent_set_velocity_forced(agent, Vector2.ZERO)
+	
+	queue_redraw()
+	$Label.text = String.num(vel.length(), 2)
+	$Label2.text = String.num(wish_dir.length(), 2)
+
+
+"
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_jfee0"]
+radius = 50.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_yk2sw"]
+radius = 250.0
+
+[node name="Node2D" type="Node2D"]
+script = SubResource("GDScript_8krbv")
+
+[node name="Label" type="Label" parent="."]
+offset_right = 40.0
+offset_bottom = 23.0
+text = "1"
+
+[node name="Label2" type="Label" parent="."]
+offset_left = 1.0
+offset_top = 22.0
+offset_right = 41.0
+offset_bottom = 45.0
+text = "2w"
+
+[node name="Agent" type="Area2D" parent="."]
+collision_mask = 0
+input_pickable = false
+monitoring = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Agent"]
+shape = SubResource("CircleShape2D_jfee0")
+
+[node name="Sensor" type="Area2D" parent="."]
+collision_layer = 0
+input_pickable = false
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Sensor"]
+shape = SubResource("CircleShape2D_yk2sw")
+debug_color = Color(0, 0.6, 0.701961, 0)

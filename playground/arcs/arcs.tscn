@@ -1,0 +1,73 @@
+[gd_scene load_steps=2 format=3 uid="uid://kk0aqimh5lv5"]
+
+[sub_resource type="GDScript" id="GDScript_df2ah"]
+script/source = "extends Node2D
+
+@export var min_vert: int
+@export var max_vert: int
+@export var num_shape: int
+@export var always_odd: bool
+
+var t := 0.0
+
+func _process(delta: float) -> void:
+	t += delta
+	$Label.text = str($HSlider.value)
+	$Label2.text = str($HSlider2.value)
+	queue_redraw()
+
+func _draw() -> void:
+	var num := int($HSlider.value)
+	var arc := float($HSlider2.value)
+	
+	draw_arc($Marker2D.position, 200.0, -arc, arc, 128, Color(1, 0, 0, 0.2), 8.0)
+	draw_arc($Marker2D.position, 200.0, -arc, arc, maxi(num, 2), Color.ALICE_BLUE)
+	
+	draw_line($Marker2D.position, Vector2.RIGHT.rotated(arc) * 200.0 + $Marker2D.position, Color.ALICE_BLUE)
+	draw_line($Marker2D.position, Vector2.RIGHT.rotated(-arc) * 200.0 + $Marker2D.position, Color.ALICE_BLUE)
+	
+	
+	var s := float(int(t * 8.0) % num_shape) / float(num_shape)
+	num = int(roundf(float(max_vert - min_vert) * s)) + min_vert
+	if num % 2 == 0 && always_odd:
+		num += 1
+	arc = s * PI
+	draw_arc($Marker2D.position, 200.0, -arc, arc, num, Color.BLUE)
+"
+
+[node name="Arcs" type="Node2D"]
+script = SubResource("GDScript_df2ah")
+min_vert = 3
+max_vert = 17
+num_shape = 64
+
+[node name="HSlider" type="HSlider" parent="."]
+offset_left = 138.0
+offset_top = 36.0
+offset_right = 635.0
+offset_bottom = 52.0
+value = 3.0
+
+[node name="Label" type="Label" parent="."]
+offset_left = 655.0
+offset_top = 30.0
+offset_right = 695.0
+offset_bottom = 53.0
+
+[node name="HSlider2" type="HSlider" parent="."]
+offset_left = 144.0
+offset_top = 74.0
+offset_right = 628.0
+offset_bottom = 90.0
+max_value = 3.142
+step = 0.001
+value = 1.0
+
+[node name="Label2" type="Label" parent="."]
+offset_left = 679.0
+offset_top = 77.0
+offset_right = 719.0
+offset_bottom = 100.0
+
+[node name="Marker2D" type="Marker2D" parent="."]
+position = Vector2(388, 272)

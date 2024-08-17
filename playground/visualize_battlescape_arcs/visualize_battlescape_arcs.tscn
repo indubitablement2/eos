@@ -1,0 +1,39 @@
+[gd_scene load_steps=2 format=3 uid="uid://dqy7c4t0ffa5p"]
+
+[sub_resource type="GDScript" id="GDScript_4s0bl"]
+script/source = "extends Node2D
+
+func _ready() -> void:
+	$HSlider.max_value = Battlescape._arcs.size() - 1
+
+func _draw() -> void:
+	draw_arc(Vector2.ZERO, 200.0, -PI, PI, 128, Color(1,0,0,0.8))
+	
+	var rid := Battlescape._arcs[$HSlider.value]
+	if !rid.is_valid():
+		return
+	if PhysicsServer2D.shape_get_type(rid) == PhysicsServer2D.ShapeType.SHAPE_CIRCLE:
+		draw_arc(Vector2.ZERO, 200.0, -PI, PI, 128, Color.ALICE_BLUE)
+		return
+		
+	var points: PackedVector2Array = PhysicsServer2D.shape_get_data(rid)
+	for i in points.size():
+		points[i] = points[i] * 200.0
+	points.push_back(Vector2.ZERO)
+	draw_polyline(points, Color.ALICE_BLUE)
+
+func _on_h_slider_value_changed(_value: float) -> void:
+	queue_redraw()
+"
+
+[node name="VisualizeBattlescapeArcs" type="Node2D"]
+position = Vector2(525, 307)
+script = SubResource("GDScript_4s0bl")
+
+[node name="HSlider" type="HSlider" parent="."]
+offset_left = -267.0
+offset_top = -265.0
+offset_right = 318.0
+offset_bottom = -249.0
+
+[connection signal="value_changed" from="HSlider" to="." method="_on_h_slider_value_changed"]

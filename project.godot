@@ -54,15 +54,24 @@ control_ship={
 
 [layer_names]
 
-2d_physics/layer_1="Friend Ship (editor only)"
-2d_physics/layer_2="Friend Fighter (editor only)"
-2d_physics/layer_3="Friend Missile (editor only)"
-2d_physics/layer_4="Friend Projectile (editor only)"
-2d_physics/layer_5="Enemy Ship (editor only)"
-2d_physics/layer_6="Enemy Fighter (editor only)"
-2d_physics/layer_7="Enemy Missile (editor only)"
-2d_physics/layer_8="Enemy Projectile (editor only)"
-2d_physics/layer_29="Debris"
+2d_physics/layer_1="Friend Ship S (editor only)"
+2d_physics/layer_2="Friend Ship M (editor only)"
+2d_physics/layer_3="Friend Ship L (editor only)"
+2d_physics/layer_4="Friend Ship XL (editor only)"
+2d_physics/layer_5="Friend Fighter (editor only)"
+2d_physics/layer_6="Friend Missile (editor only)"
+2d_physics/layer_7="Friend Projectile (editor only)"
+2d_physics/layer_8="Enemy Ship S (editor only)"
+2d_physics/layer_9="Enemy Ship M (editor only)"
+2d_physics/layer_10="Enemy Ship L (editor only)"
+2d_physics/layer_11="Enemy Ship XL (editor only)"
+2d_physics/layer_12="Enemy Fighter (editor only)"
+2d_physics/layer_13="Enemy Missile (editor only)"
+2d_physics/layer_14="Enemy Projectile (editor only)"
+2d_physics/layer_29="Debris S"
+2d_physics/layer_30="Debris M"
+2d_physics/layer_31="Debris L"
+2d_physics/layer_32="Debris XL"
 
 [physics]
 
@@ -71,6 +80,7 @@ control_ship={
 2d/default_linear_damp=0.0
 2d/default_angular_damp=0.0
 2d/solver/solver_iterations=12
+common/enable_object_picking=false
 
 [rendering]
 

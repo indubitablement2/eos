@@ -94,6 +94,8 @@ func _try_control_ship() -> void:
 	
 	for dic in result:
 		var collider: Hull = dic["collider"]
+		if collider.is_ally:
+			continue
 		var dist := collider.position.distance_squared_to(query_pos)
 		if dist < closest_dist:
 			closest = collider

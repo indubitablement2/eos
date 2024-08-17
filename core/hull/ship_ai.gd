@@ -1,7 +1,15 @@
-extends NavigationAgent2D
+extends Node
 class_name ShipAI
 
-## Expect all ships to have this as a child node named ShipAI.
+## Expects all ships to have this as a child node named ShipAI.
+
+enum ShipAiState {
+	FIGHT,
+	ENTRY,
+	EXIT,
+	FLEE,
+}
+var state := ShipAiState.FIGHT
 
 @onready var hull: Hull = get_parent()
 
@@ -34,6 +42,47 @@ func _physics_process(_delta: float) -> void:
 		Battlescape.set_time_scale(Battlescape.get_time_scale() / hull.time_scale)
 		hull.time_scale = 1.0
 	
-	if auto_pilot:
-		pass
+	var target := Vector2.ZERO
+	
+	match state:
+		ShipAiState.ENTRY:
+			if hull.position.length_squared() < Battlescape.node.radius * Battlescape.node.radius:
+				state = ShipAiState.FIGHT
+			else:
+				pass
+		ShipAiState.EXIT:
+			pass
+		_:
+			if auto_pilot:
+				_ai()
+			else:
+				return
+	
+	
 
+func _ai() -> void:
+	pass
+
+const AVOIDANCE_SCAN_DISTANCE := 250.0
+
+#func _path_to_target(target: Vector2) -> void:
+	#var to_target := target - hull.position
+	#var target_distance := to_target.length()
+	#var wish_dir := to_target / target_distance
+	#
+	#var away_dir := Vector2.ZERO
+	#var away_strength := 0.0
+	#for other: Area2D in $Sensor.get_overlapping_areas():
+		#if other == $Agent:
+			#continue
+		#var strength = minf(1.05 - hull.position.distance_to(other.global_position) / AVOIDANCE_SCAN_DISTANCE, 1.0)
+		#away_dir += (position - other.global_position).normalized() * strength
+		#away_strength += strength
+	#if away_dir.is_zero_approx():
+		#var time_to_target := to_position.length() / vel.length()
+		#var time_to_stop := vel.length() / acceleration
+		#wish_dir = wish_dir * vel_max * minf(time_to_target / time_to_stop, 1.0)
+	#else:
+		#away_dir = away_dir.normalized()
+		#wish_dir = wish_dir.slerp(away_dir, minf(away_strength, 1.0)) * vel_max
+		##wish_dir = (wish_dir + away_dir).normalized() * vel_max

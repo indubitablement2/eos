@@ -1,36 +1,84 @@
 extends Object
 class_name Global
 
-const COLLISION_FRIEND_SHIP := 1
-const COLLISION_ENEMY_SHIP := 16
-const COLLISION_FRIEND_FIGHTER := 2
-const COLLISION_ENEMY_FIGHTER := 32
-const COLLISION_FRIEND_MISSILE := 4
-const COLLISION_ENEMY_MISSILE := 64
-const COLLISION_FRIEND_PROJECTILE := 8
-const COLLISION_ENEMY_PROJECTILE := 128
-const COLLISION_DEBRIS := 268435456
+const COLLISION_FRIEND_SHIP_S := 1 << 0
+const COLLISION_FRIEND_SHIP_M := 1 << 1
+const COLLISION_FRIEND_SHIP_L := 1 << 2
+const COLLISION_FRIEND_SHIP_XL := 1 << 3
+const COLLISION_FRIEND_SHIP := (
+	COLLISION_FRIEND_SHIP_S |
+	COLLISION_FRIEND_SHIP_M |
+	COLLISION_FRIEND_SHIP_L |
+	COLLISION_FRIEND_SHIP_XL)
+const COLLISION_FRIEND_FIGHTER := 1 << 4
+const COLLISION_FRIEND_MISSILE := 1 << 5
+const COLLISION_FRIEND_PROJECTILE := 1 << 6
+const COLLISION_FRIEND := (
+	COLLISION_FRIEND_SHIP |
+	COLLISION_FRIEND_FIGHTER |
+	COLLISION_FRIEND_MISSILE |
+	COLLISION_FRIEND_PROJECTILE)
 
-static var _collision_mask_cache := {}
-## Return value is cached, so you can call this as much as you need.
+const COLLISION_ENEMY_SHIP_S := 1 << 7
+const COLLISION_ENEMY_SHIP_M := 1 << 8
+const COLLISION_ENEMY_SHIP_L := 1 << 9
+const COLLISION_ENEMY_SHIP_XL := 1 << 10
+const COLLISION_ENEMY_SHIP := (
+	COLLISION_ENEMY_SHIP_S |
+	COLLISION_ENEMY_SHIP_M |
+	COLLISION_ENEMY_SHIP_L |
+	COLLISION_ENEMY_SHIP_XL)
+const COLLISION_ENEMY_FIGHTER := 1 << 11
+const COLLISION_ENEMY_MISSILE := 1 << 12
+const COLLISION_ENEMY_PROJECTILE := 1 << 13
+const COLLISION_ENEMY := (
+	COLLISION_ENEMY_SHIP |
+	COLLISION_ENEMY_FIGHTER |
+	COLLISION_ENEMY_MISSILE |
+	COLLISION_ENEMY_PROJECTILE)
+
+const COLLISION_DEBRIS_S := 1 << 28
+const COLLISION_DEBRIS_M := 1 << 29
+const COLLISION_DEBRIS_L := 1 << 30
+const COLLISION_DEBRIS_XL := 1 << 31
+const COLLISION_DEBRIS := (
+	COLLISION_DEBRIS_S |
+	COLLISION_DEBRIS_M |
+	COLLISION_DEBRIS_L |
+	COLLISION_DEBRIS_XL)
+
+const COLLISION_SHIP_S := (
+	COLLISION_FRIEND_SHIP_S |
+	COLLISION_FRIEND_SHIP_S << 7 |
+	COLLISION_FRIEND_SHIP_S << 14 |
+	COLLISION_FRIEND_SHIP_S << 21)
+const COLLISION_SHIP_M := COLLISION_SHIP_S << 1
+const COLLISION_SHIP_L := COLLISION_SHIP_S << 2
+const COLLISION_SHIP_XL := COLLISION_SHIP_S << 3
+const COLLISION_SHIP := (
+	COLLISION_SHIP_S |
+	COLLISION_SHIP_M |
+	COLLISION_SHIP_L |
+	COLLISION_SHIP_XL)
+const COLLISION_FIGHTER := COLLISION_SHIP_S << 4
+const COLLISION_MISSILE := COLLISION_SHIP_S << 5
+const COLLISION_PROJECTILE := COLLISION_SHIP_S << 6
+
+const COLLISION_TEAM_SIZE := 7
+
+## Return a mask which takes into account all 4 teams and the input team.
+## Input mask uses editor's friend/enemy/debris.
 static func make_collision_mask(team: int, mask: int) -> int:
-	var key := team | (mask << 8)
-	var value = _collision_mask_cache.find_key(key)
-	if value:
-		return value
+	team *= COLLISION_TEAM_SIZE
 	
-	team *= 4
-	var ret := 0
-	ret |= mask & COLLISION_FRIEND_SHIP & (1 << team)
-	ret |= mask & COLLISION_ENEMY_SHIP & 17895697 & ~(1 << team)
-	ret |= mask & COLLISION_FRIEND_FIGHTER & (2 << team)
-	ret |= mask & COLLISION_ENEMY_FIGHTER & 35791394 & ~(2 << team)
-	ret |= mask & COLLISION_FRIEND_MISSILE & (4 << team)
-	ret |= mask & COLLISION_ENEMY_MISSILE & 71582788 & ~(4 << team)
-	ret |= mask & COLLISION_FRIEND_PROJECTILE & (8 << team)
-	ret |= mask & COLLISION_ENEMY_PROJECTILE & 143165576 & ~(8 << team)
+	# Enemy
+	var ret := mask & COLLISION_ENEMY
+	ret |= ret >> COLLISION_TEAM_SIZE
+	ret |= ret << 14
+	ret &= (COLLISION_FRIEND << team)
+	# Friend
+	ret |= (COLLISION_FRIEND & mask) << team
+	# Debris
 	ret |= mask & COLLISION_DEBRIS
-	
-	_collision_mask_cache[key] = ret
 	
 	return ret

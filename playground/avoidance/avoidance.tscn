@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3 uid="uid://cpg732lowxo72"]
+
+[sub_resource type="GDScript" id="GDScript_ktntu"]
+script/source = "extends Node2D
+
+
+func _ready() -> void:
+	for i in 5:
+		add_child(preload(\"res://playground/avoidance/agent.tscn\").instantiate())
+"
+
+[node name="Avoidance" type="Node2D"]
+script = SubResource("GDScript_ktntu")

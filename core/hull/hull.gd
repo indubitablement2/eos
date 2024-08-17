@@ -114,28 +114,25 @@ func _on_target_tree_exiting() -> void:
 var team := 0:
 	set = set_team
 func set_team(value: int) -> void:
-	collision_layer <<= value * 4
-	collision_mask = Global.make_collision_mask(value, collision_mask)
 	team = value
+	collision_layer <<= team * Global.COLLISION_TEAM_SIZE
+	collision_mask = Global.make_collision_mask(team, collision_mask)
+var is_ally := false
+
+func _init() -> void:
+	center_of_mass_mode = RigidBody2D.CENTER_OF_MASS_MODE_CUSTOM
+	can_sleep = false
+	custom_integrator = true
+	max_contacts_reported = 8
+	contact_monitor = true
+	if hull_type == HullType.SHIP:
+		var ai := ShipAI.new()
+		ai.name = "ShipAI"
+		add_child(ai)
 
 func _ready() -> void:
 	for mod in modifiers:
 		mod.apply_hull(self)
-
-#func _input(event: InputEvent) -> void:
-	#if event.is_pressed():
-		#print($HullSimpleArmor.damage(100, get_global_mouse_position(), Vector4.ONE))
-		#return
-		#var query := PhysicsPointQueryParameters2D.new()
-		#query.position = get_global_mouse_position()
-		#var result := get_world_2d().direct_space_state.intersect_point(query)
-		#print(result)
-		#if !result.is_empty():
-			#print(typeof(result[0].keys()[0]))
-			#var owner_id := shape_find_owner(result[0]["shape"])
-			#print(owner_id)
-			#print(shape_owner_get_owner(owner_id).name)
-		
 
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 	
@@ -155,15 +152,13 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 		WishAngularVelocityType.AIM_SMOOTH:
 			var offset := get_angle_to(wish_angular_velocity)
 			var wish_dir := signf(offset)
-			var close_smooth := minf(absf(offset), 0.2) / 0.2
-			close_smooth *= close_smooth * close_smooth
+			var close_smooth := minf(absf(offset), 0.3) / 0.3
 			
 			if wish_dir == signf(state.angular_velocity):
 				var time_to_target := absf(offset / state.angular_velocity)
-				var time_to_stop := absf(
-					state.angular_velocity / (angular_acceleration * time_scale))
+				var time_to_stop := absf(state.angular_velocity / angular_acceleration)
 				if (time_to_target < time_to_stop):
-					close_smooth *= -1.0
+					close_smooth = -close_smooth
 			
 			_integrate_angvel(wish_dir * angular_velocity_max * close_smooth, state)
 		WishAngularVelocityType.AIM_OVERSHOOT:
@@ -182,11 +177,18 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 				_integrate_linvel_stop(state)
 		WishLinearVelocityType.POSITION_SMOOTH:
 			var to_position := wish_linear_velocity - position
-			if to_position.length_squared() < 100.0:
+			var to_position_length := to_position.length()
+			if to_position_length < 30.0:
 				# We are on target.
 				_integrate_linvel_stop(state)
 			else:
-				_integrate_linvel(to_position.limit_length(linear_velocity_max), state)
+				var vel_length := state.linear_velocity.length()
+				var time_to_target := to_position_length / vel_length
+				var time_to_stop := vel_length / linear_acceleration
+				to_position /= to_position_length
+				to_position *= minf(time_to_target / time_to_stop, 1.0)
+				to_position *= linear_velocity_max
+				_integrate_linvel(to_position, state)
 		WishLinearVelocityType.POSITION_OVERSHOOT:
 			var to_position := wish_linear_velocity - position
 			if to_position.is_zero_approx():

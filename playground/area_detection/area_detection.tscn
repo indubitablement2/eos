@@ -1,0 +1,92 @@
+[gd_scene load_steps=4 format=3 uid="uid://dtpij1w28wocf"]
+
+[sub_resource type="GDScript" id="GDScript_yh0ll"]
+script/source = "extends Node2D
+
+var t := 0.0
+var detected := false
+
+func _physics_process(delta: float) -> void:
+	t += delta
+	$CharacterBody2D.position = $A.position.lerp($B.position, sin(t) * 0.5 + 0.5)
+
+func _process(_delta: float) -> void:
+	queue_redraw()
+
+func _draw() -> void:
+	var c := Color.RED
+	if detected:
+		c = Color.GREEN
+	draw_circle(-position + Vector2(50, 50), 10.0, c)
+
+func _on_area_monitoring_toggled(toggled_on: bool) -> void:
+	$Area2D.monitoring = toggled_on
+
+func _on_area_shape_disabled_toggled(toggled_on: bool) -> void:
+	$Area2D/CollisionShape2D.disabled = toggled_on
+
+func _on_character_shape_disabled_2_toggled(toggled_on: bool) -> void:
+	$CharacterBody2D/CollisionShape2D.disabled = toggled_on
+
+func _on_area_2d_body_entered(body: Node2D) -> void:
+	detected = true
+	print(\"Entered\")
+
+func _on_area_2d_body_exited(body: Node2D) -> void:
+	detected = false
+	print(\"Exited\")
+"
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_hee6g"]
+radius = 124.84
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_kug41"]
+radius = 48.28
+
+[node name="AreaDetection" type="Node2D"]
+script = SubResource("GDScript_yh0ll")
+
+[node name="Area2D" type="Area2D" parent="."]
+position = Vector2(193, 216)
+monitoring = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
+shape = SubResource("CircleShape2D_hee6g")
+
+[node name="CharacterBody2D" type="CharacterBody2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CharacterBody2D"]
+shape = SubResource("CircleShape2D_kug41")
+
+[node name="A" type="Marker2D" parent="."]
+position = Vector2(493, 219)
+
+[node name="B" type="Marker2D" parent="."]
+position = Vector2(230, 217)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+offset_left = 271.0
+offset_top = 10.0
+offset_right = 478.0
+offset_bottom = 111.0
+
+[node name="AreaMonitoring" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+toggle_mode = true
+text = "Area Monitoring"
+
+[node name="AreaShapeDisabled" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+toggle_mode = true
+text = "Area Shape Disabled"
+
+[node name="CharacterShapeDisabled2" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+toggle_mode = true
+text = "Character Shape Disabled"
+
+[connection signal="body_entered" from="Area2D" to="." method="_on_area_2d_body_entered"]
+[connection signal="body_exited" from="Area2D" to="." method="_on_area_2d_body_exited"]
+[connection signal="toggled" from="VBoxContainer/AreaMonitoring" to="." method="_on_area_monitoring_toggled"]
+[connection signal="toggled" from="VBoxContainer/AreaShapeDisabled" to="." method="_on_area_shape_disabled_toggled"]
+[connection signal="toggled" from="VBoxContainer/CharacterShapeDisabled2" to="." method="_on_character_shape_disabled_2_toggled"]
