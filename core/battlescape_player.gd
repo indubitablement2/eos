@@ -4,19 +4,19 @@ class_name BattlescapePlayer
 static var unlock_aim := false
 static var hold_time := 0.2
 
-var hull: Hull = null:
-	set = set_hull
-func set_hull(value: Hull) -> void:
-	if hull:
-		hull.ship_ai().player_controlled = false
-		hull.tree_exiting.disconnect(_on_hull_tree_exiting)
-	hull = value
-	if hull:
-		hull.ship_ai().player_controlled = true
-		hull.tree_exiting.connect(_on_hull_tree_exiting, CONNECT_ONE_SHOT)
-func _on_hull_tree_exiting() -> void:
-	hull.ship_ai().player_controlled = false
-	hull = null
+var entity: Entity = null:
+	set = set_entity
+func set_entity(value: Entity) -> void:
+	if entity:
+		entity.ship_ai().player_controlled = false
+		entity.tree_exiting.disconnect(_on_entity_tree_exiting)
+	entity = value
+	if entity:
+		entity.ship_ai().player_controlled = true
+		entity.tree_exiting.connect(_on_entity_tree_exiting, CONNECT_ONE_SHOT)
+func _on_entity_tree_exiting() -> void:
+	entity.ship_ai().player_controlled = false
+	entity = null
 
 var _query: PhysicsShapeQueryParameters2D
 
@@ -42,7 +42,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_try_control_ship()
 
 func _physics_process(_delta: float) -> void:
-	if !hull:
+	if !entity:
 		return
 	
 	var dir := Vector2(
@@ -66,34 +66,34 @@ func _physics_process(_delta: float) -> void:
 	
 	if unlock_aim:
 		# Tank control.
-		hull.wish_angular_velocity_force(dir.x)
-		hull.wish_linear_velocity_force_relative(Vector2(0.0, dir.y))
+		entity.wish_angular_velocity_force(dir.x)
+		entity.wish_linear_velocity_force_relative(Vector2(0.0, dir.y))
 	else:
 		# Drone control.
-		hull.wish_angular_velocity_aim_smooth(mouse_pos)
-		hull.wish_linear_velocity_force_absolute(dir.limit_length(1.0))
+		entity.wish_angular_velocity_aim_smooth(mouse_pos)
+		entity.wish_linear_velocity_force_absolute(dir.limit_length(1.0))
 
 func _process(delta: float) -> void:
 	if _control_ship_hold_timer > 0.0:
 		_control_ship_hold_timer -= delta / Battlescape.get_time_scale()
-		if _control_ship_hold_timer < 0.0 && hull:
-			hull.ship_ai().auto_pilot = true
+		if _control_ship_hold_timer < 0.0 && entity:
+			entity.ship_ai().auto_pilot = true
 
 func _try_control_ship() -> void:
 	var query_pos := get_global_mouse_position()
 	_query.transform = Transform2D(0.0, query_pos)
 	_query.collision_mask = Global.make_collision_mask(0, Global.COLLISION_FRIEND_SHIP)
-	if hull:
-		_query.exclude = [hull.get_rid()]
+	if entity:
+		_query.exclude = [entity.get_rid()]
 	else:
 		_query.exclude = []
 	var result := get_world_2d().direct_space_state.intersect_shape(_query)
 	
-	var closest: Hull = null
+	var closest: Entity = null
 	var closest_dist := INF
 	
 	for dic in result:
-		var collider: Hull = dic["collider"]
+		var collider: Entity = dic["collider"]
 		if collider.is_ally:
 			continue
 		var dist := collider.position.distance_squared_to(query_pos)
@@ -102,5 +102,5 @@ func _try_control_ship() -> void:
 			closest_dist = dist
 	
 	if closest:
-		set_hull(closest)
+		set_entity(closest)
 

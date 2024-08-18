@@ -75,7 +75,7 @@ static func make_collision_mask(team: int, mask: int) -> int:
 	var ret := mask & COLLISION_ENEMY
 	ret |= ret >> COLLISION_TEAM_SIZE
 	ret |= ret << 14
-	ret &= (COLLISION_FRIEND << team)
+	ret &= ~(COLLISION_FRIEND << team)
 	# Friend
 	ret |= (COLLISION_FRIEND & mask) << team
 	# Debris

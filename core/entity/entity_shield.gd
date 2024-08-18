@@ -1,9 +1,9 @@
 extends CollisionShape2D
-class_name HullShield
+class_name EntityShield
 
 ## global_point is where damage originated.
 ## multipliers:
-## x: hull
+## x: entity
 ## y: armor
 ## z: shield
 ## w: emp

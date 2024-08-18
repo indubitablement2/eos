@@ -14,7 +14,10 @@ static var node: Battlescape
 var num_ship_per_team: Array[int]
 
 static func _static_init() -> void:
-	_query = PhysicsShapeQueryParameters2D.new()
+	_query_shape = PhysicsShapeQueryParameters2D.new()
+	_query_point = PhysicsPointQueryParameters2D.new()
+	_query_ray = PhysicsRayQueryParameters2D.new()
+	_query_ray.hit_from_inside = true
 	
 	_arcs.resize(_ARCS_SIZE)
 	_arcs[0] = RID()
@@ -68,44 +71,47 @@ static func set_player_time_scale(value: float) -> void:
 static func get_time_scale() -> float:
 	return Engine.time_scale
 
-static func spawn_hull(
-	scene: PackedScene,
+static func spawn(
+	entity_scene: PackedScene,
 	pos: Vector2,
 	rot: float,
-	from: Hull = null,
-	target_override: Hull = null) -> Hull:
-	var hull: Hull = scene.instantiate()
-	hull.position = pos
-	hull.rotation = rot
+	from: Entity = null,
+	target_override: Entity = null) -> Entity:
+	var entity: Entity = entity_scene.instantiate()
+	entity.position = pos
+	entity.rotation = rot
 	
 	if from:
-		hull.team = from.team
-		hull.is_ally = from.is_ally
-		hull.modifiers = hull.modifiers
+		entity.team = from.team
+		entity.is_ally = from.is_ally
+		entity.modifiers = entity.modifiers
 		if target_override:
-			hull.target = target_override
+			entity.target = target_override
 		else:
-			hull.target = from.target
+			entity.target = from.target
 		for exception in from.get_collision_exceptions():
-			hull.add_collision_exception_with(exception)
-		hull.add_collision_exception_with(from)
+			entity.add_collision_exception_with(exception)
+		entity.add_collision_exception_with(from)
 	else:
-		hull.team = 0
-		hull.target = target_override
+		entity.team = 0
+		entity.target = target_override
 	
-	if hull.hull_type == Hull.HullType.SHIP:
-		node.num_ship_per_team[hull.team] += 1
-		hull.tree_exiting.connect(_ship_exiting.bind(hull.team))
+	if entity.entity_type == Entity.EntityType.SHIP:
+		node.num_ship_per_team[entity.team] += 1
+		entity.tree_exiting.connect(_ship_exiting.bind(entity.team))
 	
-	node.add_child(hull)
-	return hull
+	node.add_child(entity)
+	return entity
 
 static func _ship_exiting(team: int) -> void:
 	node.num_ship_per_team[team] -= 1
 
-static var _query: PhysicsShapeQueryParameters2D
+static var _query_shape: PhysicsShapeQueryParameters2D
+static var _query_point: PhysicsPointQueryParameters2D
+static var _query_ray: PhysicsRayQueryParameters2D
 const _ARCS_SIZE := 64
 static var _arcs: Array[RID]
+
 ## Return an invalid RID if arc is too small.
 ## Return a circle if close or above PI.
 ## All have a radius of 1.
@@ -118,7 +124,7 @@ static func get_valid_arc_shape(arc: float) -> RID:
 static func get_circle_shape() -> RID:
 	return _arcs[-1]
 
-## collider: The colliding object.
+## collider: The colliding object (Entity).
 ## 
 ## collider_id: The colliding object's ID.
 ## 
@@ -129,17 +135,17 @@ static func intersect_circle(
 	pos: Vector2,
 	radius: float,
 	collision_mask: int,
-	exclude: Array[Hull],
+	exclude: Array[Entity],
 	max_result := 32) -> Array[Dictionary]:
-	_query.shape_rid = _arcs[-1]
-	_query.transform = Transform2D(0.0, Vector2(radius, radius), 0.0, pos)
-	_query.collision_mask = collision_mask
+	_query_shape.shape_rid = get_circle_shape()
+	_query_shape.transform = Transform2D(0.0, Vector2(radius, radius), 0.0, pos)
+	_query_shape.collision_mask = collision_mask
 	var exclude_rid: Array[RID] = []
 	exclude_rid.resize(exclude.size())
 	for i in exclude.size():
 		exclude_rid[i] = exclude[i].get_rid()
-	_query.exclude = exclude_rid
-	return node.get_world_2d().direct_space_state.intersect_shape(_query, max_result)
+	_query_shape.exclude = exclude_rid
+	return node.get_world_2d().direct_space_state.intersect_shape(_query_shape, max_result)
 
 static func intersect_arc(
 	pos: Vector2,
@@ -147,15 +153,57 @@ static func intersect_arc(
 	rot: float,
 	arc: float,
 	collision_mask: int,
-	exclude: Array[Hull],
+	exclude: Array[Entity],
 	max_result := 32) -> Array[Dictionary]:
-	_query.shape_rid = get_valid_arc_shape(arc)
-	_query.transform = Transform2D(rot, Vector2(radius, radius), 0.0, pos)
-	_query.collision_mask = collision_mask
+	_query_shape.shape_rid = get_valid_arc_shape(arc)
+	_query_shape.transform = Transform2D(rot, Vector2(radius, radius), 0.0, pos)
+	_query_shape.collision_mask = collision_mask
 	var exclude_rid: Array[RID] = []
 	exclude_rid.resize(exclude.size())
 	for i in exclude.size():
 		exclude_rid[i] = exclude[i].get_rid()
-	_query.exclude = exclude_rid
-	return node.get_world_2d().direct_space_state.intersect_shape(_query, max_result)
+	_query_shape.exclude = exclude_rid
+	return node.get_world_2d().direct_space_state.intersect_shape(_query_shape, max_result)
+
+static func intersect_point(
+	pos: Vector2,
+	collision_mask: int,
+	exclude: Array[Entity],
+	max_result := 32) -> Array[Dictionary]:
+	_query_point.position = pos
+	_query_point.collision_mask = collision_mask
+	var exclude_rid: Array[RID] = []
+	exclude_rid.resize(exclude.size())
+	for i in exclude.size():
+		exclude_rid[i] = exclude[i].get_rid()
+	_query_point.exclude = exclude_rid
+	return node.get_world_2d().direct_space_state.intersect_point(_query_point, max_result)
+
+## collider: The colliding object (Entity).
+## 
+## collider_id: The colliding object's ID.
+## 
+## normal: The object's surface normal at the intersection point, or Vector2(0, 0) if the ray starts inside the shape.
+## 
+## position: The intersection point.
+## 
+## rid: The intersecting object's RID.
+## 
+## shape: The shape index of the colliding shape.
+## 
+## If the ray did not intersect anything, then an empty dictionary is returned instead.
+static func intersect_ray(
+	from: Vector2,
+	to: Vector2,
+	collision_mask: int,
+	exclude: Array[Entity]) -> Dictionary:
+	_query_ray.from = from
+	_query_ray.to = to
+	_query_ray.collision_mask = collision_mask
+	var exclude_rid: Array[RID] = []
+	exclude_rid.resize(exclude.size())
+	for i in exclude.size():
+		exclude_rid[i] = exclude[i].get_rid()
+	_query_ray.exclude = exclude_rid
+	return node.get_world_2d().direct_space_state.intersect_ray(_query_ray)
 

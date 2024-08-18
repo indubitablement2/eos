@@ -7,7 +7,7 @@ func _ready() -> void:
 	_ad.call_deferred()
 
 func _ad() -> void:
-	Battlescape.spawn_hull(preload(\"res://base/TEST_HULL.tscn\"), Vector2.ZERO, 0.0)
+	Battlescape.spawn(preload(\"res://base/TEST_HULL.tscn\"), Vector2.ZERO, 0.0)
 
 "
 

@@ -1,14 +1,16 @@
 extends RigidBody2D
-## A ship, fighter or missile.
-class_name Hull
+class_name Entity
 
-enum HullType {
+## Class of everything that goes in the Battlescape.
+
+enum EntityType {
 	SHIP,
 	FIGHTER,
 	MISSILE,
 	DEBRIS,
+	PROJECTILE,
 }
-@export var hull_type := HullType.SHIP
+@export var entity_type := EntityType.SHIP
 
 ## Changing this will scale many properties.
 @export var time_scale := 1.0:
@@ -40,14 +42,14 @@ func set_time_scale(value: float) -> void:
 @export var flux_dissipation_rate := 10.0
 var flux := 0.0
 
-## Engine hp max is equal to hull hp max (on hull armor) times this.
+## Engine hp max is equal to entity hp max (on armor) times this.
 @export var engine_hp_relative_max := 0.05
 @export var engine_repair_rate := 0.05
 var engine_hp := 1.0
 var engine_disabled := false
 
 # TODO
-## Set by hull based on acceleration.
+## Set by entity based on acceleration.
 ## Meant to be read only.
 ## Usually in the range 0..1, but may go higher.
 var engine_flare_strength_base := 0.0
@@ -99,9 +101,9 @@ enum WishLinearVelocityType {
 @export var modifiers: Array[Modifiers] = []
 
 ## null when no target.
-var target: Hull = null:
+var target: Entity = null:
 	set = set_target
-func set_target(value: Hull) -> void:
+func set_target(value: Entity) -> void:
 	if target:
 		target.tree_exiting.disconnect(_on_target_tree_exiting)
 	target = value
@@ -125,14 +127,14 @@ func _init() -> void:
 	custom_integrator = true
 	max_contacts_reported = 8
 	contact_monitor = true
-	if hull_type == HullType.SHIP:
+	if entity_type == EntityType.SHIP:
 		var ai := ShipAI.new()
 		ai.name = "ShipAI"
 		add_child(ai)
 
 func _ready() -> void:
 	for mod in modifiers:
-		mod.apply_hull(self)
+		mod.apply(self)
 
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 	

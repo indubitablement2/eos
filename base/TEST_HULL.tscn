@@ -1,8 +1,8 @@
 [gd_scene load_steps=6 format=3 uid="uid://dpy525nvkhsuw"]
 
-[ext_resource type="Script" path="res://core/hull/hull.gd" id="1_4yia2"]
-[ext_resource type="Script" path="res://core/hull/hull_armor.gd" id="2_se1qy"]
-[ext_resource type="Script" path="res://core/hull/hull_simple_armor.gd" id="3_4hxlh"]
+[ext_resource type="Script" path="res://core/entity/entity.gd" id="1_rox51"]
+[ext_resource type="Script" path="res://core/entity/entity_armor.gd" id="2_so4s7"]
+[ext_resource type="Script" path="res://core/entity/entity_simple_armor.gd" id="3_uw05q"]
 [ext_resource type="Texture2D" uid="uid://dlinek54dbn17" path="res://icon.svg" id="4_un2x5"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_sit7q"]
@@ -11,16 +11,30 @@ radius = 75.2396
 [node name="RigidBody2D" type="RigidBody2D"]
 position = Vector2(306, 237)
 collision_mask = 4026533775
-script = ExtResource("1_4yia2")
+script = ExtResource("1_rox51")
+time_scale = null
+linear_acceleration = null
+linear_velocity_max = null
+angular_acceleration = null
+angular_velocity_max = null
+flux_max = null
+flux_dissipation_rate = null
+engine_hp_relative_max = null
+engine_repair_rate = null
+wish_angular_velocity_type = null
+wish_angular_velocity = null
+wish_linear_velocity_type = null
+wish_linear_velocity = null
+modifiers = null
 
 [node name="HullArmor" type="CollisionPolygon2D" parent="."]
 polygon = PackedVector2Array(-129, -96, -223, 158, 19, 39, 253, 152, 134, -110)
-script = ExtResource("2_se1qy")
+script = ExtResource("2_so4s7")
 
 [node name="HullSimpleArmor" type="CollisionShape2D" parent="."]
 position = Vector2(323, 135)
 shape = SubResource("CircleShape2D_sit7q")
-script = ExtResource("3_4hxlh")
+script = ExtResource("3_uw05q")
 
 [node name="Icon" type="Sprite2D" parent="."]
 position = Vector2(3, -5)

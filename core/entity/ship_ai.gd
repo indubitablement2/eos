@@ -11,7 +11,7 @@ enum ShipAiState {
 }
 var state := ShipAiState.FIGHT
 
-@onready var hull: Hull = get_parent()
+@onready var entity: Entity = get_parent()
 
 signal player_controlled_changed
 var player_controlled := false:
@@ -22,7 +22,7 @@ func set_player_controlled(value: bool) -> void:
 	player_controlled = value
 	if !player_controlled && _time_scale_change != 1.0:
 		# Revert to local time scale.
-		hull.time_scale = _time_scale_change
+		entity.time_scale = _time_scale_change
 		Battlescape.set_time_scale(Battlescape.get_time_scale() / _time_scale_change)
 		_time_scale_change = 1.0
 	auto_pilot = true
@@ -36,17 +36,17 @@ func _init() -> void:
 	process_priority = -1
 
 func _physics_process(_delta: float) -> void:
-	if player_controlled && hull.time_scale != 1.0:
+	if player_controlled && entity.time_scale != 1.0:
 		# Change global time scale instead.
-		_time_scale_change *= hull.time_scale
-		Battlescape.set_time_scale(Battlescape.get_time_scale() / hull.time_scale)
-		hull.time_scale = 1.0
+		_time_scale_change *= entity.time_scale
+		Battlescape.set_time_scale(Battlescape.get_time_scale() / entity.time_scale)
+		entity.time_scale = 1.0
 	
 	var target := Vector2.ZERO
 	
 	match state:
 		ShipAiState.ENTRY:
-			if hull.position.length_squared() < Battlescape.node.radius * Battlescape.node.radius:
+			if entity.position.length_squared() < Battlescape.node.radius * Battlescape.node.radius:
 				state = ShipAiState.FIGHT
 			else:
 				pass
@@ -66,7 +66,7 @@ func _ai() -> void:
 const AVOIDANCE_SCAN_DISTANCE := 250.0
 
 #func _path_to_target(target: Vector2) -> void:
-	#var to_target := target - hull.position
+	#var to_target := target - entity.position
 	#var target_distance := to_target.length()
 	#var wish_dir := to_target / target_distance
 	#
@@ -75,7 +75,7 @@ const AVOIDANCE_SCAN_DISTANCE := 250.0
 	#for other: Area2D in $Sensor.get_overlapping_areas():
 		#if other == $Agent:
 			#continue
-		#var strength = minf(1.05 - hull.position.distance_to(other.global_position) / AVOIDANCE_SCAN_DISTANCE, 1.0)
+		#var strength = minf(1.05 - entity.position.distance_to(other.global_position) / AVOIDANCE_SCAN_DISTANCE, 1.0)
 		#away_dir += (position - other.global_position).normalized() * strength
 		#away_strength += strength
 	#if away_dir.is_zero_approx():
