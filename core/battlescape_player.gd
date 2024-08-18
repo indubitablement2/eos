@@ -82,7 +82,7 @@ func _process(delta: float) -> void:
 func _try_control_ship() -> void:
 	var query_pos := get_global_mouse_position()
 	_query.transform = Transform2D(0.0, query_pos)
-	_query.collision_mask = Global.make_collision_mask(0, Global.COLLISION_FRIEND_SHIP)
+	_query.collision_mask = Battlescape.make_collision_mask(0, Battlescape.COLLISION_FRIEND_SHIP)
 	if entity:
 		_query.exclude = [entity.get_rid()]
 	else:

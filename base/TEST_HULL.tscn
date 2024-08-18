@@ -11,21 +11,8 @@ radius = 75.2396
 [node name="RigidBody2D" type="RigidBody2D"]
 position = Vector2(306, 237)
 collision_mask = 4026533775
+sleeping = true
 script = ExtResource("1_rox51")
-time_scale = null
-linear_acceleration = null
-linear_velocity_max = null
-angular_acceleration = null
-angular_velocity_max = null
-flux_max = null
-flux_dissipation_rate = null
-engine_hp_relative_max = null
-engine_repair_rate = null
-wish_angular_velocity_type = null
-wish_angular_velocity = null
-wish_linear_velocity_type = null
-wish_linear_velocity = null
-modifiers = null
 
 [node name="HullArmor" type="CollisionPolygon2D" parent="."]
 polygon = PackedVector2Array(-129, -96, -223, 158, 19, 39, 253, 152, 134, -110)

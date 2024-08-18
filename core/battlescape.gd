@@ -9,9 +9,10 @@ class_name Battlescape
 
 @export var battle_radius := 10000.0
 
+var num_ship_per_team: Array[int]
+
 static var node: Battlescape
 
-var num_ship_per_team: Array[int]
 
 static func _static_init() -> void:
 	_query_shape = PhysicsShapeQueryParameters2D.new()
@@ -59,17 +60,16 @@ func _draw() -> void:
 		draw_line(ORIGIN, to, Color.ALICE_BLUE)
 		draw_string(ThemeDB.fallback_font, to, String.num(dir, 2))
 
+
 static func set_time_scale(value: float) -> void:
 	if is_equal_approx(value, 1.0):
 		value = 1.0
 	Engine.time_scale = value
 	# TODO: Audio
 
-static func set_player_time_scale(value: float) -> void:
-	Engine.time_scale = value
-
 static func get_time_scale() -> float:
 	return Engine.time_scale
+
 
 static func spawn(
 	entity_scene: PackedScene,
@@ -105,6 +105,7 @@ static func spawn(
 
 static func _ship_exiting(team: int) -> void:
 	node.num_ship_per_team[team] -= 1
+
 
 static var _query_shape: PhysicsShapeQueryParameters2D
 static var _query_point: PhysicsPointQueryParameters2D
@@ -207,3 +208,85 @@ static func intersect_ray(
 	_query_ray.exclude = exclude_rid
 	return node.get_world_2d().direct_space_state.intersect_ray(_query_ray)
 
+
+const COLLISION_FRIEND_SHIP_S := 1 << 0
+const COLLISION_FRIEND_SHIP_M := 1 << 1
+const COLLISION_FRIEND_SHIP_L := 1 << 2
+const COLLISION_FRIEND_SHIP_XL := 1 << 3
+const COLLISION_FRIEND_SHIP := (
+	COLLISION_FRIEND_SHIP_S |
+	COLLISION_FRIEND_SHIP_M |
+	COLLISION_FRIEND_SHIP_L |
+	COLLISION_FRIEND_SHIP_XL)
+const COLLISION_FRIEND_FIGHTER := 1 << 4
+const COLLISION_FRIEND_MISSILE := 1 << 5
+const COLLISION_FRIEND_PROJECTILE := 1 << 6
+const COLLISION_FRIEND := (
+	COLLISION_FRIEND_SHIP |
+	COLLISION_FRIEND_FIGHTER |
+	COLLISION_FRIEND_MISSILE |
+	COLLISION_FRIEND_PROJECTILE)
+
+const COLLISION_ENEMY_SHIP_S := 1 << 7
+const COLLISION_ENEMY_SHIP_M := 1 << 8
+const COLLISION_ENEMY_SHIP_L := 1 << 9
+const COLLISION_ENEMY_SHIP_XL := 1 << 10
+const COLLISION_ENEMY_SHIP := (
+	COLLISION_ENEMY_SHIP_S |
+	COLLISION_ENEMY_SHIP_M |
+	COLLISION_ENEMY_SHIP_L |
+	COLLISION_ENEMY_SHIP_XL)
+const COLLISION_ENEMY_FIGHTER := 1 << 11
+const COLLISION_ENEMY_MISSILE := 1 << 12
+const COLLISION_ENEMY_PROJECTILE := 1 << 13
+const COLLISION_ENEMY := (
+	COLLISION_ENEMY_SHIP |
+	COLLISION_ENEMY_FIGHTER |
+	COLLISION_ENEMY_MISSILE |
+	COLLISION_ENEMY_PROJECTILE)
+
+const COLLISION_DEBRIS_S := 1 << 28
+const COLLISION_DEBRIS_M := 1 << 29
+const COLLISION_DEBRIS_L := 1 << 30
+const COLLISION_DEBRIS_XL := 1 << 31
+const COLLISION_DEBRIS := (
+	COLLISION_DEBRIS_S |
+	COLLISION_DEBRIS_M |
+	COLLISION_DEBRIS_L |
+	COLLISION_DEBRIS_XL)
+
+const COLLISION_SHIP_S := (
+	COLLISION_FRIEND_SHIP_S |
+	COLLISION_FRIEND_SHIP_S << 7 |
+	COLLISION_FRIEND_SHIP_S << 14 |
+	COLLISION_FRIEND_SHIP_S << 21)
+const COLLISION_SHIP_M := COLLISION_SHIP_S << 1
+const COLLISION_SHIP_L := COLLISION_SHIP_S << 2
+const COLLISION_SHIP_XL := COLLISION_SHIP_S << 3
+const COLLISION_SHIP := (
+	COLLISION_SHIP_S |
+	COLLISION_SHIP_M |
+	COLLISION_SHIP_L |
+	COLLISION_SHIP_XL)
+const COLLISION_FIGHTER := COLLISION_SHIP_S << 4
+const COLLISION_MISSILE := COLLISION_SHIP_S << 5
+const COLLISION_PROJECTILE := COLLISION_SHIP_S << 6
+
+const COLLISION_TEAM_SIZE := 7
+
+## Return a mask which takes into account all 4 teams and the input team.
+## Input mask uses editor's friend/enemy/debris.
+static func make_collision_mask(team: int, mask: int) -> int:
+	team *= COLLISION_TEAM_SIZE
+	
+	# Enemy
+	var ret := mask & COLLISION_ENEMY
+	ret |= ret >> COLLISION_TEAM_SIZE
+	ret |= ret << 14
+	ret &= ~(COLLISION_FRIEND << team)
+	# Friend
+	ret |= (COLLISION_FRIEND & mask) << team
+	# Debris
+	ret |= mask & COLLISION_DEBRIS
+	
+	return ret

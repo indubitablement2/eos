@@ -117,8 +117,8 @@ var team := 0:
 	set = set_team
 func set_team(value: int) -> void:
 	team = value
-	collision_layer <<= team * Global.COLLISION_TEAM_SIZE
-	collision_mask = Global.make_collision_mask(team, collision_mask)
+	collision_layer <<= team * Battlescape.COLLISION_TEAM_SIZE
+	collision_mask = Battlescape.make_collision_mask(team, collision_mask)
 var is_ally := false
 
 func _init() -> void:
