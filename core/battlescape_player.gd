@@ -8,27 +8,20 @@ var entity: Entity = null:
 	set = set_entity
 func set_entity(value: Entity) -> void:
 	if entity:
-		entity.ship_ai().player_controlled = false
+		entity.get_ship_ai().player_controlled = false
 		entity.tree_exiting.disconnect(_on_entity_tree_exiting)
 	entity = value
 	if entity:
-		entity.ship_ai().player_controlled = true
+		entity.get_ship_ai().player_controlled = true
 		entity.tree_exiting.connect(_on_entity_tree_exiting, CONNECT_ONE_SHOT)
 func _on_entity_tree_exiting() -> void:
-	entity.ship_ai().player_controlled = false
+	entity.get_ship_ai().player_controlled = false
 	entity = null
-
-var _query: PhysicsShapeQueryParameters2D
 
 var _control_ship_hold_timer := -1.0
 
 func _init() -> void:
-	_query = PhysicsShapeQueryParameters2D.new()
-	var shape := CircleShape2D.new()
-	shape.radius = 100.0
-	_query.shape = shape
-	
-	process_priority = -1
+	process_priority = -2
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("unlock_aim"):
@@ -48,6 +41,13 @@ func _physics_process(_delta: float) -> void:
 	var dir := Vector2(
 		Input.get_action_strength("right") - Input.get_action_strength("left"),
 		Input.get_action_strength("backward") - Input.get_action_strength("forward"))
+	
+	var ai := entity.get_ship_ai()
+	if ai.is_auto_pilot:
+		if dir.is_zero_approx():
+			return
+		else:
+			ai.is_auto_pilot = false
 	
 	# a1: left mouse, rt
 	# a2: right mouse, lt
@@ -77,17 +77,20 @@ func _process(delta: float) -> void:
 	if _control_ship_hold_timer > 0.0:
 		_control_ship_hold_timer -= delta / Battlescape.get_time_scale()
 		if _control_ship_hold_timer < 0.0 && entity:
-			entity.ship_ai().auto_pilot = true
+			entity.get_ship_ai().is_auto_pilot = true
 
 func _try_control_ship() -> void:
 	var query_pos := get_global_mouse_position()
-	_query.transform = Transform2D(0.0, query_pos)
-	_query.collision_mask = Battlescape.make_collision_mask(0, Battlescape.COLLISION_FRIEND_SHIP)
+	var exclude: Array[RID]
 	if entity:
-		_query.exclude = [entity.get_rid()]
+		exclude = [entity.get_rid()]
 	else:
-		_query.exclude = []
-	var result := get_world_2d().direct_space_state.intersect_shape(_query)
+		exclude = []
+	var result := Battlescape.intersect_circle(
+		query_pos,
+		200.0,
+		Battlescape.make_collision_mask(0, Battlescape.COLLISION_FRIEND_SHIP),
+		exclude)
 	
 	var closest: Entity = null
 	var closest_dist := INF

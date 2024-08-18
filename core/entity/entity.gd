@@ -122,7 +122,6 @@ func set_team(value: int) -> void:
 var is_ally := false
 
 func _init() -> void:
-	center_of_mass_mode = RigidBody2D.CENTER_OF_MASS_MODE_CUSTOM
 	can_sleep = false
 	custom_integrator = true
 	max_contacts_reported = 8
@@ -224,7 +223,7 @@ func destroy() -> void:
 	queue_free()
 
 ## If this is a ship, return its ai.
-func ship_ai() -> ShipAI:
+func get_ship_ai() -> ShipAI:
 	return get_node("ShipAI")
 
 func wish_angular_velocity_none() -> void:

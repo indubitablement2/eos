@@ -25,10 +25,10 @@ func set_player_controlled(value: bool) -> void:
 		entity.time_scale = _time_scale_change
 		Battlescape.set_time_scale(Battlescape.get_time_scale() / _time_scale_change)
 		_time_scale_change = 1.0
-	auto_pilot = true
+	is_auto_pilot = true
 	player_controlled_changed.emit()
 
-var auto_pilot := true
+var is_auto_pilot := true
 
 var _time_scale_change := 1.0
 
@@ -53,7 +53,7 @@ func _physics_process(_delta: float) -> void:
 		ShipAiState.EXIT:
 			pass
 		_:
-			if auto_pilot:
+			if is_auto_pilot:
 				_ai()
 			else:
 				return
