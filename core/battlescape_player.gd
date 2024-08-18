@@ -1,4 +1,4 @@
-extends Node2D
+extends Camera2D
 class_name BattlescapePlayer
 
 static var unlock_aim := false
@@ -22,6 +22,7 @@ var _control_ship_hold_timer := -1.0
 
 func _init() -> void:
 	process_priority = -2
+	zoom = Vector2(0.5, 0.5)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("unlock_aim"):
@@ -78,6 +79,9 @@ func _process(delta: float) -> void:
 		_control_ship_hold_timer -= delta / Battlescape.get_time_scale()
 		if _control_ship_hold_timer < 0.0 && entity:
 			entity.get_ship_ai().is_auto_pilot = true
+	
+	if entity:
+		position = entity.position
 
 func _try_control_ship() -> void:
 	var query_pos := get_global_mouse_position()

@@ -59,7 +59,8 @@ func _draw() -> void:
 		var to := Vector2(100.0, 0.0).rotated(dir) + ORIGIN
 		draw_line(ORIGIN, to, Color.ALICE_BLUE)
 		draw_string(ThemeDB.fallback_font, to, String.num(dir, 2))
-
+	
+	draw_arc(Vector2.ZERO, battle_radius, 0.0 ,INF ,128 ,Color.ALICE_BLUE)
 
 static func set_time_scale(value: float) -> void:
 	if is_equal_approx(value, 1.0):
