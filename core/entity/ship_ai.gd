@@ -35,6 +35,10 @@ var _time_scale_change := 1.0
 func _init() -> void:
 	process_priority = -1
 
+func _ready() -> void:
+	if entity.position.length() > Battlescape.node.battle_radius:
+		state = ShipAiState.ENTRY
+
 func _physics_process(_delta: float) -> void:
 	if player_controlled && entity.time_scale != 1.0:
 		# Change global time scale instead.
@@ -58,7 +62,7 @@ func _physics_process(_delta: float) -> void:
 			else:
 				return
 	
-	
+
 
 func _ai() -> void:
 	pass

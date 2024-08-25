@@ -25,4 +25,4 @@ func damage(
 	print(amount, global_point, damage_multiplier)
 
 func destroy() -> void:
-	entity.destroy()
+	entity.destroyed.emit()

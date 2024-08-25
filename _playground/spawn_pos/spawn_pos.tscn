@@ -1,0 +1,61 @@
+[gd_scene load_steps=2 format=3 uid="uid://dj8thdq8gd11o"]
+
+[sub_resource type="GDScript" id="GDScript_k0c4n"]
+script/source = "extends Node2D
+
+const NUM_POS := 100
+# Spawn direction
+const DIR := 0.0
+# Spawn distance away from center
+const DIST := 200.0
+# Distance between spawns positions
+const SEPARATION := 100.0
+
+const MAX_DISTANCE := SEPARATION * 5.0
+
+func _draw() -> void:
+	#_spiral()
+	_grid()
+
+func _spiral() -> void:
+	var wish_pos := Vector2.RIGHT.rotated(-DIR) * DIST
+	var offset_angle := 2.0
+	var offset_distance := 0.0
+	var offset_step := 1.0
+	var final_pos := wish_pos
+	for i in NUM_POS:
+		draw_circle(final_pos, 10.0, Color.ALICE_BLUE)
+		
+		offset_angle += offset_step
+		if offset_angle > 1.5:
+			offset_angle = -1.5
+			offset_distance += SEPARATION
+			offset_step = acos((2.0 * offset_distance * offset_distance - SEPARATION * SEPARATION) / (2.0 * offset_distance * offset_distance))
+		final_pos = wish_pos + wish_pos.normalized().rotated(offset_angle) * offset_distance
+	
+	draw_line(wish_pos, Vector2.ZERO, Color.ALICE_BLUE)
+
+func _grid() -> void:
+	var wish_pos := Vector2.RIGHT.rotated(-DIR) * DIST
+	var offset_perpendicular := 0.0
+	var offset_parallel := 0.0
+	var final_pos: Vector2
+	for i in NUM_POS:
+		final_pos = wish_pos + wish_pos.normalized() * offset_parallel + wish_pos.normalized().rotated(PI * 0.5) * offset_perpendicular
+		
+		draw_circle(final_pos, 10.0, Color.ALICE_BLUE)
+		
+		if offset_perpendicular <= 0.0:
+			offset_perpendicular = absf(offset_perpendicular)
+			offset_perpendicular += SEPARATION
+			if offset_perpendicular > MAX_DISTANCE:
+				offset_parallel += SEPARATION
+				offset_perpendicular = 0.0
+		else:
+			offset_perpendicular = -offset_perpendicular
+	
+	draw_line(wish_pos, Vector2.ZERO, Color.ALICE_BLUE)
+"
+
+[node name="SpawnPos" type="Node2D"]
+script = SubResource("GDScript_k0c4n")

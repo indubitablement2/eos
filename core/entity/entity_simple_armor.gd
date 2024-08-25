@@ -48,4 +48,4 @@ func damage(amount: float, global_point: Vector2, multipliers: Vector4) -> Vecto
 	return Vector4(entity_dmg, armor_dmg, 0.0, emp_dmg)
 
 func destroy() -> void:
-	entity.destroy()
+	entity.destroyed.emit()

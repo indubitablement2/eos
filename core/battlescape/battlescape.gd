@@ -1,18 +1,12 @@
 extends Node2D
 class_name Battlescape
 
-@export var entry_dir: Array[float] = [-PI * 0.5, PI * 0.5, 0.0, -PI]
-@export var is_exit_opposite_of_entry := false
-@export var is_entry_disabled := [false, false, false, false]
-@export var max_ship := [30, 30, 30, 30]
-@export var max_ship_point := [300, 300, 300, 300]
-
-@export var battle_radius := 10000.0
-
-var num_ship_per_team: Array[int]
-
 static var node: Battlescape
 
+@export var battle_radius := 10000.0
+@export var take_player_ships := true
+
+var teams: Array[BattlescapeTeam] = []
 
 static func _static_entry() -> void:
 	_query_shape = PhysicsShapeQueryParameters2D.new()
@@ -44,21 +38,42 @@ static func _static_exit() -> void:
 			PhysicsServer2D.free_rid(rid)
 
 func _ready() -> void:
-	num_ship_per_team.resize(7)
-	num_ship_per_team.fill(0)
 	assert(!node)
 	node = self
+	
+	for child in get_children():
+		if child is BattlescapeTeam:
+			var team := teams.size()
+			assert(team < 4)
+			child.team = team
+			child.update_entry_dir()
+			teams.push_back(child)
+	while teams.size() < 4:
+		var team := teams.size()
+		teams.push_back(BattlescapeTeam.new())
+		teams[team].team = team
+		teams[team].update_entry_dir()
+		add_child(teams[team])
+	
 	add_child(BattlescapePlayer.new())
 
 func _exit_tree() -> void:
 	Battlescape.set_time_scale(1.0)
+	
+	#for entity in Player.node.ships:
+		#entity.remove_meta("spawned")
+		#if entity.is_inside_tree():
+			#remove_child(entity)
+	
+	node = null
+
 
 func _draw() -> void:
-	for dir in entry_dir:
-		const ORIGIN := Vector2(200, 200)
-		var to := Vector2(100.0, 0.0).rotated(dir) + ORIGIN
-		draw_line(ORIGIN, to, Color.ALICE_BLUE)
-		draw_string(ThemeDB.fallback_font, to, String.num(dir, 2))
+	#for dir in entry_dir:
+		#const ORIGIN := Vector2(200, 200)
+		#var to := Vector2(100.0, 0.0).rotated(dir) + ORIGIN
+		#draw_line(ORIGIN, to, Color.ALICE_BLUE)
+		#draw_string(ThemeDB.fallback_font, to, String.num(dir, 2))
 	
 	draw_arc(Vector2.ZERO, battle_radius, 0.0 ,INF ,128 ,Color.ALICE_BLUE)
 
@@ -76,36 +91,29 @@ static func spawn(
 	entity_scene: PackedScene,
 	pos: Vector2,
 	rot: float,
-	from: Entity = null,
+	from: Entity,
 	target_override: Entity = null) -> Entity:
 	var entity: Entity = entity_scene.instantiate()
 	entity.position = pos
 	entity.rotation = rot
 	
-	if from:
-		entity.team = from.team
-		entity.is_ally = from.is_ally
-		entity.modifiers = entity.modifiers
-		if target_override:
-			entity.target = target_override
-		else:
-			entity.target = from.target
-		for exception in from.get_collision_exceptions():
-			entity.add_collision_exception_with(exception)
-		entity.add_collision_exception_with(from)
-	else:
-		entity.team = 0
-		entity.target = target_override
+	entity.team = from.team
+	entity.is_ally = from.is_ally
 	
-	if entity.entity_type == Entity.EntityType.SHIP:
-		node.num_ship_per_team[entity.team] += 1
-		entity.tree_exiting.connect(_ship_exiting.bind(entity.team))
+	if target_override:
+		entity.target = target_override
+	else:
+		entity.target = from.target
+	
+	for exception in from.get_collision_exceptions():
+		entity.add_collision_exception_with(exception)
+	entity.add_collision_exception_with(from)
 	
 	node.add_child(entity)
+	
+	from.spawned_entity.emit(entity)
+	
 	return entity
-
-static func _ship_exiting(team: int) -> void:
-	node.num_ship_per_team[team] -= 1
 
 
 static var _query_shape: PhysicsShapeQueryParameters2D

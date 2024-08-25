@@ -1,14 +1,27 @@
-[gd_scene load_steps=2 format=3 uid="uid://cbh13kilq11bh"]
+[gd_scene load_steps=3 format=3 uid="uid://cbh13kilq11bh"]
 
 [sub_resource type="GDScript" id="GDScript_crkfs"]
 script/source = "extends Control
 
 func _ready() -> void:
-	_ad.call_deferred()
+	pass
+	
+	# TODO: load player progress
+	
+	# TODO: load player current game if any
+	
+"
 
-func _ad() -> void:
-	Battlescape.spawn(preload(\"res://base/TEST_HULL.tscn\"), Vector2.ZERO, 0.0)
+[sub_resource type="GDScript" id="GDScript_1ia6o"]
+script/source = "extends Button
 
+
+func _pressed() -> void:
+	Player.create()
+	
+	# TODO: load player data from file.
+	
+	
 "
 
 [node name="MainMenu" type="Control"]
@@ -19,3 +32,25 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = SubResource("GDScript_crkfs")
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
+layout_mode = 2
+
+[node name="Load" type="Button" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+text = "Load"
+script = SubResource("GDScript_1ia6o")

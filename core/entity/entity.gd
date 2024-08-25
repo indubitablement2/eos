@@ -3,6 +3,12 @@ class_name Entity
 
 ## Class of everything that goes in the Battlescape.
 
+## Ships need these nodes to work properly:
+## HullArmor
+
+signal destroyed
+signal spawned_entity(entity: Entity)
+
 enum EntityType {
 	SHIP,
 	FIGHTER,
@@ -98,8 +104,6 @@ enum WishLinearVelocityType {
 @export var wish_linear_velocity_type := WishLinearVelocityType.NONE
 @export var wish_linear_velocity := Vector2.ZERO
 
-@export var modifiers: Array[Modifiers] = []
-
 ## null when no target.
 var target: Entity = null:
 	set = set_target
@@ -130,10 +134,6 @@ func _init() -> void:
 		var ai := ShipAI.new()
 		ai.name = "ShipAI"
 		add_child(ai)
-
-func _ready() -> void:
-	for mod in modifiers:
-		mod.apply(self)
 
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 	
@@ -217,10 +217,6 @@ func _physics_process(delta: float) -> void:
 	
 	flux = maxf(flux - flux_dissipation_rate * delta, 0.0)
 	
-
-## TODO
-func destroy() -> void:
-	queue_free()
 
 ## If this is a ship, return its ai.
 func get_ship_ai() -> ShipAI:

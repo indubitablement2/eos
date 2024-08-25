@@ -1,0 +1,53 @@
+[gd_scene load_steps=3 format=3 uid="uid://bt2iiwao62anh"]
+
+[ext_resource type="Script" path="res://core/metascape/metascape.gd" id="1_ljdkx"]
+[ext_resource type="Script" path="res://core/metascape/metascape_body.gd" id="2_ys0gv"]
+
+[node name="Metascape" type="Node2D"]
+script = ExtResource("1_ljdkx")
+radius = 256.0
+
+[node name="Camera2D" type="Camera2D" parent="."]
+zoom = Vector2(0.15, 0.15)
+
+[node name="Mercury" type="Node2D" parent="."]
+script = ExtResource("2_ys0gv")
+distance = 1000.0
+period = 100.0
+radius = 32.0
+
+[node name="Venus" type="Node2D" parent="."]
+script = ExtResource("2_ys0gv")
+distance = 1500.0
+period = 150.0
+radius = 50.0
+
+[node name="Earth" type="Node2D" parent="."]
+script = ExtResource("2_ys0gv")
+distance = 2000.0
+period = 200.0
+radius = 32.0
+
+[node name="Mars" type="Node2D" parent="."]
+script = ExtResource("2_ys0gv")
+distance = 2300.0
+period = 230.0
+radius = 48.0
+
+[node name="Jupiter" type="Node2D" parent="."]
+script = ExtResource("2_ys0gv")
+distance = 2900.0
+period = 290.0
+radius = 64.0
+
+[node name="Ganymede" type="Node2D" parent="Jupiter"]
+script = ExtResource("2_ys0gv")
+distance = 150.0
+period = 15.0
+radius = 16.0
+
+[node name="Saturn" type="Node2D" parent="."]
+script = ExtResource("2_ys0gv")
+distance = 3600.0
+period = 360.0
+radius = 32.0
