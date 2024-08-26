@@ -46,7 +46,7 @@ func _physics_process(_delta: float) -> void:
 		Battlescape.set_time_scale(Battlescape.get_time_scale() / entity.time_scale)
 		entity.time_scale = 1.0
 	
-	var target := Vector2.ZERO
+	#var target := Vector2.ZERO
 	
 	match state:
 		ShipAiState.ENTRY:

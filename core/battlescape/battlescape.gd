@@ -1,12 +1,16 @@
 extends Node2D
 class_name Battlescape
 
-static var node: Battlescape
+static var node: Battlescape = null
+
+## Call finish to emit this.
+signal finished
 
 @export var battle_radius := 10000.0
-@export var take_player_ships := true
 
+var player_team: BattlescapeTeam
 var teams: Array[BattlescapeTeam] = []
+var time := 0.0
 
 static func _static_entry() -> void:
 	_query_shape = PhysicsShapeQueryParameters2D.new()
@@ -43,39 +47,33 @@ func _ready() -> void:
 	
 	for child in get_children():
 		if child is BattlescapeTeam:
-			var team := teams.size()
-			assert(team < 4)
-			child.team = team
-			child.update_entry_dir()
 			teams.push_back(child)
-	while teams.size() < 4:
-		var team := teams.size()
-		teams.push_back(BattlescapeTeam.new())
-		teams[team].team = team
-		teams[team].update_entry_dir()
-		add_child(teams[team])
+			if child.team == 0 && ! child.is_ally:
+				assert(!player_team)
+				player_team = child
+	assert(player_team)
 	
 	add_child(BattlescapePlayer.new())
 
 func _exit_tree() -> void:
 	Battlescape.set_time_scale(1.0)
-	
-	#for entity in Player.node.ships:
-		#entity.remove_meta("spawned")
-		#if entity.is_inside_tree():
-			#remove_child(entity)
-	
 	node = null
 
+func _physics_process(delta: float) -> void:
+	time += delta
 
 func _draw() -> void:
-	#for dir in entry_dir:
-		#const ORIGIN := Vector2(200, 200)
-		#var to := Vector2(100.0, 0.0).rotated(dir) + ORIGIN
-		#draw_line(ORIGIN, to, Color.ALICE_BLUE)
-		#draw_string(ThemeDB.fallback_font, to, String.num(dir, 2))
-	
 	draw_arc(Vector2.ZERO, battle_radius, 0.0 ,INF ,128 ,Color.ALICE_BLUE)
+
+
+## Call for the metascape to take the result of the battlescape.
+func finish() -> void:
+	for team in teams:
+		team.update_ship_saves()
+	
+	finished.emit()
+	queue_free()
+
 
 static func set_time_scale(value: float) -> void:
 	if is_equal_approx(value, 1.0):
@@ -87,7 +85,7 @@ static func get_time_scale() -> float:
 	return Engine.time_scale
 
 
-static func spawn(
+static func spawn_from(
 	entity_scene: PackedScene,
 	pos: Vector2,
 	rot: float,
@@ -265,16 +263,16 @@ const COLLISION_FIGHTER := COLLISION_SHIP_S << 4
 const COLLISION_MISSILE := COLLISION_SHIP_S << 5
 const COLLISION_PROJECTILE := COLLISION_SHIP_S << 6
 
-const COLLISION_TEAM_SIZE := 7
+const COLLISION_TEAM_BIT_SIZE := 7
 
 ## Return a mask which takes into account all 4 teams and the input team.
 ## Input mask uses editor's friend/enemy/debris.
 static func make_collision_mask(team: int, mask: int) -> int:
-	team *= COLLISION_TEAM_SIZE
+	team *= COLLISION_TEAM_BIT_SIZE
 	
 	# Enemy
 	var ret := mask & COLLISION_ENEMY
-	ret |= ret >> COLLISION_TEAM_SIZE
+	ret |= ret >> COLLISION_TEAM_BIT_SIZE
 	ret |= ret << 14
 	ret &= ~(COLLISION_FRIEND << team)
 	# Friend

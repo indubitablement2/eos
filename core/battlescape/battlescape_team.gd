@@ -1,4 +1,4 @@
-extends Node2D
+extends Node
 class_name BattlescapeTeam
 
 enum EntryDir {
@@ -18,55 +18,21 @@ enum EntryDir {
 @export var max_ship := 30
 @export var max_ship_point := 300
 
-var ships: Array[Entity] = []
+@export var ships: Array[ShipSave] = []
+## Used as a hashset.
+## int (ship index) : Entity (null if freed)
+var spawned := {}
 
-var team: int
+@export var team: int
+## If this is in the same team as the previous team.
+@export var is_ally := false
 
 ## Time since last ship spawn.
 var last_spawn := INF
 var _offset_perpendicular := 0.0
 var _offset_parallel := 0.0
 
-func _physics_process(delta: float) -> void:
-	last_spawn += delta
-	if last_spawn > 10.0:
-		_offset_perpendicular = 0.0
-		_offset_parallel = 0.0
-
-func spawn_ship(ship_idx: int) -> Entity:
-	var entity := ships[ship_idx]
-	entity.process_mode = Node.PROCESS_MODE_ALWAYS
-	
-	last_spawn = 0.0
-	entity.set_meta("spawned", true)
-	
-	var wish_pos := Vector2.RIGHT.rotated(-entry_dir) * (Battlescape.node.battle_radius + entry_distance)
-	var final_pos: Vector2
-	while true:
-		final_pos = wish_pos + wish_pos.normalized() * _offset_parallel + wish_pos.normalized().rotated(PI * 0.5) * _offset_perpendicular
-		
-		if _offset_perpendicular <= 0.0:
-			_offset_perpendicular = absf(_offset_perpendicular) + 300.0
-			if _offset_perpendicular > 1500.0:
-				_offset_parallel += 300.0
-				_offset_perpendicular = 0.0
-		else:
-			_offset_perpendicular = -_offset_perpendicular
-		
-		if Battlescape.intersect_circle(final_pos, 300.0, -1, [], 1).is_empty():
-			break
-	
-	# TODO: turrets
-	
-	# TODO: Destroyed / leaving
-	#entity.tree_exiting.connect(_entity_tree_exiting.bind(entity, ship_save))
-	
-	return entity
-
-#func _entity_tree_exiting(entity: Entity, ship_save: ShipSave) -> void:
-	#pass
-
-func update_entry_dir() -> void:
+func _ready() -> void:
 	var t := _entry_dir
 	if t == EntryDir.CUSTOM:
 		return
@@ -89,3 +55,72 @@ func update_entry_dir() -> void:
 			entry_dir = 0.0
 		EntryDir.W:
 			entry_dir = -PI
+
+func _physics_process(delta: float) -> void:
+	last_spawn += delta
+	if last_spawn > 10.0:
+		_offset_perpendicular = 0.0
+		_offset_parallel = 0.0
+
+func spawn_ship(ship_save_idx: int) -> Entity:
+	var ship_save := ships[ship_save_idx]
+	
+	last_spawn = 0.0
+	
+	var entity: Entity = ship_save.entity_scene.instantiate()
+	
+	spawned[ship_save_idx] = entity
+	
+	entity.team = team
+	entity.is_ally = is_ally
+	
+	entity.rotation = entry_dir
+	
+	var wish_pos := Vector2.RIGHT.rotated(-entry_dir) * (Battlescape.node.battle_radius + entry_distance)
+	var final_pos: Vector2
+	while true:
+		final_pos = wish_pos + wish_pos.normalized() * _offset_parallel + wish_pos.normalized().rotated(PI * 0.5) * _offset_perpendicular
+		
+		if _offset_perpendicular <= 0.0:
+			_offset_perpendicular = absf(_offset_perpendicular) + 300.0
+			if _offset_perpendicular > 1500.0:
+				_offset_parallel += 300.0
+				_offset_perpendicular = 0.0
+		else:
+			_offset_perpendicular = -_offset_perpendicular
+		
+		if Battlescape.intersect_circle(final_pos, 300.0, -1, [], 1).is_empty():
+			break
+	entity.position = final_pos
+	
+	# TODO: Set hull & amor
+	
+	for modifier in ship_save.modifiers:
+		entity.add_child(modifier.instantiate())
+	
+	# TODO: turrets
+	
+	entity.tree_exiting.connect(_entity_tree_exiting.bind(ship_save_idx))
+	
+	Battlescape.node.add_child(entity)
+	
+	return entity
+
+func update_ship_saves() -> void:
+	for ship_save_idx: int in spawned.keys():
+		var entity: Entity = spawned[ship_save_idx]
+		if !entity:
+			continue
+		_update_ship_save(entity, ships[ship_save_idx])
+
+func _entity_tree_exiting(ship_save_idx: int) -> void:
+	var ship_save := ships[ship_save_idx]
+	var entity: Entity = spawned[ship_save_idx]
+	
+	_update_ship_save(entity, ship_save)
+	
+	spawned[ship_save_idx] = null
+
+func _update_ship_save(entity: Entity, ship_save: ShipSave) -> void:
+	# TODO: Take hull & armor
+	pass

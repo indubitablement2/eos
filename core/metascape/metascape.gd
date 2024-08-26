@@ -5,6 +5,7 @@ static var time: float
 
 @export var radius: float
 
+
 func _ready() -> void:
 	time = 1000.0
 
