@@ -56,7 +56,14 @@ func _physics_process(delta: float) -> void:
 	
 	position += velocity * delta
 
+func _draw() -> void:
+	draw_arc(Vector2.ZERO, 80.0, 0.0, INF, 32, Color.ALICE_BLUE)
+
 func update_ships(with_explosion := false) -> void:
+	if ships.is_empty():
+		queue_free()
+		return
+	
 	var old_ships_sprite = _ships_sprite
 	_ships_sprite = {}
 	
@@ -78,3 +85,5 @@ func update_ships(with_explosion := false) -> void:
 	# TODO: Derive movement stats
 	velocity_max = 200.0
 	acceleration = 200.0
+	
+	queue_redraw()

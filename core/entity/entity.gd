@@ -117,12 +117,12 @@ func _on_target_tree_exiting() -> void:
 	target = null
 
 ## Will set collision layer and mask.
-var team := 0:
+var team: BattlescapeTeam = null:
 	set = set_team
-func set_team(value: int) -> void:
+func set_team(value: BattlescapeTeam) -> void:
 	team = value
-	collision_layer <<= team * Battlescape.COLLISION_TEAM_BIT_SIZE
-	collision_mask = Battlescape.make_collision_mask(team, collision_mask)
+	collision_layer <<= team.team * Battlescape.COLLISION_TEAM_BIT_SIZE
+	collision_mask = Battlescape.make_collision_mask(team.team, collision_mask)
 var is_ally := false
 
 func _init() -> void:
@@ -130,6 +130,7 @@ func _init() -> void:
 	custom_integrator = true
 	max_contacts_reported = 8
 	contact_monitor = true
+	center_of_mass_mode = RigidBody2D.CENTER_OF_MASS_MODE_CUSTOM
 	if entity_type == EntityType.SHIP:
 		var ai := ShipAI.new()
 		ai.name = "ShipAI"

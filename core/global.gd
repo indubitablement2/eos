@@ -17,9 +17,9 @@ static func _static_entry() -> void:
 			continue
 		
 		for path in DirAccess.get_files_at(dir + "/ship_data"):
-			var ship_data := load(path) as ShipData
-			ship_data.verify()
-			ships[ship_data.scene.resource_path] = ship_data
+			var ship_data := load(dir + "/ship_data/" + path) as ShipData
+			ship_data._verify()
+			ships[ship_data.entity_scene.resource_path] = ship_data
 
 
 static func predict_position(

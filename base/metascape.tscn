@@ -1,8 +1,7 @@
-[gd_scene load_steps=4 format=3 uid="uid://bt2iiwao62anh"]
+[gd_scene load_steps=3 format=3 uid="uid://bt2iiwao62anh"]
 
 [ext_resource type="Script" path="res://core/metascape/metascape.gd" id="1_ljdkx"]
 [ext_resource type="Script" path="res://core/metascape/metascape_body.gd" id="2_ys0gv"]
-[ext_resource type="Script" path="res://core/metascape/metascape_fleet.gd" id="3_a7det"]
 
 [node name="Metascape" type="Node2D"]
 script = ExtResource("1_ljdkx")
@@ -52,6 +51,3 @@ script = ExtResource("2_ys0gv")
 distance = 3600.0
 period = 360.0
 radius = 32.0
-
-[node name="MetascapeFleet" type="Node2D" parent="."]
-script = ExtResource("3_a7det")

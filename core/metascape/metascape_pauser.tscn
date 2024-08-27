@@ -1,0 +1,39 @@
+[gd_scene load_steps=2 format=3 uid="uid://cqh0sub4ak8i0"]
+
+[sub_resource type="GDScript" id="GDScript_5hwmm"]
+script/source = "extends CanvasLayer
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if event.is_action_pressed(\"pause\"):
+		if Metascape.node.event_popup_canvas_layer.get_child_count() == 0:
+			get_tree().paused = !get_tree().paused
+
+func _physics_process(_delta: float) -> void:
+	if Metascape.node.event_popup_canvas_layer.get_child_count() > 1:
+		get_tree().paused = true
+		hide()
+	elif get_tree().paused:
+		show()
+	else:
+		hide()
+"
+
+[node name="MetascapePauser" type="CanvasLayer"]
+process_mode = 3
+layer = 5
+script = SubResource("GDScript_5hwmm")
+
+[node name="Label" type="Label" parent="."]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.6
+anchor_right = 0.5
+anchor_bottom = 0.6
+offset_left = -31.0
+offset_top = -11.5
+offset_right = 31.0
+offset_bottom = 11.5
+grow_horizontal = 2
+grow_vertical = 2
+text = "PAUSED"
+horizontal_alignment = 1

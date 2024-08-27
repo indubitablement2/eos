@@ -7,4 +7,4 @@
 script = ExtResource("2_3k2sn")
 display_name = "aaa"
 description = "123123"
-scene = ExtResource("1_h4op8")
+entity_scene = ExtResource("1_h4op8")

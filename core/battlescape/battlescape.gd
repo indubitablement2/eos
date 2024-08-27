@@ -6,9 +6,10 @@ static var node: Battlescape = null
 ## Call finish to emit this.
 signal finished
 
-@export var battle_radius := 10000.0
+@export var battle_radius := 5000.0
 
 var player_team: BattlescapeTeam
+## In any order
 var teams: Array[BattlescapeTeam] = []
 var time := 0.0
 
@@ -56,8 +57,8 @@ func _ready() -> void:
 	add_child(BattlescapePlayer.new())
 
 func _exit_tree() -> void:
-	Battlescape.set_time_scale(1.0)
-	node = null
+	if node == self:
+		node = null
 
 func _physics_process(delta: float) -> void:
 	time += delta

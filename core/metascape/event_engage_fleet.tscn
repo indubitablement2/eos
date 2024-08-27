@@ -1,0 +1,49 @@
+[gd_scene load_steps=3 format=3 uid="uid://2wrqpde2h2om"]
+
+[ext_resource type="PackedScene" uid="uid://ca2dqml4it87m" path="res://core/metascape/event.tscn" id="1_bmekl"]
+
+[sub_resource type="GDScript" id="GDScript_bkaks"]
+script/source = "extends PanelContainer
+
+var player_fleet: MetascapeFleet
+var other_fleet: MetascapeFleet
+
+func setup(player_fleet_path: String, other_fleet_path: String) -> void:
+	player_fleet = Metascape.node.get_node(player_fleet_path)
+	other_fleet = Metascape.node.get_node(other_fleet_path)
+	
+	if !player_fleet || !other_fleet:
+		push_error(\"fleet not found\")
+		queue_free()
+	
+	var attack_button := Button.new()
+	attack_button.text = \"Attack it!\"
+	attack_button.pressed.connect(_on_attack_pressed)
+	$%Choices.add_child(attack_button)
+
+func _on_attack_pressed() -> void:
+	var battlescape := Battlescape.new()
+	battlescape.finished.connect(_on_battlescape_finished)
+	
+	var player_team := BattlescapeTeam.new()
+	player_team.ships = player_fleet.ships
+	player_team.team = 0
+	player_team.auto_entry = true
+	battlescape.add_child(player_team)
+	
+	var other_team := BattlescapeTeam.new()
+	other_team.ships = other_fleet.ships
+	other_team.team = 1
+	other_team.auto_entry = true
+	battlescape.add_child(other_team)
+	
+	Metascape.start_battlescape(battlescape)
+
+func _on_battlescape_finished() -> void:
+	player_fleet.update_ships(true)
+	other_fleet.update_ships(true)
+	queue_free()
+"
+
+[node name="EventEngageFleet" instance=ExtResource("1_bmekl")]
+script = SubResource("GDScript_bkaks")

@@ -61,6 +61,12 @@ func _physics_process(delta: float) -> void:
 	if last_spawn > 10.0:
 		_offset_perpendicular = 0.0
 		_offset_parallel = 0.0
+	
+	if auto_entry:
+		for i in ships.size():
+			if !spawned.has(i):
+				spawn_ship(i)
+				break
 
 func spawn_ship(ship_save_idx: int) -> Entity:
 	var ship_save := ships[ship_save_idx]
@@ -71,7 +77,7 @@ func spawn_ship(ship_save_idx: int) -> Entity:
 	
 	spawned[ship_save_idx] = entity
 	
-	entity.team = team
+	entity.team = self
 	entity.is_ally = is_ally
 	
 	entity.rotation = entry_dir

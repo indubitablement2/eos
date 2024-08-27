@@ -1,6 +1,7 @@
 extends Camera2D
 class_name BattlescapePlayer
 
+var control_first_ship := true
 static var unlock_aim := false
 static var hold_time := 0.2
 
@@ -36,6 +37,13 @@ func _unhandled_input(event: InputEvent) -> void:
 				_try_control_ship()
 
 func _physics_process(_delta: float) -> void:
+	if control_first_ship && !entity:
+		for spawned_entity: Entity in Battlescape.node.teams[0].spawned.values():
+			if !spawned_entity:
+				continue
+			set_entity(spawned_entity)
+			break
+	
 	if !entity:
 		return
 	

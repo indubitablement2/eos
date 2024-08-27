@@ -1,0 +1,25 @@
+[gd_scene load_steps=2 format=3 uid="uid://c7pn41p6ncg70"]
+
+[sub_resource type="GDScript" id="GDScript_cmtyv"]
+script/source = "extends Node2D
+
+
+func _ready() -> void:
+	prints(name, \"_ready\")
+
+func _physics_process(_delta: float) -> void:
+	if name == \"1\":
+		get_tree().paused = true
+	prints(name, \"_physics_process\")
+"
+
+[node name="PauseTree" type="Node2D"]
+
+[node name="0" type="Node2D" parent="."]
+script = SubResource("GDScript_cmtyv")
+
+[node name="1" type="Node2D" parent="."]
+script = SubResource("GDScript_cmtyv")
+
+[node name="2" type="Node2D" parent="."]
+script = SubResource("GDScript_cmtyv")

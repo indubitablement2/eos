@@ -9,7 +9,7 @@ enum ShipAiState {
 	EXIT,
 	FLEE,
 }
-var state := ShipAiState.FIGHT
+var state := ShipAiState.ENTRY
 
 @onready var entity: Entity = get_parent()
 
@@ -35,6 +35,7 @@ var _time_scale_change := 1.0
 func _init() -> void:
 	process_priority = -1
 
+
 func _ready() -> void:
 	if entity.position.length() > Battlescape.node.battle_radius:
 		state = ShipAiState.ENTRY
@@ -46,14 +47,17 @@ func _physics_process(_delta: float) -> void:
 		Battlescape.set_time_scale(Battlescape.get_time_scale() / entity.time_scale)
 		entity.time_scale = 1.0
 	
-	#var target := Vector2.ZERO
+	
+	var target_position := entity.position
 	
 	match state:
 		ShipAiState.ENTRY:
-			if entity.position.length_squared() < Battlescape.node.radius * Battlescape.node.radius:
+			if entity.position.length() < Battlescape.node.battle_radius:
 				state = ShipAiState.FIGHT
 			else:
-				pass
+				Battlescape.node.teams[entity.team]
+				entity.wish_linear_velocity_position(Vector2.ZERO)
+				entity.wish_angular_velocity_aim_smooth(Vector2.ZERO)
 		ShipAiState.EXIT:
 			pass
 		_:
@@ -61,7 +65,7 @@ func _physics_process(_delta: float) -> void:
 				_ai()
 			else:
 				return
-	
+
 
 
 func _ai() -> void:
