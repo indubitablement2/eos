@@ -9,7 +9,8 @@ signal finished
 @export var battle_radius := 5000.0
 
 var player_team: BattlescapeTeam
-## In any order
+## Index do not correspond to team number.
+## There can be multiple team 0 for example.
 var teams: Array[BattlescapeTeam] = []
 var time := 0.0
 
