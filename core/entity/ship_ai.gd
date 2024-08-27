@@ -47,25 +47,19 @@ func _physics_process(_delta: float) -> void:
 		Battlescape.set_time_scale(Battlescape.get_time_scale() / entity.time_scale)
 		entity.time_scale = 1.0
 	
-	
-	var target_position := entity.position
-	
 	match state:
 		ShipAiState.ENTRY:
 			if entity.position.length() < Battlescape.node.battle_radius:
 				state = ShipAiState.FIGHT
 			else:
-				Battlescape.node.teams[entity.team]
-				entity.wish_linear_velocity_position(Vector2.ZERO)
-				entity.wish_angular_velocity_aim_smooth(Vector2.ZERO)
+				entity.wish_linear_velocity_absolute_direction(entity.team.entry_dir)
+				entity.wish_angular_velocity_rotation_smooth_angle(entity.team.entry_dir)
 		ShipAiState.EXIT:
-			pass
+			entity.wish_linear_velocity_absolute_direction(-entity.team.entry_dir)
+			entity.wish_angular_velocity_rotation_smooth_angle(-entity.team.entry_dir)
 		_:
 			if is_auto_pilot:
 				_ai()
-			else:
-				return
-
 
 
 func _ai() -> void:

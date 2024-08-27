@@ -73,12 +73,22 @@ enum WishAngularVelocityType {
 	## Same as AIM_SMOOTH, but always try to go at max velocity.
 	## Faster to integrate than AIM_SMOOTH.
 	AIM_OVERSHOOT,
+	## Set angular velocity to take a rotation.
+	ROTATION_SMOOTH,
 	## Rotate left or right. 
 	## Magnitude bellow or above 1 are valid.
 	FORCE,
 }
 @export var wish_angular_velocity_type := WishAngularVelocityType.NONE
 @export var wish_angular_velocity := Vector2.ZERO
+const _ANGULAR_VELOCITY_INTEGRATION_METHODS: Array[StringName] = [
+	&"_angular_integrate_none",
+	&"_angular_integrate_keep",
+	&"_angular_integrate_stop",
+	&"_angular_integrate_aim_smooth",
+	&"_angular_integrate_aim_overshoot",
+	&"_angular_integrate_rotation_smooth",
+	&"_angular_integrate_force"]
 
 enum WishLinearVelocityType {
 	## Do nothing.
@@ -103,6 +113,14 @@ enum WishLinearVelocityType {
 }
 @export var wish_linear_velocity_type := WishLinearVelocityType.NONE
 @export var wish_linear_velocity := Vector2.ZERO
+const _LINEAR_VELOCITY_INTEGRATION_METHODS: Array[StringName] = [
+	&"_linear_integrate_none",
+	&"_linear_integrate_keep",
+	&"_linear_integrate_stop",
+	&"_linear_integrate_position_smooth",
+	&"_linear_integrate_position_overshoot",
+	&"_linear_integrate_force_absolute",
+	&"_linear_integrate_force_relative"]
 
 ## null when no target.
 var target: Entity = null:
@@ -125,6 +143,9 @@ func set_team(value: BattlescapeTeam) -> void:
 	collision_mask = Battlescape.make_collision_mask(team.team, collision_mask)
 var is_ally := false
 
+static func _static_init() -> void:
+	print("hello")
+
 func _init() -> void:
 	can_sleep = false
 	custom_integrator = true
@@ -142,66 +163,8 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 	if engine_disabled:
 		return
 	
-	# Angular velocity.
-	match wish_angular_velocity_type:
-		WishAngularVelocityType.KEEP:
-			if absf(state.angular_velocity) > angular_velocity_max:
-				_integrate_angvel(
-					clampf(state.angular_velocity, -angular_velocity_max, angular_velocity_max), state)
-		WishAngularVelocityType.STOP:
-			if !is_zero_approx(state.angular_velocity):
-				_integrate_angvel_stop(state)
-		WishAngularVelocityType.AIM_SMOOTH:
-			var offset := get_angle_to(wish_angular_velocity)
-			var wish_dir := signf(offset)
-			var close_smooth := minf(absf(offset), 0.3) / 0.3
-			
-			if wish_dir == signf(state.angular_velocity):
-				var time_to_target := absf(offset / state.angular_velocity)
-				var time_to_stop := absf(state.angular_velocity / angular_acceleration)
-				if (time_to_target < time_to_stop):
-					close_smooth = -close_smooth
-			
-			_integrate_angvel(wish_dir * angular_velocity_max * close_smooth, state)
-		WishAngularVelocityType.AIM_OVERSHOOT:
-			var wish_dir := signf(get_angle_to(wish_angular_velocity))
-			_integrate_angvel(wish_dir * angular_velocity_max, state)
-		WishAngularVelocityType.FORCE:
-			_integrate_angvel(wish_angular_velocity.x * angular_velocity_max, state)
-	
-	# Linear velocity.
-	match wish_linear_velocity_type:
-		WishLinearVelocityType.KEEP:
-			if state.linear_velocity.length_squared() > linear_velocity_max * linear_velocity_max:
-				_integrate_linvel(state.linear_velocity.limit_length(linear_velocity_max), state)
-		WishLinearVelocityType.STOP:
-			if !state.linear_velocity.is_zero_approx():
-				_integrate_linvel_stop(state)
-		WishLinearVelocityType.POSITION_SMOOTH:
-			var to_position := wish_linear_velocity - position
-			var to_position_length := to_position.length()
-			if to_position_length < 30.0:
-				# We are on target.
-				_integrate_linvel_stop(state)
-			else:
-				var vel_length := state.linear_velocity.length()
-				var time_to_target := to_position_length / vel_length
-				var time_to_stop := vel_length / linear_acceleration
-				to_position /= to_position_length
-				to_position *= minf(time_to_target / time_to_stop, 1.0)
-				to_position *= linear_velocity_max
-				_integrate_linvel(to_position, state)
-		WishLinearVelocityType.POSITION_OVERSHOOT:
-			var to_position := wish_linear_velocity - position
-			if to_position.is_zero_approx():
-				to_position = Vector2(0.0, linear_velocity_max)
-			else:
-				to_position = to_position.normalized() * linear_velocity_max
-			_integrate_linvel(to_position, state)
-		WishLinearVelocityType.FORCE_ABSOLUTE:
-			_integrate_linvel(wish_linear_velocity * linear_velocity_max, state)
-		WishLinearVelocityType.FORCE_RELATIVE:
-			_integrate_linvel(wish_linear_velocity.rotated(rotation) * linear_velocity_max, state)
+	call(_ANGULAR_VELOCITY_INTEGRATION_METHODS[wish_angular_velocity_type], state)
+	call(_LINEAR_VELOCITY_INTEGRATION_METHODS[wish_linear_velocity_type], state)
 
 func _physics_process(delta: float) -> void:
 	engine_hp += delta * engine_repair_rate
@@ -229,34 +192,52 @@ func wish_angular_velocity_keep() -> void:
 	wish_angular_velocity_type = WishAngularVelocityType.KEEP
 func wish_angular_velocity_stop() -> void:
 	wish_angular_velocity_type = WishAngularVelocityType.STOP
-func wish_angular_velocity_aim_smooth(point: Vector2) -> void:
+func wish_angular_velocity_aim_smooth(value: Vector2) -> void:
 	wish_angular_velocity_type = WishAngularVelocityType.AIM_SMOOTH
-	wish_angular_velocity = point
-func wish_angular_velocity_aim_overshoot(point: Vector2) -> void:
+	wish_angular_velocity = value
+func wish_angular_velocity_aim_overshoot(value: Vector2) -> void:
 	wish_angular_velocity_type = WishAngularVelocityType.AIM_OVERSHOOT
-	wish_angular_velocity = point
-func wish_angular_velocity_force(force: float) -> void:
+	wish_angular_velocity = value
+func wish_angular_velocity_rotation_smooth_angle(value: float) -> void:
+	wish_angular_velocity_type = WishAngularVelocityType.ROTATION_SMOOTH
+	wish_angular_velocity.x = value
+func wish_angular_velocity_force(value: float) -> void:
 	wish_angular_velocity_type = WishAngularVelocityType.FORCE
-	wish_angular_velocity.x = force
+	wish_angular_velocity.x = value
 
-func wish_linear_velocity_none() -> void:
-	wish_linear_velocity_type = WishLinearVelocityType.NONE
-func wish_linear_velocity_keep() -> void:
-	wish_linear_velocity_type = WishLinearVelocityType.KEEP
-func wish_linear_velocity_stop() -> void:
-	wish_linear_velocity_type = WishLinearVelocityType.STOP
-func wish_linear_velocity_position_smooth(point: Vector2) -> void:
-	wish_linear_velocity_type = WishLinearVelocityType.POSITION_SMOOTH
-	wish_linear_velocity = point
-func wish_linear_velocity_position_overshoot(point: Vector2) -> void:
-	wish_linear_velocity_type = WishLinearVelocityType.POSITION_OVERSHOOT
-	wish_linear_velocity = point
-func wish_linear_velocity_force_absolute(value: Vector2) -> void:
-	wish_linear_velocity_type = WishLinearVelocityType.FORCE_ABSOLUTE
-	wish_linear_velocity = value
-func wish_linear_velocity_force_relative(value: Vector2) -> void:
-	wish_linear_velocity_type = WishLinearVelocityType.FORCE_RELATIVE
-	wish_linear_velocity = value
+func _angular_integrate_none(_state: PhysicsDirectBodyState2D) -> void:
+	pass
+func _angular_integrate_keep(state: PhysicsDirectBodyState2D) -> void:
+	if absf(state.angular_velocity) > angular_velocity_max:
+		_integrate_angvel(clampf(state.angular_velocity, -angular_velocity_max, angular_velocity_max), state)
+func _angular_integrate_stop(state: PhysicsDirectBodyState2D) -> void:
+	if !is_zero_approx(state.angular_velocity):
+		_integrate_angvel_stop(state)
+func _angular_integrate_aim_smooth(state: PhysicsDirectBodyState2D) -> void:
+	var offset := get_angle_to(wish_angular_velocity)
+	var wish_dir := signf(offset)
+	var close_smooth := minf(absf(offset), 0.3) / 0.3
+	if wish_dir == signf(state.angular_velocity):
+		var time_to_target := absf(offset / state.angular_velocity)
+		var time_to_stop := absf(state.angular_velocity / angular_acceleration)
+		if (time_to_target < time_to_stop):
+			close_smooth = -close_smooth
+	_integrate_angvel(wish_dir * angular_velocity_max * close_smooth, state)
+func _angular_integrate_aim_overshoot(state: PhysicsDirectBodyState2D) -> void:
+	var wish_dir := signf(get_angle_to(wish_angular_velocity))
+	_integrate_angvel(wish_dir * angular_velocity_max, state)
+func _angular_integrate_rotation_smooth(state: PhysicsDirectBodyState2D) -> void:
+	var offset := angle_difference(rotation, wish_angular_velocity.x)
+	var wish_dir := signf(offset)
+	var close_smooth := minf(absf(offset), 0.3) / 0.3
+	if wish_dir == signf(state.angular_velocity):
+		var time_to_target := absf(offset / state.angular_velocity)
+		var time_to_stop := absf(state.angular_velocity / angular_acceleration)
+		if (time_to_target < time_to_stop):
+			close_smooth = -close_smooth
+	_integrate_angvel(wish_dir * angular_velocity_max * close_smooth, state)
+func _angular_integrate_force(state: PhysicsDirectBodyState2D) -> void:
+	_integrate_angvel(wish_angular_velocity.x * angular_velocity_max, state)
 
 func _integrate_angvel(wish_angvel: float, state: PhysicsDirectBodyState2D) -> void:
 	state.angular_velocity += clampf(
@@ -269,6 +250,63 @@ func _integrate_angvel_stop(state: PhysicsDirectBodyState2D) -> void:
 		state.angular_velocity,
 		-angular_acceleration * state.step,
 		angular_acceleration * state.step)
+
+func wish_linear_velocity_none() -> void:
+	wish_linear_velocity_type = WishLinearVelocityType.NONE
+func wish_linear_velocity_keep() -> void:
+	wish_linear_velocity_type = WishLinearVelocityType.KEEP
+func wish_linear_velocity_stop() -> void:
+	wish_linear_velocity_type = WishLinearVelocityType.STOP
+func wish_linear_velocity_position_smooth(value: Vector2) -> void:
+	wish_linear_velocity_type = WishLinearVelocityType.POSITION_SMOOTH
+	wish_linear_velocity = value
+func wish_linear_velocity_position_overshoot(value: Vector2) -> void:
+	wish_linear_velocity_type = WishLinearVelocityType.POSITION_OVERSHOOT
+	wish_linear_velocity = value
+func wish_linear_velocity_force_absolute(value: Vector2) -> void:
+	wish_linear_velocity_type = WishLinearVelocityType.FORCE_ABSOLUTE
+	wish_linear_velocity = value
+func wish_linear_velocity_force_relative(value: Vector2) -> void:
+	wish_linear_velocity_type = WishLinearVelocityType.FORCE_RELATIVE
+	wish_linear_velocity = value
+## Maximum velocity toward a global angle.
+func wish_linear_velocity_absolute_direction(value: float) -> void:
+	wish_linear_velocity_type = WishLinearVelocityType.FORCE_ABSOLUTE
+	wish_linear_velocity = Vector2.RIGHT.rotated(value)
+
+func _linear_integrate_none(_state: PhysicsDirectBodyState2D) -> void:
+	pass
+func _linear_integrate_keep(state: PhysicsDirectBodyState2D) -> void:
+	if state.linear_velocity.length_squared() > linear_velocity_max * linear_velocity_max:
+		_integrate_linvel(state.linear_velocity.limit_length(linear_velocity_max), state)
+func _linear_integrate_stop(state: PhysicsDirectBodyState2D) -> void:
+	if !state.linear_velocity.is_zero_approx():
+		_integrate_linvel_stop(state)
+func _linear_integrate_position_smooth(state: PhysicsDirectBodyState2D) -> void:
+	var to_position := wish_linear_velocity - position
+	var to_position_length := to_position.length()
+	if to_position_length < 30.0:
+		# We are on target.
+		_integrate_linvel_stop(state)
+	else:
+		var vel_length := state.linear_velocity.length()
+		var time_to_target := to_position_length / vel_length
+		var time_to_stop := vel_length / linear_acceleration
+		to_position /= to_position_length
+		to_position *= minf(time_to_target / time_to_stop, 1.0)
+		to_position *= linear_velocity_max
+		_integrate_linvel(to_position, state)
+func _linear_integrate_position_overshoot(state: PhysicsDirectBodyState2D) -> void:
+	var to_position := wish_linear_velocity - position
+	if to_position.is_zero_approx():
+		to_position = Vector2(0.0, linear_velocity_max)
+	else:
+		to_position = to_position.normalized() * linear_velocity_max
+	_integrate_linvel(to_position, state)
+func _linear_integrate_force_absolute(state: PhysicsDirectBodyState2D) -> void:
+	_integrate_linvel(wish_linear_velocity * linear_velocity_max, state)
+func _linear_integrate_force_relative(state: PhysicsDirectBodyState2D) -> void:
+	_integrate_linvel(wish_linear_velocity.rotated(rotation) * linear_velocity_max, state)
 
 func _integrate_linvel(wish_linvel: Vector2, state: PhysicsDirectBodyState2D) -> void:
 	state.linear_velocity += (wish_linvel - state.linear_velocity).limit_length(
