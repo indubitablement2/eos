@@ -9,18 +9,25 @@ func _ready() -> void:
 func _draw() -> void:
 	draw_arc(Vector2.ZERO, 200.0, -PI, PI, 128, Color(1,0,0,0.8))
 	
-	var rid := Battlescape._arcs[$HSlider.value]
-	if !rid.is_valid():
-		return
-	if PhysicsServer2D.shape_get_type(rid) == PhysicsServer2D.ShapeType.SHAPE_CIRCLE:
-		draw_arc(Vector2.ZERO, 200.0, -PI, PI, 128, Color.ALICE_BLUE)
-		return
+	var shapes: Array[Shape2D] = Battlescape._arcs[$HSlider.value]
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2(200.0, 200.0))
+	var i := 0
+	var cols := [Color.BLUE, Color.RED]
+	for shape in shapes:
+		if shape is ConvexPolygonShape2D:
+			$Label.text = str(shape.points.size())
+		else:
+			$Label.text = \"?\"
+		shape.draw(get_canvas_item(), Color(cols[i]))
+		i += 1
+		#draw_arc(Vector2.ZERO, 200.0, -PI, PI, 128, Color.ALICE_BLUE)
 		
-	var points: PackedVector2Array = PhysicsServer2D.shape_get_data(rid)
-	for i in points.size():
-		points[i] = points[i] * 200.0
-	points.push_back(Vector2.ZERO)
-	draw_polyline(points, Color.ALICE_BLUE)
+		
+	#var points: PackedVector2Array = PhysicsServer2D.shape_get_data(rid)
+	#for i in points.size():
+		#points[i] = points[i] * 200.0
+	#points.push_back(Vector2.ZERO)
+	#draw_polyline(points, Color.ALICE_BLUE)
 
 func _on_h_slider_value_changed(_value: float) -> void:
 	queue_redraw()
@@ -35,5 +42,9 @@ offset_left = -267.0
 offset_top = -265.0
 offset_right = 318.0
 offset_bottom = -249.0
+
+[node name="Label" type="Label" parent="."]
+offset_right = 40.0
+offset_bottom = 23.0
 
 [connection signal="value_changed" from="HSlider" to="." method="_on_h_slider_value_changed"]

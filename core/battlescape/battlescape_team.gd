@@ -1,6 +1,8 @@
 extends Node
 class_name BattlescapeTeam
 
+const _SPAWN_SEPARATION := 300.0
+
 enum EntryDir {
 	AUTO,
 	CUSTOM,
@@ -88,14 +90,14 @@ func spawn_ship(ship_save_idx: int) -> Entity:
 		final_pos = wish_pos + wish_pos.normalized() * _offset_parallel + wish_pos.normalized().rotated(PI * 0.5) * _offset_perpendicular
 		
 		if _offset_perpendicular <= 0.0:
-			_offset_perpendicular = absf(_offset_perpendicular) + 300.0
-			if _offset_perpendicular > 1500.0:
-				_offset_parallel += 300.0
+			_offset_perpendicular = absf(_offset_perpendicular) + _SPAWN_SEPARATION
+			if _offset_perpendicular > _SPAWN_SEPARATION * 5.0:
+				_offset_parallel += _SPAWN_SEPARATION
 				_offset_perpendicular = 0.0
 		else:
 			_offset_perpendicular = -_offset_perpendicular
 		
-		if Battlescape.intersect_circle(final_pos, 300.0, -1, [], 1).is_empty():
+		if Battlescape.intersect_circle(final_pos, _SPAWN_SEPARATION, -1, [], 1).is_empty():
 			break
 	entity.position = final_pos
 	
@@ -130,3 +132,4 @@ func _entity_tree_exiting(ship_save_idx: int) -> void:
 func _update_ship_save(entity: Entity, ship_save: ShipSave) -> void:
 	# TODO: Take hull & armor
 	pass
+

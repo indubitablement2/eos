@@ -21,27 +21,37 @@ static func _static_entry() -> void:
 	_query_ray.hit_from_inside = true
 	
 	_arcs.resize(_ARCS_SIZE)
-	_arcs[0] = RID()
-	_arcs[-1] = PhysicsServer2D.circle_shape_create()
-	PhysicsServer2D.shape_set_data(_arcs[-1], 1.0)
+	for i in _arcs.size():
+		var arr: Array[Shape2D] = []
+		_arcs[i] = arr
+	_arcs[-1].push_back(CircleShape2D.new())
+	_arcs[-1][0].radius = 1.0
 	for i in range(1, _ARCS_SIZE - 1):
-		_arcs[i] = PhysicsServer2D.convex_polygon_shape_create()
 		var arc := float(i) / float(_ARCS_SIZE - 1) * PI
-		var num := maxi(int(roundf(float(i) / 3.0)), 4)
-		if num % 2 == 0:
-			num += 1
-		var arr: Array[Vector2] = []
-		arr.push_back(Vector2.ZERO)
-		for ii in num:
-			var weight := float(ii) / float(num - 1)
-			var angle := lerpf(arc, -arc, weight)
+		var arr: Array[Vector2] = [Vector2.RIGHT]
+		const STEP := 0.261799388
+		var angle := 0.0
+		while true:
+			angle += STEP
+			angle = minf(angle, arc)
 			arr.push_back(Vector2.RIGHT.rotated(angle))
-		PhysicsServer2D.shape_set_data(_arcs[i], PackedVector2Array(arr))
-
-static func _static_exit() -> void:
-	for rid in _arcs:
-		if rid.is_valid():
-			PhysicsServer2D.free_rid(rid)
+			arr.push_front(Vector2.RIGHT.rotated(-angle))
+			if angle >= arc:
+				break
+		arr.push_back(Vector2.ZERO)
+		if arr[0].x >= 0.0:
+			_arcs[i].push_back(ConvexPolygonShape2D.new())
+			_arcs[i][0].points = PackedVector2Array(arr)
+		else:
+			var other: Array[Vector2] = []
+			while arr[0] != Vector2.RIGHT:
+				other.push_back(arr.pop_front())
+			other.push_back(Vector2.RIGHT)
+			other.push_back(Vector2.ZERO)
+			_arcs[i].push_back(ConvexPolygonShape2D.new())
+			_arcs[i][0].points = PackedVector2Array(arr)
+			_arcs[i].push_back(ConvexPolygonShape2D.new())
+			_arcs[i][1].points = PackedVector2Array(other)
 
 func _ready() -> void:
 	assert(!node)
@@ -116,90 +126,75 @@ static func spawn_from(
 	return entity
 
 
+const _ARCS_SIZE := 64
+## Array[Array[Shape2D]
+static var _arcs: Array[Array]
+## Return an empty array if arc is too small.
+## Return a circle if close or above PI.
+## All have a radius of 1.
+## Do not modify the shape. Use scale instead.
+## Will return 2 Shape2D if arc is >PI/2 and isn't a full circle.
+static func get_arc_shape(arc: float) -> Array[Shape2D]:
+	return _arcs[clampi(int(roundf((arc / PI) * float(_ARCS_SIZE - 1))), 0, _ARCS_SIZE - 1)]
+## Same as get_arc_shape, but returns the smallest available arc instead of null.
+static func get_valid_arc_shape(arc: float) -> Array[Shape2D]:
+	return _arcs[clampi(int(roundf((arc / PI) * float(_ARCS_SIZE - 1))), 1, _ARCS_SIZE - 1)]
+static func get_circle_shape() -> Shape2D:
+	return _arcs[-1][0]
+
+
 static var _query_shape: PhysicsShapeQueryParameters2D
 static var _query_point: PhysicsPointQueryParameters2D
 static var _query_ray: PhysicsRayQueryParameters2D
-const _ARCS_SIZE := 64
-static var _arcs: Array[RID]
 
-## Return an invalid RID if arc is too small.
-## Return a circle if close or above PI.
-## All have a radius of 1.
-## Do not modify the shape. Use transform instead.
-static func get_arc_shape(arc: float) -> RID:
-	return _arcs[clampi(int(roundf((arc / PI) * float(_ARCS_SIZE - 1))), 0, _ARCS_SIZE - 1)]
-## Same as get_arc_shape, but returns the smallest available arc instead of an invalid RID.
-static func get_valid_arc_shape(arc: float) -> RID:
-	return _arcs[clampi(int(roundf((arc / PI) * float(_ARCS_SIZE - 1))), 1, _ARCS_SIZE - 1)]
-static func get_circle_shape() -> RID:
-	return _arcs[-1]
-
-## collider: The colliding object (Entity).
-## 
-## collider_id: The colliding object's ID.
-## 
-## rid: The intersecting object's RID.
-## 
-## shape: The shape index of the colliding shape.
 static func intersect_circle(
 	pos: Vector2,
 	radius: float,
 	collision_mask: int,
-	exclude: Array[RID],
-	max_result := 32) -> Array[Dictionary]:
-	_query_shape.shape_rid = get_circle_shape()
+	exclude: Array[RID] = [],
+	max_results := 32) -> Array[Entity]:
+	_query_shape.shape = get_circle_shape()
 	_query_shape.transform = Transform2D(0.0, Vector2(radius, radius), 0.0, pos)
 	_query_shape.collision_mask = collision_mask
 	_query_shape.exclude = exclude
-	return node.get_world_2d().direct_space_state.intersect_shape(_query_shape, max_result)
-
-static func intersect_arc(
-	pos: Vector2,
-	radius: float,
-	rot: float,
-	arc: float,
-	collision_mask: int,
-	exclude: Array[RID],
-	max_result := 32) -> Array[Dictionary]:
-	_query_shape.shape_rid = get_valid_arc_shape(arc)
-	_query_shape.transform = Transform2D(rot, Vector2(radius, radius), 0.0, pos)
-	_query_shape.collision_mask = collision_mask
-	_query_shape.exclude = exclude
-	return node.get_world_2d().direct_space_state.intersect_shape(_query_shape, max_result)
+	var ret: Array[Entity] = []
+	for dic in node.get_world_2d().direct_space_state.intersect_shape(_query_shape, max_results):
+		if !ret.has(dic["collider"]):
+			ret.push_back(dic["collider"])
+	return ret
 
 static func intersect_point(
 	pos: Vector2,
 	collision_mask: int,
-	exclude: Array[RID],
-	max_result := 32) -> Array[Dictionary]:
+	exclude: Array[RID] = []) -> Entity:
 	_query_point.position = pos
 	_query_point.collision_mask = collision_mask
 	_query_point.exclude = exclude
-	return node.get_world_2d().direct_space_state.intersect_point(_query_point, max_result)
+	for dic in node.get_world_2d().direct_space_state.intersect_point(_query_point, 1):
+		return dic["collider"]
+	return null 
 
-## collider: The colliding object (Entity).
-## 
-## collider_id: The colliding object's ID.
-## 
-## normal: The object's surface normal at the intersection point, or Vector2(0, 0) if the ray starts inside the shape.
-## 
-## position: The intersection point.
-## 
-## rid: The intersecting object's RID.
-## 
-## shape: The shape index of the colliding shape.
-## 
-## If the ray did not intersect anything, then an empty dictionary is returned instead.
+## null if the ray did not intersect anything.
+static var intersect_ray_entity: Entity = null
+static var intersect_ray_result_position: Vector2
+## The surface normal at the intersection point, or Vector2(0, 0) if the ray starts inside the shape.
+static var intersect_ray_result_normal: Vector2
 static func intersect_ray(
 	from: Vector2,
 	to: Vector2,
 	collision_mask: int,
-	exclude: Array[RID]) -> Dictionary:
+	exclude: Array[RID] = []) -> void:
 	_query_ray.from = from
 	_query_ray.to = to
 	_query_ray.collision_mask = collision_mask
 	_query_ray.exclude = exclude
-	return node.get_world_2d().direct_space_state.intersect_ray(_query_ray)
+	var dic := node.get_world_2d().direct_space_state.intersect_ray(_query_ray)
+	if dic.is_empty():
+		intersect_ray_entity = null
+	else:
+		intersect_ray_entity = dic["collider"]
+		intersect_ray_result_position = dic["position"]
+		intersect_ray_result_normal = dic["normal"]
 
 
 const COLLISION_FRIEND_SHIP_S := 1 << 0
