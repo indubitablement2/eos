@@ -253,10 +253,6 @@ func wish_linear_velocity_force_absolute(value: Vector2) -> void:
 func wish_linear_velocity_force_relative(value: Vector2) -> void:
 	wish_linear_velocity_type = WishLinearVelocityType.FORCE_RELATIVE
 	wish_linear_velocity = value
-## Maximum velocity toward a global angle.
-func wish_linear_velocity_absolute_direction(value: float) -> void:
-	wish_linear_velocity_type = WishLinearVelocityType.FORCE_ABSOLUTE
-	wish_linear_velocity = Vector2.RIGHT.rotated(value)
 
 func _linear_integrate_none(_state: PhysicsDirectBodyState2D) -> void:
 	pass

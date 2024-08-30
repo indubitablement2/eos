@@ -1,9 +1,9 @@
-extends Node2D
+extends Area2D
 class_name ShipAI
 
 ## Expects all ships to have this as a child node named ShipAI.
 
-@export_flags_2d_physics var avoidance_mask: int
+const AVOIDANCE_SCAN_DISTANCE := 250.0
 
 enum ShipAIState {
 	FIGHT,
@@ -35,7 +35,9 @@ var is_auto_pilot := true
 var _time_scale_change := 1.0
 
 func _ready() -> void:
-	$AvoidanceArea2D.collision_mask = Battlescape.make_collision_mask(entity.team.team, avoidance_mask)
+	collision_mask = Battlescape.make_collision_mask(
+		entity.team.team,
+		collision_mask)
 
 func _physics_process(_delta: float) -> void:
 	if player_controlled && entity.time_scale != 1.0:
@@ -46,42 +48,37 @@ func _physics_process(_delta: float) -> void:
 	
 	match state:
 		ShipAIState.ENTRY:
-			if entity.position.length() < Battlescape.node.battle_radius:
+			entity.wish_linear_velocity_force_absolute(_avoidance(Vector2.RIGHT.rotated(entity.team.entry_dir)))
+			entity.wish_angular_velocity_rotation_smooth_angle(entity.team.entry_dir)
+			if global_position.length() < Battlescape.node.battle_radius:
 				state = ShipAIState.FIGHT
-			else:
-				entity.wish_linear_velocity_absolute_direction(entity.team.entry_dir)
-				entity.wish_angular_velocity_rotation_smooth_angle(entity.team.entry_dir)
 		ShipAIState.EXIT:
-			entity.wish_linear_velocity_absolute_direction(-entity.team.entry_dir)
+			entity.wish_linear_velocity_force_absolute(_avoidance(Vector2.RIGHT.rotated(-entity.team.entry_dir)))
 			entity.wish_angular_velocity_rotation_smooth_angle(-entity.team.entry_dir)
 		_:
 			if is_auto_pilot:
 				_ai()
 
-
 func _ai() -> void:
-	pass
+	entity.wish_linear_velocity_force_absolute(_avoidance(-global_position.normalized()))
+	entity.wish_angular_velocity_aim_smooth(Vector2.ZERO)
 
-const AVOIDANCE_SCAN_DISTANCE := 250.0
-
-#func _path_to_target(target: Vector2) -> void:
-	#var to_target := target - entity.position
-	#var target_distance := to_target.length()
-	#var wish_dir := to_target / target_distance
-	#
-	#var away_dir := Vector2.ZERO
-	#var away_strength := 0.0
-	#for other: Area2D in $Sensor.get_overlapping_areas():
-		#if other == $Agent:
-			#continue
-		#var strength = minf(1.05 - entity.position.distance_to(other.global_position) / AVOIDANCE_SCAN_DISTANCE, 1.0)
-		#away_dir += (position - other.global_position).normalized() * strength
-		#away_strength += strength
-	#if away_dir.is_zero_approx():
-		#var time_to_target := to_position.length() / vel.length()
-		#var time_to_stop := vel.length() / acceleration
-		#wish_dir = wish_dir * vel_max * minf(time_to_target / time_to_stop, 1.0)
-	#else:
-		#away_dir = away_dir.normalized()
-		#wish_dir = wish_dir.slerp(away_dir, minf(away_strength, 1.0)) * vel_max
-		##wish_dir = (wish_dir + away_dir).normalized() * vel_max
+## Modify wish direction to avoid collision with nearby entities.
+func _avoidance(wish_dir: Vector2) -> Vector2:
+	DebugDraw.queue_draw_line(global_position, global_position + wish_dir * 200.0)
+	var away_dir := Vector2.ZERO
+	var away_strength := 0.0
+	for other: Entity in get_overlapping_bodies():
+		if other == entity:
+			continue
+		var from_other := global_position - other.position
+		var strength := clampf(1.05 - from_other.length() / AVOIDANCE_SCAN_DISTANCE, 0.05, 1.0)
+		DebugDraw.queue_draw_line(global_position, global_position + from_other.normalized() * strength * 200.0, Color.RED)
+		away_dir += from_other.normalized() * strength
+		away_strength += strength
+	if away_strength == 0.0:
+		return wish_dir
+	else:
+		var a:= wish_dir.slerp(away_dir.normalized(), minf(away_strength, 1.0))
+		DebugDraw.queue_draw_line(global_position, global_position + a * 200.0, Color.RED)
+		return a

@@ -6,7 +6,7 @@ static var node: Battlescape = null
 ## Call finish to emit this.
 signal finished
 
-@export var battle_radius := 5000.0
+@export var battle_radius := 1000.0
 
 var player_team: BattlescapeTeam
 ## Index do not correspond to team number.

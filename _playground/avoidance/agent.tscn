@@ -50,6 +50,7 @@ func _physics_process(delta: float) -> void:
 		if other == $Agent:
 			continue
 		var strength = minf(1.05 - position.distance_to(other.global_position) / N_DISTANCE, 1.0)
+		
 		away_dir += (position - other.global_position).normalized() * strength
 		away_strength += strength
 	if away_dir.is_zero_approx():

@@ -5,8 +5,8 @@ script/source = "extends Node2D
 
 
 func _ready() -> void:
-	for i in 5:
-		add_child(preload(\"res://playground/avoidance/agent.tscn\").instantiate())
+	for i in 3:
+		add_child(preload(\"res://_playground/avoidance/agent.tscn\").instantiate())
 "
 
 [node name="Avoidance" type="Node2D"]

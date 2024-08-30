@@ -11,17 +11,17 @@
 radius = 75.2396
 
 [node name="RigidBody2D" type="RigidBody2D"]
-position = Vector2(306, 237)
+collision_layer = 2
 collision_mask = 4026533775
 script = ExtResource("1_rox51")
 data = ExtResource("2_d3kav")
 
 [node name="HullArmor" type="CollisionPolygon2D" parent="."]
-polygon = PackedVector2Array(-129, -96, -223, 158, 19, 39, 253, 152, 134, -110)
+polygon = PackedVector2Array(-56, -67, -50, 62, 68, 67, 68, -63)
 script = ExtResource("2_so4s7")
 
 [node name="HullSimpleArmor" type="CollisionShape2D" parent="."]
-position = Vector2(323, 135)
+position = Vector2(3, 0)
 shape = SubResource("CircleShape2D_sit7q")
 script = ExtResource("3_uw05q")
 
@@ -30,4 +30,3 @@ position = Vector2(3, -5)
 texture = ExtResource("4_un2x5")
 
 [node name="ShipAI" parent="." instance=ExtResource("5_8gfmg")]
-avoidance_mask = 3758097934

@@ -7,4 +7,4 @@ script = ExtResource("1_nkrfd")
 entity_type = 0
 display_name = "aaa"
 description = "123123"
-ship_ai_avoidance_mask = 0
+ship_ai_avoidance_mask = 3758098190
