@@ -1,9 +1,11 @@
-[gd_scene load_steps=6 format=3 uid="uid://dpy525nvkhsuw"]
+[gd_scene load_steps=8 format=3 uid="uid://dpy525nvkhsuw"]
 
 [ext_resource type="Script" path="res://core/entity/entity.gd" id="1_rox51"]
+[ext_resource type="Resource" uid="uid://bm2llgh3rakh7" path="res://base/TEST_DATA.tres" id="2_d3kav"]
 [ext_resource type="Script" path="res://core/entity/entity_armor.gd" id="2_so4s7"]
 [ext_resource type="Script" path="res://core/entity/entity_simple_armor.gd" id="3_uw05q"]
 [ext_resource type="Texture2D" uid="uid://dlinek54dbn17" path="res://icon.svg" id="4_un2x5"]
+[ext_resource type="PackedScene" uid="uid://j1sxlby65f5c" path="res://core/entity/ship_ai.tscn" id="5_8gfmg"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_sit7q"]
 radius = 75.2396
@@ -12,6 +14,7 @@ radius = 75.2396
 position = Vector2(306, 237)
 collision_mask = 4026533775
 script = ExtResource("1_rox51")
+data = ExtResource("2_d3kav")
 
 [node name="HullArmor" type="CollisionPolygon2D" parent="."]
 polygon = PackedVector2Array(-129, -96, -223, 158, 19, 39, 253, 152, 134, -110)
@@ -25,3 +28,6 @@ script = ExtResource("3_uw05q")
 [node name="Sprite2D" type="Sprite2D" parent="."]
 position = Vector2(3, -5)
 texture = ExtResource("4_un2x5")
+
+[node name="ShipAI" parent="." instance=ExtResource("5_8gfmg")]
+avoidance_mask = 3758097934

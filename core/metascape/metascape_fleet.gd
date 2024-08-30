@@ -5,16 +5,16 @@ signal target_reached
 
 var is_player_owned: bool
 ## Call update_ships after changing this.
-var ships: Array[ShipSave]
+var ships: Array[EntitySave]
 var acceleration: float
 var velocity_max: float
 var velocity: Vector2
 
 ## A Vector2 or a Node2D derived node.
 var target
-## If this slow down when close to target.
+## If this is true, slow down when close to target.
 var target_smoothing := false
-## Required distance from the target to reach it.
+## Required minimum distance from the target to consider it reached.
 var target_reached_distance := 30.0
 
 ## ShipSave : Sprite2D
@@ -73,7 +73,7 @@ func update_ships(with_explosion := false) -> void:
 			old_ships_sprite.erase(ship)
 		else:
 			var sp := Sprite2D.new()
-			sp.texture = Global.get_entity_ship_data(ship.entity_scene.resource_path).display_sprite
+			sp.texture = ship.data.display_sprite
 			sp.position = Vector2(randf_range(-100, 100), randf_range(-100, 100))
 			add_child(sp)
 			_ships_sprite[ship] = sp

@@ -1,26 +1,29 @@
 extends Object
 class_name Global
 
-## String (entity scene path) : ShipData
-static var ships := {}
-
-static func get_entity_ship_data(entity_scene_path: String) -> ShipData:
-	return ships[entity_scene_path]
+static var entity_data: Array[EntityData] = []
 
 static func _static_entry() -> void:
-	for dir in DirAccess.get_directories_at("res://"):
-		if dir == "core" || dir.begins_with("_"):
+	var dirs: Array[String] = ["res://"]
+	while !dirs.is_empty():
+		var dir: String = dirs.pop_back()
+		
+		if dir == "res://core/" || dir.begins_with("res://_"):
 			continue
 		
-		if !DirAccess.dir_exists_absolute(dir + "/ship_data"):
-			push_warning(dir + "/ship_data doesn't exist")
-			continue
+		for subdir in DirAccess.get_directories_at(dir):
+			dirs.push_back(dir + subdir + "/")
 		
-		for path in DirAccess.get_files_at(dir + "/ship_data"):
-			var ship_data := load(dir + "/ship_data/" + path) as ShipData
-			ship_data._verify()
-			ships[ship_data.entity_scene.resource_path] = ship_data
-
+		for path in DirAccess.get_files_at(dir):
+			if !path.ends_with("scn"):
+				continue
+			var scn := load(dir + path)
+			if scn is PackedScene:
+				var node = scn.instantiate()
+				if node is Entity:
+					node.data._verify(scn, node)
+					entity_data.push_back(node.data)
+				node.free()
 
 static func predict_position(
 	pos: Vector2,

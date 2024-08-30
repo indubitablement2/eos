@@ -20,7 +20,7 @@ enum EntryDir {
 @export var max_ship := 30
 @export var max_ship_point := 300
 
-@export var ships: Array[ShipSave] = []
+@export var ships: Array[EntitySave] = []
 ## Used as a hashset.
 ## int (ship index) : Entity (null if freed)
 var spawned := {}
@@ -71,11 +71,11 @@ func _physics_process(delta: float) -> void:
 				break
 
 func spawn_ship(ship_save_idx: int) -> Entity:
-	var ship_save := ships[ship_save_idx]
+	var save := ships[ship_save_idx]
 	
 	last_spawn = 0.0
 	
-	var entity: Entity = ship_save.entity_scene.instantiate()
+	var entity: Entity = save.data.entity_scene.instantiate()
 	
 	spawned[ship_save_idx] = entity
 	
@@ -103,7 +103,7 @@ func spawn_ship(ship_save_idx: int) -> Entity:
 	
 	# TODO: Set hull & amor
 	
-	for modifier in ship_save.modifiers:
+	for modifier in save.modifiers:
 		entity.add_child(modifier.instantiate())
 	
 	# TODO: turrets
@@ -122,14 +122,14 @@ func update_ship_saves() -> void:
 		_update_ship_save(entity, ships[ship_save_idx])
 
 func _entity_tree_exiting(ship_save_idx: int) -> void:
-	var ship_save := ships[ship_save_idx]
+	var save := ships[ship_save_idx]
 	var entity: Entity = spawned[ship_save_idx]
 	
-	_update_ship_save(entity, ship_save)
+	_update_ship_save(entity, save)
 	
 	spawned[ship_save_idx] = null
 
-func _update_ship_save(entity: Entity, ship_save: ShipSave) -> void:
+func _update_ship_save(entity: Entity, save: EntitySave) -> void:
 	# TODO: Take hull & armor
 	pass
 

@@ -9,14 +9,7 @@ class_name Entity
 signal destroyed
 signal spawned_entity(entity: Entity)
 
-enum EntityType {
-	SHIP,
-	FIGHTER,
-	MISSILE,
-	DEBRIS,
-	PROJECTILE,
-}
-@export var entity_type := EntityType.SHIP
+@export var data: EntityData
 
 ## Changing this will scale many properties.
 @export var time_scale := 1.0:
@@ -134,17 +127,8 @@ func set_target(value: Entity) -> void:
 func _on_target_tree_exiting() -> void:
 	target = null
 
-## Will set collision layer and mask.
-var team: BattlescapeTeam = null:
-	set = set_team
-func set_team(value: BattlescapeTeam) -> void:
-	team = value
-	collision_layer <<= team.team * Battlescape.COLLISION_TEAM_BIT_SIZE
-	collision_mask = Battlescape.make_collision_mask(team.team, collision_mask)
+var team: BattlescapeTeam
 var is_ally := false
-
-static func _static_init() -> void:
-	print("hello")
 
 func _init() -> void:
 	can_sleep = false
@@ -152,10 +136,10 @@ func _init() -> void:
 	max_contacts_reported = 8
 	contact_monitor = true
 	center_of_mass_mode = RigidBody2D.CENTER_OF_MASS_MODE_CUSTOM
-	if entity_type == EntityType.SHIP:
-		var ai := ShipAI.new()
-		ai.name = "ShipAI"
-		add_child(ai)
+
+func _ready() -> void:
+	collision_layer <<= team.team * Battlescape.COLLISION_TEAM_BIT_SIZE
+	collision_mask = Battlescape.make_collision_mask(team.team, collision_mask)
 
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 	

@@ -1,15 +1,17 @@
-extends Node
+extends Node2D
 class_name ShipAI
 
 ## Expects all ships to have this as a child node named ShipAI.
 
-enum ShipAiState {
+@export_flags_2d_physics var avoidance_mask: int
+
+enum ShipAIState {
 	FIGHT,
 	ENTRY,
 	EXIT,
 	FLEE,
 }
-var state := ShipAiState.ENTRY
+var state := ShipAIState.ENTRY
 
 @onready var entity: Entity = get_parent()
 
@@ -32,13 +34,8 @@ var is_auto_pilot := true
 
 var _time_scale_change := 1.0
 
-func _init() -> void:
-	process_priority = -1
-
-
 func _ready() -> void:
-	if entity.position.length() > Battlescape.node.battle_radius:
-		state = ShipAiState.ENTRY
+	$AvoidanceArea2D.collision_mask = Battlescape.make_collision_mask(entity.team.team, avoidance_mask)
 
 func _physics_process(_delta: float) -> void:
 	if player_controlled && entity.time_scale != 1.0:
@@ -48,13 +45,13 @@ func _physics_process(_delta: float) -> void:
 		entity.time_scale = 1.0
 	
 	match state:
-		ShipAiState.ENTRY:
+		ShipAIState.ENTRY:
 			if entity.position.length() < Battlescape.node.battle_radius:
-				state = ShipAiState.FIGHT
+				state = ShipAIState.FIGHT
 			else:
 				entity.wish_linear_velocity_absolute_direction(entity.team.entry_dir)
 				entity.wish_angular_velocity_rotation_smooth_angle(entity.team.entry_dir)
-		ShipAiState.EXIT:
+		ShipAIState.EXIT:
 			entity.wish_linear_velocity_absolute_direction(-entity.team.entry_dir)
 			entity.wish_angular_velocity_rotation_smooth_angle(-entity.team.entry_dir)
 		_:

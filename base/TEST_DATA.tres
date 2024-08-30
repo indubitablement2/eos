@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="EntityData" load_steps=2 format=3 uid="uid://bm2llgh3rakh7"]
+
+[ext_resource type="Script" path="res://core/entity/entity_data.gd" id="1_nkrfd"]
+
+[resource]
+script = ExtResource("1_nkrfd")
+entity_type = 0
+display_name = "aaa"
+description = "123123"
+ship_ai_avoidance_mask = 0

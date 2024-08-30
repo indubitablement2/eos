@@ -23,11 +23,11 @@ func _ready() -> void:
 	
 	add_child(load("res://core/metascape/metascape_pauser.tscn").instantiate())
 	
-	var ships: Array[ShipSave] = []
+	var ships: Array[EntitySave] = []
 	for i in 3:
-		var ship_save := ShipSave.new()
-		ship_save.entity_scene = Global.ships.values().pick_random().entity_scene
-		ships.push_back(ship_save)
+		var entity_save := EntitySave.new()
+		entity_save.data = Global.entity_data.pick_random()
+		ships.push_back(entity_save)
 	
 	var player_fleet := MetascapeFleet.new()
 	player_fleet.ships = ships.duplicate()
